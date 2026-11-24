@@ -286,10 +286,10 @@ ns.char.days = {
 }
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 local hist = ns.Compose.History()
-check(hist:find("wears the colours of the Silver Lanterns, ranked lamplighter"), "history: guild")
-check(hist:find("revered by Stormwind and honored by the Argent Dawn"), "history: reputations")
-check(hist:find("These past days: downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
-check(ns.Compose.Bearing():find("Ask them about the gold of Elwynn's mines"), "personality: conversation hooks")
+check(hist:find("Wears the colours of the Silver Lanterns and holds the rank of lamplighter there"), "history: guild")
+check(hist:find("Revered by Stormwind and honoured by the Argent Dawn"), "history: reputations")
+check(hist:find("Felt downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
+check(ns.Compose.Bearing():find("Has stories about the gold of Elwynn's mines"), "personality: conversation hooks")
 state.buffs[#state.buffs + 1] = "Shadowform"
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("wreathed in shadow"), "shapeshift form in Currently")
@@ -443,7 +443,7 @@ state.zone, state.sub, state.resting = "Duskwood", "Raven Hill", false
 event("CHAT_MSG_SYSTEM", "You are now Revered with Argent Dawn.")
 check(ns.char.honours and ns.char.honours[1].standing == "Revered", "a new standing is remembered")
 ns.Compose.Refresh()
-check(ns.Compose.History():find("became revered among the Argent Dawn"), "and told in History")
+check(ns.Compose.History():find("earned revered standing with the Argent Dawn"), "and told in History")
 UnitIsPlayer = function() return true end
 UnitFactionGroup = function(u) if u == "target" then return "Horde" end return "Alliance" end
 UnitName = function(u) if u == "target" then return "Grukk" end return "Aldric" end
@@ -512,7 +512,7 @@ UnitClass = function(u)
 end
 GetNumGroupMembers = function() return 4 end
 ns.Compose.Refresh()
-check(ns.Compose.CompanyGlance().TX == "Travelling with a priest and two warriors, and easier for it.", "party by class: " .. ns.Compose.CompanyGlance().TX)
+check(ns.Compose.CompanyGlance().TX == "Travelling with a priest and two warriors.", "party by class: " .. ns.Compose.CompanyGlance().TX)
 IsInRaid = function() return true end
 GetNumGroupMembers = function() return 20 end
 ns.Compose.Refresh()
@@ -592,7 +592,8 @@ state.zone, state.sub = "Duskwood", "Raven Hill"
 -- A hard week
 ns.char.days = {}
 for i = 0, 4 do ns.char.days[os.date("%Y-%m-%d", NOW - i * 86400)] = { moods = { downcast = 5 }, zones = { Duskwood = 5 } } end
-check(ns.Compose.WeekTone() == "It's been a hard few days.", "a run of bad days is noticed")
+local wt = ns.Compose.WeekTone()
+check(wt == ns.Words.WEEK_TONE.hard[1] or wt == ns.Words.WEEK_TONE.hard[2], "a run of bad days is noticed: " .. tostring(wt))
 ns.char.days = {}
 
 -- Changing your tune; lies found out; letters
@@ -600,8 +601,8 @@ RPGDialogueCharDB.opinions.night_elves = { stance = "admire", t = NOW - 10, cont
 RPGDialogueCharDB.claims = { player = { a = {}, b = {} }, exposed = { a = NOW } }
 RPGDialogueCharDB.letters = { l1 = { arrived = NOW }, l2 = { arrived = NOW }, l3 = { arrived = NOW } }
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
-check(ns.Compose.Bearing():find("change %a+ tune about the night elves"), "Personality: changed tune")
-check(ns.Compose.History():find("caught in a lie"), "History: a lie found out")
+check(ns.Compose.Bearing():find("Used to feel differently about the night elves"), "Personality: changed tune")
+check(ns.Compose.Bearing():find("caught in a lie"), "History: a lie found out")
 check(ns.Compose.Physical():find("bundle of letters"), "Physical: a bundle of letters")
 RPGDialogueCharDB.opinions.night_elves = nil
 
@@ -612,6 +613,39 @@ local kept = false
 for _, e in ipairs(p.characteristics.MI) do if e.ID == 7 then kept = true end end
 check(kept, "restore keeps what you added since")
 check(ns.TRP.Status("history") == "yours", "after restore every field is the player's")
+
+-- Banned phrases (tests/banned_phrases.txt): never in the wording, never in what's written.
+do
+  local banned = {}
+  for line in io.lines("tests/banned_phrases.txt") do
+    if not line:match("^%s*#") and line:match("%S") then
+      local phrase, max = line:match("^(.-)%s*|%s*max%s*(%d+)%s*$")
+      banned[#banned + 1] = { phrase = (phrase or line):gsub("^%s+", ""):gsub("%s+$", ""):lower(), max = tonumber(max) or 0 }
+    end
+  end
+  local source = {}
+  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Compose.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua" }) do
+    for line in io.lines(f) do
+      if not line:match("^%s*%-%-") then source[#source + 1] = (line:gsub("%-%-[^\"]*$", "")):lower() end
+    end
+  end
+  local text = table.concat(source, "\n")
+  local sh = ns.Compose.Sheet()
+  local written = table.concat({ sh.bearing or "", sh.history or "", sh.physical or "", sh.currently or "" }, "\n"):lower()
+  for _, g in pairs(sh.glances) do written = written .. "\n" .. (g.TX or ""):lower() end
+  local bad = {}
+  for _, b in ipairs(banned) do
+    local n, i = 0, 1
+    while true do
+      local s = text:find(b.phrase, i, true)
+      if not s then break end
+      n, i = n + 1, s + 1
+    end
+    if n > b.max then bad[#bad + 1] = b.phrase .. " (" .. n .. ")" end
+    if b.max == 0 and written:find(b.phrase, 1, true) then bad[#bad + 1] = b.phrase .. " (in the profile)" end
+  end
+  check(#bad == 0, "no banned phrases: " .. table.concat(bad, ", "))
+end
 
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
@@ -628,8 +662,9 @@ if os.getenv("SAMPLES") then
     print("CU: " .. sh.currently)
     print("Mood: " .. sh.glances.mood.TX)
     print("Ambition: " .. sh.glances.ambition.TX .. " | Motto: " .. sh.motto)
-    print("Physical: " .. sh.physical:gsub("\n\n", " "))
-    print("History start: " .. (sh.history:match("^[^\n]+")))
+    print("\n-- Personality --\n" .. sh.bearing)
+    print("\n-- History --\n" .. sh.history)
+    print("\n-- Physical --\n" .. sh.physical)
   end
 end
 

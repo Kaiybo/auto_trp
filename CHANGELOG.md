@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.0 (2026-11-24): A Life, Not a Ledger
+
+- About is written as the character's story instead of a list of what the addons know. History runs in six short paragraphs (roots, the road, what it cost, the people, the deeds, how things stand now), and the numbers come with what they did to the character: what dying taught them, the place that changed them, what the road has made of them at their stage of life. All of it shaped by temperament.
+- Personality: temperament and conscience together, beliefs and the ones that changed, lies found out, books, and the stories they have (instead of "Ask them about").
+- Physical in three paragraphs: the body, what they wear and carry, what life has left on them.
+- Looks nicer: quotes in a pale cream, the finest item and prized finds in their quality colour (switch: "Colour quotes and item names").
+- Plainer writing: `tests/banned_phrases.txt` bans stock phrasing and the old tics ("By most accounts:", "The eye goes to", "A reader, too:", "most lately", "it shows"...), and the test enforces it. Fewer semicolons and "a little"s throughout the mood words.
+- Fixes: story titles that start with a name keep their capital ("Westfall, left to fend for itself"); opinion topics like the Cenarion Circle get their "the"; a home that isn't an inn reads "in Stormwind City"; numbers under a hundred are written out.
+
 ## 0.12.0 (2026-11-24): Turncoat's Letters
 
 - From RPG Dialogue: Personality notes when you've changed your tune about something; History remembers lies you were caught in (and being found out stings); Physical mentions the bundle of letters you carry once a few have reached you.

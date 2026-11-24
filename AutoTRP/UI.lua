@@ -387,6 +387,7 @@ local OPTIONS = {
   { path = { "sources", "chronicle" }, label = "Chronicle" },
   { head = "Details" },
   { path = { "diaryExcerpt" }, label = "Quote your latest diary entry in History" },
+  { path = { "richText" }, label = "Colour quotes and item names on the About page" },
   { path = { "chronicleGoals" }, label = "Share your open Chronicle goal as an ambition" },
   { path = { "nameFriends" }, label = "Name the players you marked as friends in Social Diary" },
   { path = { "pauseOOC" }, label = "Pause Currently and glances while out of character" },

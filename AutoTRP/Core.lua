@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.12.0"
+ns.VERSION = "0.13.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -120,6 +120,7 @@ ns.DEFAULTS = {
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },
   diaryExcerpt = true,     -- quote your latest RPG Dialogue diary entry in History
+  richText = true,         -- colour quotes and item names on the About page
   chronicleGoals = true,   -- your open Chronicle goals as an ambition
   nameFriends = true,      -- name players you marked friend (or gave a relationship) in Social Diary
   currentlyEvery = 15,     -- seconds, at least, between rewrites of "Currently" and the glances
@@ -262,12 +263,36 @@ end
 -- Small numbers in words read better in prose.
 local NUMBERS = { "once", "twice", "three times", "four times", "five times" }
 function U.Times(n)
-  return NUMBERS[n] or (n .. " times")
+  return NUMBERS[n] or (U.Number(n) .. " times")
 end
 
-local COUNT_WORDS = { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve" }
+local COUNT_WORDS = { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
+  "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen" }
+local TENS = { [2] = "twenty", [3] = "thirty", [4] = "forty", [5] = "fifty", [6] = "sixty", [7] = "seventy", [8] = "eighty", [9] = "ninety" }
+-- Numbers under a hundred in words ("thirty-nine"); bigger ones as figures ("1,240").
 function U.Number(n)
-  return COUNT_WORDS[n] or tostring(n)
+  if type(n) ~= "number" then return tostring(n) end
+  if COUNT_WORDS[n] then return COUNT_WORDS[n] end
+  if n >= 20 and n < 100 and n % 1 == 0 then
+    local t, o = math.floor(n / 10), n % 10
+    return TENS[t] .. (o > 0 and ("-" .. COUNT_WORDS[o]) or "")
+  end
+  local s = tostring(math.floor(n))
+  while true do
+    local k
+    s, k = s:gsub("^(%d+)(%d%d%d)", "%1,%2")
+    if k == 0 then break end
+  end
+  return s
+end
+
+-- "more than a hundred", "well over a thousand": a count as a person would say it.
+function U.Roughly(n)
+  if n >= 2000 then return "thousands of" end
+  if n >= 1000 then return "well over a thousand" end
+  if n >= 200 then return "hundreds of" end
+  if n >= 100 then return "more than a hundred" end
+  return U.Number(n)
 end
 
 function U.Call(fn, ...)

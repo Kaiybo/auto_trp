@@ -1,0 +1,79 @@
+# Phrases Auto TRP must never write. They read as filler, as a machine, or as a tic.
+# One per line, case-insensitive. "phrase | max N" allows it at most N times across the
+# word lists and composer (AutoTRP/Data/Words.lua, AutoTRP/Compose.lua, AutoTRP/Mood.lua,
+# AutoTRP/Sources/World.lua). Without a limit the phrase may not appear at all, and the
+# offline test also checks the written profile for it.
+
+# Stock AI phrasing
+a testament to
+tapestry
+palpable
+delve into
+a dance of
+whispers of
+echoes of
+the weight of
+an air of
+a sense of
+a hint of
+a touch of
+every inch
+speaks volumes
+says a lot about
+the stuff of legend
+the sort of thing
+which may be the point
+little did
+can't help but
+couldn't help but
+a certain something
+quiet strength
+steely resolve
+unwavering
+indelible
+nestled
+bustling
+vibrant
+in a world where
+not just a
+more than just
+
+# Tics this addon used to have
+in their own words
+by most accounts
+a reader, too
+the eye goes to
+hard to miss
+worth asking about
+care to count
+than is strictly
+on top of scars
+most lately
+has made no friend of
+talks often of one thing
+has been known to
+neither saint nor villain
+doesn't talk about
+prized possessions:
+from their journal:
+these past days:
+and easier for it
+seems to prefer it
+not by choice, perhaps
+to prove it
+can't stop admiring
+twine and hope
+it shows
+even saints
+have limits
+ask them about
+since setting out
+
+# Allowed, but not as a habit
+a little | max 6
+for once | max 3
+clearly | max 1
+quite | max 4
+not long ago | max 1
+best not | max 2
+faintly | max 3
