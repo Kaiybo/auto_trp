@@ -560,7 +560,42 @@ W.ACTIVITY = {
   eating = { "sitting down to a meal in {place}", "eating in {place}" },
   drinking = { "taking a long drink in {place}" },
   flightmaster = { "waiting on a flight out of {place}" },
+  talk = { "talking with {who} in {place}", "deep in conversation with {who} in {place}" },
+  reading = { "reading {what} in {place}", "with {their} nose in {what}, in {place}" },
+  duel = { "trading blows in a duel in {place}", "squaring off in a duel in {place}" },
+  away = { "lost in thought in {place}, not really listening", "staring into the middle distance in {place}" },
+  sitting = { "sitting down for a rest in {place}", "taking a seat in {place}" },
+  sleeping = { "asleep in {place}", "dozing in {place}" },
+  dancing = { "dancing in {place}", "dancing without a care in {place}" },
+  hearth = { "heading home from {place}", "on {their} way back home" },
 }
+
+-- Mounts, by the words in the mount's name (checked in order).
+W.MOUNTS = {
+  { "Felsteed", "on a fel-fire steed" }, { "Dreadsteed", "on a dreadsteed wreathed in flame" },
+  { "Charger", "astride a holy charger" }, { "Warhorse", "on a paladin's warhorse" },
+  { "Skeletal", "on a skeletal horse" }, { "Mechanostrider", "astride a clanking mechanostrider" },
+  { "Ram", "riding a mountain ram" }, { "Kodo", "riding a great kodo" }, { "Raptor", "riding a raptor" },
+  { "Wolf", "on wolfback" }, { "saber", "on a nightsaber" }, { "Tiger", "on a striped tiger" },
+  { "Stallion", "on horseback" }, { "Mare", "on horseback" }, { "Pinto", "on horseback" }, { "Horse", "on horseback" },
+  { "Steed", "on horseback" }, { "Palomino", "on horseback" },
+}
+-- When the mount can't be told apart: what that race usually rides.
+W.RACE_MOUNT = {
+  Human = "on horseback", Dwarf = "riding a mountain ram", Gnome = "astride a clanking mechanostrider",
+  NightElf = "on a nightsaber", Orc = "on wolfback", Troll = "riding a raptor", Tauren = "riding a great kodo",
+  Scourge = "on a skeletal horse",
+}
+-- Flights, by faction (bats in the Forsaken's lands, hippogryphs over Kalimdor for the Alliance).
+W.KALIMDOR = {
+  ["Teldrassil"] = true, ["Darkshore"] = true, ["Ashenvale"] = true, ["Stonetalon Mountains"] = true,
+  ["Desolace"] = true, ["Feralas"] = true, ["Thousand Needles"] = true, ["Tanaris"] = true, ["Un'Goro Crater"] = true,
+  ["Silithus"] = true, ["Felwood"] = true, ["Winterspring"] = true, ["Azshara"] = true, ["Moonglade"] = true,
+  ["Dustwallow Marsh"] = true, ["The Barrens"] = true, ["Durotar"] = true, ["Mulgore"] = true,
+  ["Darnassus"] = true, ["Orgrimmar"] = true, ["Thunder Bluff"] = true,
+}
+W.BAT_ZONES = { ["Tirisfal Glades"] = true, ["Silverpine Forest"] = true, ["Hillsbrad Foothills"] = true,
+  ["Undercity"] = true, ["Western Plaguelands"] = true, ["Eastern Plaguelands"] = true }
 
 -- At work on a craft (keyed by the profession name the game reports).
 W.CRAFT = {

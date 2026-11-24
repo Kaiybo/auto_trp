@@ -244,6 +244,34 @@ check(p.character.CU:find("Redridge") or p.character.CU:find("Lakeshire") or p.c
 NOW = NOW - 85
 state.zone, state.sub = "Duskwood", "Raven Hill"
 
+-- Contexts: talking, reading, AFK; mounts and flights by race and faction
+UnitName = function(u) if u == "npc" then return "Innkeeper Farley" end return "Aldric" end
+state.zone, state.sub, state.resting = "Elwynn Forest", "Lion's Pride Inn", true
+event("GOSSIP_SHOW")
+ns.Compose.Refresh()
+check(ns.Compose.Currently(ns.Mood.Current()):find("with Innkeeper Farley in the Lion's Pride Inn"), "talking with an NPC: " .. ns.Compose.Currently(ns.Mood.Current()))
+ns.World.SetContext("none")
+UnitIsAFK = function() return true end
+ns.Compose.Refresh()
+check(ns.Compose.Currently(ns.Mood.Current()):find("lost in thought") or ns.Compose.Currently(ns.Mood.Current()):find("middle distance"), "AFK reads as lost in thought")
+UnitIsAFK = function() return false end
+state.resting = false
+IsMounted = function() return true end
+ns.Compose.Refresh()
+check(ns.Compose.Currently(ns.Mood.Current()):find("on horseback through"), "a human rides a horse")
+state.buffs[#state.buffs + 1] = "Summon Felsteed"
+ns.Compose.Refresh()
+check(ns.Compose.Currently(ns.Mood.Current()):find("fel%-fire steed"), "a felsteed by its name")
+table.remove(state.buffs)
+IsMounted = function() return false end
+UnitOnTaxi = function() return true end
+state.zone = "Darkshore"
+ns.Compose.Refresh()
+check(ns.Compose.Currently(ns.Mood.Current()):find("hippogryph"), "Alliance over Kalimdor: a hippogryph")
+UnitOnTaxi = function() return false end
+UnitName = function() return "Aldric" end
+state.zone, state.sub = "Duskwood", "Raven Hill"
+
 -- Switching profile pauses
 currentID = "abc*"
 check(not ns.TRP.Managed(), "another profile in use pauses writing")

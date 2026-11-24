@@ -116,6 +116,8 @@ local FAST_EVENTS = {
   "MAIL_SHOW", "BANKFRAME_OPENED", "AUCTION_HOUSE_SHOW", "MERCHANT_SHOW", "TRAINER_SHOW",
   "TRADE_SKILL_SHOW", "CRAFT_SHOW", "TAXIMAP_OPENED", "CHAT_MSG_LOOT", "CHAT_MSG_TEXT_EMOTE",
   "PLAYER_MONEY", "BAG_UPDATE_DELAYED", "UPDATE_STEALTH", "PLAYER_FLAGS_CHANGED",
+  "GOSSIP_SHOW", "QUEST_DETAIL", "QUEST_GREETING", "ITEM_TEXT_BEGIN", "DUEL_REQUESTED", "DUEL_INBOUNDS",
+  "DUEL_FINISHED",
 }
 local STORY_EVENTS = {
   "PLAYER_DEAD", "PLAYER_LEVEL_UP", "ENCOUNTER_END", "QUEST_TURNED_IN", "GOSSIP_CLOSED", "QUEST_FINISHED",
@@ -126,6 +128,9 @@ for _, e in ipairs(STORY_EVENTS) do ns.On(e, function() UI.Poke(true) end) end
 ns.On("UNIT_AURA", function(_, unit) if unit == "player" then UI.Poke(false) end end)
 ns.On("UNIT_PET", function(_, unit) if unit == "player" then UI.Poke(false) end end)
 ns.On("UNIT_SPELLCAST_CHANNEL_START", function(_, unit) if unit == "player" then UI.Poke(false) end end)
+ns.On("UNIT_SPELLCAST_START", function(_, unit, _, spellID)
+  if unit == "player" and (spellID == 8690 or spellID == 556) then UI.Poke(false) end
+end)
 ns.Listen("MOOD_CHANGED", function() UI.Poke(false) end)
 
 -- The other addons don't announce their changes, so glance at a few counters every five

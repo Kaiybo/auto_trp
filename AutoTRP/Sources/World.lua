@@ -294,6 +294,7 @@ function World.Snapshot()
   local pvpRank = call("UnitPVPRank", "player")
   if type(pvpRank) == "number" and pvpRank >= 5 then s.pvpRank = U.Plain((call("GetPVPRankInfo", pvpRank))) end
   s.raid = call("IsInRaid") and true or false
+  s.away = call("UnitIsAFK", "player") and true or false
   s.context = World.Context()
   return s
 end
@@ -320,6 +321,32 @@ function World.Context()
 end
 
 ns.On("MAIL_SHOW", function() World.SetContext("mail") end)
+local function talkingTo()
+  local who = World.Safe(call("UnitName", "npc"))
+  if type(who) == "string" and who ~= "" then World.SetContext("talk", U.Plain(who)) end
+end
+ns.On("GOSSIP_SHOW", talkingTo)
+ns.On("QUEST_DETAIL", talkingTo)
+ns.On("QUEST_GREETING", talkingTo)
+ns.On("ITEM_TEXT_BEGIN", function()
+  local title = U.Plain(World.Safe(call("ItemTextGetItem")))
+  if title then World.SetContext("reading", title) end
+end)
+ns.On("DUEL_REQUESTED", function() World.SetContext("duel") end)
+ns.On("DUEL_INBOUNDS", function() World.SetContext("duel") end)
+ns.On("UNIT_SPELLCAST_START", function(_, unit, _, spellID)
+  if unit ~= "player" then return end
+  if spellID == 8690 or spellID == 556 then World.SetContext("hearth") end
+end)
+-- Poses from your own emotes: sit, sleep, dance. Any other emote ends them.
+ns.On("CHAT_MSG_TEXT_EMOTE", function(_, msg)
+  msg = World.Safe(msg)
+  if type(msg) ~= "string" or not msg:find("^You ") then return end
+  local l = msg:lower()
+  if l:find("^you sit") then World.SetContext("sitting")
+  elseif l:find("^you lie down") or l:find("^you go to sleep") or l:find("^you sleep") then World.SetContext("sleeping")
+  elseif l:find("^you dance") or l:find("^you burst into dance") then World.SetContext("dancing") end
+end)
 ns.On("BANKFRAME_OPENED", function() World.SetContext("bank") end)
 ns.On("AUCTION_HOUSE_SHOW", function() World.SetContext("auction") end)
 ns.On("MERCHANT_SHOW", function() World.SetContext("merchant") end)
@@ -347,6 +374,16 @@ function World.IsInn(sub)
   return false
 end
 
+-- What they're riding: the mount's own name when it says, else class or race.
+function World.Mount(s)
+  for name in pairs(s.auras and s.auras.names or {}) do
+    for _, m in ipairs(W.MOUNTS) do
+      if name:find(m[1]) then return m[2] end
+    end
+  end
+  return W.RACE_MOUNT[s.race or ""] or "riding"
+end
+
 local function petPhrase(s, seed)
   if not s.pet or s.mounted or s.taxi then return nil end
   local list = W.PET[s.class or ""]
@@ -366,15 +403,24 @@ function World.Activity(s, seed)
   if s.ghost or s.dead then
     return U.Pick({ "a restless spirit drifting near " .. where, "somewhere between this world and the next, near " .. where }, seed)
   end
-  if s.taxi then return U.Pick({ "on the wing over " .. where, "riding a flight over " .. where }, seed) end
+  if s.taxi then
+    local beast
+    if s.faction == "Horde" then beast = W.BAT_ZONES[s.zone or ""] and "a bat" or "a wind rider"
+    else beast = W.KALIMDOR[s.zone or ""] and "a hippogryph" or "a gryphon" end
+    return U.Pick({ "on the back of " .. beast .. " over " .. where, "flying " .. beast .. " over " .. where }, seed)
+  end
   local ctx = s.context
   if ctx and ctx.kind == "craft" then
-    text = W.CRAFT[ctx.detail] .. " in " .. (U.Mid(s.subzone) or where)
+    text = W.CRAFT[ctx.detail] .. " in " .. (U.Mid(sub) or where)
+  elseif s.away then
+    text = U.Pick(W.ACTIVITY.away, seed .. "away"):gsub("{place}", U.Mid(sub) or where)
   elseif ctx and W.ACTIVITY[ctx.kind] then
-    text = U.Pick(W.ACTIVITY[ctx.kind], seed .. ctx.kind):gsub("{place}", U.Mid(s.subzone) or where)
+    text = U.Pick(W.ACTIVITY[ctx.kind], seed .. ctx.kind):gsub("{place}", U.Mid(sub) or where)
+      :gsub("{who}", ctx.detail or "someone"):gsub("{what}", ctx.detail and ("\"" .. ctx.detail .. "\"") or "a book")
+    text = U.Pron(text)
   elseif s.auras and (s.auras.eating or s.auras.drinking) then
     local list = s.auras.eating and W.ACTIVITY.eating or W.ACTIVITY.drinking
-    text = U.Pick(list, seed .. "meal"):gsub("{place}", U.Mid(s.subzone) or where)
+    text = U.Pick(list, seed .. "meal"):gsub("{place}", U.Mid(sub) or where)
   elseif s.instance == "party" or s.instance == "raid" then
     text = U.Pick({ "deep inside " .. where, "delving into " .. where }, seed)
   elseif s.instance == "pvp" then
@@ -390,7 +436,7 @@ function World.Activity(s, seed)
   elseif s.flying then
     text = "flying over " .. where
   elseif s.mounted then
-    text = U.Pick({ "riding through " .. where, "on horseback in " .. where }, seed)
+    text = World.Mount(s) .. " through " .. where
   else
     local flavor = W.ZONE_FLAVOR[s.zone or ""]
     local classAct = W.CLASS_ACTIVITY[s.class or ""]
