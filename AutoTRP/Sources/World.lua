@@ -236,8 +236,14 @@ function World.Snapshot()
   if s.subzone == s.zone then s.subzone = nil end
   -- zoneKey: the zone's English name for the lookup tables, from its map ID when there is one
   -- (so non-English clients get the same touches); zone stays as the game shows it.
-  local mapID = C_Map and C_Map.GetBestMapForUnit and World.Safe(U.Call(C_Map.GetBestMapForUnit, "player"))
-  s.zoneKey = (type(mapID) == "number" and W.ZONE_BY_MAP[mapID]) or s.zone
+  -- English clients already have the English name; others look it up by map ID.
+  local locale = U.Call(GetLocale)
+  if type(locale) == "string" and not locale:find("^en") then
+    local mapID = C_Map and C_Map.GetBestMapForUnit and World.Safe(U.Call(C_Map.GetBestMapForUnit, "player"))
+    s.zoneKey = (type(mapID) == "number" and W.ZONE_BY_MAP[mapID]) or s.zone
+  else
+    s.zoneKey = s.zone
+  end
   s.resting = call("IsResting") and true or false
   s.combat = World.Safe(call("UnitAffectingCombat", "player")) and true or false
   s.dead = World.Safe(call("UnitIsDeadOrGhost", "player")) and true or false
@@ -317,7 +323,8 @@ local context
 World.CONTEXT_SECONDS = 180
 
 -- Some moments are brief.
-local CONTEXT_LENGTH = { shadowmeld = 30, cannibalize = 30, hearth = 20, portal = 90 }
+local CONTEXT_LENGTH = { shadowmeld = 30, cannibalize = 30, hearth = 20, portal = 90, mining = 60, herbs = 60,
+  skinning = 45, disenchant = 45, lockpick = 30, pickpocket = 30 }
 
 function World.SetContext(kind, detail)
   context = { kind = kind, detail = detail, t = U.Now() }
@@ -384,9 +391,9 @@ ns.OnUnit("UNIT_SPELLCAST_SUCCEEDED", "player", function(_, _, _, spellID)
   local dest = name:match("^Portal: (.+)$")
   if dest then World.SetContext("portal", dest); if ns.UI then ns.UI.Poke(false) end return end
   local def = W.SPELLS[name]
-  if not def or not ns.db.reactPlaces then return end
+  if not def then return end
   if def.context then World.SetContext(def.context) end
-  if def.mood and ns.Mood then ns.Mood.Push(def.mood[1], def.mood[2], U.Pron(def.mood[3])) end
+  if def.mood and ns.Mood and ns.db.reactPlaces then ns.Mood.Push(def.mood[1], def.mood[2], U.Pron(def.mood[3])) end
   if def.context and ns.UI then ns.UI.Poke(false) end
 end)
 

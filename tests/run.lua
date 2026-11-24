@@ -570,6 +570,7 @@ check(ns.char.honours and ns.char.honours[1].standing == "Exalted", "a new stand
 
 -- A German client: the zone's own name differs, its map ID doesn't
 C_Map = { GetBestMapForUnit = function() return 1448 end }
+GetLocale = function() return "deDE" end
 UnitRace = function() return "Nachtelf", "NightElf" end
 state.zone, state.sub = "Teufelswald", nil
 ns.Compose.Refresh()
@@ -578,7 +579,14 @@ local found = false
 for _, r in ipairs(wy4.sorrowful or {}) do if r == "a corrupted forest" then found = true end end
 check(found, "zone touches work on a German client (Felwood by map ID)")
 C_Map = nil
+GetLocale = function() return "enUS" end
 UnitRace = function() return "Human", "Human" end
+C_Spell = { GetSpellName = function(id) return ({ [2575] = "Mining" })[id] end }
+event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", 2575)
+ns.Compose.Refresh()
+check(ns.Compose.Currently(ns.Mood.Current()):find("mineral vein") or ns.Compose.Currently(ns.Mood.Current()):find("chipping ore"), "mining shows in Currently")
+ns.World.SetContext("none")
+C_Spell = nil
 state.zone, state.sub = "Duskwood", "Raven Hill"
 
 -- Restore puts everything back

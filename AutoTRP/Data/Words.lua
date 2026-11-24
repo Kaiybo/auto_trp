@@ -1307,3 +1307,17 @@ W.ZONE_BY_MAP = {
   [1450] = "Moonglade", [1451] = "Silithus", [1452] = "Winterspring", [1453] = "Stormwind City",
   [1454] = "Orgrimmar", [1455] = "Ironforge", [1456] = "Thunder Bluff", [1457] = "Darnassus", [1458] = "Undercity",
 }
+
+-- Gathering and tradecraft (successful casts).
+W.SPELLS["Mining"] = { context = "mining" }
+W.SPELLS["Herb Gathering"] = { context = "herbs" }
+W.SPELLS["Skinning"] = { context = "skinning" }
+W.SPELLS["Disenchant"] = { context = "disenchant" }
+W.SPELLS["Pick Lock"] = { context = "lockpick" }
+W.SPELLS["Pick Pocket"] = { context = "pickpocket", mood = { "flush", 6, "lightened a purse" } }
+W.ACTIVITY.mining = { "working a mineral vein in {place}", "chipping ore out of the rock in {place}" }
+W.ACTIVITY.herbs = { "gathering herbs in {place}", "picking herbs in {place}" }
+W.ACTIVITY.skinning = { "skinning a fresh kill in {place}" }
+W.ACTIVITY.disenchant = { "breaking down a magic trinket for its essence in {place}" }
+W.ACTIVITY.lockpick = { "quietly picking a lock in {place}" }
+W.ACTIVITY.pickpocket = { "lightening someone's purse in {place}", "light-fingered around {place}" }
