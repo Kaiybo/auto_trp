@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0 (2026-11-24): Steady Hands
+
+- Lately: the fight you just had ("Fresh from a fight with a Defias Pillager", "Barely survived a fight with Hogger") and the job you just finished (from Chronicle).
+- Fading feelings read "Still ..."; Currently trims itself to fit Total RP 3's tooltip.
+- Company names your party by class ("a priest and two warriors"); a raid is a host. The badge's border shows a good or bad mood. `/atrp why`.
+- "Open to walk-ups" can follow your mood (off by default). Switches for the people and place reactions.
+- New characters find the world new; veterans are steadier; ambitions change at the start and the height of the road; a hunter grieves a fallen pet.
+- Fixes from a second review: reputation ticks no longer pin you at "proud" (once per faction per half hour, never inside dungeons); crafted items aren't loot finds; an unhappy pet isn't a money worry; new standings are caught on either chat channel and don't stay "not long ago" forever; a new home is noticed from the hearthstone itself; the enemy-faction reaction works without Social Diary and ignores duels with your own side; bosses and players aren't "a Hogger"; Forsaken can feel well-fed; "Still ..." only when it really is fading; spells learned on newer clients count; spell events only for you; the update pass reuses the mood it already has and skips the story when only Currently is due; the five-second check watches a shared Social Diary and Chronicle's quests; duels match first names.
+
 ## 0.9.0 (2026-11-24): Honoured Names
 
 - In the capitals, Currently describes the district: the Trade District and Old Town, the Great Forge and Tinker Town, the Drag and the Valley of Honor, Elder Rise, the Apothecarium and more.

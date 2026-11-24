@@ -150,10 +150,11 @@ function Compose.LatelyGlance()
   end
   -- A fight just now
   local fight = ns.char and ns.char.lastFight
-  if fight and fight.foe and within(fight.t, 300) then
-    local tx = fight.close and ("Barely survived a fight with " .. article(fight.foe))
-      or fight.long and ("Fresh from a long, hard fight with " .. article(fight.foe))
-      or ("Fresh from a fight with " .. article(fight.foe))
+  if fight and type(fight.foe) == "table" and within(fight.t, 300) then
+    local who = fight.foe.named and fight.foe.name or article(fight.foe.name)
+    local tx = fight.close and ("Barely survived a fight with " .. who)
+      or fight.long and ("Fresh from a long, hard fight with " .. who)
+      or ("Fresh from a fight with " .. who)
     add(fight.t, fight.close and 2 or 0, { TI = fight.close and "Close Call" or "Blood Up", IC = "Ability_DualWield", TX = tx .. "." })
   end
   -- A job just finished (Chronicle keeps the quest's name)
@@ -647,7 +648,8 @@ function Compose.History()
   local hon = ns.char and ns.char.honours or {}
   if #hon > 0 then
     local h = hon[#hon]
-    paras[#paras + 1] = sentence("Not long ago " .. name .. " became " .. h.standing:lower() .. " among " .. W.FactionName(h.faction)
+    local when = within(h.t, 14 * 86400) and "Not long ago " or ""
+    paras[#paras + 1] = sentence(when .. name .. " became " .. h.standing:lower() .. " among " .. W.FactionName(h.faction)
       .. (#hon > 1 and (", the latest of " .. U.Number(#hon) .. " such honours") or ""))
   end
   local finds = ns.char and ns.char.finds or {}
@@ -851,9 +853,22 @@ end
 -- Everything at once
 ---------------------------------------------------------------------------
 -- fresh: the cache was just refreshed by the caller; don't read everything twice.
-function Compose.Sheet(fresh)
+-- mood: already worked out by the caller. only: the fields wanted (the story fields are
+-- skipped when none of them is).
+local STORY = { "traits", "bearing", "history", "physical", "title", "fulltitle", "residence", "birthplace",
+  "motto", "nickname", "relationship", "ooc", "glance_ambition" }
+function Compose.Sheet(fresh, mood, only)
   if not fresh then Compose.Refresh() end
-  local mood = ns.Mood.Current(ns.cache.world)
+  mood = mood or ns.Mood.Current(ns.cache.world)
+  local story = not only
+  if only then for _, k in ipairs(STORY) do if only[k] then story = true end end end
+  if not story then
+    return {
+      mood = mood, currently = Compose.Currently(mood), walkup = Compose.Walkup(mood),
+      glances = { mood = Compose.MoodGlance(mood), lately = Compose.LatelyGlance(), company = Compose.CompanyGlance(),
+        marks = Compose.MarksGlance() },
+    }
+  end
   return {
     mood = mood,
     currently = Compose.Currently(mood),

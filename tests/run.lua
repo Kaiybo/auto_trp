@@ -445,13 +445,13 @@ check(ns.char.honours and ns.char.honours[1].standing == "Revered", "a new stand
 ns.Compose.Refresh()
 check(ns.Compose.History():find("became revered among the Argent Dawn"), "and told in History")
 UnitIsPlayer = function() return true end
-UnitIsEnemy = function() return true end
+UnitFactionGroup = function(u) if u == "target" then return "Horde" end return "Alliance" end
 UnitName = function(u) if u == "target" then return "Grukk" end return "Aldric" end
 UnitRace = function(u) if u == "target" then return "Orc", "Orc" end return "Human", "Human" end
 ns.char.mood.emo.tense = nil
 event("PLAYER_TARGET_CHANGED")
 check((ns.char.mood.emo.tense or 0) > 5 and ns.char.mood.why.tense == "face to face with an enemy orc", "an enemy orc makes them tense")
-UnitIsEnemy = function() return false end
+UnitFactionGroup = function() return "Alliance" end
 UnitName = function() return "Aldric" end
 UnitRace = function() return "Human", "Human" end
 
@@ -461,12 +461,20 @@ for _, d in ipairs(RPGDialogueCharDB.deaths) do if d.t > NOW - 300000 then d.t =
 ns.char.finds = nil
 RPGDialogueCharDB.npc.farley.last = NOW - 90000
 UnitCanAttack = function() return true end
+UnitIsPlayer = function() return false end
+UnitClassification = function() return "normal" end
 UnitName = function(u) if u == "target" then return "Defias Pillager" end return "Aldric" end
 event("PLAYER_REGEN_DISABLED")
 UnitName = function() return "Aldric" end
 event("PLAYER_REGEN_ENABLED")
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.LatelyGlance().TX == "Fresh from a fight with a Defias Pillager.", "Lately: a fight just now: " .. ns.Compose.LatelyGlance().TX)
+UnitClassification = function() return "worldboss" end
+UnitName = function(u) if u == "target" then return "Hogger" end return "Aldric" end
+event("PLAYER_REGEN_DISABLED")
+UnitName = function() return "Aldric" end
+event("PLAYER_REGEN_ENABLED")
+check(ns.Compose.LatelyGlance().TX == "Fresh from a fight with Hogger.", "a named foe takes no article")
 ns.char.lastFight = nil
 ChronicleCharDB.quests = { { time = NOW - 30, title = "The Collector", status = "completed", zone = "Elwynn Forest" } }
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
@@ -546,6 +554,19 @@ ns.Compose.Refresh()
 local sc3 = ns.Mood.Scores(ns.cache.world)
 check((sc3.wonder or 0) >= 15, "a new character finds the world new")
 UnitLevel = function() return 22 end
+
+-- Second review fixes
+ns.char.mood.emo.proud = nil
+event("CHAT_MSG_COMBAT_FACTION_CHANGE", "Reputation with Stormwind increased by 25.")
+local p1 = ns.char.mood.emo.proud or 0
+event("CHAT_MSG_COMBAT_FACTION_CHANGE", "Reputation with Stormwind increased by 25.")
+check(p1 > 0 and (ns.char.mood.emo.proud or 0) == p1, "reputation ticks are throttled per faction")
+local nFinds = #(ns.char.finds or {})
+event("CHAT_MSG_LOOT", "You create: |cffa335ee|Hitem:2|h[Lionheart Helm]|h|r.")
+check(#(ns.char.finds or {}) == nFinds, "crafting isn't a find")
+ns.char.honours = nil
+event("CHAT_MSG_COMBAT_FACTION_CHANGE", "You are now Exalted with Ironforge.")
+check(ns.char.honours and ns.char.honours[1].standing == "Exalted", "a new standing via the reputation channel")
 
 -- Restore puts everything back
 local ok = ns.TRP.Restore()

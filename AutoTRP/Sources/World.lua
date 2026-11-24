@@ -312,12 +312,15 @@ end
 local context
 World.CONTEXT_SECONDS = 180
 
+-- Some moments are brief.
+local CONTEXT_LENGTH = { shadowmeld = 30, cannibalize = 30, hearth = 20, portal = 90 }
+
 function World.SetContext(kind, detail)
   context = { kind = kind, detail = detail, t = U.Now() }
 end
 
 function World.Context()
-  if context and U.Now() - context.t <= World.CONTEXT_SECONDS then return context end
+  if context and U.Now() - context.t <= (CONTEXT_LENGTH[context.kind] or World.CONTEXT_SECONDS) then return context end
   return nil
 end
 
@@ -335,8 +338,7 @@ ns.On("ITEM_TEXT_BEGIN", function()
 end)
 ns.On("DUEL_REQUESTED", function() World.SetContext("duel") end)
 ns.On("DUEL_INBOUNDS", function() World.SetContext("duel") end)
-ns.On("UNIT_SPELLCAST_START", function(_, unit, _, spellID)
-  if unit ~= "player" then return end
+ns.OnUnit("UNIT_SPELLCAST_START", "player", function(_, _, _, spellID)
   if spellID == 8690 or spellID == 556 then World.SetContext("hearth") end
 end)
 -- Poses from your own emotes: sit, sleep, dance. Any other emote ends them.
@@ -359,8 +361,7 @@ local function craft()
 end
 ns.On("TRADE_SKILL_SHOW", craft)
 ns.On("CRAFT_SHOW", craft)
-ns.On("UNIT_SPELLCAST_CHANNEL_START", function(_, unit, _, spellID)
-  if unit ~= "player" then return end
+ns.OnUnit("UNIT_SPELLCAST_CHANNEL_START", "player", function(_, unit, _, spellID)
   local name = World.Safe(call("UnitChannelInfo", "player"))
   if name == "Fishing" or spellID == 7620 or spellID == 7731 or spellID == 7732 or spellID == 18248 then
     World.SetContext("fishing")
@@ -377,7 +378,7 @@ ns.OnUnit("UNIT_SPELLCAST_SUCCEEDED", "player", function(_, _, _, spellID)
   local name = spellName(spellID)
   if type(name) ~= "string" then return end
   local dest = name:match("^Portal: (.+)$")
-  if dest then World.SetContext("portal", dest) return end
+  if dest then World.SetContext("portal", dest); if ns.UI then ns.UI.Poke(false) end return end
   local def = W.SPELLS[name]
   if not def or not ns.db.reactPlaces then return end
   if def.context then World.SetContext(def.context) end

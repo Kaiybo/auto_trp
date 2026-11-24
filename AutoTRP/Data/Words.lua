@@ -1038,14 +1038,14 @@ W.SPELLS = {
   ["Berserking"] = { mood = { "fierce", 20, "berserking" } },
   ["Blood Fury"] = { mood = { "fierce", 22, "the blood fury" } },
   ["War Stomp"] = { mood = { "fierce", 15, "a war stomp" } },
-  ["Stoneform"] = { mood = { "rattled", 10, "had to turn to stone" } },
-  ["Escape Artist"] = { mood = { "rattled", 10, "a narrow escape" } },
+  ["Stoneform"] = { mood = { "rattled", 18, "had to turn to stone" } },
+  ["Escape Artist"] = { mood = { "rattled", 18, "a narrow escape" } },
   ["Feed Pet"] = { mood = { "ease", 12, "fed {their} companion" } },
 }
 -- Mage portals: "Portal: Stormwind" -> "opening a portal to Stormwind".
 W.ACTIVITY.portal = { "opening a portal to {dest} in {place}" }
 W.ACTIVITY.summoning = { "performing a summoning ritual in {place}" }
-W.ACTIVITY.shadowmeld = { "melted into the shadows in {place}" }
+W.ACTIVITY.shadowmeld = { "melting into the shadows in {place}" }
 W.ACTIVITY.cannibalize = { "crouched over a corpse in {place}, best not to look" }
 
 -- Hunter pet happiness (GetPetHappiness: 1 unhappy, 2 content, 3 happy).
@@ -1062,7 +1062,7 @@ W.RACE_BIAS = {
   Orc = { fierce = 1.3, angry = 1.25, proud = 1.2, shaken = 0.8 },
   Troll = { ease = 1.2, merry = 1.2, fierce = 1.15, worried = 0.8 },
   Tauren = { ease = 1.2, angry = 0.8, devout = 1.2, frustrated = 0.8 },
-  Scourge = { downcast = 1.2, haunted = 0.7, shaken = 0.7, uneasy = 0.6, fed = 0.5, smitten = 0.7 },
+  Scourge = { downcast = 1.2, haunted = 0.7, shaken = 0.7, uneasy = 0.6, smitten = 0.7 },
 }
 W.CLASS_BIAS = {
   WARRIOR = { fierce = 1.3, triumphant = 1.2, rattled = 0.8 },

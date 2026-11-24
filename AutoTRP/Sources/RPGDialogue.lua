@@ -71,7 +71,7 @@ function R.Read()
     if type(m) == "table" and U.Plain(m.name) and (tonumber(m.times) or 0) > 0 then
       out.met = out.met + 1
       local aff = tonumber(m.affinity) or 0
-      local rec = { name = U.Plain(m.name), affinity = aff, times = m.times or 0, zone = m.zone, last = tonumber(m.last) or 0 }
+      local rec = { name = U.Plain(m.name), affinity = aff, times = m.times or 0, zone = U.Plain(m.zone), last = tonumber(m.last) or 0 }
       if aff >= 3 then out.friends[#out.friends + 1] = rec elseif aff <= -3 then out.rivals[#out.rivals + 1] = rec end
       if not out.lastTalk or rec.last > out.lastTalk.last then out.lastTalk = rec end
     end

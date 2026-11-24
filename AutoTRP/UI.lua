@@ -31,7 +31,7 @@ UI.STORY_EVERY = 300   -- and a refresh of the story this often regardless
 
 -- force: write everything now. Otherwise "Currently" and the glances are written whenever
 -- they've changed (at most every few seconds), and the story when something happened.
-function UI.Update(force, fresh)
+function UI.Update(force, fresh, mood)
   if not ns.char or not ns.db.enabled then return end
   if not TRP.Managed() then return end
   -- Nothing is written in combat, so don't work it out either: leaving combat catches up.
@@ -57,7 +57,7 @@ function UI.Update(force, fresh)
     if not paused then UI.Later(math.max(1, gap - (now - lastFast))) end
     return
   end
-  local sheet = ns.Compose.Sheet(fresh)
+  local sheet = ns.Compose.Sheet(fresh, mood, only)
   local changed, why = TRP.Apply(values(sheet), only)
   if not changed then
     if force then ns.Print("Not updated: " .. tostring(why) .. ".") end
@@ -97,7 +97,7 @@ function UI.React()
   local mood = ns.Mood.Current(ns.cache.world)
   ns.Mood.Note(mood)
   UI.UpdateBadge(mood)
-  UI.Update(false, true)
+  UI.Update(false, true, mood)
 end
 
 function UI.Later(seconds)
@@ -129,15 +129,15 @@ local FAST_EVENTS = {
 }
 local STORY_EVENTS = {
   "PLAYER_DEAD", "PLAYER_LEVEL_UP", "ENCOUNTER_END", "QUEST_TURNED_IN", "GOSSIP_CLOSED", "QUEST_FINISHED",
-  "PLAYER_EQUIPMENT_CHANGED", "UPDATE_FACTION", "PLAYER_GUILD_UPDATE", "SKILL_LINES_CHANGED", "LEARNED_SPELL_IN_TAB",
+  "PLAYER_EQUIPMENT_CHANGED", "UPDATE_FACTION", "PLAYER_GUILD_UPDATE", "SKILL_LINES_CHANGED", "LEARNED_SPELL_IN_TAB", "LEARNED_SPELL_IN_SKILL_LINE",
 }
 for _, e in ipairs(FAST_EVENTS) do ns.On(e, function() UI.Poke(false) end) end
 for _, e in ipairs(STORY_EVENTS) do ns.On(e, function() UI.Poke(true) end) end
 ns.OnUnit("UNIT_AURA", "player", function() UI.Poke(false) end)
 ns.OnUnit("UNIT_PET", "player", function() UI.Poke(false) end)
-ns.On("UNIT_SPELLCAST_CHANNEL_START", function(_, unit) if unit == "player" then UI.Poke(false) end end)
-ns.On("UNIT_SPELLCAST_START", function(_, unit, _, spellID)
-  if unit == "player" and (spellID == 8690 or spellID == 556) then UI.Poke(false) end
+ns.OnUnit("UNIT_SPELLCAST_CHANNEL_START", "player", function() UI.Poke(false) end)
+ns.OnUnit("UNIT_SPELLCAST_START", "player", function(_, _, _, spellID)
+  if spellID == 8690 or spellID == 556 then UI.Poke(false) end
 end)
 ns.Listen("MOOD_CHANGED", function() UI.Poke(false) end)
 
@@ -153,13 +153,20 @@ local function pulse()
     parts[#parts + 1] = tostring(type(r.insanity) == "table" and r.insanity.level or 0)
     parts[#parts + 1] = tostring(r.drunk)
   end
+  if type(_G.Chronicle) == "table" and type(_G.Chronicle.char) == "table" then c = _G.Chronicle.char end
   if type(c) == "table" then
     parts[#parts + 1] = tostring(type(c.events) == "table" and #c.events or 0)
     parts[#parts + 1] = tostring(type(c.goals) == "table" and #c.goals or 0)
+    parts[#parts + 1] = tostring(type(c.quests) == "table" and #c.quests or 0)
+    local q = type(c.quests) == "table" and c.quests[1]
+    parts[#parts + 1] = tostring(type(q) == "table" and q.time or 0)
   end
-  if type(sd) == "table" and type(sd.data) == "table" then
+  local acct = _G.SocialDiaryDB
+  local diary = (type(acct) == "table" and type(acct.settings) == "table" and acct.settings.shareDiary and type(acct.shared) == "table" and acct.shared)
+    or (type(sd) == "table" and type(sd.data) == "table" and sd.data) or nil
+  if diary then
     local n = 0
-    for _ in pairs(type(sd.data.diary) == "table" and sd.data.diary or {}) do n = n + 1 end
+    for _ in pairs(type(diary.diary) == "table" and diary.diary or {}) do n = n + 1 end
     parts[#parts + 1] = tostring(n)
   end
   return table.concat(parts, ":")
@@ -234,6 +241,7 @@ ns.Listen("LOGIN", function()
     if U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") then return end
     ns.Compose.Refresh()
     ns.Mood.Watch()
+    ns.Mood.CheckHome()
     local mood = ns.Mood.Current(ns.cache.world)
     ns.Mood.Log(mood, ns.cache.world)
     ns.Mood.Note(mood)
@@ -241,7 +249,7 @@ ns.Listen("LOGIN", function()
     local profile, why = TRP.Managed()
     if profile then
       warnedOther = false
-      UI.Update(false, true)
+      UI.Update(false, true, mood)
     elseif ns.char.profileID and why and why:find("different") and not warnedOther then
       warnedOther = true
       if not ns.db.quiet then ns.Print("You've switched Total RP 3 profiles, so Auto TRP is pausing. Switch back, or |cffffd100/atrp use|r this one.") end

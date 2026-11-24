@@ -95,7 +95,7 @@ function Mood.Push(name, amount, why)
   local st = state()
   st.emo[name] = U.Clamp((st.emo[name] or 0) + amount * Mood.Bias(name), 0, 100)
   if why then st.why[name] = why end
-  ns.Fire("MOOD_CHANGED", name)
+  if amount >= 15 then ns.Fire("MOOD_CHANGED", name) end
 end
 
 ---------------------------------------------------------------------------
@@ -226,7 +226,7 @@ function Mood.Scores(world)
   if world.zone and W.ENEMY_CAPITALS[world.faction or ""] and W.ENEMY_CAPITALS[world.faction][world.zone] then
     add("tense", 25, "the enemy's capital")
   end
-  if world.petHappy == 1 then add("worried", 15, (world.pet or "the pet") .. " is unhappy")
+  if world.petHappy == 1 then add("uneasy", 15, (world.pet or "the pet") .. " is unhappy")
   elseif world.petHappy == 3 then add("ease", 6, (world.pet or "the pet") .. " is happy") end
   local ctx = world.context
   if ctx then
@@ -308,7 +308,8 @@ function Mood.Current(world)
   local tell = pick(pool, seed .. key .. "t")
   local adj = pick(d.adj, seed .. key)
   -- A feeling from something that happened, mostly worn off now: say it's fading.
-  if ranked[1] and st.emo[key] and ranked[1].v < 30 and not adj:find("^Still") and not adj:find("^Not") then
+  if ranked[1] and st.emo[key] and st.emo[key] >= 0.6 * ranked[1].v and ranked[1].v < 30
+    and not adj:find("^Still") and not adj:find("^Not") then
     adj = "Still " .. adj:gsub("^%u", string.lower)
   end
   local out = {
@@ -376,7 +377,13 @@ local foe
 ns.On("PLAYER_REGEN_DISABLED", function()
   lowest = 1; fightStart = U.Now()
   foe = nil
-  if U.Call(UnitCanAttack, "player", "target") then foe = U.Plain(ns.World.Safe(U.Call(UnitName, "target"))) end
+  if U.Call(UnitCanAttack, "player", "target") then
+    local name = U.Plain(ns.World.Safe(U.Call(UnitName, "target")))
+    -- Generic creatures take "a"; players, bosses, rares and elites are named as they are.
+    local kind = ns.World.Safe(U.Call(UnitClassification, "target"))
+    local named = U.Call(UnitIsPlayer, "target") or (kind and kind ~= "normal" and kind ~= "minus" and kind ~= "trivial")
+    foe = name and { name = name, named = named and true or false } or nil
+  end
 end)
 local function onHealth(_, unit)
   if unit == "player" then
@@ -427,7 +434,7 @@ end)
 local QUALITY_HEX = { a335ee = 4, ["0070dd"] = 3, ff8000 = 5 }
 ns.On("CHAT_MSG_LOOT", function(_, msg)
   msg = ns.World.Safe(msg)
-  if type(msg) ~= "string" or not msg:find("^You ") then return end
+  if type(msg) ~= "string" or not msg:find("^You ") or msg:find("^You create") then return end
   local q = tonumber(msg:match("|cnIQ(%d+):"))
   if not q then local hex = msg:match("|cff(%x%x%x%x%x%x)"); q = hex and QUALITY_HEX[hex:lower()] end
   local item = msg:match("%[(.-)%]")
@@ -458,35 +465,52 @@ ns.On("CHAT_MSG_SYSTEM", function(_, msg)
   local winner, loser = msg:match("^(.-) has defeated (.-) in a duel")
   if not winner then return end
   local me = U.Call(UnitName, "player")
+  me = type(me) == "string" and me:match("^(%S+)") or me
+  winner, loser = winner:match("^(%S+)") or winner, loser:match("^(%S+)") or loser
   if winner == me then Mood.Push("proud", 35, "won a duel against " .. loser)
   elseif loser == me then Mood.Push("frustrated", 25, "lost a duel to " .. winner) end
 end)
 
 -- Reputation: rising, falling, a new standing (remembered for History).
+-- Reputation: a gentle push at most once per faction every half hour (never from the
+-- endless ticks inside a dungeon); reaching a new standing is a big moment, remembered.
+local repAt = {}
+local STANDINGS = { Honored = true, Revered = true, Exalted = true }
+local function standing(msg)
+  local word, faction = msg:match("^You are now (%a+) with (.-)%.?$")
+  if not word or not STANDINGS[word] or not ns.char then return false end
+  Mood.Push("proud", word == "Exalted" and 50 or 30, word:lower() .. " with " .. faction)
+  ns.char.honours = ns.char.honours or {}
+  table.insert(ns.char.honours, { standing = word, faction = faction, t = U.Now(), zone = U.Plain(U.Call(GetRealZoneText)) })
+  while #ns.char.honours > 6 do table.remove(ns.char.honours, 1) end
+  return true
+end
 ns.On("CHAT_MSG_COMBAT_FACTION_CHANGE", function(_, msg)
   msg = ns.World.Safe(msg)
-  if type(msg) ~= "string" then return end
-  local faction = msg:match("^Reputation with (.-) increased")
-  if faction then Mood.Push("proud", 6, "standing with " .. faction) return end
-  faction = msg:match("^Reputation with (.-) decreased")
-  if faction then Mood.Push("ashamed", 8, "lost standing with " .. faction) end
+  if type(msg) ~= "string" or standing(msg) then return end
+  if U.Call(IsInInstance) then return end
+  local up = msg:match("^Reputation with (.-) increased")
+  local down = msg:match("^Reputation with (.-) decreased")
+  local faction = up or down
+  if not faction then return end
+  local now = U.Now()
+  if repAt[faction] and now - repAt[faction] < 1800 then return end
+  repAt[faction] = now
+  if up then Mood.Push("proud", 10, "standing with " .. faction) else Mood.Push("ashamed", 12, "lost standing with " .. faction) end
 end)
-local STANDINGS = { Honored = true, Revered = true, Exalted = true }
 ns.On("CHAT_MSG_SYSTEM", function(_, msg)
   msg = ns.World.Safe(msg)
-  if type(msg) ~= "string" or not ns.char then return end
-  local standing, faction = msg:match("^You are now (%a+) with (.-)%.?$")
-  if standing and STANDINGS[standing] then
-    Mood.Push("proud", standing == "Exalted" and 50 or 30, standing:lower() .. " with " .. faction)
-    ns.char.honours = ns.char.honours or {}
-    table.insert(ns.char.honours, { standing = standing, faction = faction, t = U.Now(), zone = U.Plain(U.Call(GetRealZoneText)) })
-    while #ns.char.honours > 6 do table.remove(ns.char.honours, 1) end
-    return
-  end
-  local home = msg:match("^(.-) is now your home%.?$")
-  if home then Mood.Push("homecoming", 25, "made " .. home .. " home") end
+  if type(msg) == "string" then standing(msg) end
 end)
+-- A new home: noticed by the hearthstone's bind point changing (works in any language).
+local boundTo
+function Mood.CheckHome()
+  local bind = U.Plain(U.Call(GetBindLocation))
+  if bind and boundTo and bind ~= boundTo then Mood.Push("homecoming", 25, "made " .. bind .. " home") end
+  boundTo = bind or boundTo
+end
 ns.On("LEARNED_SPELL_IN_TAB", function() Mood.Push("satisfied", 10, "learned something new") end)
+ns.On("LEARNED_SPELL_IN_SKILL_LINE", function() Mood.Push("satisfied", 10, "learned something new") end)
 ns.On("CHAT_MSG_LOOT", function(_, msg)
   msg = ns.World.Safe(msg)
   local item = type(msg) == "string" and msg:match("^You create: .-%[(.-)%]")
@@ -537,31 +561,24 @@ end)
 -- per person. Only your target: cheap, and only someone you chose to look at.
 local metAt = {}
 ns.On("PLAYER_TARGET_CHANGED", function()
-  local sd = ns.cache and ns.cache.sd
-  if not ns.db.reactPeople or not sd or not U.Call(UnitIsPlayer, "target") then return end
+  if not ns.db.reactPeople or not U.Call(UnitIsPlayer, "target") then return end
   local name = ns.World.Safe(U.Call(UnitName, "target"))
   if type(name) ~= "string" then return end
   local now = U.Now()
   if metAt[name] and now - metAt[name] < 1800 then return end
-  for _, f in ipairs(sd.friends) do
-    if f.name == name then
-      metAt[name] = now
-      Mood.Push("elated", 20, "ran into " .. name)
-      return
-    end
+  local sd = ns.cache and ns.cache.sd
+  for _, f in ipairs(sd and sd.friends or {}) do
+    if f.name == name then metAt[name] = now; Mood.Push("elated", 20, "ran into " .. name) return end
   end
-  -- An enemy of your faction, face to face.
-  if U.Call(UnitIsEnemy, "player", "target") then
+  for _, f in ipairs(sd and sd.foes or {}) do
+    if f.name == name then metAt[name] = now; Mood.Push("angry", 20, "crossed paths with " .. name) return end
+  end
+  -- Someone of the other faction (not a duel partner of your own).
+  local theirs, mine = ns.World.Safe(U.Call(UnitFactionGroup, "target")), ns.World.Safe(U.Call(UnitFactionGroup, "player"))
+  if type(theirs) == "string" and type(mine) == "string" and theirs ~= mine and theirs ~= "Neutral" then
     metAt[name] = now
     local race = ns.World.Safe(U.Call(UnitRace, "target"))
     Mood.Push("tense", 15, "face to face with " .. (type(race) == "string" and ("an enemy " .. race:lower()) or "the enemy"))
-  end
-  for _, f in ipairs(sd.foes) do
-    if f.name == name then
-      metAt[name] = now
-      Mood.Push("angry", 20, "crossed paths with " .. name)
-      return
-    end
   end
 end)
 
