@@ -73,6 +73,7 @@ function R.Read()
       local aff = tonumber(m.affinity) or 0
       local rec = { name = U.Plain(m.name), affinity = aff, times = m.times or 0, zone = m.zone, last = tonumber(m.last) or 0 }
       if aff >= 3 then out.friends[#out.friends + 1] = rec elseif aff <= -3 then out.rivals[#out.rivals + 1] = rec end
+      if not out.lastTalk or rec.last > out.lastTalk.last then out.lastTalk = rec end
     end
   end
   table.sort(out.friends, function(x, y) if x.affinity ~= y.affinity then return x.affinity > y.affinity end return x.times > y.times end)

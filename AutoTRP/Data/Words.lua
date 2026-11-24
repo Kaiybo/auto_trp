@@ -1050,3 +1050,88 @@ W.ACTIVITY.cannibalize = { "crouched over a corpse in {place}, best not to look"
 
 -- Hunter pet happiness (GetPetHappiness: 1 unhappy, 2 content, 3 happy).
 W.PET_HAPPY = { [1] = "who looks hungry and sullen", [2] = "who seems content", [3] = "who is plainly devoted" }
+
+---------------------------------------------------------------------------
+-- Temperament by race and class: how hard each feeling lands (multiplies).
+---------------------------------------------------------------------------
+W.RACE_BIAS = {
+  Human = { company = 1.2, sociable = 1.2, homecoming = 1.2 },
+  Dwarf = { merry = 1.4, angry = 1.15, intrigued = 1.2, uneasy = 0.8 },
+  Gnome = { wonder = 1.3, intrigued = 1.3, elated = 1.2, worried = 1.1 },
+  NightElf = { sorrowful = 1.2, downcast = 1.15, ease = 1.1, uneasy = 0.9 },
+  Orc = { fierce = 1.3, angry = 1.25, proud = 1.2, shaken = 0.8 },
+  Troll = { ease = 1.2, merry = 1.2, fierce = 1.15, worried = 0.8 },
+  Tauren = { ease = 1.2, angry = 0.8, devout = 1.2, frustrated = 0.8 },
+  Scourge = { downcast = 1.2, haunted = 0.7, shaken = 0.7, uneasy = 0.6, fed = 0.5, smitten = 0.7 },
+}
+W.CLASS_BIAS = {
+  WARRIOR = { fierce = 1.3, triumphant = 1.2, rattled = 0.8 },
+  PALADIN = { devout = 1.3, righteous = 1.3, conflicted = 1.2 },
+  HUNTER = { wonder = 1.2, ease = 1.1, lonely = 0.7 },
+  ROGUE = { tense = 0.8, flush = 1.3, thrilled = 1.2 },
+  PRIEST = { devout = 1.3, sorrowful = 1.2, righteous = 1.2 },
+  SHAMAN = { uneasy = 1.2, devout = 1.1, ease = 1.1 },
+  MAGE = { intrigued = 1.3, wonder = 1.2, weary = 1.1 },
+  WARLOCK = { haunted = 0.6, conflicted = 0.7, uneasy = 0.8 },
+  DRUID = { ease = 1.2, wonder = 1.1, angry = 0.9 },
+}
+
+-- The hour, by race: { mood, strength, why } at night / dawn / dusk.
+W.RACE_TIME = {
+  NightElf = { night = { "ease", 10, "the night suits {them}" } },
+  Tauren = { dawn = { "devout", 10, "the sun rising over the Earth Mother" } },
+  Scourge = { night = { "ease", 6, "the dark is kinder" } },
+  Troll = { dusk = { "ease", 6, "the jungle hour" } },
+}
+
+-- More ways a mood shows on each body.
+local function more(race, t) for k, v in pairs(t) do W.RACE_TELLS[race][k] = v end end
+more("Human", {
+  shaken = { "Hands shaking; mutters a prayer to the Light under {their} breath." },
+  elated = { "Grinning like a farmhand at harvest festival." },
+  downcast = { "Shoulders slumped, staring at nothing, like a soldier after a lost battle." },
+  fierce = { "Sword arm loose, eyes hard. A veteran's calm before the charge." },
+})
+more("Dwarf", {
+  shaken = { "Beard trembling, and for once short of words." },
+  downcast = { "Staring into an empty tankard, beard drooping." },
+  elated = { "Slapping backs and bellowing for another round." },
+  wonder = { "Peering at the stonework, muttering about Titan craft." },
+  fierce = { "Beard bristling and axe in hand, ready to give a grudge its due." },
+})
+more("Gnome", {
+  shaken = { "Ears flat, hair singed, voice an octave higher than usual." },
+  downcast = { "Uncharacteristically quiet, fiddling with a broken cog." },
+  angry = { "Red to the tips of {their} ears, waving a wrench." },
+  ease = { "Tinkering contentedly with something small and clicking." },
+})
+more("NightElf", {
+  shaken = { "Ears pinned back, eyes glowing a little too bright." },
+  elated = { "Moves with a dancer's lightness, silver eyes shining." },
+  angry = { "Eyes narrowed to burning slits; ten thousand years of patience wearing thin." },
+  wonder = { "Studying the place as if comparing it to a memory centuries old." },
+})
+more("Orc", {
+  shaken = { "Breathing hard through the tusks, refusing to look rattled." },
+  downcast = { "Hunched and silent, the way an orc grieves: alone." },
+  ease = { "Sitting by the fire, sharpening an axe with long, easy strokes." },
+  uneasy = { "Sniffing the air, hand on the haft, hackles up." },
+})
+more("Troll", {
+  shaken = { "Muttering a charm to the loa, tusks clacking." },
+  downcast = { "Long ears drooping, tusks down, quiet as the swamp." },
+  elated = { "Cackling and doing a little dance, mon." },
+  wonder = { "Head tilted, taking it all in with a wide, tusky grin." },
+})
+more("Tauren", {
+  shaken = { "Massive hands trembling; murmurs to the Earth Mother for calm." },
+  elated = { "A deep, rumbling laugh that shakes the ground a little." },
+  angry = { "Snorting, head lowered, horns forward. Slow to anger, but there now." },
+  wonder = { "Taking slow, careful steps, as if listening to the land itself." },
+})
+more("Scourge", {
+  shaken = { "A dead thing shouldn't tremble, but this one does." },
+  elated = { "Jaw hanging in what might be a grin." },
+  angry = { "Eyes blazing a cold yellow; the Dark Lady's fury in miniature." },
+  wonder = { "Peering about with empty eyes, as if trying to remember being alive." },
+})

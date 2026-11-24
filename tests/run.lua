@@ -396,6 +396,31 @@ check(ns.Compose.Currently(ns.Mood.Current()):find("opening a portal to Stormwin
 ns.World.SetContext("none")
 C_Spell = nil
 
+-- Temperament by race and class; the hour by race; the last conversation
+UnitRace = function() return "Dwarf", "Dwarf" end
+ns.Compose.Refresh()
+check(ns.Mood.Bias("merry") > 1.3, "a dwarf takes to drink merrily")
+UnitRace = function() return "Night Elf", "NightElf" end
+IsIndoors = function() return false end
+state.resting = false
+ns.Compose.Refresh()
+local sc2, wy2 = ns.Mood.Scores(ns.cache.world)
+local night = false
+for _, r in ipairs(wy2.ease or {}) do if r:find("^the night suits") then night = true end end
+check(night, "a night elf is at ease at night")
+UnitRace = function() return "Human", "Human" end
+IsIndoors = function() return true end
+RPGDialogueCharDB.npc.farley.last = NOW - 60
+RPGDialogueCharDB.npc.farley.zone = "Elwynn Forest"
+local savedDeath = RPGDialogueCharDB.deaths[1].t
+RPGDialogueCharDB.deaths[1].t = NOW - 300000
+for _, d in ipairs(RPGDialogueCharDB.deaths) do if d.t > NOW - 300000 then d.t = NOW - 300000 end end
+ns.char.finds = nil
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+local lg = ns.Compose.LatelyGlance()
+check(lg.TX:find("Was just talking warmly with Innkeeper Farley in Elwynn Forest"), "Lately: a conversation just now: " .. lg.TX)
+RPGDialogueCharDB.deaths[1].t = savedDeath
+
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")

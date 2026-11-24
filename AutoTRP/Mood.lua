@@ -57,6 +57,13 @@ function Mood.Bias(name)
   for trait, list in pairs(BIAS) do
     if (traits[trait] or 0) >= 3 and list[name] then m = m * list[name] end
   end
+  local world = ns.cache and ns.cache.world
+  if world then
+    local rb = W.RACE_BIAS[world.race or ""]
+    local cb = W.CLASS_BIAS[world.class or ""]
+    if rb and rb[name] then m = m * rb[name] end
+    if cb and cb[name] then m = m * cb[name] end
+  end
   return m
 end
 
@@ -205,6 +212,11 @@ function Mood.Scores(world)
   -- Places that mean something to this race or class (subzone first, then zone).
   for _, list in ipairs({ W.RACE_PLACES[world.race or ""], W.CLASS_PLACES[world.class or ""] }) do
     local hit = list and ((world.subzone and list[world.subzone]) or (world.zone and list[world.zone]))
+    if hit then add(hit[1], hit[2], hit[3]) end
+  end
+  local rt = W.RACE_TIME[world.race or ""]
+  if rt and not world.indoors and not world.instance then
+    local hit = (world.night and rt.night) or (world.dawn and rt.dawn) or (world.dusk and rt.dusk)
     if hit then add(hit[1], hit[2], hit[3]) end
   end
   if world.zone and world.zone == W.CAPITALS[world.race or ""] then add("ease", 15, "among {their} own people") end

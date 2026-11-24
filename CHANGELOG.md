@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0 (2026-11-24): Temper and Blood
+
+- Temperament by race and class: dwarves take to drink merrily, orcs' blood runs hot, tauren are slow to anger, the Forsaken brood but scare less; warriors relish a fight, priests and paladins feel devotion and grief more, warlocks are hard to haunt, rogues stay cool.
+- The hour by race: night elves are at ease at night, tauren feel the dawn.
+- Lately shows the conversation you just had in RPG Dialogue (warmly or coldly).
+- The Marks glance falls back on your class's look alongside your kit.
+- Many more racial mood tells.
+
 ## 0.6.0 (2026-11-24): Old Wounds, Holy Ground
 
 - Places mean something to your race and class: a night elf grieves in Felwood, a dwarf bristles in Dark Iron land and wonders at Titan ruins, a gnome mourns lost Gnomeregan, a Forsaken remembers Lordaeron, an orc burns at the old internment camps, a troll is at home in Stranglethorn, a tauren on Mulgore's plains. Paladins and priests at holy sites, druids in Moonglade, shamans on Elder Rise, warlocks in fel-touched land, rogues in Booty Bay, warriors at the arena. Everyone eases among their own people and tenses in the enemy's capital.

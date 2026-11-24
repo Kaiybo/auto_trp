@@ -136,6 +136,14 @@ function Compose.LatelyGlance()
     add(thread.t, 1, { TI = thread.state == "resolved" and "Loose Ends Tied" or "Caught Up in Something",
       IC = "INV_Misc_Note_02", TX = U.Pick(THREAD_PHRASE[thread.state], seed(thread.id)):format(lowerFirst(thread.title)) })
   end
+  -- A conversation just now in RPG Dialogue
+  local talk = rpgd and rpgd.lastTalk
+  if talk and within(talk.last, 1800) then
+    local how = talk.affinity >= 3 and "warmly" or talk.affinity <= -3 and "coldly" or nil
+    add(talk.last, 1, { TI = "Lately", IC = "INV_Letter_15",
+      TX = "Was just " .. (how and ("talking " .. how .. " with ") or "talking with ") .. talk.name
+        .. (talk.zone and (" in " .. U.Mid(talk.zone)) or "") .. "." })
+  end
   local finds = ns.char and ns.char.finds
   local find = finds and finds[#finds]
   if find and within(find.t, 86400) then
@@ -279,7 +287,11 @@ function Compose.MarksGlance()
     return { TI = m.TI, TX = m.TX, IC = m.IC }
   end
   local k = kit(world, true)
+  local cl = W.CLASS_LOOK[world.class or ""]
+  local classMark = cl and U.Pron(U.Pick(cl, seed("classmark")))
+  if k and classMark then return { TI = "Kit", IC = "INV_Chest_Chain_05", TX = k .. " " .. classMark } end
   if k then return { TI = "Kit", IC = "INV_Chest_Chain_05", TX = k } end
+  if classMark then return { TI = "At a Glance", IC = "INV_Chest_Chain_05", TX = classMark } end
   return { TI = "Plainly Dressed", IC = "INV_Shirt_05", TX = "Nothing about the clothes says much, which may be the point." }
 end
 
