@@ -1,11 +1,13 @@
 name: release
 
-# Push a tag like v0.12.0 and this builds AutoTRP-<version>.zip and publishes a GitHub
-# release with that version's changelog section as the notes.
+# Builds AutoTRP-<version>.zip and publishes a GitHub release (tag v<version>) with that
+# version's changelog section as the notes. Runs when a v* tag is pushed, or by hand from
+# the Actions tab ("Run workflow"), which releases the version in AutoTRP.toc.
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -24,9 +26,14 @@ jobs:
       - name: Build zip
         id: build
         run: echo "zip=$(python3 tools/build_zip.py)" >> "$GITHUB_OUTPUT"
+      - name: Version
+        run: |
+          version=$(grep -m1 '^## Version:' AutoTRP/AutoTRP.toc | awk '{print $3}')
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "TAG=v$version" >> "$GITHUB_ENV"
       - name: Release notes from the changelog
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="$VERSION"
           awk -v v="$version" '
             /^## / { if (found) exit; if (index($0, "## " v " ") == 1) { found = 1; title = substr($0, 4); next } }
             found { print }
@@ -36,4 +43,4 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "${{ steps.build.outputs.zip }}" --title "$TITLE" --notes-file notes.md
+        run: gh release create "$TAG" "${{ steps.build.outputs.zip }}" --target "$GITHUB_SHA" --title "$TITLE" --notes-file notes.md
