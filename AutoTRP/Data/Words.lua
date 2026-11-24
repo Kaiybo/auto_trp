@@ -1262,3 +1262,20 @@ W.CITY_FLAVOR = {
   ["The War Quarter"] = "in the Undercity's War Quarter",
   ["The Rogues' Quarter"] = "in the shadowed Rogues' Quarter",
 }
+
+-- Good or bad, for the badge's border colour (anything not listed is neutral).
+W.VALENCE = {
+  elated = 1, triumphant = 1, satisfied = 1, ease = 1, merry = 1, wonder = 1, homecoming = 1, sociable = 1,
+  company = 1, bolstered = 1, glorious = 1, fed = 1, festive = 1, flush = 1, thrilled = 1, righteous = 1,
+  proud = 1, eager = 1, accomplished = 1, smitten = 1, devout = 1,
+  shaken = -1, rattled = -1, weary = -1, haunted = -1, tense = -1, uneasy = -1, lonely = -1, sorrowful = -1,
+  angry = -1, downcast = -1, frustrated = -1, ailing = -1, drained = -1, wounded = -1, worried = -1,
+  conflicted = -1, ashamed = -1, burdened = -1,
+}
+
+-- Class names for a party ("a priest, a mage and two warriors").
+W.CLASS_PLURAL = {
+  WARRIOR = { "warrior", "warriors" }, PALADIN = { "paladin", "paladins" }, HUNTER = { "hunter", "hunters" },
+  ROGUE = { "rogue", "rogues" }, PRIEST = { "priest", "priests" }, SHAMAN = { "shaman", "shamans" },
+  MAGE = { "mage", "mages" }, WARLOCK = { "warlock", "warlocks" }, DRUID = { "druid", "druids" },
+}

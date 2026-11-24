@@ -79,7 +79,7 @@ Copy the `AutoTRP` folder into `World of Warcraft/<your Forever folder>/Interfac
 | `/atrp use` | let Auto TRP write to the profile you're using now (your existing text stays) |
 | `/atrp claim <field\|all>` | hand a field back to Auto TRP |
 | `/atrp release <field\|all>` | take a field back |
-| `/atrp mood` | how your character feels, and why |
+| `/atrp mood` (or `/atrp why`) | how your character feels, and why |
 | `/atrp feel <mood>` | choose a mood for the next hour (`/atrp feel` lists them, `/atrp feel clear` lets it go) |
 | `/atrp intent <text>` | add what you're up to to Currently for two hours (*"Looking for passage to Theramore."*) |
 | `/atrp days` | the mood journal: the last week of feelings and places |
@@ -89,6 +89,10 @@ Copy the `AutoTRP` folder into `World of Warcraft/<your Forever folder>/Interfac
 | `/atrp on` / `off` | resume or pause |
 
 Fields: `currently`, `title`, `fulltitle`, `nickname`, `motto`, `residence`, `birthplace`, `traits`, `bearing`, `history`, `physical`, `glance_mood`, `glance_lately`, `glance_company`, `glance_ambition`, `glance_marks`, `relationship`, `ooc`.
+
+## Language
+
+Auto TRP writes in English, and the places it recognises (zones, districts, dungeons) are matched by their English names, so on other game languages those touches are skipped. Everything else (moods, glances, history) works the same.
 
 ## For developers
 

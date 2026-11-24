@@ -555,6 +555,11 @@ function UI.UpdateBadge(mood)
   local icon = badgeMood and badgeMood.icon or "INV_Misc_Book_11"
   badge.icon:SetTexture("Interface\\Icons\\" .. icon)
   badge.icon:SetDesaturated(not ns.db.enabled)
+  -- Border: green for a good mood, red for a bad one, plain otherwise.
+  local v = badgeMood and ns.Words.VALENCE[badgeMood.key] or 0
+  if v > 0 then badge.border:SetVertexColor(0.5, 1, 0.5)
+  elseif v < 0 then badge.border:SetVertexColor(1, 0.45, 0.45)
+  else badge.border:SetVertexColor(1, 1, 1) end
 end
 
 ---------------------------------------------------------------------------
@@ -613,7 +618,7 @@ SlashCmdList.AUTOTRP = function(msg)
     if eachField(arg, function(k) TRP.Claim(k) end) then ns.Print("Handed to Auto TRP: " .. arg .. "."); UI.Update(true) end
   elseif cmd == "release" then
     if eachField(arg, function(k) TRP.Release(k) end) then ns.Print("Yours again: " .. arg .. ". Auto TRP won't touch it.") end
-  elseif cmd == "mood" then
+  elseif cmd == "mood" or cmd == "why" then
     ns.Compose.Refresh()
     local m = ns.Mood.Current(ns.cache.world)
     ns.Print(m.title .. ": " .. m.tell)

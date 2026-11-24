@@ -494,6 +494,27 @@ ns.char.intent = { text = string.rep("looking for a very particular someone ", 3
 check(#ns.Compose.Currently(fm) <= 200 or ns.Compose.Currently(fm):find("Looking for"), "a long Currently is trimmed (or only the intent is long)")
 ns.char.intent = nil
 
+-- A party by class; a raid
+state.grouped = true
+IsInGroup = function() return true end
+UnitExists = function(u) return u == "party1" or u == "party2" or u == "party3" end
+UnitClass = function(u)
+  if u == "party1" then return "Priest", "PRIEST" elseif u == "party2" or u == "party3" then return "Warrior", "WARRIOR" end
+  return "Priest", "PRIEST"
+end
+GetNumGroupMembers = function() return 4 end
+ns.Compose.Refresh()
+check(ns.Compose.CompanyGlance().TX == "Travelling with a priest and two warriors, and easier for it.", "party by class: " .. ns.Compose.CompanyGlance().TX)
+IsInRaid = function() return true end
+GetNumGroupMembers = function() return 20 end
+ns.Compose.Refresh()
+check(ns.Compose.CompanyGlance().TX:find("host of twenty") or ns.Compose.CompanyGlance().TX:find("host of 20"), "a raid is a host")
+IsInRaid = function() return false end
+IsInGroup = function() return state.grouped end
+state.grouped = false
+UnitExists = function() return false end
+GetNumGroupMembers = function() return 0 end
+
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")

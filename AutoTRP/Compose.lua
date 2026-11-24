@@ -209,9 +209,14 @@ function Compose.CompanyGlance()
   local c = ns.cache
   local world, sd, rpgd = c.world, c.sd, c.rpgd
   local n = world.groupSize or 0
+  if world.grouped and world.raid and n > 5 then
+    return { TI = "Part of a Host", IC = "INV_BannerPVP_02",
+      TX = "Marching with a host of " .. U.Number(n) .. ", banners and all." }
+  end
   if world.grouped and n > 1 then
+    local party = Compose.PartyWords()
     return { TI = "In Company", IC = "Spell_Holy_PrayerOfSpirit",
-      TX = "Travelling with " .. (n == 2 and "a companion" or ("a band of " .. U.Number(n))) .. ", and easier for it." }
+      TX = "Travelling with " .. (party or (n == 2 and "a companion" or ("a band of " .. U.Number(n)))) .. ", and easier for it." }
   end
   if sd and ns.db.nameFriends and sd.friends[1] then
     local f = sd.friends[1]
@@ -243,6 +248,28 @@ function Compose.CompanyGlance()
   local reserved = rpgd and ((rpgd.traits.reserved or 0) >= 3)
   return { TI = "Travels Alone", IC = "Spell_Shadow_Teleport",
     TX = reserved and "Travels alone, and seems to prefer it." or "Travels alone these days, though not by choice, perhaps." }
+end
+
+-- "a priest, a mage and two warriors" from the party's classes.
+function Compose.PartyWords()
+  local count, order = {}, {}
+  for i = 1, 4 do
+    local unit = "party" .. i
+    if U.Call(UnitExists, unit) then
+      local class = select(2, U.Call(UnitClass, unit))
+      if class and W.CLASS_PLURAL[class] then
+        if not count[class] then order[#order + 1] = class end
+        count[class] = (count[class] or 0) + 1
+      end
+    end
+  end
+  if #order == 0 then return nil end
+  local parts = {}
+  for _, class in ipairs(order) do
+    local n, words = count[class], W.CLASS_PLURAL[class]
+    parts[#parts + 1] = n == 1 and article(words[1]) or (U.Number(n) .. " " .. words[2])
+  end
+  return U.Join(parts)
 end
 
 function Compose.AmbitionGlance()
