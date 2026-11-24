@@ -1279,3 +1279,13 @@ W.CLASS_PLURAL = {
   ROGUE = { "rogue", "rogues" }, PRIEST = { "priest", "priests" }, SHAMAN = { "shaman", "shamans" },
   MAGE = { "mage", "mages" }, WARLOCK = { "warlock", "warlocks" }, DRUID = { "druid", "druids" },
 }
+
+-- Ambitions at the start of the road and at its height.
+W.AMBITIONS_NEW = {
+  "To prove {themselves} worthy of the name.", "To learn the trade properly before the world tests {them}.",
+  "To make it past the next hill, and the one after that.",
+}
+W.AMBITIONS_60 = {
+  "To stand against the great dragons, and live to tell of it.", "To see the Old Gods' servants driven back for good.",
+  "To leave a name the bards will still be singing in a hundred years.", "To face what waits in Blackrock and come back out.",
+}

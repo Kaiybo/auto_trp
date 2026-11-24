@@ -531,6 +531,22 @@ check(p.character.WU == 1 and ns.TRP.Status("walkup") == "auto", "a neutral mood
 ns.Mood.SetManual(nil)
 NOW = NOW - 60
 
+-- A hunter's pet falls; a new character wonders
+UnitClass = function() return "Hunter", "HUNTER" end
+UnitName = function(u) if u == "pet" then return "Fang" end return "Aldric" end
+UnitIsDeadOrGhost = function(u) return u == "pet" end
+ns.char.mood.emo.sorrowful = nil
+event("UNIT_HEALTH", "pet")
+check((ns.char.mood.emo.sorrowful or 0) > 20 and ns.char.mood.why.sorrowful == "Fang fell", "a hunter grieves a fallen pet")
+UnitIsDeadOrGhost = function() return false end
+UnitClass = function() return "Priest", "PRIEST" end
+UnitName = function() return "Aldric" end
+UnitLevel = function() return 3 end
+ns.Compose.Refresh()
+local sc3 = ns.Mood.Scores(ns.cache.world)
+check((sc3.wonder or 0) >= 15, "a new character finds the world new")
+UnitLevel = function() return 22 end
+
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")

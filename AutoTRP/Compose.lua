@@ -286,6 +286,12 @@ function Compose.AmbitionGlance()
     end
   end
   local list = {}
+  local level = world.level or 1
+  if level < 10 then
+    for _, a in ipairs(W.AMBITIONS_NEW) do list[#list + 1] = a end
+  elseif level >= 60 then
+    for _, a in ipairs(W.AMBITIONS_60) do list[#list + 1] = a end
+  end
   for _, a in ipairs(W.AMBITIONS[world.class or ""] or W.AMBITIONS.default) do list[#list + 1] = a end
   for _, a in ipairs(W.RACE_AMBITIONS[world.race or ""] or {}) do list[#list + 1] = a end
   return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = U.Pron(U.Pick(list, seed("ambition"))) }

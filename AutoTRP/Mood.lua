@@ -59,6 +59,8 @@ function Mood.Bias(name)
   end
   local world = ns.cache and ns.cache.world
   if world then
+    -- Veterans are steadier: harder to shake, harder to impress.
+    if (world.level or 1) >= 50 and (name == "shaken" or name == "rattled" or name == "wonder" or name == "tense") then m = m * 0.8 end
     local rb = W.RACE_BIAS[world.race or ""]
     local cb = W.CLASS_BIAS[world.class or ""]
     if rb and rb[name] then m = m * rb[name] end
@@ -167,6 +169,7 @@ function Mood.Scores(world)
     add("weary", 15, "spent")
   end
   if world.xp and world.xp >= 0.9 then add("eager", 20 + (world.xp - 0.9) * 200, "close to something") end
+  if (world.level or 99) < 6 then add("wonder", 18, "new to the world") end
 
   -- The road, rest and company
   local road = st.road or 0
@@ -391,6 +394,19 @@ local function onHealth(_, unit)
     if name then ns.partyDead[name] = dead end
   end
 end
+-- A companion falls: a hunter grieves, a warlock is merely put out.
+local petDead = false
+ns.OnUnit("UNIT_HEALTH", "pet", function()
+  local dead = ns.World.Safe(U.Call(UnitIsDeadOrGhost, "pet")) and true or false
+  if dead and not petDead then
+    local name = U.Plain(ns.World.Safe(U.Call(UnitName, "pet"))) or "the pet"
+    local class = select(2, U.Call(UnitClass, "player"))
+    if class == "HUNTER" then Mood.Push("sorrowful", 30, name .. " fell")
+    elseif class == "WARLOCK" then Mood.Push("frustrated", 10, name .. " was banished back") end
+  end
+  petDead = dead
+end)
+
 -- Only these units: the game filters, so the rest of the world's health bars cost nothing.
 for _, u in ipairs({ "player", "party1", "party2", "party3", "party4" }) do ns.OnUnit("UNIT_HEALTH", u, onHealth) end
 ns.On("PLAYER_REGEN_ENABLED", function()
