@@ -12,6 +12,8 @@ It reads three addons if you have them (all optional, and it never changes them)
 
 **It reacts as things happen.** Over two dozen game events (changing zone or subzone, resting, leaving combat, a buff or sickness landing, mounting, shapeshifting, your pet, joining a group, the mailbox, bank or crafting table, loot, money, your emotes, a death, a level, a boss, a conversation in RPG Dialogue, new gear, reputation) trigger an update within a couple of seconds. **Currently** and the glances are rewritten whenever they change (at most every 15 seconds), the story within half a minute of something that matters, and anything held back during combat is written the moment it ends.
 
+**It stays light.** Nothing is worked out during combat. The other addons' data is read only when it changes (a glance at a few counters every five seconds), reputations, skills and gear only when the game says they changed, and a burst of events makes one update, not many.
+
 | Total RP 3 field | From |
 |---|---|
 | **Currently** | Your mood, what you're doing and where, with the zone's atmosphere, your pet and the hour: *"Bone-tired and a little uneasy, beneath the dead trees of Duskwood, with Fang at heel, under the stars."* It notices the mailbox, the bank, the auction house, crafting, fishing and eating. `/atrp intent` adds your plans. |
