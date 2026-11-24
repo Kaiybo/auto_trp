@@ -1,8 +1,8 @@
 ## Interface: 16001, 16002
-## Title: Auto TRP |cff8a8a8a0.11.0|r
+## Title: Auto TRP |cff8a8a8a0.12.0|r
 ## Notes: Keeps your Total RP 3 profile in step with your story: RPG Dialogue, Social Diary and Chronicle.
 ## Author: Kaiybo
-## Version: 0.11.0
+## Version: 0.12.0
 ## Dependencies: totalRP3
 ## OptionalDeps: RPGDialogue, social_diary, Chronicle
 ## SavedVariables: AutoTRPDB

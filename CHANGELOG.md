@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0 (2026-11-24): Turncoat's Letters
+
+- From RPG Dialogue: Personality notes when you've changed your tune about something; History remembers lies you were caught in (and being found out stings); Physical mentions the bundle of letters you carry once a few have reached you.
+
 ## 0.11.0 (2026-11-24): Ore, Herb and Hide
 
 - Gathering and tradecraft in Currently: mining, herb gathering, skinning, disenchanting, picking locks and pockets.
