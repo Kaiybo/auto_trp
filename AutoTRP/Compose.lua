@@ -126,6 +126,12 @@ function Compose.LatelyGlance()
     add(thread.t, 1, { TI = thread.state == "resolved" and "Loose Ends Tied" or "Caught Up in Something",
       IC = "INV_Misc_Note_02", TX = U.Pick(THREAD_PHRASE[thread.state], seed(thread.id)):format(lowerFirst(thread.title)) })
   end
+  local finds = ns.char and ns.char.finds
+  local find = finds and finds[#finds]
+  if find and within(find.t, 86400) then
+    add(find.t, 2, { TI = "A New Prize", IC = "INV_Misc_Gem_Pearl_04",
+      TX = "Recently came by " .. find.item .. (find.zone and (" in " .. U.Mid(find.zone)) or "") .. ", and can't stop admiring it." })
+  end
   local zone = rpgd and rpgd.zones[#rpgd.zones]
   if zone and within(zone.t, 86400) and #rpgd.zones > 2 then
     add(zone.t, 0, { TI = "New in Town", IC = "INV_Misc_Map_01",
@@ -539,6 +545,26 @@ function Compose.History()
     work[#work + 1] = "has thinned the ranks of the " .. Compose.Plural(rpgd.grudge.name) .. " considerably"
   end
   if #work > 0 then paras[#paras + 1] = sentence(name .. " " .. U.Join(work)) end
+
+  -- Milestones: the ranks risen to, where, and how it felt
+  local ms = ns.char and ns.char.milestones or {}
+  if #ms > 0 then
+    local steps = {}
+    for i = math.max(1, #ms - 2), #ms do
+      local m = ms[i]
+      steps[#steps + 1] = "to " .. m.rank .. (m.zone and (" in " .. U.Mid(m.zone)) or "") .. (m.mood and (", " .. m.mood:lower()) or "")
+    end
+    paras[#paras + 1] = sentence(name .. " rose " .. table.concat(steps, "; then "))
+  end
+  local finds = ns.char and ns.char.finds or {}
+  if #finds > 0 then
+    local items = {}
+    for i = #finds, math.max(1, #finds - 2), -1 do
+      local f = finds[i]
+      items[#items + 1] = f.item .. (f.zone and (", found in " .. U.Mid(f.zone)) or "")
+    end
+    paras[#paras + 1] = "Prized possessions: " .. table.concat(items, "; ") .. "."
+  end
 
   -- Learning
   if rpgd and #rpgd.books >= 2 then

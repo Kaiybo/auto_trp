@@ -29,7 +29,9 @@ CreateFrame = function() return newFrame() end
 UIParent = newFrame()
 GetServerTime = function() return NOW end
 time = function() return NOW end
-C_Timer = { After = function() end, NewTicker = function() end }
+local timers = {}
+C_Timer = { After = function(_, fn) timers[#timers + 1] = fn end, NewTicker = function() end }
+local function runTimers() local t = timers; timers = {}; for _, fn in ipairs(t) do fn() end end
 DEFAULT_CHAT_FRAME = { AddMessage = function(_, m) print("     chat: " .. m:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end }
 SlashCmdList = {}
 UISpecialFrames = {}
@@ -221,6 +223,27 @@ state.combat = false
 ns.UI.Update(true)
 check(p.character.CU ~= before, "written after combat: " .. tostring(p.character.CU))
 
+-- Reactive: an event alone (no /atrp update) carries a change into the profile.
+runTimers()
+NOW = NOW + 60
+state.zone, state.sub, state.resting = "Westfall", "Sentinel Hill", false
+local beforeCU = p.character.CU
+event("ZONE_CHANGED_NEW_AREA")
+runTimers()
+check(p.character.CU ~= beforeCU and p.character.CU:find("Westfall"), "a zone change reaches Currently by itself: " .. tostring(p.character.CU))
+NOW = NOW + 5
+state.combat = true
+event("UNIT_AURA", "player")
+runTimers()
+state.combat = false
+state.zone, state.sub = "Redridge Mountains", "Lakeshire"
+event("PLAYER_REGEN_ENABLED")
+NOW = NOW + 20
+runTimers()
+check(p.character.CU:find("Redridge") or p.character.CU:find("Lakeshire") or p.character.CU:find("Everstill"), "held during combat, written right after: " .. tostring(p.character.CU))
+NOW = NOW - 85
+state.zone, state.sub = "Duskwood", "Raven Hill"
+
 -- Switching profile pauses
 currentID = "abc*"
 check(not ns.TRP.Managed(), "another profile in use pauses writing")
@@ -260,6 +283,19 @@ SocialDiaryCharDB.data.diary["Player-1-0002"].relationship = "Wife"
 ns.Compose.Refresh()
 check(ns.Compose.RelationshipStatus() == 3, "a wife in Social Diary: married")
 SocialDiaryCharDB.data.diary["Player-1-0002"].relationship = "Sworn sister"
+
+-- Milestones and finds
+event("PLAYER_LEVEL_UP", 30)
+event("CHAT_MSG_LOOT", "You receive loot: |cffa335ee|Hitem:1|h[Blade of Hanna]|h|r.")
+ns.Compose.Refresh()
+local h2 = ns.Compose.History()
+check(h2:find("rose to Priest in Duskwood"), "history: a rank milestone")
+check(h2:find("Prized possessions: Blade of Hanna, found in Duskwood"), "history: prized possessions")
+RPGDialogueCharDB.deaths[1].t = NOW - 300000
+ns.Compose.Refresh()
+check(ns.Compose.LatelyGlance().TI == "A New Prize", "lately: a fresh find")
+RPGDialogueCharDB.deaths[1].t = NOW - 80000
+ns.char.mood.emo.thrilled = nil; ns.char.mood.emo.elated = nil
 
 -- Buffs lift the mood
 ns.Compose.Refresh()

@@ -270,7 +270,6 @@ function World.Snapshot()
   s.dawn = s.hour and s.hour >= 5 and s.hour < 8 or false
   s.dusk = s.hour and s.hour >= 18 and s.hour < 21 or false
   s.auras = World.Auras()
-  s.gear = World.Gear()
   s.freeSlots = World.FreeBagSlots()
   s.festival = World.Festival()
   if call("UnitExists", "pet") then
@@ -282,8 +281,13 @@ function World.Snapshot()
     local _, v = call("UnitStat", "player", i)
     if type(v) == "number" then s.stats[name] = v end
   end
-  s.factions = World.Factions()
-  s.professions = World.Professions()
+  -- Reputations, skills and gear change rarely: read again only when the game says so.
+  local slow = World.slow
+  if not slow or slow.dirty or U.Now() - slow.t > 300 then
+    slow = { t = U.Now(), factions = World.Factions(), professions = World.Professions(), gear = World.Gear() }
+    World.slow = slow
+  end
+  s.factions, s.professions, s.gear = slow.factions, slow.professions, slow.gear
   s.form = World.Form(s.auras)
   local guild, guildRank = call("GetGuildInfo", "player")
   s.guild, s.guildRank = U.Plain(World.Safe(guild)), U.Plain(World.Safe(guildRank))
@@ -292,6 +296,12 @@ function World.Snapshot()
   s.raid = call("IsInRaid") and true or false
   s.context = World.Context()
   return s
+end
+
+function World.Invalidate() if World.slow then World.slow.dirty = true end end
+for _, e in ipairs({ "UPDATE_FACTION", "SKILL_LINES_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "UPDATE_INVENTORY_DURABILITY",
+  "PLAYER_GUILD_UPDATE", "GET_ITEM_INFO_RECEIVED" }) do
+  ns.On(e, function() World.Invalidate() end)
 end
 
 ---------------------------------------------------------------------------

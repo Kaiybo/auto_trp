@@ -108,7 +108,7 @@ ns.DEFAULTS = {
   diaryExcerpt = true,     -- quote your latest RPG Dialogue diary entry in History
   chronicleGoals = true,   -- your open Chronicle goals as an ambition
   nameFriends = true,      -- name players you marked friend (or gave a relationship) in Social Diary
-  currentlyEvery = 90,     -- seconds, at least, between "Currently" rewrites
+  currentlyEvery = 15,     -- seconds, at least, between rewrites of "Currently" and the glances
   quiet = false,           -- no chat lines when the profile is updated
   pauseOOC = false,
   moodNotes = true,        -- a quiet line in your own chat when your mood turns
@@ -139,6 +139,8 @@ end
 ns.On("ADDON_LOADED", function(_, loaded)
   if loaded ~= addonName then return end
   AutoTRPDB = fill(type(AutoTRPDB) == "table" and AutoTRPDB or {}, ns.DEFAULTS)
+  -- 0.4.0: reactive by default (was 90 seconds).
+  if AutoTRPDB.currentlyEvery == 90 then AutoTRPDB.currentlyEvery = 15 end
   AutoTRPCharDB = fill(type(AutoTRPCharDB) == "table" and AutoTRPCharDB or {}, ns.CHAR_DEFAULTS)
   ns.db, ns.char = AutoTRPDB, AutoTRPCharDB
   ns.Fire("INIT")

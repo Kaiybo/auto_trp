@@ -269,9 +269,13 @@ function Mood.Current(world)
     d = W.CALM[key] or W.CALM.default
     key = "calm:" .. key
   end
+  local tell = pick(d.tells, seed .. key .. "t")
+  local raceTells = W.RACE_TELLS[world.race or ""]
+  local own = raceTells and raceTells[key]
+  if own and U.Hash(seed .. key .. "race") % 2 == 0 then tell = pick(own, seed .. key .. "r") end
   local out = {
     key = key, title = d.title, icon = d.icon,
-    adj = pick(d.adj, seed .. key), tell = pick(d.tells, seed .. key .. "t"),
+    adj = pick(d.adj, seed .. key), tell = tell,
     reasons = ranked[1] and why[ranked[1].name] or nil, ranked = ranked,
   }
   local second = ranked[2]
@@ -306,7 +310,21 @@ ns.On("PLAYER_DEAD", function()
   local zone = U.Plain(U.Call(GetRealZoneText))
   Mood.Push("shaken", 70, zone and ("died in " .. zone) or "died")
 end)
-ns.On("PLAYER_LEVEL_UP", function() Mood.Push("elated", 55, "grew stronger") end)
+ns.On("PLAYER_LEVEL_UP", function(_, level)
+  Mood.Push("elated", 55, "grew stronger")
+  -- A new rank every ten levels: remember where it happened and how it felt.
+  level = tonumber(level)
+  if not ns.char or not level or (level % 10 ~= 0 and level ~= 60) then return end
+  local class = select(2, U.Call(UnitClass, "player"))
+  local ranks = W.RANKS[class or ""] or W.RANKS.default
+  local band = level >= 60 and 7 or (math.floor(level / 10) + 1)
+  ns.char.milestones = ns.char.milestones or {}
+  local current = Mood.Current()
+  table.insert(ns.char.milestones, {
+    level = level, rank = ranks[band], zone = U.Plain(U.Call(GetRealZoneText)), t = U.Now(),
+    mood = current and not current.key:find("^calm:") and current.title or nil,
+  })
+end)
 ns.On("QUEST_TURNED_IN", function()
   if not ns.char then return end
   Mood.Push("satisfied", 18, "a job done")
@@ -353,6 +371,12 @@ ns.On("CHAT_MSG_LOOT", function(_, msg)
   local q = tonumber(msg:match("|cnIQ(%d+):"))
   if not q then local hex = msg:match("|cff(%x%x%x%x%x%x)"); q = hex and QUALITY_HEX[hex:lower()] end
   local item = msg:match("%[(.-)%]")
+  if q and q >= 4 and item and ns.char then
+    -- Remember the great finds (the last five).
+    ns.char.finds = ns.char.finds or {}
+    table.insert(ns.char.finds, { item = item, quality = q, zone = U.Plain(U.Call(GetRealZoneText)), t = U.Now() })
+    while #ns.char.finds > 5 do table.remove(ns.char.finds, 1) end
+  end
   if q and q >= 4 then Mood.Push("thrilled", 60, item and ("found " .. item) or "a rare find")
   elseif q == 3 then Mood.Push("thrilled", 30, item and ("found " .. item) or "a good find") end
 end)
@@ -443,14 +467,26 @@ local function watch(seen, key, value, onChange)
   if before ~= nil and value ~= before then onChange(value - before) end
 end
 
-function Mood.Tick()
+-- Time on the road (called by the ticker only).
+function Mood.Road(seconds)
   if not ns.char then return end
   local st = state()
   if U.Call(IsResting) then
-    st.road = math.max(0, (st.road or 0) - Mood.TICK * 6)
+    st.road = math.max(0, (st.road or 0) - seconds * 6)
   else
-    st.road = (st.road or 0) + Mood.TICK
+    st.road = (st.road or 0) + seconds
   end
+end
+
+function Mood.Tick()
+  Mood.Road(Mood.TICK)
+  Mood.Watch()
+end
+
+-- News from the other addons since last time (safe to call any time).
+function Mood.Watch()
+  if not ns.char then return end
+  local st = state()
   local seen = ns.char.seen
   local rpgd = ns.cache and ns.cache.rpgd
   if rpgd then

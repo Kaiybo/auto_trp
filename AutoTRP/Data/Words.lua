@@ -679,3 +679,57 @@ function W.FactionName(name)
   if type(name) ~= "string" or W.FACTION_NO_THE[name] or name:find("^The ") then return name and (name:gsub("^The ", "the ")) end
   return "the " .. name
 end
+
+---------------------------------------------------------------------------
+-- Racial tells: how a mood shows on this body. Used about half the time, when one fits.
+---------------------------------------------------------------------------
+W.RACE_TELLS = {
+  Human = {
+    weary = { "Rubs the back of {their} neck and stifles a yawn every few steps." },
+    merry = { "Humming an Elwynn drinking song, slightly off key." },
+    uneasy = { "Keeps a hand near the hilt and glances over a shoulder at every sound." },
+  },
+  Dwarf = {
+    weary = { "Beard tangled with road dust; even a dwarf's legs have limits." },
+    merry = { "Booming laugh, foam in the beard, and a tankard that never seems empty." },
+    angry = { "Beard bristling, jaw working. Something has offended {their} clan honour." },
+    ease = { "Pipe lit, boots up, beard combed. Content as a dwarf by a forge." },
+  },
+  Gnome = {
+    weary = { "Goggles pushed up and eyes red-rimmed. Hasn't stopped tinkering in hours." },
+    elated = { "Bouncing on {their} toes and talking a mile a minute about something technical." },
+    uneasy = { "Fiddling nervously with a gadget that whirs every time something moves." },
+    wonder = { "Taking notes on everything, with diagrams." },
+  },
+  NightElf = {
+    weary = { "Even the long-lived tire. Ears droop a little, eyes dimmer than usual." },
+    uneasy = { "Ears flick at every sound; silver eyes narrowed at the dark." },
+    ease = { "Still as a moonlit pool. Centuries of patience in one quiet breath." },
+    downcast = { "Ears low, eyes distant, carrying a grief older than most kingdoms." },
+  },
+  Orc = {
+    angry = { "Tusks bared, knuckles cracking. The bloodlust is close to the surface today." },
+    merry = { "Roaring with laughter and pounding the table hard enough to spill the grog." },
+    weary = { "Shoulders hunched like a wolf after a long hunt." },
+    elated = { "Chest out, chin up. Lok'tar written in every step." },
+  },
+  Troll = {
+    ease = { "Lounging loose-limbed, tusks catching the light, in no hurry at all, mon." },
+    uneasy = { "Muttering to the loa under {their} breath and touching a charm at {their} neck." },
+    merry = { "Grinning wide around the tusks and swaying to a rhythm only {they} can hear." },
+    angry = { "Hunched low, tusks forward. The look of a Darkspear about to settle a score." },
+  },
+  Tauren = {
+    weary = { "Great head bowed, hooves dragging. Even the Earth Mother's children need rest." },
+    ease = { "Ears twitching lazily, breathing slow and deep like the plains at evening." },
+    uneasy = { "Nostrils flared, ears pinned back. Doesn't like the smell of this place." },
+    downcast = { "Massive shoulders slumped. Grief sits heavy on one so large." },
+  },
+  Scourge = {
+    weary = { "Joints creaking louder than usual. Even the dead wear down." },
+    merry = { "A rattling, jawbone laugh that makes the living flinch." },
+    ease = { "Perfectly still, the way only the dead can be. No breath to steady." },
+    downcast = { "Stares at nothing with empty eyes, remembering a life that was taken." },
+    fed = { "Has eaten something, and nobody wants to ask what." },
+  },
+}

@@ -25,9 +25,11 @@ local function values(sheet)
 end
 
 local lastFast, lastSlow, slowDue = 0, 0, true
+UI.STORY_GAP = 30      -- seconds, at least, between story rewrites when something happens
+UI.STORY_EVERY = 300   -- and a refresh of the story this often regardless
 
--- force: write everything now. Otherwise "Currently" and the glances follow the setting's
--- pace, the rest every five minutes or after something that matters (a level, a death).
+-- force: write everything now. Otherwise "Currently" and the glances are written whenever
+-- they've changed (at most every few seconds), and the story when something happened.
 function UI.Update(force)
   if not ns.char or not ns.db.enabled then return end
   if not TRP.Managed() then return end
@@ -35,22 +37,30 @@ function UI.Update(force)
   local only = {}
   local any = false
   local paused = ns.db.pauseOOC and TRP.IsOOC()
-  if not paused and (force or now - lastFast >= (ns.db.currentlyEvery or 90)) then
+  local gap = ns.db.currentlyEvery or 15
+  if not paused and (force or now - lastFast >= gap) then
     for k in pairs(FAST) do only[k] = true end
     any = true
   end
-  if force or slowDue or now - lastSlow >= 300 then
+  if force or (slowDue and now - lastSlow >= UI.STORY_GAP) or now - lastSlow >= UI.STORY_EVERY then
     for k in pairs(TRP.FIELDS) do if not FAST[k] then only[k] = true end end
     any = true
   end
-  if not any then return end
+  if not any then
+    -- Too soon: come back when the gap has passed.
+    UI.Later(math.max(1, gap - (now - lastFast)))
+    return
+  end
   local sheet = ns.Compose.Sheet()
   local changed, why = TRP.Apply(values(sheet), only)
   if not changed then
     if force then ns.Print("Not updated: " .. tostring(why) .. ".") end
     return
   end
-  if only.currently then lastFast = now end
+  -- The gap only counts from a real write, so a quiet minute never delays the next change.
+  local wroteFast = false
+  for _, k in ipairs(changed) do if FAST[k] then wroteFast = true end end
+  if wroteFast then lastFast = now end
   if only.history then lastSlow, slowDue = now, false end
   if force then
     if #changed > 0 then
@@ -64,19 +74,59 @@ function UI.Update(force)
   end
 end
 
--- Something happened: let "Currently" catch up soon, and the story too when asked.
-local function soon(story)
-  if story then slowDue = true end
-  lastFast = math.min(lastFast, U.Now() - (ns.db.currentlyEvery or 90) + 8)
+---------------------------------------------------------------------------
+-- Reacting: game events ask for a pass soon. Several events in a burst make one pass.
+---------------------------------------------------------------------------
+local pending, lastReact = false, 0
+UI.DEBOUNCE = 1.5
+
+-- One pass: read everything, notice news, update mood, badge and profile.
+function UI.React()
+  pending = false
+  if not ns.char then return end
+  lastReact = U.Now()
+  ns.Compose.Refresh()
+  ns.Mood.Watch()
+  local mood = ns.Mood.Current(ns.cache.world)
+  ns.Mood.Note(mood)
+  UI.UpdateBadge(mood)
+  UI.Update(false)
 end
 
-ns.On("ZONE_CHANGED_NEW_AREA", function() soon(false) end)
-ns.On("PLAYER_LEVEL_UP", function() soon(true) end)
-ns.On("PLAYER_DEAD", function() soon(true) end)
-ns.On("PLAYER_UNGHOST", function() soon(false) end)
-ns.On("PLAYER_UPDATE_RESTING", function() soon(false) end)
-ns.On("GROUP_ROSTER_UPDATE", function() soon(false) end)
-ns.On("ENCOUNTER_END", function() soon(true) end)
+function UI.Later(seconds)
+  if pending then return end
+  pending = true
+  ns.After(seconds, UI.React)
+end
+
+-- story: the History/About side should catch up too.
+function UI.Poke(story)
+  if story then slowDue = true end
+  if pending then return end
+  local wait = UI.DEBOUNCE
+  local since = U.Now() - lastReact
+  if since < 3 then wait = math.max(wait, 3 - since) end
+  UI.Later(wait)
+end
+
+local FAST_EVENTS = {
+  "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA", "PLAYER_UPDATE_RESTING",
+  "PLAYER_REGEN_ENABLED", "PLAYER_ALIVE", "PLAYER_UNGHOST", "GROUP_ROSTER_UPDATE",
+  "PLAYER_MOUNT_DISPLAY_CHANGED", "UPDATE_SHAPESHIFT_FORM", "PLAYER_CONTROL_LOST", "PLAYER_CONTROL_GAINED",
+  "MAIL_SHOW", "BANKFRAME_OPENED", "AUCTION_HOUSE_SHOW", "MERCHANT_SHOW", "TRAINER_SHOW",
+  "TRADE_SKILL_SHOW", "CRAFT_SHOW", "TAXIMAP_OPENED", "CHAT_MSG_LOOT", "CHAT_MSG_TEXT_EMOTE",
+  "PLAYER_MONEY", "BAG_UPDATE_DELAYED", "UPDATE_STEALTH", "PLAYER_FLAGS_CHANGED",
+}
+local STORY_EVENTS = {
+  "PLAYER_DEAD", "PLAYER_LEVEL_UP", "ENCOUNTER_END", "QUEST_TURNED_IN", "GOSSIP_CLOSED", "QUEST_FINISHED",
+  "PLAYER_EQUIPMENT_CHANGED", "UPDATE_FACTION", "PLAYER_GUILD_UPDATE", "SKILL_LINES_CHANGED",
+}
+for _, e in ipairs(FAST_EVENTS) do ns.On(e, function() UI.Poke(false) end) end
+for _, e in ipairs(STORY_EVENTS) do ns.On(e, function() UI.Poke(true) end) end
+ns.On("UNIT_AURA", function(_, unit) if unit == "player" then UI.Poke(false) end end)
+ns.On("UNIT_PET", function(_, unit) if unit == "player" then UI.Poke(false) end end)
+ns.On("UNIT_SPELLCAST_CHANNEL_START", function(_, unit) if unit == "player" then UI.Poke(false) end end)
+ns.Listen("MOOD_CHANGED", function() UI.Poke(false) end)
 
 ---------------------------------------------------------------------------
 -- First run
@@ -134,8 +184,9 @@ ns.Listen("LOGIN", function()
   ns.char.seedName = (U.Call(UnitName, "player") or "") .. "-" .. (U.Call(GetRealmName) or "")
   ns.After(6, function() firstRun(0) end)
   ns.Ticker(ns.Mood.TICK, function()
+    ns.Mood.Road(ns.Mood.TICK)
     ns.Compose.Refresh()
-    ns.Mood.Tick()
+    ns.Mood.Watch()
     local mood = ns.Mood.Current(ns.cache.world)
     ns.Mood.Log(mood, ns.cache.world)
     ns.Mood.Note(mood)
