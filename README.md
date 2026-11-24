@@ -68,6 +68,13 @@ Dozens of signals feed it, and each feeling remembers why (`/atrp mood` shows th
 
 Copy the `AutoTRP` folder into `World of Warcraft/<your Forever folder>/Interface/AddOns/` and restart the game. Needs **Total RP 3**.
 
+## Getting at it
+
+- **Settings**: `/atrp`, or Options > AddOns > Auto TRP.
+- **The AddOns menu** by the minimap: click Auto TRP for the preview, right-click to pause or resume.
+- **Key bindings** (Key Bindings > AddOns > Auto TRP): show the preview, pause or resume, write my profile now.
+- **The mood badge** on screen (see above).
+
 ## Commands
 
 | | |

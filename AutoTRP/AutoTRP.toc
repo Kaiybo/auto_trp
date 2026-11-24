@@ -8,6 +8,9 @@
 ## SavedVariables: AutoTRPDB
 ## SavedVariablesPerCharacter: AutoTRPCharDB
 ## IconTexture: Interface\Icons\INV_Misc_Book_11
+## AddonCompartmentFunc: AutoTRP_OnCompartmentClick
+## AddonCompartmentFuncOnEnter: AutoTRP_OnCompartmentEnter
+## AddonCompartmentFuncOnLeave: AutoTRP_OnCompartmentLeave
 ## X-License: MIT
 ## X-Website: https://github.com/Kaiybo/auto_trp
 

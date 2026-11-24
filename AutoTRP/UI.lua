@@ -421,21 +421,29 @@ function UI.BuildPanel()
   enableLabel:SetText("Keep my profile up to date")
   enable:SetScript("OnClick", function(self) ns.db.enabled = self:GetChecked() and true or false end)
 
-  local y, x, col = -110, 16, 0
+  -- The options scroll, so the panel fits any screen.
+  local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", 8, -104)
+  scroll:SetPoint("BOTTOMRIGHT", -30, 52)
+  local content = CreateFrame("Frame", nil, scroll)
+  content:SetSize(620, 800)
+  scroll:SetScrollChild(content)
+
+  local y, x, col, lowest = -4, 8, 0, 0
   local boxes = {}
   for _, opt in ipairs(OPTIONS) do
     if opt.head then
-      if opt.head == "Where it looks" then col, y = 1, -110 end
-      local h = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-      x = col == 0 and 16 or 340
+      if opt.head == "Where it looks" then col, y = 1, -4 end
+      local h = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+      x = col == 0 and 8 or 330
       h:SetPoint("TOPLEFT", x, y)
       h:SetText(opt.head)
       y = y - 20
     else
-      local cb = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+      local cb = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
       cb:SetSize(24, 24)
       cb:SetPoint("TOPLEFT", x - 4, y)
-      local l = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+      local l = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
       l:SetPoint("LEFT", cb, "RIGHT", 2, 0)
       l:SetWidth(col == 0 and 290 or 260)
       l:SetJustifyH("LEFT")
@@ -449,7 +457,9 @@ function UI.BuildPanel()
       boxes[#boxes + 1] = cb
       y = y - 21
     end
+    lowest = math.min(lowest, y)
   end
+  content:SetHeight(-lowest + 16)
 
   local function button(text, w, anchorX, fn)
     local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
@@ -529,9 +539,7 @@ function UI.BuildBadge()
   end)
   badge:SetScript("OnClick", function(_, button)
     if button == "RightButton" then
-      ns.db.enabled = not ns.db.enabled
-      ns.Print(ns.db.enabled and "Resumed." or "Paused. Your profile stays as it is.")
-      UI.UpdateBadge()
+      UI.TogglePause()
     else
       UI.Preview()
     end
@@ -574,6 +582,38 @@ function UI.UpdateBadge(mood)
   elseif v < 0 then badge.border:SetVertexColor(1, 0.45, 0.45)
   else badge.border:SetVertexColor(1, 1, 1) end
 end
+
+---------------------------------------------------------------------------
+-- The AddOns compartment (by the minimap) and key bindings
+---------------------------------------------------------------------------
+function AutoTRP_OnCompartmentClick(_, button)
+  if button == "RightButton" then UI.TogglePause() else UI.Preview() end
+end
+function AutoTRP_OnCompartmentEnter(_, frame)
+  if not GameTooltip then return end
+  GameTooltip:SetOwner(frame or UIParent, "ANCHOR_LEFT")
+  GameTooltip:AddLine("Auto TRP" .. (ns.db and not ns.db.enabled and " |cff808080(paused)|r" or ""))
+  if badgeMood then GameTooltip:AddLine(badgeMood.title, 1, 0.82, 0) end
+  GameTooltip:AddLine("Click: preview.  Right-click: pause/resume.", 0.5, 0.5, 0.5, true)
+  GameTooltip:Show()
+end
+function AutoTRP_OnCompartmentLeave() if GameTooltip then GameTooltip:Hide() end end
+
+function UI.TogglePause()
+  ns.db.enabled = not ns.db.enabled
+  ns.Print(ns.db.enabled and "Resumed." or "Paused. Your profile stays as it is.")
+  UI.UpdateBadge()
+  if ns.db.enabled then UI.Update(true) end
+end
+
+function AutoTRP_Binding(what)
+  if what == "preview" then UI.Preview() elseif what == "pause" then UI.TogglePause() elseif what == "update" then UI.Update(true) end
+end
+
+BINDING_HEADER_AUTOTRP = "Auto TRP"
+BINDING_NAME_AUTOTRP_PREVIEW = "Show the preview"
+BINDING_NAME_AUTOTRP_PAUSE = "Pause or resume"
+BINDING_NAME_AUTOTRP_UPDATE = "Write my profile now"
 
 ---------------------------------------------------------------------------
 -- Slash commands

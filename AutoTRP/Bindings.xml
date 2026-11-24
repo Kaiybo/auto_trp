@@ -1,0 +1,11 @@
+<Bindings>
+  <Binding name="AUTOTRP_PREVIEW" header="AUTOTRP" category="ADDONS">
+    AutoTRP_Binding("preview")
+  </Binding>
+  <Binding name="AUTOTRP_PAUSE" category="ADDONS">
+    AutoTRP_Binding("pause")
+  </Binding>
+  <Binding name="AUTOTRP_UPDATE" category="ADDONS">
+    AutoTRP_Binding("update")
+  </Binding>
+</Bindings>
