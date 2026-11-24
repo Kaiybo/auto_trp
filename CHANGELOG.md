@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0 (2026-11-24): Familiar Faces
+
+- Inside a dungeon or raid, Currently describes it: the dripping tunnels of the Deadmines, the cursed halls of Shadowfang Keep, the burning streets of Stratholme, the fire of the Molten Core, and two dozen more.
+- Targeting a player you marked as a friend in Social Diary lifts your mood ("ran into Mirelle"); a foe sets your jaw. Once per person every half hour.
+- Every class now has its own way of showing most moods.
+
 ## 0.7.0 (2026-11-24): Temper and Blood
 
 - Temperament by race and class: dwarves take to drink merrily, orcs' blood runs hot, tauren are slow to anger, the Forsaken brood but scare less; warriors relish a fight, priests and paladins feel devotion and grief more, warlocks are hard to haunt, rogues stay cool.

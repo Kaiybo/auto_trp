@@ -421,6 +421,20 @@ local lg = ns.Compose.LatelyGlance()
 check(lg.TX:find("Was just talking warmly with Innkeeper Farley in Elwynn Forest"), "Lately: a conversation just now: " .. lg.TX)
 RPGDialogueCharDB.deaths[1].t = savedDeath
 
+-- Dungeon atmosphere; meeting a friend
+IsInInstance = function() return true, "party" end
+state.zone, state.sub = "The Deadmines", nil
+ns.Compose.Refresh()
+check(ns.Compose.Currently(ns.Mood.Current()):find("dripping tunnels of the Deadmines"), "dungeon atmosphere")
+IsInInstance = function() return false, "none" end
+state.zone, state.sub = "Duskwood", "Raven Hill"
+UnitIsPlayer = function() return true end
+UnitName = function(u) if u == "target" then return "Mirelle" end return "Aldric" end
+ns.char.mood.emo.elated = nil
+event("PLAYER_TARGET_CHANGED")
+check((ns.char.mood.emo.elated or 0) > 10 and ns.char.mood.why.elated == "ran into Mirelle", "running into a Social Diary friend")
+UnitName = function() return "Aldric" end
+
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")

@@ -474,6 +474,32 @@ ns.On("ZONE_CHANGED_NEW_AREA", function()
   if isHome then st.awayFrom = nil elseif not st.awayFrom then st.awayFrom = now end
 end)
 
+-- Running into people you know (Social Diary friends and foes), at most once every half hour
+-- per person. Only your target: cheap, and only someone you chose to look at.
+local metAt = {}
+ns.On("PLAYER_TARGET_CHANGED", function()
+  local sd = ns.cache and ns.cache.sd
+  if not sd or not U.Call(UnitIsPlayer, "target") then return end
+  local name = ns.World.Safe(U.Call(UnitName, "target"))
+  if type(name) ~= "string" then return end
+  local now = U.Now()
+  if metAt[name] and now - metAt[name] < 1800 then return end
+  for _, f in ipairs(sd.friends) do
+    if f.name == name then
+      metAt[name] = now
+      Mood.Push("elated", 20, "ran into " .. name)
+      return
+    end
+  end
+  for _, f in ipairs(sd.foes) do
+    if f.name == name then
+      metAt[name] = now
+      Mood.Push("angry", 20, "crossed paths with " .. name)
+      return
+    end
+  end
+end)
+
 ns.On("ZONE_CHANGED", function()
   if not ns.char then return end
   local sub = U.Plain(U.Call(GetSubZoneText))

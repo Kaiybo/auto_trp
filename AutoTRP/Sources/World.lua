@@ -441,7 +441,7 @@ function World.Activity(s, seed)
     local list = s.auras.eating and W.ACTIVITY.eating or W.ACTIVITY.drinking
     text = U.Pick(list, seed .. "meal"):gsub("{place}", function() return U.Mid(sub) or where end)
   elseif s.instance == "party" or s.instance == "raid" then
-    text = U.Pick({ "deep inside " .. where, "delving into " .. where }, seed)
+    text = W.INSTANCE_FLAVOR[s.zone or ""] or U.Pick({ "deep inside " .. where, "delving into " .. where }, seed)
   elseif s.instance == "pvp" then
     text = "fighting for the banner in " .. where
   elseif s.resting and World.IsInn(s.subzone) then

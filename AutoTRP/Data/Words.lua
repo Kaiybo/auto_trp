@@ -1135,3 +1135,92 @@ more("Scourge", {
   angry = { "Eyes blazing a cold yellow; the Dark Lady's fury in miniature." },
   wonder = { "Peering about with empty eyes, as if trying to remember being alive." },
 })
+
+---------------------------------------------------------------------------
+-- Dungeons and raids: what it's like inside (Currently).
+---------------------------------------------------------------------------
+W.INSTANCE_FLAVOR = {
+  ["The Deadmines"] = "in the dripping tunnels of the Deadmines",
+  ["Wailing Caverns"] = "deep in the twisting Wailing Caverns",
+  ["Shadowfang Keep"] = "among the cursed halls of Shadowfang Keep",
+  ["Ragefire Chasm"] = "in the smoky depths of Ragefire Chasm",
+  ["Blackfathom Deeps"] = "wading through the drowned temple of Blackfathom Deeps",
+  ["The Stockade"] = "in the cells of the Stormwind Stockade",
+  ["Gnomeregan"] = "in the poisoned halls of Gnomeregan",
+  ["Razorfen Kraul"] = "among the thorny warrens of Razorfen Kraul",
+  ["Scarlet Monastery"] = "behind the zealots' walls of the Scarlet Monastery",
+  ["Razorfen Downs"] = "in the bone-strewn barrows of Razorfen Downs",
+  ["Uldaman"] = "in the ancient Titan vaults of Uldaman",
+  ["Zul'Farrak"] = "in the sun-baked troll city of Zul'Farrak",
+  ["Maraudon"] = "in the crystal caverns of Maraudon",
+  ["The Temple of Atal'Hakkar"] = "in the sunken temple of Atal'Hakkar",
+  ["Blackrock Depths"] = "deep in the Dark Iron city of Blackrock Depths",
+  ["Blackrock Spire"] = "climbing the orc-held heights of Blackrock Spire",
+  ["Dire Maul"] = "among the ruined Highborne halls of Dire Maul",
+  ["Stratholme"] = "in the burning, plague-ridden streets of Stratholme",
+  ["Scholomance"] = "in the necromancers' halls of Scholomance",
+  ["Molten Core"] = "in the fire and magma of the Molten Core",
+  ["Onyxia's Lair"] = "in the brood mother's lair",
+  ["Blackwing Lair"] = "in Nefarian's lair atop Blackrock",
+  ["Zul'Gurub"] = "in the blood-soaked jungle temple of Zul'Gurub",
+  ["Ruins of Ahn'Qiraj"] = "among the ruins of Ahn'Qiraj",
+  ["Temple of Ahn'Qiraj"] = "deep in the hive-temple of Ahn'Qiraj",
+  ["Naxxramas"] = "in the floating necropolis of Naxxramas",
+}
+
+-- More ways each class shows a mood.
+local function moreClass(class, t) for k, v in pairs(t) do W.CLASS_TELLS[class][k] = v end end
+moreClass("WARRIOR", {
+  shaken = { "Leaning on {their} weapon a little more than usual." },
+  elated = { "Banging a fist on {their} shield and laughing." },
+  downcast = { "Polishing a dented helm in silence." },
+  ease = { "Armour off for once, stretching out sore shoulders." },
+})
+moreClass("PALADIN", {
+  shaken = { "Clutching {their} holy symbol a little too tightly." },
+  elated = { "Practically glowing, and not only with the Light." },
+  angry = { "A righteous fury in {their} eyes; someone has offended the Light." },
+  ease = { "Kneeling in quiet prayer, perfectly calm." },
+})
+moreClass("HUNTER", {
+  shaken = { "Kneeling by {their} companion, checking it over for wounds." },
+  elated = { "Ruffling {their} companion's fur and grinning." },
+  downcast = { "Sitting close to {their} companion, saying nothing." },
+  fierce = { "Bowstring humming, eyes on the next quarry." },
+})
+moreClass("ROGUE", {
+  shaken = { "Fingers drumming on a dagger hilt, eyes darting." },
+  elated = { "A crooked grin and a new spring in {their} step. Something went very right." },
+  ease = { "Leaning in a doorway, idly flipping a coin." },
+  angry = { "Very still and very quiet. That's usually worse." },
+})
+moreClass("PRIEST", {
+  elated = { "Humming a hymn, radiant." },
+  angry = { "Lips pressed thin; even saints have limits." },
+  ease = { "Reading scripture with a contented sigh." },
+  uneasy = { "Holding a candle a little higher, praying the dark stays back." },
+})
+moreClass("SHAMAN", {
+  shaken = { "Touching the earth with one hand to steady {themselves}." },
+  elated = { "Thunder seems to rumble somewhere happily overhead." },
+  downcast = { "Sitting cross-legged, asking the spirits for answers they won't give." },
+  wonder = { "Head tilted, listening to what the land here has to say." },
+})
+moreClass("MAGE", {
+  shaken = { "Muttering a counterspell under {their} breath out of habit." },
+  elated = { "Fingertips glittering with stray sparks of excitement." },
+  ease = { "Conjured tea in hand, reading by an arcane light." },
+  wonder = { "Scribbling observations about the local ley lines." },
+})
+moreClass("WARLOCK", {
+  shaken = { "The shadows around {them} flicker nervously." },
+  elated = { "A thin, satisfied smile, as if a bargain paid off." },
+  downcast = { "Staring into a soul shard, lost in thought." },
+  fierce = { "Fel fire dances at {their} fingertips, eager." },
+})
+moreClass("DRUID", {
+  shaken = { "Breathing slowly, steadying {themselves} the way a cornered animal does." },
+  elated = { "Flowers seem to perk up as {they} pass." },
+  downcast = { "Sitting beneath a tree, one hand on the bark." },
+  wonder = { "Kneeling to examine every unfamiliar plant." },
+})
