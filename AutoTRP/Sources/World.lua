@@ -413,7 +413,8 @@ end
 
 -- "resting at the Lion's Pride Inn in Goldshire" etc. Never the exact spot in the open
 -- world: a profile is public, and "around Goldshire" is plenty.
-function World.Activity(s, seed)
+-- terse: leave out the form and the pet (when Currently would run long).
+function World.Activity(s, seed, terse)
   local sub = s.subzone
   if sub and World.IsInn(sub) and not sub:find("^The ") then sub = "the " .. sub end
   local place = sub and (U.Mid(sub) .. ", " .. (s.zone or "")) or s.zone or "the road"
@@ -471,6 +472,7 @@ function World.Activity(s, seed)
       text = U.Pick({ "on the road " .. around, "out " .. around, "travelling " .. around }, seed)
     end
   end
+  if terse then return text end
   if s.form and not s.taxi then text = text .. ", " .. s.form end
   local pet = petPhrase(s, seed)
   if pet then text = text .. ", " .. pet end

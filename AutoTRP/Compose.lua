@@ -78,17 +78,29 @@ function Compose.Intent()
   return nil
 end
 
+-- Total RP 3 shows Currently in tooltips: keep it to a couple of lines. When it runs long,
+-- the time of day goes first, then the form and pet, then the second mood.
+Compose.CURRENTLY_MAX = 200
+
 function Compose.Currently(mood)
   local world = ns.cache.world
-  local text = mood.adj
-  if mood.also then text = text .. " and " .. mood.also end
-  text = text .. ", " .. ns.World.Activity(world, seed("act:" .. (world.zone or "") .. (world.subzone or "")))
-  local tod = ns.World.TimeOfDay(world)
-  if tod then text = text .. " " .. tod end
-  text = text .. "."
+  local s = seed("act:" .. (world.zone or "") .. (world.subzone or ""))
   local intent = Compose.Intent()
-  if intent then text = text .. " " .. sentence(intent) end
-  return text
+  local tod = ns.World.TimeOfDay(world)
+  local function build(withAlso, terse, withTod)
+    local text = mood.adj
+    if withAlso and mood.also then text = text .. " and " .. mood.also end
+    text = text .. ", " .. ns.World.Activity(world, s, terse)
+    if withTod and tod then text = text .. " " .. tod end
+    text = text .. "."
+    if intent then text = text .. " " .. sentence(intent) end
+    return text
+  end
+  for _, v in ipairs({ { true, false, true }, { true, false, false }, { true, true, false }, { false, true, false } }) do
+    local text = build(v[1], v[2], v[3])
+    if #text <= Compose.CURRENTLY_MAX then return text end
+  end
+  return build(false, true, false)
 end
 
 ---------------------------------------------------------------------------

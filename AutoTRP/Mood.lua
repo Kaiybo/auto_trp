@@ -303,9 +303,14 @@ function Mood.Current(world)
   if ct and ct[key] then pools[#pools + 1] = ct[key] end
   local pool = pools[(U.Hash(seed .. key .. "pool") % #pools) + 1]
   local tell = pick(pool, seed .. key .. "t")
+  local adj = pick(d.adj, seed .. key)
+  -- A feeling from something that happened, mostly worn off now: say it's fading.
+  if ranked[1] and st.emo[key] and ranked[1].v < 30 and not adj:find("^Still") and not adj:find("^Not") then
+    adj = "Still " .. adj:gsub("^%u", string.lower)
+  end
   local out = {
     key = key, title = d.title, icon = d.icon,
-    adj = pick(d.adj, seed .. key), tell = tell,
+    adj = adj, tell = tell,
     reasons = ranked[1] and why[ranked[1].name] or nil, ranked = ranked,
   }
   local second = ranked[2]

@@ -473,6 +473,27 @@ ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.LatelyGlance().TX:find('Just saw a job through: "The Collector", in Elwynn Forest'), "Lately: a job just done")
 ChronicleCharDB.quests = {}
 
+-- Fading moods; Currently stays short
+ns.Mood.SetManual(nil)
+for k in pairs(ns.char.mood.emo) do ns.char.mood.emo[k] = nil end
+state.buffs = {}
+ns.char.mood.emo.wonder = 26
+state.zone, state.sub, state.resting = "Westfall", nil, false
+GetGameTime = function() return 12, 0 end
+GetMoney = function() return 99999999 end
+UnitXP = function() return 100 end
+ns.char.mood.road, ns.char.mood.lastSocial = 0, NOW
+ns.char.lastFight = nil
+ns.Compose.Refresh()
+local fm = ns.Mood.Current(ns.cache.world)
+check(fm.key == "wonder" and fm.adj:find("^Still "), "a fading feeling reads 'Still ...': " .. fm.key .. " / " .. fm.adj)
+GetGameTime = function() return 22, 10 end
+UnitXP = function() return 950 end
+state.zone, state.sub = "Duskwood", "Raven Hill"
+ns.char.intent = { text = string.rep("looking for a very particular someone ", 3), untilT = NOW + 100 }
+check(#ns.Compose.Currently(fm) <= 200 or ns.Compose.Currently(fm):find("Looking for"), "a long Currently is trimmed (or only the intent is long)")
+ns.char.intent = nil
+
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")
