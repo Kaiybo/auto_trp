@@ -271,6 +271,15 @@ TRP.FIELDS = {
   history = aboutField("HI"),
   physical = aboutField("PH"),
   ooc = textField("character", "CO"),
+  -- Total RP 3's "open to walk-ups" (2 yes, 1 no). "No" reads as empty, the profile default.
+  walkup = {
+    section = "character", keepOnNil = true,
+    read = function(p) return sub(p, "character").WU == 2 and "2" or "" end,
+    write = function(p, v) sub(p, "character").WU = (v == 2) and 2 or 1 end,
+    sig = function(v) return v == 2 and "2" or "" end,
+    raw = function(p) return sub(p, "character").WU end,
+    setRaw = function(p, v) sub(p, "character").WU = v end,
+  },
   relationship = {
     section = "characteristics",
     read = function(p) local v = sub(p, "characteristics").RS; return (v and v ~= 0) and tostring(v) or "" end,
@@ -306,7 +315,7 @@ TRP.LABELS = {
   history = "About: History", physical = "About: Physical", traits = "Personality traits",
   glance_mood = "Glance: mood", glance_lately = "Glance: lately", glance_company = "Glance: company",
   glance_ambition = "Glance: ambition", glance_marks = "Glance: marks",
-  ooc = "OOC note", relationship = "Relationship status",
+  ooc = "OOC note", relationship = "Relationship status", walkup = "Open to walk-ups",
 }
 
 -- Which setting switches a field on.
@@ -430,7 +439,9 @@ function TRP.Apply(values, only)
   local bk = TRP.BackupFor(id)
 
   for key, def in pairs(TRP.FIELDS) do
-    if (not only or only[key]) and enabled(key) and not theirs[key] and not (editing and EDITED_SECTIONS[def.section]) then
+    -- keepOnNil: "no opinion right now" leaves the field exactly as it is.
+    local keep = def.keepOnNil and values[key] == nil
+    if not keep and (not only or only[key]) and enabled(key) and not theirs[key] and not (editing and EDITED_SECTIONS[def.section]) then
       local value = values[key]
       if type(value) == "string" then value = clean(value, def.multiLine) end
       local want = def.sig and def.sig(value) or (U.Plain(value) or "")

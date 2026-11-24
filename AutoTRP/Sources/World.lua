@@ -379,7 +379,7 @@ ns.OnUnit("UNIT_SPELLCAST_SUCCEEDED", "player", function(_, _, _, spellID)
   local dest = name:match("^Portal: (.+)$")
   if dest then World.SetContext("portal", dest) return end
   local def = W.SPELLS[name]
-  if not def then return end
+  if not def or not ns.db.reactPlaces then return end
   if def.context then World.SetContext(def.context) end
   if def.mood and ns.Mood then ns.Mood.Push(def.mood[1], def.mood[2], U.Pron(def.mood[3])) end
   if def.context and ns.UI then ns.UI.Poke(false) end

@@ -210,7 +210,7 @@ function Mood.Scores(world)
   if world.festival and W.FESTIVALS[world.festival] then add("festive", 20, "the season") end
 
   -- Places that mean something to this race or class (subzone first, then zone).
-  for _, list in ipairs({ W.RACE_PLACES[world.race or ""], W.CLASS_PLACES[world.class or ""] }) do
+  for _, list in ipairs(ns.db.reactPlaces and { W.RACE_PLACES[world.race or ""] or false, W.CLASS_PLACES[world.class or ""] or false } or {}) do
     local hit = list and ((world.subzone and list[world.subzone]) or (world.zone and list[world.zone]))
     if hit then add(hit[1], hit[2], hit[3]) end
   end
@@ -522,7 +522,7 @@ end)
 local metAt = {}
 ns.On("PLAYER_TARGET_CHANGED", function()
   local sd = ns.cache and ns.cache.sd
-  if not sd or not U.Call(UnitIsPlayer, "target") then return end
+  if not ns.db.reactPeople or not sd or not U.Call(UnitIsPlayer, "target") then return end
   local name = ns.World.Safe(U.Call(UnitName, "target"))
   if type(name) ~= "string" then return end
   local now = U.Now()

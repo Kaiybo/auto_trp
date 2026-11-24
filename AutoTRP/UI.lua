@@ -10,7 +10,7 @@ ns.UI = UI
 ---------------------------------------------------------------------------
 -- What goes where
 ---------------------------------------------------------------------------
-local FAST = { currently = true, glance_mood = true, glance_lately = true, glance_company = true, glance_marks = true }
+local FAST = { walkup = true, currently = true, glance_mood = true, glance_lately = true, glance_company = true, glance_marks = true }
 
 local function values(sheet)
   return {
@@ -18,6 +18,7 @@ local function values(sheet)
     residence = sheet.residence, birthplace = sheet.birthplace, motto = sheet.motto,
     nickname = sheet.nickname, bearing = sheet.bearing, history = sheet.history,
     physical = sheet.physical, traits = sheet.traits, relationship = sheet.relationship, ooc = sheet.ooc,
+    walkup = sheet.walkup,
     glance_mood = sheet.glances.mood, glance_lately = sheet.glances.lately,
     glance_company = sheet.glances.company, glance_ambition = sheet.glances.ambition,
     glance_marks = sheet.glances.marks,
@@ -290,6 +291,7 @@ function UI.PreviewText()
   add("birthplace", s.birthplace)
   add("relationship", s.relationship and ({ [2] = "Taken", [3] = "Married" })[s.relationship])
   add("ooc", s.ooc)
+  add("walkup", s.walkup == 2 and "Open to walk-ups" or s.walkup == 1 and "Not open to walk-ups" or "(no change)")
   add("traits", traits)
   add("bearing", s.bearing)
   add("history", s.history)
@@ -370,6 +372,7 @@ local OPTIONS = {
   { path = { "fields", "birthplace" }, label = "Birthplace" },
   { path = { "fields", "relationship" }, label = "Relationship status, from a partner in Social Diary" },
   { path = { "fields", "ooc" }, label = "OOC note saying the profile updates itself" },
+  { path = { "fields", "walkup" }, label = "Open to walk-ups follows your mood" },
   { head = "Where it looks" },
   { path = { "sources", "rpgd" }, label = "RPG Dialogue" },
   { path = { "sources", "socialDiary" }, label = "Social Diary" },
@@ -379,6 +382,8 @@ local OPTIONS = {
   { path = { "chronicleGoals" }, label = "Share your open Chronicle goal as an ambition" },
   { path = { "nameFriends" }, label = "Name the players you marked as friends in Social Diary" },
   { path = { "pauseOOC" }, label = "Pause Currently and glances while out of character" },
+  { path = { "reactPeople" }, label = "Friends, foes and enemies you target move your mood" },
+  { path = { "reactPlaces" }, label = "Places and spells that matter to your race and class" },
   { path = { "moodNotes" }, label = "A quiet chat line when your mood turns" },
   { path = { "showBadge" }, label = "Show the mood badge (drag to move)", after = function() UI.UpdateBadge() end },
   { path = { "quiet" }, label = "Quiet: no chat messages" },

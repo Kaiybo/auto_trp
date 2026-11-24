@@ -115,6 +115,7 @@ ns.DEFAULTS = {
     nickname = true,    -- an epithet you've earned
     relationship = true, -- relationship status, from a partner you named in Social Diary
     ooc = false,        -- an out-of-character note that the profile updates itself
+    walkup = false,     -- "open to walk-ups" follows your mood (off by default)
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },
@@ -124,6 +125,8 @@ ns.DEFAULTS = {
   currentlyEvery = 15,     -- seconds, at least, between rewrites of "Currently" and the glances
   quiet = false,           -- no chat lines when the profile is updated
   pauseOOC = false,
+  reactPeople = true,      -- friends, foes and enemies you target move your mood
+  reactPlaces = true,      -- places and spells that matter to your race and class
   moodNotes = true,        -- a quiet line in your own chat when your mood turns
   showBadge = true,        -- the small mood badge on screen
   badgePos = nil,        -- leave "Currently" and the glances alone while you're out of character

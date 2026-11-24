@@ -515,6 +515,22 @@ state.grouped = false
 UnitExists = function() return false end
 GetNumGroupMembers = function() return 0 end
 
+-- Walk-ups follow the mood (when switched on)
+ns.db.fields.walkup = true
+ns.Mood.SetManual("sociable")
+ns.UI.Update(true)
+check(p.character.WU == 2, "sociable: open to walk-ups")
+ns.Mood.SetManual("angry")
+NOW = NOW + 30
+ns.UI.Update(true)
+check(p.character.WU == 1, "angry: not open to walk-ups")
+ns.Mood.SetManual("wonder")
+NOW = NOW + 30
+ns.UI.Update(true)
+check(p.character.WU == 1 and ns.TRP.Status("walkup") == "auto", "a neutral mood leaves it as it was")
+ns.Mood.SetManual(nil)
+NOW = NOW - 60
+
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")

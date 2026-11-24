@@ -787,6 +787,18 @@ function Compose.RelationshipStatus()
   return sd and sd.partner and sd.partner.status or nil
 end
 
+-- Open to walk-ups when the mood is open; closed when it isn't; otherwise no change.
+local WALKUP_OPEN = { sociable = true, ease = true, merry = true, company = true, elated = true, festive = true,
+  smitten = true, satisfied = true, homecoming = true, proud = true, flush = true, ["calm:charming"] = true, ["calm:kind"] = true }
+local WALKUP_CLOSED = { angry = true, downcast = true, sorrowful = true, wounded = true, tense = true, shaken = true,
+  ailing = true, frustrated = true, drained = true, haunted = true, ["calm:reserved"] = true, ["calm:cruel"] = true }
+function Compose.Walkup(mood)
+  if not mood then return nil end
+  if WALKUP_OPEN[mood.key] then return 2 end
+  if WALKUP_CLOSED[mood.key] then return 1 end
+  return nil
+end
+
 function Compose.OOCNote()
   return "Parts of this profile update themselves as I play (Auto TRP)."
 end
@@ -854,6 +866,7 @@ function Compose.Sheet(fresh)
     fulltitle = Compose.FullTitle(),
     residence = Compose.Residence(),
     relationship = Compose.RelationshipStatus(),
+    walkup = Compose.Walkup(mood),
     ooc = Compose.OOCNote(),
     birthplace = Compose.Birthplace(),
     motto = Compose.Motto(),
