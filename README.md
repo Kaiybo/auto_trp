@@ -32,7 +32,7 @@ Each one has a switch in the settings.
 
 ## Race and class
 
-Your race and class shape almost everything: the rank ladder, how each mood shows on you (a tauren's ears pinned back, a Forsaken's creaking joints, a mage's sparks at the fingertips), what you get up to on the road (a hunter tracking, a shaman listening to the spirits, a warlock gathering reagents best not named), your background when RPG Dialogue has no origin for you, your ambitions and your motto.
+Your race and class shape almost everything: the rank ladder, how each mood shows on you (a tauren's ears pinned back, a Forsaken's creaking joints, a mage's sparks at the fingertips), what you get up to on the road (a hunter tracking, a shaman listening to the spirits, a warlock gathering reagents best not named), your background when RPG Dialogue has no origin for you, your ambitions and your motto. Places mean something to your race and class (a night elf grieves in corrupted Felwood, a dwarf bristles in Dark Iron land, a Forsaken remembers the ruins of Lordaeron, a paladin finds peace at Light's Hope), and so do your spells and racial abilities (resurrecting a companion, opening a portal, Shadowmeld, Cannibalize, Blood Fury...). A hunter's pet's happiness shows too.
 
 ## How your character feels
 

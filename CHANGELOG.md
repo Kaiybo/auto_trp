@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 (2026-11-24): Old Wounds, Holy Ground
+
+- Places mean something to your race and class: a night elf grieves in Felwood, a dwarf bristles in Dark Iron land and wonders at Titan ruins, a gnome mourns lost Gnomeregan, a Forsaken remembers Lordaeron, an orc burns at the old internment camps, a troll is at home in Stranglethorn, a tauren on Mulgore's plains. Paladins and priests at holy sites, druids in Moonglade, shamans on Elder Rise, warlocks in fel-touched land, rogues in Booty Bay, warriors at the arena. Everyone eases among their own people and tenses in the enemy's capital.
+- Your spells: bringing someone back from death (Resurrection, Redemption, Ancestral Spirit, Rebirth) feels righteous; a mage's portal and a warlock's summoning ritual show in Currently; racial abilities (Shadowmeld, Cannibalize, Berserking, Blood Fury, War Stomp, Stoneform, Escape Artist, Will of the Forsaken) colour your mood.
+- Hunters: your pet's happiness shows in your mood and the Company glance.
+
 ## 0.5.0 (2026-11-24): Light Step
 
 - Lighter: nothing is worked out during combat; the other addons' data is read only when it changes; one pass per update instead of two; health and aura events only for you and your party.

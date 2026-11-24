@@ -275,6 +275,7 @@ function World.Snapshot()
   if call("UnitExists", "pet") then
     s.pet = U.Plain(call("UnitName", "pet"))
     s.petKind = U.Plain(call("UnitCreatureFamily", "pet"))
+    if s.class == "HUNTER" then s.petHappy = World.Safe(call("GetPetHappiness")) end
   end
   s.stats = {}
   for i, name in ipairs({ "strength", "agility", "stamina", "intellect", "spirit" }) do
@@ -366,6 +367,24 @@ ns.On("UNIT_SPELLCAST_CHANNEL_START", function(_, unit, _, spellID)
   end
 end)
 
+-- Spells and racial abilities you cast (successful casts only).
+local function spellName(id)
+  if type(id) ~= "number" then return nil end
+  local n = (C_Spell and C_Spell.GetSpellName and U.Call(C_Spell.GetSpellName, id)) or call("GetSpellInfo", id)
+  return World.Safe(n)
+end
+ns.OnUnit("UNIT_SPELLCAST_SUCCEEDED", "player", function(_, _, _, spellID)
+  local name = spellName(spellID)
+  if type(name) ~= "string" then return end
+  local dest = name:match("^Portal: (.+)$")
+  if dest then World.SetContext("portal", dest) return end
+  local def = W.SPELLS[name]
+  if not def then return end
+  if def.context then World.SetContext(def.context) end
+  if def.mood and ns.Mood then ns.Mood.Push(def.mood[1], def.mood[2], U.Pron(def.mood[3])) end
+  if def.context and ns.UI then ns.UI.Poke(false) end
+end)
+
 -- Inns and taverns, by the words in their names.
 local INN_WORDS = { "Inn", "Tavern", "Rest", "Lodge", "Hall", "Barracks", "Hostel", "Brewery" }
 function World.IsInn(sub)
@@ -389,7 +408,7 @@ local function petPhrase(s, seed)
   local list = W.PET[s.class or ""]
   if not list then return nil end
   local p = U.Pick(list, seed .. "pet")
-  return (p:gsub("{pet}", s.pet):gsub("{kind}", (s.petKind or "companion"):lower()))
+  return (p:gsub("{pet}", function() return s.pet end):gsub("{kind}", function() return (s.petKind or "companion"):lower() end))
 end
 
 -- "resting at the Lion's Pride Inn in Goldshire" etc. Never the exact spot in the open
@@ -413,14 +432,14 @@ function World.Activity(s, seed)
   if ctx and ctx.kind == "craft" then
     text = W.CRAFT[ctx.detail] .. " in " .. (U.Mid(sub) or where)
   elseif s.away then
-    text = U.Pick(W.ACTIVITY.away, seed .. "away"):gsub("{place}", U.Mid(sub) or where)
+    text = U.Pick(W.ACTIVITY.away, seed .. "away"):gsub("{place}", function() return U.Mid(sub) or where end)
   elseif ctx and W.ACTIVITY[ctx.kind] then
-    text = U.Pick(W.ACTIVITY[ctx.kind], seed .. ctx.kind):gsub("{place}", U.Mid(sub) or where)
-      :gsub("{who}", ctx.detail or "someone"):gsub("{what}", ctx.detail and ("\"" .. ctx.detail .. "\"") or "a book")
+    text = U.Pick(W.ACTIVITY[ctx.kind], seed .. ctx.kind):gsub("{place}", function() return U.Mid(sub) or where end)
+      :gsub("{who}", function() return ctx.detail or "someone" end):gsub("{dest}", function() return ctx.detail or "afar" end):gsub("{what}", function() return ctx.detail and ("\"" .. ctx.detail .. "\"") or "a book" end)
     text = U.Pron(text)
   elseif s.auras and (s.auras.eating or s.auras.drinking) then
     local list = s.auras.eating and W.ACTIVITY.eating or W.ACTIVITY.drinking
-    text = U.Pick(list, seed .. "meal"):gsub("{place}", U.Mid(sub) or where)
+    text = U.Pick(list, seed .. "meal"):gsub("{place}", function() return U.Mid(sub) or where end)
   elseif s.instance == "party" or s.instance == "raid" then
     text = U.Pick({ "deep inside " .. where, "delving into " .. where }, seed)
   elseif s.instance == "pvp" then
@@ -444,7 +463,7 @@ function World.Activity(s, seed)
     if flavor and roll == 0 then
       text = U.Pick(flavor, seed .. "fl")
     elseif classAct and roll == 1 then
-      text = U.Pick(classAct, seed .. "cl"):gsub("{place}", s.subzone and place or where)
+      text = U.Pick(classAct, seed .. "cl"):gsub("{place}", function() return s.subzone and place or where end)
     else
       local around = s.subzone and ("around " .. place) or ("in " .. where)
       text = U.Pick({ "on the road " .. around, "out " .. around, "travelling " .. around }, seed)

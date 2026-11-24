@@ -122,7 +122,7 @@ function Mood.Scores(world)
     if not v or v <= 0 then return end
     if not stored then v = v * Mood.Bias(name) end
     s[name] = (s[name] or 0) + v
-    if reason then why[name] = why[name] or {}; table.insert(why[name], reason) end
+    if reason then why[name] = why[name] or {}; table.insert(why[name], U.Pron(reason)) end
   end
   for name, v in pairs(st.emo) do add(name, v, st.why[name], true) end
 
@@ -201,6 +201,18 @@ function Mood.Scores(world)
     add("uneasy", 8, "alone at night")
   end
   if world.festival and W.FESTIVALS[world.festival] then add("festive", 20, "the season") end
+
+  -- Places that mean something to this race or class (subzone first, then zone).
+  for _, list in ipairs({ W.RACE_PLACES[world.race or ""], W.CLASS_PLACES[world.class or ""] }) do
+    local hit = list and ((world.subzone and list[world.subzone]) or (world.zone and list[world.zone]))
+    if hit then add(hit[1], hit[2], hit[3]) end
+  end
+  if world.zone and world.zone == W.CAPITALS[world.race or ""] then add("ease", 15, "among {their} own people") end
+  if world.zone and W.ENEMY_CAPITALS[world.faction or ""] and W.ENEMY_CAPITALS[world.faction][world.zone] then
+    add("tense", 25, "the enemy's capital")
+  end
+  if world.petHappy == 1 then add("worried", 15, (world.pet or "the pet") .. " is unhappy")
+  elseif world.petHappy == 3 then add("ease", 6, (world.pet or "the pet") .. " is happy") end
   local ctx = world.context
   if ctx then
     if ctx.kind == "fishing" then add("ease", 22, "fishing")

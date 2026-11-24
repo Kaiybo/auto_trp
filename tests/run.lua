@@ -373,6 +373,29 @@ NOW = NOW - 400
 -- 5. Restore only touches what Auto TRP wrote.
 table.insert(p.characteristics.MI, { ID = 7, NA = "Pronouns", VA = "he/him" })
 
+-- Race and class places, spells
+UnitRace = function() return "Night Elf", "NightElf" end
+state.zone, state.sub = "Felwood", "Emerald Sanctuary"
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+local sc, wy = ns.Mood.Scores(ns.cache.world)
+local felwood = false
+for _, r in ipairs(wy.sorrowful or {}) do if r == "a corrupted forest" then felwood = true end end
+check(felwood, "a night elf grieves in Felwood")
+UnitRace = function() return "Human", "Human" end
+state.zone, state.sub = "Orgrimmar", "Valley of Strength"
+ns.Compose.Refresh()
+sc = ns.Mood.Scores(ns.cache.world)
+check((sc.tense or 0) >= 15, "an Alliance character in Orgrimmar is tense (brave, so a little less)")
+state.zone, state.sub = "Duskwood", "Raven Hill"
+C_Spell = { GetSpellName = function(id) return ({ [2006] = "Resurrection", [10059] = "Portal: Stormwind" })[id] end }
+event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", 2006)
+check((ns.char.mood.emo.righteous or 0) > 20, "resurrecting someone feels righteous")
+event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", 10059)
+ns.Compose.Refresh()
+check(ns.Compose.Currently(ns.Mood.Current()):find("opening a portal to Stormwind"), "a mage's portal shows in Currently: " .. ns.Compose.Currently(ns.Mood.Current()))
+ns.World.SetContext("none")
+C_Spell = nil
+
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")

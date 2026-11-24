@@ -936,3 +936,117 @@ W.RACE_MOTTOS = {
   Tauren = { "Walk with the Earth Mother.", "The winds guide us." },
   Scourge = { "Victory for the Forsaken.", "What joy is there in this curse?" },
 }
+
+---------------------------------------------------------------------------
+-- Places that mean something to a race or class. Keyed by zone or subzone:
+-- { mood, strength, why }. Checked while you're there.
+---------------------------------------------------------------------------
+W.CAPITALS = {
+  Human = "Stormwind City", Dwarf = "Ironforge", Gnome = "Ironforge", NightElf = "Darnassus",
+  Orc = "Orgrimmar", Troll = "Orgrimmar", Tauren = "Thunder Bluff", Scourge = "Undercity",
+}
+W.ENEMY_CAPITALS = {
+  Alliance = { ["Orgrimmar"] = true, ["Thunder Bluff"] = true, ["Undercity"] = true },
+  Horde = { ["Stormwind City"] = true, ["Ironforge"] = true, ["Darnassus"] = true },
+}
+
+W.RACE_PLACES = {
+  Human = {
+    ["Westfall"] = { "sorrowful", 14, "Westfall's empty farms" },
+    ["Alterac Mountains"] = { "angry", 12, "Alterac's treachery" },
+    ["Elwynn Forest"] = { "ease", 12, "home soil" },
+    ["Northshire Abbey"] = { "devout", 15, "the abbey where it began" },
+  },
+  Dwarf = {
+    ["Searing Gorge"] = { "angry", 18, "Dark Iron land" },
+    ["Burning Steppes"] = { "angry", 15, "Dark Iron land" },
+    ["Badlands"] = { "intrigued", 15, "old Titan ruins" },
+    ["Uldaman"] = { "intrigued", 25, "the Titans' secrets" },
+    ["Dun Morogh"] = { "ease", 14, "home snows" },
+    ["Loch Modan"] = { "ease", 10, "dwarven hills" },
+  },
+  Gnome = {
+    ["Gnomeregan"] = { "sorrowful", 30, "lost Gnomeregan" },
+    ["Dun Morogh"] = { "sorrowful", 8, "near lost Gnomeregan" },
+    ["Tinker Town"] = { "ease", 18, "among fellow tinkers" },
+  },
+  NightElf = {
+    ["Felwood"] = { "sorrowful", 22, "a corrupted forest" },
+    ["Ashenvale"] = { "angry", 12, "orc axes in the ancient woods" },
+    ["Teldrassil"] = { "ease", 14, "beneath the world tree" },
+    ["Moonglade"] = { "ease", 22, "sacred Moonglade" },
+    ["Azshara"] = { "uneasy", 15, "the Highborne ruins" },
+  },
+  Orc = {
+    ["Durnholde Keep"] = { "angry", 25, "the old internment camps" },
+    ["Hillsbrad Foothills"] = { "angry", 8, "the camps' country" },
+    ["Blasted Lands"] = { "conflicted", 18, "the Dark Portal" },
+    ["Ashenvale"] = { "fierce", 12, "the war for timber" },
+    ["Durotar"] = { "ease", 12, "the Horde's new home" },
+  },
+  Troll = {
+    ["Stranglethorn Vale"] = { "ease", 14, "the ancestral jungle" },
+    ["Echo Isles"] = { "angry", 20, "Zalazane's hold on the Echo Isles" },
+    ["Zul'Gurub"] = { "uneasy", 25, "Hakkar's temple" },
+    ["Sen'jin Village"] = { "ease", 20, "among the Darkspear" },
+  },
+  Tauren = {
+    ["Mulgore"] = { "ease", 16, "the Earth Mother's plains" },
+    ["The Barrens"] = { "ease", 6, "open grassland" },
+    ["Thousand Needles"] = { "intrigued", 10, "the old tauren lands" },
+    ["Stonetalon Mountains"] = { "angry", 14, "the logged-out slopes" },
+  },
+  Scourge = {
+    ["Western Plaguelands"] = { "downcast", 16, "memories of Lordaeron" },
+    ["Eastern Plaguelands"] = { "angry", 18, "the Scourge's land" },
+    ["Ruins of Lordaeron"] = { "downcast", 22, "the kingdom that was" },
+    ["Tirisfal Glades"] = { "ease", 12, "home, such as it is" },
+    ["Silverpine Forest"] = { "uneasy", 8, "worgen country" },
+  },
+}
+
+W.CLASS_PLACES = {
+  PALADIN = { ["Light's Hope Chapel"] = { "devout", 28, "holy ground" }, ["Cathedral Square"] = { "devout", 18, "the cathedral" },
+    ["Stratholme"] = { "angry", 20, "the culling's city" } },
+  PRIEST = { ["Cathedral Square"] = { "devout", 20, "the cathedral" }, ["Temple of the Moon"] = { "devout", 22, "Elune's temple" },
+    ["Light's Hope Chapel"] = { "devout", 20, "holy ground" } },
+  DRUID = { ["Moonglade"] = { "ease", 25, "the druids' sanctuary" }, ["Felwood"] = { "angry", 15, "a poisoned forest" },
+    ["Cenarion Enclave"] = { "ease", 15, "the Cenarion Enclave" } },
+  SHAMAN = { ["Elder Rise"] = { "ease", 20, "the elders' rise" }, ["Valley of Wisdom"] = { "ease", 18, "the Valley of Wisdom" },
+    ["Silithus"] = { "uneasy", 14, "the elements in turmoil" } },
+  WARLOCK = { ["Felwood"] = { "intrigued", 15, "fel-touched land" }, ["Blasted Lands"] = { "intrigued", 15, "the Dark Portal" },
+    ["Cleft of Shadow"] = { "ease", 18, "among your own kind" } },
+  MAGE = { ["Alterac Mountains"] = { "intrigued", 12, "Dalaran's shield" }, ["Azshara"] = { "intrigued", 18, "Highborne ruins" },
+    ["Wizard's Sanctum"] = { "ease", 15, "the Wizard's Sanctum" } },
+  HUNTER = { ["Feralas"] = { "wonder", 12, "wild hunting grounds" }, ["Un'Goro Crater"] = { "wonder", 18, "the beasts of Un'Goro" } },
+  ROGUE = { ["Booty Bay"] = { "ease", 15, "a port with no questions" }, ["Ravenholdt Manor"] = { "ease", 22, "Ravenholdt" } },
+  WARRIOR = { ["Gurubashi Arena"] = { "fierce", 25, "the arena" }, ["Hall of Champions"] = { "proud", 18, "the Hall of Champions" } },
+}
+
+---------------------------------------------------------------------------
+-- Spells and racial abilities you cast: { mood, strength, why } and/or a context.
+---------------------------------------------------------------------------
+W.SPELLS = {
+  ["Resurrection"] = { mood = { "righteous", 30, "brought someone back from death" } },
+  ["Redemption"] = { mood = { "righteous", 30, "brought someone back from death" } },
+  ["Ancestral Spirit"] = { mood = { "righteous", 30, "called a spirit back" } },
+  ["Rebirth"] = { mood = { "righteous", 30, "brought someone back from death" } },
+  ["Ritual of Summoning"] = { context = "summoning" },
+  ["Shadowmeld"] = { context = "shadowmeld" },
+  ["Cannibalize"] = { context = "cannibalize", mood = { "fed", 25, "fed on the fallen" } },
+  ["Will of the Forsaken"] = { mood = { "fierce", 15, "shrugged off fear" } },
+  ["Berserking"] = { mood = { "fierce", 20, "berserking" } },
+  ["Blood Fury"] = { mood = { "fierce", 22, "the blood fury" } },
+  ["War Stomp"] = { mood = { "fierce", 15, "a war stomp" } },
+  ["Stoneform"] = { mood = { "rattled", 10, "had to turn to stone" } },
+  ["Escape Artist"] = { mood = { "rattled", 10, "a narrow escape" } },
+  ["Feed Pet"] = { mood = { "ease", 12, "fed {their} companion" } },
+}
+-- Mage portals: "Portal: Stormwind" -> "opening a portal to Stormwind".
+W.ACTIVITY.portal = { "opening a portal to {dest} in {place}" }
+W.ACTIVITY.summoning = { "performing a summoning ritual in {place}" }
+W.ACTIVITY.shadowmeld = { "melted into the shadows in {place}" }
+W.ACTIVITY.cannibalize = { "crouched over a corpse in {place}, best not to look" }
+
+-- Hunter pet happiness (GetPetHappiness: 1 unhappy, 2 content, 3 happy).
+W.PET_HAPPY = { [1] = "who looks hungry and sullen", [2] = "who seems content", [3] = "who is plainly devoted" }

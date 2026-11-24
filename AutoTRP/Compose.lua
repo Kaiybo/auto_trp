@@ -201,8 +201,9 @@ function Compose.CompanyGlance()
     return { TI = "A Known Face", IC = "INV_Misc_Bag_11", TX = "On good terms with " .. friend.name .. "." }
   end
   if world.pet and (world.class == "HUNTER" or world.class == "WARLOCK") then
+    local mood = world.petHappy and W.PET_HAPPY[world.petHappy]
     return { TI = "Travels Light", IC = "Ability_Hunter_BeastCall",
-      TX = "Travels with no one but " .. world.pet .. (world.petKind and (" the " .. world.petKind:lower()) or "") .. "." }
+      TX = "Travels with no one but " .. world.pet .. (world.petKind and (" the " .. world.petKind:lower()) or "") .. (mood and (", " .. mood) or "") .. "." }
   end
   local reserved = rpgd and ((rpgd.traits.reserved or 0) >= 3)
   return { TI = "Travels Alone", IC = "Spell_Shadow_Teleport",
