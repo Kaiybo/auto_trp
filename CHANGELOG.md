@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0 (2026-11-24): Honoured Names
+
+- In the capitals, Currently describes the district: the Trade District and Old Town, the Great Forge and Tinker Town, the Drag and the Valley of Honor, Elder Rise, the Apothecarium and more.
+- Reputation: rising with a faction makes you proud, falling ashamed; reaching Honored, Revered or Exalted is a big moment, remembered in History.
+- Targeting a player of the enemy faction puts you on edge.
+- Learning a new ability, crafting something, or making an inn your home all register.
+
 ## 0.8.0 (2026-11-24): Familiar Faces
 
 - Inside a dungeon or raid, Currently describes it: the dripping tunnels of the Deadmines, the cursed halls of Shadowfang Keep, the burning streets of Stratholme, the fire of the Molten Core, and two dozen more.

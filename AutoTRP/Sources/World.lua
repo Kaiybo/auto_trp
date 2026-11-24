@@ -446,6 +446,8 @@ function World.Activity(s, seed)
     text = "fighting for the banner in " .. where
   elseif s.resting and World.IsInn(s.subzone) then
     text = U.Pick({ "resting at " .. place, "warming up by the fire at " .. place, "taking a room at " .. place }, seed)
+  elseif s.subzone and W.CITY_FLAVOR[s.subzone] then
+    text = W.CITY_FLAVOR[s.subzone]
   elseif s.resting then
     text = U.Pick({ "about the streets of " .. place, "passing through " .. place }, seed)
   elseif s.stealthed then

@@ -584,6 +584,12 @@ function Compose.History()
     end
     paras[#paras + 1] = sentence(name .. " rose " .. table.concat(steps, "; then "))
   end
+  local hon = ns.char and ns.char.honours or {}
+  if #hon > 0 then
+    local h = hon[#hon]
+    paras[#paras + 1] = sentence("Not long ago " .. name .. " became " .. h.standing:lower() .. " among " .. W.FactionName(h.faction)
+      .. (#hon > 1 and (", the latest of " .. U.Number(#hon) .. " such honours") or ""))
+  end
   local finds = ns.char and ns.char.finds or {}
   if #finds > 0 then
     local items = {}

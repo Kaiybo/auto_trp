@@ -1224,3 +1224,41 @@ moreClass("DRUID", {
   downcast = { "Sitting beneath a tree, one hand on the bark." },
   wonder = { "Kneeling to examine every unfamiliar plant." },
 })
+
+---------------------------------------------------------------------------
+-- City districts (Currently, while in a capital).
+---------------------------------------------------------------------------
+W.CITY_FLAVOR = {
+  ["Trade District"] = "haggling in the bustle of Stormwind's Trade District",
+  ["Cathedral Square"] = "beneath the spires of Cathedral Square",
+  ["Old Town"] = "in the rougher streets of Stormwind's Old Town",
+  ["Dwarven District"] = "amid the forge-smoke of Stormwind's Dwarven District",
+  ["Mage Quarter"] = "among the violet towers of the Mage Quarter",
+  ["Stormwind Harbor"] = "by the gulls and rigging of Stormwind Harbor",
+  ["The Commons"] = "in the echoing Commons of Ironforge",
+  ["The Great Forge"] = "in the heat and clangour of the Great Forge",
+  ["Tinker Town"] = "in the whirring chaos of Tinker Town",
+  ["The Military Ward"] = "in Ironforge's Military Ward",
+  ["The Mystic Ward"] = "in the quiet Mystic Ward of Ironforge",
+  ["Hall of Explorers"] = "among the relics in the Hall of Explorers",
+  ["Craftsmen's Terrace"] = "on the moonlit Craftsmen's Terrace",
+  ["Temple of the Moon"] = "in the silver hush of the Temple of the Moon",
+  ["Tradesmen's Terrace"] = "on Darnassus' Tradesmen's Terrace",
+  ["Warrior's Terrace"] = "on the Warrior's Terrace of Darnassus",
+  ["Cenarion Enclave"] = "among the druids of the Cenarion Enclave",
+  ["Valley of Strength"] = "in the dusty Valley of Strength",
+  ["The Drag"] = "shouldering through the crowds of the Drag",
+  ["Valley of Honor"] = "among the warriors of the Valley of Honor",
+  ["Valley of Wisdom"] = "in Orgrimmar's Valley of Wisdom",
+  ["Valley of Spirits"] = "among the trolls of the Valley of Spirits",
+  ["Cleft of Shadow"] = "in the dim, smoky Cleft of Shadow",
+  ["Elder Rise"] = "up on Elder Rise, near the Elders",
+  ["Spirit Rise"] = "on the quiet heights of Spirit Rise",
+  ["Hunter Rise"] = "on Hunter Rise among the braves",
+  ["Lower Rise"] = "on Thunder Bluff's Lower Rise",
+  ["The Trade Quarter"] = "in the green-lit Trade Quarter of the Undercity",
+  ["The Apothecarium"] = "among the bubbling vats of the Apothecarium",
+  ["The Magic Quarter"] = "in the Undercity's Magic Quarter",
+  ["The War Quarter"] = "in the Undercity's War Quarter",
+  ["The Rogues' Quarter"] = "in the shadowed Rogues' Quarter",
+}

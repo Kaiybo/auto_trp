@@ -435,6 +435,26 @@ event("PLAYER_TARGET_CHANGED")
 check((ns.char.mood.emo.elated or 0) > 10 and ns.char.mood.why.elated == "ran into Mirelle", "running into a Social Diary friend")
 UnitName = function() return "Aldric" end
 
+-- City districts; reputation; enemies
+state.zone, state.sub, state.resting = "Ironforge", "The Great Forge", true
+ns.Compose.Refresh()
+check(ns.Compose.Currently(ns.Mood.Current()):find("heat and clangour of the Great Forge"), "city district in Currently")
+state.zone, state.sub, state.resting = "Duskwood", "Raven Hill", false
+event("CHAT_MSG_SYSTEM", "You are now Revered with Argent Dawn.")
+check(ns.char.honours and ns.char.honours[1].standing == "Revered", "a new standing is remembered")
+ns.Compose.Refresh()
+check(ns.Compose.History():find("became revered among the Argent Dawn"), "and told in History")
+UnitIsPlayer = function() return true end
+UnitIsEnemy = function() return true end
+UnitName = function(u) if u == "target" then return "Grukk" end return "Aldric" end
+UnitRace = function(u) if u == "target" then return "Orc", "Orc" end return "Human", "Human" end
+ns.char.mood.emo.tense = nil
+event("PLAYER_TARGET_CHANGED")
+check((ns.char.mood.emo.tense or 0) > 5 and ns.char.mood.why.tense == "face to face with an enemy orc", "an enemy orc makes them tense")
+UnitIsEnemy = function() return false end
+UnitName = function() return "Aldric" end
+UnitRace = function() return "Human", "Human" end
+
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")
