@@ -106,6 +106,8 @@ local function textField(section, key)
   }
 end
 
+local SECTION_ICONS = { PH = "INV_Chest_Cloth_17", PS = "Spell_Holy_MindVision", HI = "INV_Misc_Book_09" }
+
 local function aboutField(part)
   return {
     section = "about",
@@ -119,6 +121,7 @@ local function aboutField(part)
       if type(about.T3) ~= "table" then about.T3 = {} end
       if type(about.T3[part]) ~= "table" then about.T3[part] = {} end
       about.T3[part].TX = v
+      if v and not about.T3[part].IC then about.T3[part].IC = icon(SECTION_ICONS[part]) end
     end,
     -- About only shows template 3's sections when the profile uses template 3. Switch to it
     -- only when the other templates are empty.
@@ -202,6 +205,13 @@ TRP.FIELDS = {
   bearing = aboutField("PS"),
   history = aboutField("HI"),
   physical = aboutField("PH"),
+  ooc = textField("character", "CO"),
+  relationship = {
+    section = "characteristics",
+    read = function(p) local v = sub(p, "characteristics").RS; return (v and v ~= 0) and tostring(v) or "" end,
+    write = function(p, v) sub(p, "characteristics").RS = v end,
+    sig = function(v) return v and tostring(v) or "" end,
+  },
   traits = {
     section = "characteristics",
     read = function(p) return traitsSig(sub(p, "characteristics").PS) end,
@@ -227,6 +237,7 @@ TRP.LABELS = {
   history = "About: History", physical = "About: Physical", traits = "Personality traits",
   glance_mood = "Glance: mood", glance_lately = "Glance: lately", glance_company = "Glance: company",
   glance_ambition = "Glance: ambition", glance_marks = "Glance: marks",
+  ooc = "OOC note", relationship = "Relationship status",
 }
 
 -- Which setting switches a field on.
@@ -292,6 +303,52 @@ local function bump(section)
   section.v = v
 end
 
+---------------------------------------------------------------------------
+-- Backup: before the first write to a profile, a copy of everything Auto TRP might touch,
+-- so /atrp restore can put it back exactly.
+---------------------------------------------------------------------------
+local function copy(v)
+  if type(v) ~= "table" then return v end
+  local o = {}
+  for k, x in pairs(v) do o[k] = copy(x) end
+  return o
+end
+
+local BACKUP = {
+  character = { "CU" }, characteristics = { "TI", "FT", "RE", "BP", "MI", "PS" },
+  about = { "TE", "T3" }, misc = { "PE" },
+}
+
+local function backup(profile, id)
+  ns.char.backup = ns.char.backup or {}
+  if ns.char.backup[id] then return end
+  local b = { t = U.Now() }
+  for section, keys in pairs(BACKUP) do
+    b[section] = {}
+    local src = sub(profile, section)
+    for _, k in ipairs(keys) do b[section][k] = copy(src[k]) end
+  end
+  ns.char.backup[id] = b
+end
+
+-- Puts the profile back as it was and hands every field back to the player.
+function TRP.Restore()
+  local profile, id = TRP.Managed()
+  if not profile then return false, id end
+  local b = ns.char.backup and ns.char.backup[id]
+  if not b then return false, "there's no backup for this profile (Auto TRP hasn't written to it yet)." end
+  local sections = {}
+  for section, keys in pairs(BACKUP) do
+    local dst = sub(profile, section)
+    for _, k in ipairs(keys) do dst[k] = copy(b[section] and b[section][k]) end
+    bump(dst)
+    sections[section] = true
+  end
+  for key in pairs(TRP.FIELDS) do TRP.Release(key, id) end
+  fire(id, sections)
+  return true
+end
+
 -- values: field key -> new value (nil clears a field Auto TRP owns).
 -- Returns the list of field keys that changed.
 function TRP.Apply(values, only)
@@ -300,6 +357,7 @@ function TRP.Apply(values, only)
   if U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") then return nil, "in combat" end
   local mine, theirs = owned(id), released(id)
   local dirty, changed, left = {}, {}, {}
+  backup(profile, id)
 
   for key, def in pairs(TRP.FIELDS) do
     if (not only or only[key]) and enabled(key) and not theirs[key] then

@@ -668,3 +668,14 @@ W.PROF_RANK = {
   { min = 225, word = "a master" }, { min = 150, word = "an expert" },
   { min = 75, word = "a journeyman" }, { min = 1, word = "an apprentice" },
 }
+
+-- Faction names read with "the" in a sentence, except places and a few proper names.
+W.FACTION_NO_THE = {
+  Stormwind = true, Ironforge = true, Darnassus = true, Orgrimmar = true, ["Thunder Bluff"] = true,
+  Undercity = true, ["Booty Bay"] = true, Gadgetzan = true, Everlook = true, Ratchet = true,
+  Ravenholdt = true, ["Shen'dralar"] = true, ["Timbermaw Hold"] = true,
+}
+function W.FactionName(name)
+  if type(name) ~= "string" or W.FACTION_NO_THE[name] or name:find("^The ") then return name and (name:gsub("^The ", "the ")) end
+  return "the " .. name
+end

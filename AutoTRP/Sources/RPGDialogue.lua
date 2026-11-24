@@ -116,7 +116,17 @@ function R.Read()
   end
 
   -- Home, drink, madness
-  if type(c.homeInn) == "table" then out.homeInn = U.Plain(c.homeInn.name) end
+  if type(c.homeInn) == "table" then
+    out.homeInn = U.Plain(c.homeInn.name)
+    out.homePrev = U.Plain(c.homeInn.previous)
+    out.homeSince = tonumber(c.homeInn.since)
+  end
+  -- The creature most often put down
+  local topName, topN = nil, 0
+  for name, n in pairs(out.killsByName) do
+    if type(n) == "number" and n > topN then topName, topN = name, n end
+  end
+  out.grudge = topName and { name = U.Plain(topName), n = topN } or nil
   out.drunk = tonumber(c.drunk) or 0
   out.drunkAt = tonumber(c.drunkAt) or 0
   out.insanity = type(c.insanity) == "table" and tonumber(c.insanity.level) or 0

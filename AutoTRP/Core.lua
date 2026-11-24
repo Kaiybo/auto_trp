@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.2.0"
+ns.VERSION = "0.3.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -100,6 +100,8 @@ ns.DEFAULTS = {
     birthplace = true,  -- from your RPG Dialogue origin
     motto = true,       -- a motto in keeping with your temperament
     nickname = true,    -- an epithet you've earned
+    relationship = true, -- relationship status, from a partner you named in Social Diary
+    ooc = false,        -- an out-of-character note that the profile updates itself
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },
@@ -108,7 +110,10 @@ ns.DEFAULTS = {
   nameFriends = true,      -- name players you marked friend (or gave a relationship) in Social Diary
   currentlyEvery = 90,     -- seconds, at least, between "Currently" rewrites
   quiet = false,           -- no chat lines when the profile is updated
-  pauseOOC = false,        -- leave "Currently" and the glances alone while you're out of character
+  pauseOOC = false,
+  moodNotes = true,        -- a quiet line in your own chat when your mood turns
+  showBadge = true,        -- the small mood badge on screen
+  badgePos = nil,        -- leave "Currently" and the glances alone while you're out of character
 }
 
 ns.CHAR_DEFAULTS = {

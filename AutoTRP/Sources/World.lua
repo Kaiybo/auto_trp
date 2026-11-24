@@ -137,6 +137,75 @@ function World.FreeBagSlots()
 end
 
 ---------------------------------------------------------------------------
+-- Standing with the world's factions (Honored and up), through either API.
+---------------------------------------------------------------------------
+local STANDING_WORD = { [6] = "Honored", [7] = "Revered", [8] = "Exalted" }
+
+function World.Factions()
+  local out = {}
+  local function add(name, standing, isHeader, hasRep)
+    if type(name) == "string" and (not isHeader or hasRep) and STANDING_WORD[standing] then
+      out[#out + 1] = { name = U.Plain(name), standing = standing, word = STANDING_WORD[standing] }
+    end
+  end
+  if C_Reputation and C_Reputation.GetNumFactions and C_Reputation.GetFactionDataByIndex then
+    local n = U.Call(C_Reputation.GetNumFactions) or 0
+    for i = 1, n do
+      local d = U.Call(C_Reputation.GetFactionDataByIndex, i)
+      if type(d) == "table" then add(World.Safe(d.name), d.reaction, d.isHeader, d.isHeaderWithRep) end
+    end
+  elseif _G.GetNumFactions and _G.GetFactionInfo then
+    local n = call("GetNumFactions") or 0
+    for i = 1, n do
+      local name, _, standing, _, _, _, _, _, isHeader, _, hasRep = call("GetFactionInfo", i)
+      add(World.Safe(name), standing, isHeader, hasRep)
+    end
+  end
+  table.sort(out, function(a, b) if a.standing ~= b.standing then return a.standing > b.standing end return a.name < b.name end)
+  return out
+end
+
+-- Professions and their skill, read live (Classic skill lines).
+local PROFESSIONS = {
+  Alchemy = true, Blacksmithing = true, Enchanting = true, Engineering = true, Herbalism = true,
+  Leatherworking = true, Mining = true, Skinning = true, Tailoring = true, Cooking = true,
+  ["First Aid"] = true, Fishing = true, Jewelcrafting = true,
+}
+function World.Professions()
+  local out = {}
+  local n = call("GetNumSkillLines") or 0
+  for i = 1, n do
+    local name, header, _, rank = call("GetSkillLineInfo", i)
+    name = World.Safe(name)
+    if not header and PROFESSIONS[name] and type(rank) == "number" and rank > 0 then
+      out[#out + 1] = { name = name, rank = rank }
+    end
+  end
+  table.sort(out, function(a, b) return a.rank > b.rank end)
+  return out
+end
+
+-- Druid, shaman and priest shapes.
+local FORMS = {
+  ["Bear Form"] = "in the shape of a great bear", ["Dire Bear Form"] = "in the shape of a great bear",
+  ["Cat Form"] = "in the shape of a prowling cat", ["Travel Form"] = "in the shape of a running stag",
+  ["Aquatic Form"] = "in the shape of a sleek sea lion", ["Moonkin Form"] = "in moonkin form, feathers ruffled",
+  ["Ghost Wolf"] = "running as a ghost wolf", ["Shadowform"] = "wreathed in shadow",
+}
+function World.Form(auras)
+  for name, phrase in pairs(FORMS) do
+    if auras and auras.names and auras.names[name] then return phrase end
+  end
+  local idx = call("GetShapeshiftForm")
+  if type(idx) == "number" and idx > 0 then
+    local _, _, _, spellID = call("GetShapeshiftFormInfo", idx)
+    local name = spellID and ((C_Spell and C_Spell.GetSpellName and U.Call(C_Spell.GetSpellName, spellID)) or call("GetSpellInfo", spellID))
+    return FORMS[World.Safe(name) or ""]
+  end
+  return nil
+end
+
+---------------------------------------------------------------------------
 -- Seasons: the festivals of the year, by the calendar.
 ---------------------------------------------------------------------------
 function World.Festival()
@@ -209,6 +278,14 @@ function World.Snapshot()
     local _, v = call("UnitStat", "player", i)
     if type(v) == "number" then s.stats[name] = v end
   end
+  s.factions = World.Factions()
+  s.professions = World.Professions()
+  s.form = World.Form(s.auras)
+  local guild, guildRank = call("GetGuildInfo", "player")
+  s.guild, s.guildRank = U.Plain(World.Safe(guild)), U.Plain(World.Safe(guildRank))
+  local pvpRank = call("UnitPVPRank", "player")
+  if type(pvpRank) == "number" and pvpRank >= 5 then s.pvpRank = U.Plain((call("GetPVPRankInfo", pvpRank))) end
+  s.raid = call("IsInRaid") and true or false
   s.context = World.Context()
   return s
 end
@@ -309,6 +386,7 @@ function World.Activity(s, seed)
       text = U.Pick({ "on the road " .. around, "out " .. around, "travelling " .. around }, seed)
     end
   end
+  if s.form and not s.taxi then text = text .. ", " .. s.form end
   local pet = petPhrase(s, seed)
   if pet then text = text .. ", " .. pet end
   return text

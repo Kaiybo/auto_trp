@@ -17,7 +17,7 @@ local function values(sheet)
     currently = sheet.currently, title = sheet.title, fulltitle = sheet.fulltitle,
     residence = sheet.residence, birthplace = sheet.birthplace, motto = sheet.motto,
     nickname = sheet.nickname, bearing = sheet.bearing, history = sheet.history,
-    physical = sheet.physical, traits = sheet.traits,
+    physical = sheet.physical, traits = sheet.traits, relationship = sheet.relationship, ooc = sheet.ooc,
     glance_mood = sheet.glances.mood, glance_lately = sheet.glances.lately,
     glance_company = sheet.glances.company, glance_ambition = sheet.glances.ambition,
     glance_marks = sheet.glances.marks,
@@ -136,6 +136,10 @@ ns.Listen("LOGIN", function()
   ns.Ticker(ns.Mood.TICK, function()
     ns.Compose.Refresh()
     ns.Mood.Tick()
+    local mood = ns.Mood.Current(ns.cache.world)
+    ns.Mood.Log(mood, ns.cache.world)
+    ns.Mood.Note(mood)
+    UI.UpdateBadge(mood)
     local profile, why = TRP.Managed()
     if profile then
       warnedOther = false
@@ -187,6 +191,8 @@ function UI.PreviewText()
   add("motto", s.motto)
   add("residence", s.residence)
   add("birthplace", s.birthplace)
+  add("relationship", s.relationship and ({ [2] = "Taken", [3] = "Married" })[s.relationship])
+  add("ooc", s.ooc)
   add("traits", traits)
   add("bearing", s.bearing)
   add("history", s.history)
@@ -265,6 +271,8 @@ local OPTIONS = {
   { path = { "fields", "motto" }, label = "Motto, in keeping with your temperament" },
   { path = { "fields", "residence" }, label = "Residence: where your hearthstone is" },
   { path = { "fields", "birthplace" }, label = "Birthplace" },
+  { path = { "fields", "relationship" }, label = "Relationship status, from a partner in Social Diary" },
+  { path = { "fields", "ooc" }, label = "OOC note saying the profile updates itself" },
   { head = "Where it looks" },
   { path = { "sources", "rpgd" }, label = "RPG Dialogue" },
   { path = { "sources", "socialDiary" }, label = "Social Diary" },
@@ -274,6 +282,8 @@ local OPTIONS = {
   { path = { "chronicleGoals" }, label = "Share your open Chronicle goal as an ambition" },
   { path = { "nameFriends" }, label = "Name the players you marked as friends in Social Diary" },
   { path = { "pauseOOC" }, label = "Pause Currently and glances while out of character" },
+  { path = { "moodNotes" }, label = "A quiet chat line when your mood turns" },
+  { path = { "showBadge" }, label = "Show the mood badge (drag to move)", after = function() UI.UpdateBadge() end },
   { path = { "quiet" }, label = "Quiet: no chat messages" },
 }
 
@@ -323,6 +333,7 @@ function UI.BuildPanel()
       cb:SetScript("OnClick", function(self)
         local t, k = getPath(opt.path)
         t[k] = self:GetChecked() and true or false
+        if opt.after then opt.after() end
       end)
       cb.path = opt.path
       boxes[#boxes + 1] = cb
@@ -371,7 +382,83 @@ function UI.StatusLine()
   return p .. "  Reading: " .. (#where > 0 and U.Join(where) or "the game only") .. "."
 end
 
-ns.Listen("LOGIN", function() UI.BuildPanel() end)
+ns.Listen("LOGIN", function() UI.BuildPanel(); UI.BuildBadge() end)
+
+---------------------------------------------------------------------------
+-- Mood badge: a small icon showing how your character feels. Hover for why and what your
+-- profile says; click for the preview; right-click to pause or resume. Drag to move.
+---------------------------------------------------------------------------
+local badge
+function UI.BuildBadge()
+  if badge then return end
+  badge = CreateFrame("Button", "AutoTRPBadge", UIParent)
+  badge:SetSize(30, 30)
+  badge:SetFrameStrata("MEDIUM")
+  badge:SetMovable(true)
+  badge:SetClampedToScreen(true)
+  badge:RegisterForDrag("LeftButton")
+  badge:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  local pos = ns.db.badgePos
+  if type(pos) == "table" and pos.point then
+    badge:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
+  else
+    badge:SetPoint("TOP", UIParent, "TOP", 0, -120)
+  end
+  badge.icon = badge:CreateTexture(nil, "ARTWORK")
+  badge.icon:SetAllPoints()
+  badge.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  badge.border = badge:CreateTexture(nil, "OVERLAY")
+  badge.border:SetTexture("Interface\\Buttons\\UI-Quickslot2")
+  badge.border:SetPoint("CENTER")
+  badge.border:SetSize(52, 52)
+  badge:SetScript("OnDragStart", function(self) self:StartMoving() end)
+  badge:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
+    local point, _, relPoint, x, y = self:GetPoint()
+    ns.db.badgePos = { point = point, relPoint = relPoint, x = x, y = y }
+  end)
+  badge:SetScript("OnClick", function(_, button)
+    if button == "RightButton" then
+      ns.db.enabled = not ns.db.enabled
+      ns.Print(ns.db.enabled and "Resumed." or "Paused. Your profile stays as it is.")
+      UI.UpdateBadge()
+    else
+      UI.Preview()
+    end
+  end)
+  badge:SetScript("OnEnter", function(self)
+    local m = self.mood
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine("Auto TRP" .. (ns.db.enabled and "" or " |cff808080(paused)|r"))
+    if m then
+      GameTooltip:AddLine(m.title, 1, 0.82, 0)
+      if m.reasons then GameTooltip:AddLine(table.concat(m.reasons, ", "), 0.8, 0.8, 0.8, true) end
+      if m.also then GameTooltip:AddLine("and " .. m.also, 0.8, 0.8, 0.8, true) end
+      GameTooltip:AddLine(" ")
+      GameTooltip:AddLine(m.tell, 1, 1, 1, true)
+    end
+    local cu = TRP.Managed() and TRP.FIELDS.currently.read((TRP.Managed()))
+    if cu and cu ~= "" then
+      GameTooltip:AddLine(" ")
+      GameTooltip:AddLine("Currently: " .. cu, 0.6, 0.9, 0.6, true)
+    end
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("Click: preview.  Right-click: pause/resume.  Drag: move.", 0.5, 0.5, 0.5, true)
+    GameTooltip:Show()
+  end)
+  badge:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  UI.UpdateBadge()
+end
+
+function UI.UpdateBadge(mood)
+  if not badge then return end
+  if not ns.db.showBadge then badge:Hide() return end
+  badge:Show()
+  if mood then badge.mood = mood end
+  local icon = badge.mood and badge.mood.icon or "INV_Misc_Book_11"
+  badge.icon:SetTexture("Interface\\Icons\\" .. icon)
+  badge.icon:SetDesaturated(not ns.db.enabled)
+end
 
 ---------------------------------------------------------------------------
 -- Slash commands
@@ -388,7 +475,11 @@ local HELP = {
   "|cffffd100/atrp feel <mood>|r: choose a mood for the next hour (|cffffd100/atrp feel|r alone lists them, |cffffd100/atrp feel clear|r lets it go)",
   "|cffffd100/atrp intent <text>|r: add what you're up to to Currently for two hours (|cffffd100/atrp intent|r alone clears it)",
   "|cffffd100/atrp on|r / |cffffd100off|r: pause or resume",
-  "Fields: currently, title, fulltitle, nickname, motto, residence, birthplace, traits, bearing, history, physical, glance_mood, glance_lately, glance_company",
+  "|cffffd100/atrp restore|r: put your profile back exactly as it was before Auto TRP wrote to it",
+  "|cffffd100/atrp slot <glance> <1-5|0>|r: move a glance (mood, lately, company, ambition, marks) to another slot, or 0 to drop it",
+  "|cffffd100/atrp badge|r: show or hide the mood badge",
+  "|cffffd100/atrp days|r: the mood journal, the last week of feelings and places",
+  "Fields: currently, title, fulltitle, nickname, motto, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks",
 }
 
 local function eachField(arg, fn)
@@ -457,6 +548,48 @@ SlashCmdList.AUTOTRP = function(msg)
       ns.Print("Added to Currently for two hours: " .. ns.char.intent.text)
     end
     UI.Update(true)
+  elseif cmd == "restore" then
+    local ok, why = TRP.Restore()
+    if ok then
+      ns.Print("Your profile is back as it was. Every field is yours again; |cffffd100/atrp claim all|r hands them back to Auto TRP.")
+    else
+      ns.Print("Couldn't restore: " .. tostring(why))
+    end
+  elseif cmd == "slot" then
+    local which, n = arg:match("^(%a+)%s+(%d)$")
+    n = tonumber(n)
+    local slots = ns.db.glanceSlots
+    if not which or slots[which] == nil or not n or n > 5 then
+      local cur = {}
+      for k, v in pairs(slots) do cur[#cur + 1] = k .. "=" .. v end
+      table.sort(cur)
+      ns.Print("Usage: /atrp slot <mood|lately|company|ambition|marks> <1-5, or 0 for none>. Now: " .. table.concat(cur, ", "))
+      return
+    end
+    if n > 0 then
+      for k, v in pairs(slots) do if v == n and k ~= which then slots[k] = slots[which] end end
+    end
+    -- Whatever was in the old slots is no longer Auto TRP's to judge: start fresh there.
+    if ns.char.profileID then
+      for k in pairs(slots) do
+        local key = "glance_" .. k
+        if ns.char.owned[ns.char.profileID] then ns.char.owned[ns.char.profileID][key] = nil end
+      end
+    end
+    slots[which] = n
+    ns.Print("Glance '" .. which .. "' is now in slot " .. n .. ".")
+    UI.Update(true)
+  elseif cmd == "days" then
+    local days = ns.Mood.RecentDays(7)
+    if #days == 0 then ns.Print("Nothing in the mood journal yet.") return end
+    for _, d in ipairs(days) do
+      local m = d.mood and ns.Words.MOODS[d.mood] and ns.Words.MOODS[d.mood].title or "Steady"
+      ns.Print(U.Cap(d.label) .. ": " .. m .. (d.zone and (", mostly in " .. d.zone) or ""))
+    end
+  elseif cmd == "badge" then
+    ns.db.showBadge = not ns.db.showBadge
+    UI.UpdateBadge()
+    ns.Print(ns.db.showBadge and "Mood badge shown." or "Mood badge hidden.")
   elseif cmd == "status" then
     ns.Print(UI.StatusLine())
   else

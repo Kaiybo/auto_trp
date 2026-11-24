@@ -80,6 +80,13 @@ local GEAR = { [5] = { "Robe of the Moccasin", 2, "Cloth" }, [16] = { "Staff of 
 GetInventoryItemLink = function(_, slot) return GEAR[slot] and ("item:" .. slot) end
 GetItemInfo = function(link) local g = GEAR[tonumber(link:match("%d+"))]; if g then return g[1], link, g[2], 20, 1, "Armor", g[3] end end
 GetInventoryItemDurability = function() return 40, 50 end
+date = function(fmt, t) return os.date(fmt, t or NOW) end
+GetNumFactions = function() return 3 end
+local FACTIONS = { { "Stormwind", 7 }, { "Argent Dawn", 6 }, { "Booty Bay", 4 } }
+GetFactionInfo = function(i) local f = FACTIONS[i]; return f[1], "", f[2], 0, 0, 0, false, false, false, false, true end
+GetGuildInfo = function() return "The Silver Lanterns", "Lamplighter" end
+GetNumSkillLines = function() return 1 end
+GetSkillLineInfo = function() return "Herbalism", false, false, 120 end
 
 ---------------------------------------------------------------------------
 -- Total RP 3 mock (shapes from Total RP 3's Core/Profiles.lua and Core/Player.lua)
@@ -128,7 +135,7 @@ RPGDialogueCharDB = {
   zones = { ["Elwynn Forest"] = NOW - 90000, ["Westfall"] = NOW - 60000, ["Redridge Mountains"] = NOW - 20000, ["Duskwood"] = NOW - 5000 },
   threads = { elwynn_gold = { state = "resolved", beats = { a = 1, b = 2 }, t = NOW - 3600 } },
   deeds = { ["cleared:The Deadmines"] = { t = NOW - 7200, n = 1 } },
-  kills = { total = 812, byName = {} },
+  kills = { total = 812, byName = { ["Kobold Vermin"] = 63, ["Defias Thug"] = 41, ["Prowler"] = 12 } },
   deathCount = 3,
   deaths = { { t = NOW - 80000, zone = "Elwynn Forest", killer = { name = "Hogger" } } },
   homeInn = { name = "Lion's Pride Inn" },
@@ -219,6 +226,41 @@ currentID = "abc*"
 check(not ns.TRP.Managed(), "another profile in use pauses writing")
 currentID = ns.char.profileID
 
+-- Factions, guild, hooks, the mood journal
+ns.char.days = {
+  [os.date("%Y-%m-%d", NOW)] = { moods = { downcast = 9, ease = 2 }, zones = { Duskwood = 10 } },
+  [os.date("%Y-%m-%d", NOW - 86400)] = { moods = { wonder = 5 }, zones = { Westfall = 6 } },
+}
+ns.Compose.Refresh()
+local hist = ns.Compose.History()
+check(hist:find("wears the colours of the Silver Lanterns, ranked lamplighter"), "history: guild")
+check(hist:find("revered by Stormwind and honored by the Argent Dawn"), "history: reputations")
+check(hist:find("These past days: downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
+check(ns.Compose.Bearing():find("Ask them about the gold of Elwynn's mines"), "personality: conversation hooks")
+state.buffs[#state.buffs + 1] = "Shadowform"
+ns.Compose.Refresh()
+check(ns.Compose.Currently(ns.Mood.Current()):find("wreathed in shadow"), "shapeshift form in Currently")
+table.remove(state.buffs)
+-- Moving a glance
+ns.db.glanceSlots.marks, ns.db.glanceSlots.ambition = 4, 5
+ns.char.owned[ns.char.profileID].glance_marks = nil
+ns.char.owned[ns.char.profileID].glance_ambition = nil
+ns.TRP.Claim("glance_marks"); ns.TRP.Claim("glance_ambition")
+ns.UI.Update(true)
+check(p.misc.PE["4"].TI ~= "Ambition" and p.misc.PE["5"].TI == "Ambition", "glances can swap slots")
+ns.db.glanceSlots.marks, ns.db.glanceSlots.ambition = 5, 4
+ns.TRP.Claim("glance_marks"); ns.TRP.Claim("glance_ambition")
+ns.UI.Update(true)
+
+check(ns.Compose.Plural("Wolf") == "Wolves" and ns.Compose.Plural("Young Harpy") == "Young Harpies" and ns.Compose.Plural("Defias Watchman") == "Defias Watchmen", "plurals")
+check(hist:find("thinned the ranks of the Kobold Vermin considerably"), "history: grudge")
+check(hist:find("That was one weeks? ago") == nil, "no 'one weeks'")
+check(ns.Compose.RelationshipStatus() == nil, "a sworn sister is not a spouse")
+SocialDiaryCharDB.data.diary["Player-1-0002"].relationship = "Wife"
+ns.Compose.Refresh()
+check(ns.Compose.RelationshipStatus() == 3, "a wife in Social Diary: married")
+SocialDiaryCharDB.data.diary["Player-1-0002"].relationship = "Sworn sister"
+
 -- Buffs lift the mood
 ns.Compose.Refresh()
 local scores = ns.Mood.Scores(ns.cache.world)
@@ -244,6 +286,7 @@ ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("Looking for passage to Theramore%."), "intent appended to Currently")
 
 print("\n--- written profile ---")
+local writtenHistory = p.about.T3.HI.TX
 print("CU: " .. tostring(p.character.CU))
 print("TI: " .. tostring(p.characteristics.TI) .. " | FT: " .. tostring(p.characteristics.FT) .. " | RE: " .. tostring(p.characteristics.RE) .. " | BP: " .. tostring(p.characteristics.BP))
 for _, e in ipairs(p.characteristics.MI) do print("MI " .. tostring(e.NA) .. ": " .. tostring(e.VA)) end
@@ -252,6 +295,11 @@ for i = 1, 5 do local g = p.misc.PE[tostring(i)]; if g then print("PE" .. i .. "
 print("\nPersonality:\n" .. tostring(p.about.T3.PS.TX))
 print("\nHistory:\n" .. tostring(p.about.T3.HI.TX))
 print("\nPhysical:\n" .. tostring(p.about.T3.PH.TX))
+
+-- Restore puts everything back
+local ok = ns.TRP.Restore()
+check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")
+check(ns.TRP.Status("history") == "yours", "after restore every field is the player's")
 
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))
 os.exit(fails == 0 and 0 or 1)

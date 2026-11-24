@@ -358,7 +358,42 @@ function Compose.Bearing()
   if (rpgd.insanity or 0) >= 40 then
     paras[#paras + 1] = sentence("Lately " .. name .. " talks to empty corners, and sometimes the corners seem to answer")
   end
+  local hooks = Compose.Hooks()
+  if #hooks > 0 then paras[#paras + 1] = U.Pron("Ask {them} about " .. U.Join(hooks) .. ".") end
   return table.concat(paras, "\n\n")
+end
+
+-- "Kobold Miner" -> "Kobold Miners", "Wolf" -> "Wolves", "Harpy" -> "Harpies"
+function Compose.Plural(name)
+  local last = name:match("(%S+)$") or name
+  local head = name:sub(1, #name - #last)
+  local p
+  local same = { vermin = true, sheep = true, deer = true, fish = true, folk = true, kin = true, swine = true }
+  if same[last:lower()] then p = last
+  elseif last:find("[^aeiou]y$") then p = last:sub(1, -2) .. "ies"
+  elseif last:find("f$") and not last:find("ff$") then p = last:sub(1, -2) .. "ves"
+  elseif last:find("[sxz]$") or last:find("[cs]h$") then p = last .. "es"
+  elseif last:find("man$") then p = last:sub(1, -4) .. "men"
+  else p = last .. "s" end
+  return head .. p
+end
+
+-- Conversation starters for other players: things this character has a story about.
+function Compose.Hooks()
+  local c = ns.cache
+  local rpgd, chron, world = c.rpgd, c.chronicle, c.world
+  local hooks, seen = {}, {}
+  local function add(text)
+    if text and not seen[text] and #hooks < 4 then seen[text] = true; hooks[#hooks + 1] = text end
+  end
+  for _, t in ipairs(rpgd and rpgd.threads or {}) do add(lowerFirst(t.title)) end
+  if rpgd and rpgd.cleared[1] then add("what's down in " .. U.Mid(rpgd.cleared[1].name)) end
+  if chron and chron.bosses[1] then add("the day " .. chron.bosses[1].name .. " fell") end
+  if rpgd and rpgd.friends[1] then add(rpgd.friends[1].name) end
+  if rpgd and rpgd.origin and rpgd.origin.name then add("where {they} grew up") end
+  local prof = (chron and chron.professions[1]) or (world.professions and world.professions[1])
+  if prof and prof.rank >= 75 then add(prof.name:lower()) end
+  return hooks
 end
 
 ---------------------------------------------------------------------------
@@ -396,10 +431,20 @@ function Compose.History()
     local last = zones[#zones]
     if last and last.name ~= zones[1].name then p = p .. ", most lately " .. U.Mid(last.name) end
     if chron and chron.dungeons >= 2 then p = p .. ", and gone down into " .. U.Number(chron.dungeons) .. " dungeons" end
+    local since = math.min(zones[1].t or math.huge, chron and chron.created or math.huge)
+    local weeks = since < math.huge and math.floor((U.Now() - since) / 604800) or 0
+    if weeks >= 2 then
+      p = p .. ". That was " .. (weeks >= 9 and (U.Number(math.floor(weeks / 4.3)) .. " months") or (U.Number(weeks) .. " weeks")) .. " ago"
+    end
     paras[#paras + 1] = sentence(p)
   end
   if rpgd and rpgd.homeInn then
-    paras[#paras + 1] = sentence("When there's a bed to be had, it's usually at " .. (rpgd.homeInn:find("^The ") and U.Mid(rpgd.homeInn) or ("the " .. rpgd.homeInn)))
+    local function inn(n) return n:find("^The ") and U.Mid(n) or (ns.World.IsInn(n) and ("the " .. n) or n) end
+    local p = "When there's a bed to be had, it's usually at " .. inn(rpgd.homeInn)
+    if rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and within(rpgd.homeSince, 14 * 86400) then
+      p = p .. ", having lately given up a room at " .. inn(rpgd.homePrev)
+    end
+    paras[#paras + 1] = sentence(p)
   end
 
   -- People and places
@@ -443,6 +488,26 @@ function Compose.History()
     if #bits > 0 then paras[#paras + 1] = sentence(name .. " " .. U.Join(bits)) end
   end
 
+  -- Banners and reputations
+  local ties = {}
+  if world.guild then
+    local g = world.guild:find("^The ") and U.Mid(world.guild) or world.guild
+    ties[#ties + 1] = "wears the colours of " .. g .. (world.guildRank and (", ranked " .. world.guildRank:lower()) or "")
+  end
+  if world.pvpRank then ties[#ties + 1] = "holds the rank of " .. world.pvpRank .. " in the " .. (world.faction or "faction") .. "'s army" end
+  local byWord = {}
+  for _, f in ipairs(world.factions or {}) do
+    byWord[f.word] = byWord[f.word] or {}
+    if #byWord[f.word] < 2 then table.insert(byWord[f.word], W.FactionName(f.name)) end
+  end
+  local reps = {}
+  for _, w in ipairs({ "Exalted", "Revered", "Honored" }) do
+    if byWord[w] then reps[#reps + 1] = w:lower() .. " by " .. U.Join(byWord[w]) end
+    if #reps >= 2 then break end
+  end
+  if #reps > 0 then ties[#ties + 1] = "is " .. U.Join(reps) end
+  if #ties > 0 then paras[#paras + 1] = sentence(name .. " " .. U.Join(ties)) end
+
   -- Deeds
   local deeds = {}
   if rpgd then
@@ -463,14 +528,16 @@ function Compose.History()
   if #deeds > 0 then paras[#paras + 1] = sentence(name .. " " .. U.Join(deeds)) end
 
   local work = {}
-  if chron then
-    if chron.questsDone >= 25 then work[#work + 1] = "has done honest work for more people than {they} can name" end
-    for i = 1, math.min(2, #chron.professions) do
-      local p = chron.professions[i]
-      if p.rank >= 50 then work[#work + 1] = "works " .. p.name:lower() .. " with the hands of " .. profWord(p.rank) end
-    end
+  if chron and chron.questsDone >= 25 then work[#work + 1] = "has done honest work for more people than {they} can name" end
+  local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
+  for i = 1, math.min(2, #profs) do
+    local p = profs[i]
+    if p.rank >= 50 then work[#work + 1] = "works " .. p.name:lower() .. " with the hands of " .. profWord(p.rank) end
   end
   if rpgd and rpgd.kills >= 500 then work[#work + 1] = "has put down more beasts than {they} care to count" end
+  if rpgd and rpgd.grudge and rpgd.grudge.n >= 40 then
+    work[#work + 1] = "has thinned the ranks of the " .. Compose.Plural(rpgd.grudge.name) .. " considerably"
+  end
   if #work > 0 then paras[#paras + 1] = sentence(name .. " " .. U.Join(work)) end
 
   -- Learning
@@ -495,6 +562,17 @@ function Compose.History()
     end
     paras[#paras + 1] = sentence(p)
   end
+
+  -- These past days, from the mood journal
+  local days = ns.Mood.RecentDays(3)
+  local bits = {}
+  for _, d in ipairs(days) do
+    local m = d.mood and W.MOODS[d.mood] and W.MOODS[d.mood].title:lower()
+    if m or d.zone then
+      bits[#bits + 1] = (m or "about") .. (d.zone and (m and " in " or " ") .. U.Mid(d.zone) or "") .. " " .. d.label
+    end
+  end
+  if #bits >= 2 then paras[#paras + 1] = "These past days: " .. U.Join(bits) .. "." end
 
   -- A page from the diary
   if rpgd and ns.db.diaryExcerpt and rpgd.lastEntry and rpgd.lastEntry.text then
@@ -573,8 +651,21 @@ function Compose.FullTitle()
   if standing then return standing end
   local noun = U.Cap(W.CLASS_NOUN[world.class or ""] or "wanderer")
   if align then return align .. " " .. noun end
+  local top = world.factions and world.factions[1]
+  if top and top.standing >= 8 then return "Champion of " .. W.FactionName(top.name) end
+  if top and top.standing >= 7 then return "Friend of " .. W.FactionName(top.name) end
   local home = W.RACE_HOME[world.race or ""]
   return U.Cap(seasoned(world.level, "seasoned")) .. " " .. noun .. (home and (" of " .. home) or "")
+end
+
+-- Total RP 3's relationship status, from a partner in Social Diary (3 married, 2 taken).
+function Compose.RelationshipStatus()
+  local sd = ns.cache.sd
+  return sd and sd.partner and sd.partner.status or nil
+end
+
+function Compose.OOCNote()
+  return "Parts of this profile update themselves as I play (Auto TRP)."
 end
 
 function Compose.Residence()
@@ -634,6 +725,8 @@ function Compose.Sheet()
     title = Compose.Title(),
     fulltitle = Compose.FullTitle(),
     residence = Compose.Residence(),
+    relationship = Compose.RelationshipStatus(),
+    ooc = Compose.OOCNote(),
     birthplace = Compose.Birthplace(),
     motto = Compose.Motto(),
     nickname = Compose.Nickname(),

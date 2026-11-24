@@ -67,6 +67,7 @@ function CH.Read()
     if type(q) == "table" and q.status == "completed" then out.questsDone = out.questsDone + 1 end
   end
 
+  out.created = tonumber(c.created)
   out.zones = U.Count(c.zones)
   out.rares = U.Count(c.rares)
   out.appearance = CH.Appearance()

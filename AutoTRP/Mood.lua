@@ -489,3 +489,73 @@ ns.Listen("LOGIN", function()
   st.lastSocial = st.lastSocial or U.Now()
   lastMoney = U.Call(GetMoney)
 end)
+
+---------------------------------------------------------------------------
+-- The mood journal: each real day's feelings and places, kept for two weeks, so History
+-- can say how the last few days have gone.
+---------------------------------------------------------------------------
+Mood.KEEP_DAYS = 14
+
+local function today(offset)
+  local t = U.Now() - (offset or 0) * 86400
+  return date and date("%Y-%m-%d", t) or tostring(math.floor(t / 86400))
+end
+Mood.Day = today
+
+function Mood.Log(current, world)
+  if not ns.char or not current then return end
+  ns.char.days = ns.char.days or {}
+  local days = ns.char.days
+  local key = today()
+  local d = days[key]
+  if not d then
+    d = { moods = {}, zones = {} }
+    days[key] = d
+    -- Forget the oldest days.
+    local list = {}
+    for k in pairs(days) do list[#list + 1] = k end
+    table.sort(list)
+    for i = 1, #list - Mood.KEEP_DAYS do days[list[i]] = nil end
+  end
+  if not current.key:find("^calm:") then d.moods[current.key] = (d.moods[current.key] or 0) + 1 end
+  if world and world.zone then d.zones[world.zone] = (d.zones[world.zone] or 0) + 1 end
+end
+
+local function most(t)
+  local best, n
+  for k, v in pairs(t or {}) do if not n or v > n or (v == n and k < best) then best, n = k, v end end
+  return best
+end
+
+-- { { label = "today", mood = "downcast", zone = "Duskwood" }, ... } newest first.
+function Mood.RecentDays(count)
+  local out = {}
+  local days = ns.char and ns.char.days or {}
+  local labels = { [0] = "today", [1] = "yesterday", [2] = "the day before" }
+  local weekday = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" }
+  for i = 0, (count or 3) - 1 do
+    local d = days[today(i)]
+    if d then
+      local m = most(d.moods)
+      if m or most(d.zones) then
+        local wd = date and tonumber(date("%w", U.Now() - i * 86400))
+        out[#out + 1] = { label = labels[i] or (wd and ("on " .. weekday[wd + 1])) or (i .. " days ago"), mood = m, zone = most(d.zones) }
+      end
+    end
+  end
+  return out
+end
+
+-- A quiet line in your own chat when your mood turns (never sent to anyone).
+local lastNoteKey, lastNoteAt = nil, 0
+function Mood.Note(current)
+  if not ns.db or not ns.db.moodNotes or ns.db.quiet or not current then return end
+  if current.key:find("^calm:") or current.key == lastNoteKey then return end
+  local now = U.Now()
+  if lastNoteKey ~= nil and now - lastNoteAt < 300 then return end
+  local first = lastNoteKey == nil
+  lastNoteKey, lastNoteAt = current.key, now
+  if first then return end   -- not on login
+  local why = current.reasons and current.reasons[1]
+  ns.Print("|cffd0d0ffYou feel " .. current.title:lower() .. (why and (": " .. why) or "") .. ".|r")
+end

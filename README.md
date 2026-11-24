@@ -17,11 +17,13 @@ Everything updates on its own while you play: **Currently** and the glances at m
 | **Currently** | Your mood, what you're doing and where, with the zone's atmosphere, your pet and the hour: *"Bone-tired and a little uneasy, beneath the dead trees of Duskwood, with Fang at heel, under the stars."* It notices the mailbox, the bank, the auction house, crafting, fishing and eating. `/atrp intent` adds your plans. |
 | **At first glance**, all five | **1 Mood**: what a stranger notices. **2 Lately**: the freshest news (a death, a victory, a story moving, a new land), else who you were last seen with. **3 Company**: your group, your Social Diary friends, where you're known, or travelling alone. **4 Ambition**: your Chronicle goal, an unfinished story, or what your class strives for. **5 Marks**: wounds, drink, madness, taint, battered or remarkable gear, old scars, else what you wear and carry. |
 | **Personality traits** | Plain words: **Good/Evil**, **Lawful/Chaotic**, **Honest/Deceitful** from your RPG Dialogue alignment, and Kind/Cruel, Brave/Cautious, Generous/Greedy, Religious/Skeptical, Outgoing/Reserved, Playful/Serious from your choices. |
-| **About: Personality** | Temperament, a plain *"By most accounts: good and lawful"*, and the opinions you've said out loud. |
-| **About: History** | Your origin in your own words, the lands and dungeons you've seen, your usual inn, friends and rivals, where you're liked or distrusted, who you ride with, deeds, crafts, books you've read, close calls, and a line from your diary. |
+| **About: Personality** | Temperament, a plain *"By most accounts: good and lawful"*, the opinions you've said out loud, and conversation starters for other players: *"Ask them about the gold of Elwynn's mines, what's down in the Deadmines..."* |
+| **About: History** | Your origin in your own words, how long you've been on the road, the lands and dungeons you've seen, your usual inn (and the one you gave up), friends and rivals, where you're liked or distrusted, who you ride with, your guild, faction reputations and PvP rank, deeds, crafts, the creatures you've thinned out, books you've read, close calls, how the last few days have felt, and a line from your diary. |
 | **About: Physical** | Your build (from your strongest attribute), what you wear and carry, the finest thing on you (live, or from Chronicle's equipment snapshot), and your scars. |
 | **Title** | Your rank by experience, per class: a priest goes Acolyte, Initiate, Deacon, Priest, Confessor... a warrior Recruit, Militiaman, Soldier... |
 | **Full title** | Alignment and standing (*Lightsworn, Friend of Goldshire*), else what you are and where from. |
+| **Relationship status** | Married or Taken, if you've named a wife, husband, betrothed or sweetheart in Social Diary. |
+| **OOC note** | Off by default: a line saying the profile updates itself. |
 | **Nickname, Motto, Residence, Birthplace** | An epithet you've earned (*the Far-Walker*, *Grave-Cheater*, *the Bookish*), a motto that fits your temperament, your inn, your homeland. |
 
 Each one has a switch in the settings.
@@ -42,12 +44,17 @@ Dozens of signals feed it, and each feeling remembers why (`/atrp mood` shows th
 
 `/atrp feel <mood>` sets it yourself for an hour.
 
+**The mood badge**: a small icon on screen shows your current mood. Hover for the reasons and what your profile says, click for the preview, right-click to pause, drag to move (`/atrp badge` hides it). When your mood turns you get a quiet line in your own chat (never sent to anyone).
+
+**The mood journal** keeps each day's main feeling and place for two weeks. History sums up the last few days (*"These past days: downcast in Duskwood today and wide-eyed in Westfall yesterday."*), and `/atrp days` lists the week.
+
 ## Your words stay yours
 
 - Auto TRP writes to **one profile**. On first login it offers to make a copy of your current profile called *"Name (Auto TRP)"* and only ever writes there. Switch to another profile and it stops.
 - It never writes to Total RP 3's default profile (Total RP 3 doesn't allow it).
 - **It never writes over your own words.** If a field already has text it didn't write, or you edit something it wrote, that field becomes yours and it stops touching it. `/atrp claim <field>` hands one back.
 - Nothing is written in combat. *Currently* and the glances update at most every 90 seconds; the rest every five minutes or after something that matters.
+- **Backup**: before its first write to a profile, Auto TRP keeps a copy of everything it might touch. `/atrp restore` puts the profile back exactly and hands every field back to you.
 - Profile text is public, so it never gives your exact position, never reads Chronicle notes, and only names other players you've marked as friends in Social Diary (switch that off in settings).
 - Optional: pause *Currently* and the glances while you're out of character.
 
@@ -69,9 +76,13 @@ Copy the `AutoTRP` folder into `World of Warcraft/<your Forever folder>/Interfac
 | `/atrp mood` | how your character feels, and why |
 | `/atrp feel <mood>` | choose a mood for the next hour (`/atrp feel` lists them, `/atrp feel clear` lets it go) |
 | `/atrp intent <text>` | add what you're up to to Currently for two hours (*"Looking for passage to Theramore."*) |
+| `/atrp days` | the mood journal: the last week of feelings and places |
+| `/atrp slot <glance> <1-5\|0>` | move a glance (mood, lately, company, ambition, marks) to another slot, or drop it |
+| `/atrp restore` | put your profile back as it was before Auto TRP |
+| `/atrp badge` | show or hide the mood badge |
 | `/atrp on` / `off` | resume or pause |
 
-Fields: `currently`, `title`, `fulltitle`, `nickname`, `motto`, `residence`, `birthplace`, `traits`, `bearing`, `history`, `physical`, `glance_mood`, `glance_lately`, `glance_company`, `glance_ambition`, `glance_marks`.
+Fields: `currently`, `title`, `fulltitle`, `nickname`, `motto`, `residence`, `birthplace`, `traits`, `bearing`, `history`, `physical`, `glance_mood`, `glance_lately`, `glance_company`, `glance_ambition`, `glance_marks`, `relationship`, `ooc`.
 
 ## For developers
 
