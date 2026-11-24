@@ -2,7 +2,8 @@
 
 ## 0.13.0 (2026-11-24): A Life, Not a Ledger
 
-- About is written as the character's story instead of a list of what the addons know. History runs in six short paragraphs (roots, the road, what it cost, the people, the deeds, how things stand now), and the numbers come with what they did to the character: what dying taught them, the place that changed them, what the road has made of them at their stage of life. All of it shaped by temperament.
+- About is written as the character's story instead of a list of what the addons know. History runs in five short paragraphs (roots, the road, the people, the deeds, how things stand now), and events come with what they did to the character: the place that changed them, what the road has made of them at their stage of life. All of it shaped by temperament.
+- Statistics: deaths, lands explored, dungeons and creatures slain are plain counts in Total RP 3's Additional information, not sentences in History. A fresh death reads as being badly hurt in the Lately glance.
 - Personality: temperament and conscience together, beliefs and the ones that changed, lies found out, books, and the stories they have (instead of "Ask them about").
 - Physical in three paragraphs: the body, what they wear and carry, what life has left on them.
 - Looks nicer: quotes in a pale cream, the finest item and prized finds in their quality colour (switch: "Colour quotes and item names").

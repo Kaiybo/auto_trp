@@ -116,6 +116,7 @@ ns.DEFAULTS = {
     relationship = true, -- relationship status, from a partner you named in Social Diary
     ooc = false,        -- an out-of-character note that the profile updates itself
     walkup = false,     -- "open to walk-ups" follows your mood (off by default)
+    stats = true,       -- Statistics in Additional information: deaths, lands, dungeons, creatures slain
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },

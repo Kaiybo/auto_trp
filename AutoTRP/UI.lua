@@ -22,6 +22,8 @@ local function values(sheet)
     glance_mood = sheet.glances.mood, glance_lately = sheet.glances.lately,
     glance_company = sheet.glances.company, glance_ambition = sheet.glances.ambition,
     glance_marks = sheet.glances.marks,
+    stat_deaths = sheet.stats and sheet.stats.deaths, stat_lands = sheet.stats and sheet.stats.lands,
+    stat_dungeons = sheet.stats and sheet.stats.dungeons, stat_slain = sheet.stats and sheet.stats.slain,
   }
 end
 
@@ -304,6 +306,12 @@ function UI.PreviewText()
   add("bearing", s.bearing)
   add("history", s.history)
   add("physical", s.physical)
+  if s.stats then
+    add("stat_deaths", s.stats.deaths)
+    add("stat_lands", s.stats.lands)
+    add("stat_dungeons", s.stats.dungeons)
+    add("stat_slain", s.stats.slain)
+  end
   return table.concat(out, "\n")
 end
 
@@ -381,6 +389,7 @@ local OPTIONS = {
   { path = { "fields", "relationship" }, label = "Relationship status, from a partner in Social Diary" },
   { path = { "fields", "ooc" }, label = "OOC note saying the profile updates itself" },
   { path = { "fields", "walkup" }, label = "Open to walk-ups follows your mood" },
+  { path = { "fields", "stats" }, label = "Statistics in Additional information: deaths, lands, dungeons, creatures slain" },
   { head = "Where it looks" },
   { path = { "sources", "rpgd" }, label = "RPG Dialogue" },
   { path = { "sources", "socialDiary" }, label = "Social Diary" },
@@ -635,7 +644,7 @@ local HELP = {
   "|cffffd100/atrp slot <glance> <1-5|0>|r: move a glance (mood, lately, company, ambition, marks) to another slot, or 0 to drop it",
   "|cffffd100/atrp badge|r: show or hide the mood badge",
   "|cffffd100/atrp days|r: the mood journal, the last week of feelings and places",
-  "Fields: currently, title, fulltitle, nickname, motto, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks",
+  "Fields: currently, title, fulltitle, nickname, motto, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_deaths, stat_lands, stat_dungeons, stat_slain",
 }
 
 local function eachField(arg, fn)

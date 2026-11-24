@@ -197,7 +197,11 @@ check(p.characteristics.FT == "Lightsworn, Friend of Goldshire", "full title: " 
 check(p.characteristics.PS[1].LT == "Good" and p.characteristics.PS[1].RT == "Evil", "plain good/evil bar")
 for i = 1, 5 do check(p.misc.PE[tostring(i)] and p.misc.PE[tostring(i)].AC and p.misc.PE[tostring(i)].TX ~= nil, "glance " .. i .. " filled") end
 check(p.about.T3.PH.TX and p.about.T3.PH.TX:find("Crown of the Lost"), "physical mentions the finest gear")
-check(p.about.TE == 3 and p.about.T3.HI.TX and p.about.T3.HI.TX:find("Hogger"), "history written in template 3")
+check(p.about.TE == 3 and p.about.T3.HI.TX and p.about.T3.HI.TX:find("Lion's Pride"), "history written in template 3")
+check(not p.about.T3.HI.TX:find("died"), "deaths stay out of the History prose")
+local statDeaths
+for _, e in ipairs(p.characteristics.MI) do if e.ID == 1 and e.NA == "Deaths" then statDeaths = e.VA end end
+check(statDeaths == "3, the first to Hogger", "deaths are a statistic: " .. tostring(statDeaths))
 check(not p.about.T3.HI.TX:find("PRIVATE"), "Chronicle notes are never read")
 check(p.misc.PE["1"] and p.misc.PE["1"].AC, "mood glance written")
 check(#p.characteristics.PS >= 3, "personality bars written")

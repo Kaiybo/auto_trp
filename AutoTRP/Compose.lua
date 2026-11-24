@@ -137,8 +137,8 @@ function Compose.LatelyGlance()
   local cdeath = chron and chron.deaths[1]
   if cdeath and (not death or cdeath.t > death.t) then death = cdeath end
   if death and within(death.t, 2 * 86400) then
-    local tx = "Died" .. (death.killer and (" at the hands of " .. death.killer) or "") .. (death.zone and (" in " .. death.zone) or "")
-      .. " a short while ago, and is still pale from it"
+    local tx = "Badly hurt" .. (death.killer and (" by " .. death.killer) or "") .. (death.zone and (" in " .. death.zone) or "")
+      .. " a short while ago, and still pale from it"
     add(death.t, 3, { TI = "Fresh Scars", TX = tx .. ".", IC = "Spell_Holy_Resurrection" })
   end
   local boss = chron and chron.bosses[1]
@@ -613,9 +613,8 @@ function Compose.Hooks()
 end
 
 ---------------------------------------------------------------------------
--- About: History. Six movements: where they came from, the road so far and what it has
--- made of them, what it has cost, the people, the work and the deeds, and how things
--- stand now.
+-- About: History. Five movements: where they came from, the road so far and what it has
+-- made of them, the people, the work and the deeds, and how things stand now.
 ---------------------------------------------------------------------------
 local function profWord(rank)
   for _, r in ipairs(W.PROF_RANK) do if rank >= r.min then return r.word end end
@@ -689,30 +688,8 @@ function Compose.History()
   road[#road + 1] = byTemper(W.ARC_STAGE[stage(world.level)], rpgd, "arc")
   paras[#paras + 1] = paragraph(road)
 
-  -- 3. What it has cost
-  local cost = {}
-  local deaths = deathCount(c)
-  if deaths > 0 then
-    local firstDeath = rpgd and rpgd.deaths[1] or (chron and chron.deaths[#chron.deaths])
-    local who = firstDeath and firstDeath.killer
-    local where = firstDeath and firstDeath.zone and (" in " .. firstDeath.zone) or ""
-    if deaths == 1 then
-      cost[#cost + 1] = "Has died once" .. (who and (", to " .. who .. where) or "")
-    else
-      cost[#cost + 1] = "Has died " .. U.Times(deaths) .. " and come back each time"
-        .. (who and (". The first time it was " .. who .. where) or "")
-    end
-    cost[#cost + 1] = byTemper(W.DEATH_LESSON[deaths >= 10 and "many" or "few"], rpgd, "death")
-  end
-  if rpgd and rpgd.rivals[1] then
-    cost[#cost + 1] = "There is no love lost between {them} and " .. rpgd.rivals[1].name
-  end
-  if sd and #sd.foes > 0 then
-    cost[#cost + 1] = "Has made " .. (#sd.foes == 1 and "an enemy" or "a few enemies") .. " on the road who would be glad to see {them} fall"
-  end
-  paras[#paras + 1] = paragraph(cost)
-
-  -- 4. The people
+  -- 3. The people, friends and otherwise. (Deaths and kills are counted in the
+  -- Statistics, not told here.)
   local people = {}
   if rpgd then
     local friends = {}
@@ -765,6 +742,12 @@ function Compose.History()
     if #reps >= 2 then break end
   end
   if #reps > 0 then people[#people + 1] = U.Cap(U.Join(reps)) end
+  if rpgd and rpgd.rivals[1] then
+    people[#people + 1] = "There is no love lost between {them} and " .. rpgd.rivals[1].name
+  end
+  if sd and #sd.foes > 0 then
+    people[#people + 1] = "Has made " .. (#sd.foes == 1 and "an enemy" or "a few enemies") .. " on the road who would be glad to see {them} fall"
+  end
   local hon = ns.char and ns.char.honours or {}
   local h = hon[#hon]
   if h and within(h.t, 14 * 86400) then
@@ -772,7 +755,7 @@ function Compose.History()
   end
   paras[#paras + 1] = paragraph(people)
 
-  -- 5. Work and deeds
+  -- 4. Work and deeds
   local deeds = {}
   if rpgd then
     for _, t in ipairs(rpgd.threads) do
@@ -789,14 +772,6 @@ function Compose.History()
     elseif chron.bosses[1] then deeds[#deeds + 1] = "Was there when " .. chron.bosses[1].name .. " fell" end
     if chron.rares >= 5 then deeds[#deeds + 1] = "Has tracked down " .. U.Number(chron.rares) .. " rare beasts that most hunters only hear about" end
     if chron.questsDone >= 25 then deeds[#deeds + 1] = "Has taken " .. U.Roughly(chron.questsDone) .. " jobs from people who needed help and couldn't do it themselves" end
-  end
-  local kills = rpgd and rpgd.kills or 0
-  local grudge = rpgd and rpgd.grudge and rpgd.grudge.n >= 40 and rpgd.grudge
-  if kills >= 500 then
-    deeds[#deeds + 1] = "Has killed " .. U.Roughly(kills) .. " creatures"
-      .. (grudge and (", " .. U.Number(grudge.n) .. " of them " .. Compose.Plural(grudge.name)) or "")
-  elseif grudge then
-    deeds[#deeds + 1] = "Has killed " .. U.Number(grudge.n) .. " " .. Compose.Plural(grudge.name) .. " and is not done yet"
   end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
   local crafts = {}
@@ -817,7 +792,7 @@ function Compose.History()
   end
   paras[#paras + 1] = paragraph(deeds)
 
-  -- 6. How things stand now
+  -- 5. How things stand now
   local now = {}
   local days = ns.Mood.RecentDays(3)
   local bits = {}
@@ -885,6 +860,33 @@ function Compose.Physical()
   if world.gear and world.gear.durability and world.gear.durability < 0.25 then marks[#marks + 1] = "{their} armour badly needs a smith" end
 
   return pages({ paragraph(body), paragraph(dress), paragraph(marks) })
+end
+
+---------------------------------------------------------------------------
+-- Statistics: plain counts for Total RP 3's Additional information, kept out of the prose.
+---------------------------------------------------------------------------
+function Compose.Stats()
+  local c = ns.cache
+  local rpgd, chron = c.rpgd, c.chronicle
+  local function figure(n) return n >= 100 and U.Number(n) or tostring(n) end   -- "1,240", "39"
+  local out = {}
+  local deaths = deathCount(c)
+  if deaths > 0 then
+    local first = rpgd and rpgd.deaths[1] or (chron and chron.deaths[#chron.deaths])
+    out.deaths = figure(deaths) .. (first and first.killer and (", the first to " .. first.killer) or "")
+  end
+  local lands = math.max(rpgd and #rpgd.zones or 0, chron and chron.zones or 0)
+  if lands > 0 then out.lands = figure(lands) end
+  local dungeons = math.max(chron and chron.dungeons or 0, rpgd and #rpgd.cleared or 0)
+  if dungeons > 0 then out.dungeons = figure(dungeons) end
+  local kills = rpgd and rpgd.kills or 0
+  if kills > 0 then
+    out.slain = figure(kills)
+    if rpgd.grudge and rpgd.grudge.n >= 10 then
+      out.slain = out.slain .. ", " .. figure(rpgd.grudge.n) .. " of them " .. Compose.Plural(rpgd.grudge.name)
+    end
+  end
+  return out
 end
 
 ---------------------------------------------------------------------------
@@ -989,7 +991,7 @@ end
 -- mood: already worked out by the caller. only: the fields wanted (the story fields are
 -- skipped when none of them is).
 local STORY = { "traits", "bearing", "history", "physical", "title", "fulltitle", "residence", "birthplace",
-  "motto", "nickname", "relationship", "ooc", "glance_ambition" }
+  "motto", "nickname", "relationship", "ooc", "glance_ambition", "stat_deaths", "stat_lands", "stat_dungeons", "stat_slain" }
 function Compose.Sheet(fresh, mood, only)
   if not fresh then Compose.Refresh() end
   mood = mood or ns.Mood.Current(ns.cache.world)
@@ -1025,5 +1027,6 @@ function Compose.Sheet(fresh, mood, only)
     birthplace = Compose.Birthplace(),
     motto = Compose.Motto(),
     nickname = Compose.Nickname(),
+    stats = Compose.Stats(),
   }
 end

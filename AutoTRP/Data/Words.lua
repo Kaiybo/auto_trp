@@ -1376,22 +1376,6 @@ W.ARC_STAGE = {
   },
 }
 
--- What dying has done to them, by count and temperament.
-W.DEATH_LESSON = {
-  few = {
-    default = "It was enough to make the world feel more dangerous.",
-    brave = "It hasn't made {them} any less willing to stand in front.",
-    cautious = "It made {them} careful in a way {they} haven't shaken since.",
-  },
-  many = {
-    default = "Death has stopped being frightening and become something more like a debt.",
-    brave = "Death has become an old acquaintance, and {they} no longer flinch when it comes near.",
-    cautious = "Each time has made {them} slower to rush in, and harder to kill.",
-    pious = "Each return feels like being sent back for a reason {they} haven't found yet.",
-    kind = "Each time, someone else lived because {they} stood in the way. It seems a fair trade to {them}.",
-  },
-}
-
 W.PROF_NOUN = {
   herbalism = "herbalist", mining = "miner", skinning = "skinner", alchemy = "alchemist", blacksmithing = "blacksmith",
   leatherworking = "leatherworker", tailoring = "tailor", engineering = "engineer", enchanting = "enchanter",
