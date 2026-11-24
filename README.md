@@ -99,7 +99,7 @@ Fields: `currently`, `title`, `fulltitle`, `nickname`, `motto`, `residence`, `bi
 
 ## Language
 
-Auto TRP writes in English, and the places it recognises (zones, districts, dungeons) are matched by their English names, so on other game languages those touches are skipped. Everything else (moods, glances, history) works the same.
+Auto TRP writes in English. Zones are recognised by their map ID, so zone touches (atmosphere, eerie places, places that matter to your race and class, capitals, flights) work in any game language. City districts, a few subzone places and dungeon descriptions are matched by their English names and are skipped on other languages. Everything else works the same.
 
 ## For developers
 

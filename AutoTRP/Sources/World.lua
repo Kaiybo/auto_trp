@@ -234,6 +234,10 @@ function World.Snapshot()
   s.zone = U.Plain(call("GetRealZoneText")) or U.Plain(call("GetZoneText"))
   s.subzone = U.Plain(call("GetSubZoneText"))
   if s.subzone == s.zone then s.subzone = nil end
+  -- zoneKey: the zone's English name for the lookup tables, from its map ID when there is one
+  -- (so non-English clients get the same touches); zone stays as the game shows it.
+  local mapID = C_Map and C_Map.GetBestMapForUnit and World.Safe(U.Call(C_Map.GetBestMapForUnit, "player"))
+  s.zoneKey = (type(mapID) == "number" and W.ZONE_BY_MAP[mapID]) or s.zone
   s.resting = call("IsResting") and true or false
   s.combat = World.Safe(call("UnitAffectingCombat", "player")) and true or false
   s.dead = World.Safe(call("UnitIsDeadOrGhost", "player")) and true or false
@@ -426,8 +430,8 @@ function World.Activity(s, seed, terse)
   end
   if s.taxi then
     local beast
-    if s.faction == "Horde" then beast = W.BAT_ZONES[s.zone or ""] and "a bat" or "a wind rider"
-    else beast = W.KALIMDOR[s.zone or ""] and "a hippogryph" or "a gryphon" end
+    if s.faction == "Horde" then beast = W.BAT_ZONES[s.zoneKey or ""] and "a bat" or "a wind rider"
+    else beast = W.KALIMDOR[s.zoneKey or ""] and "a hippogryph" or "a gryphon" end
     return U.Pick({ "on the back of " .. beast .. " over " .. where, "flying " .. beast .. " over " .. where }, seed)
   end
   local ctx = s.context
@@ -461,7 +465,7 @@ function World.Activity(s, seed, terse)
   elseif s.mounted then
     text = World.Mount(s) .. " through " .. where
   else
-    local flavor = W.ZONE_FLAVOR[s.zone or ""]
+    local flavor = W.ZONE_FLAVOR[s.zoneKey or ""]
     local classAct = W.CLASS_ACTIVITY[s.class or ""]
     local roll = U.Hash(seed .. "flavor") % 3
     if flavor and roll == 0 then

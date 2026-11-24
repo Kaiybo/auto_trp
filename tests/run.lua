@@ -568,6 +568,19 @@ ns.char.honours = nil
 event("CHAT_MSG_COMBAT_FACTION_CHANGE", "You are now Exalted with Ironforge.")
 check(ns.char.honours and ns.char.honours[1].standing == "Exalted", "a new standing via the reputation channel")
 
+-- A German client: the zone's own name differs, its map ID doesn't
+C_Map = { GetBestMapForUnit = function() return 1448 end }
+UnitRace = function() return "Nachtelf", "NightElf" end
+state.zone, state.sub = "Teufelswald", nil
+ns.Compose.Refresh()
+local sc4, wy4 = ns.Mood.Scores(ns.cache.world)
+local found = false
+for _, r in ipairs(wy4.sorrowful or {}) do if r == "a corrupted forest" then found = true end end
+check(found, "zone touches work on a German client (Felwood by map ID)")
+C_Map = nil
+UnitRace = function() return "Human", "Human" end
+state.zone, state.sub = "Duskwood", "Raven Hill"
+
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")

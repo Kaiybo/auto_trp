@@ -205,7 +205,7 @@ function Mood.Scores(world)
     elseif world.pvpZone == "contested" and world.pvpFlag then add("tense", 10, "contested land") end
   end
   if world.stealthed then add("tense", 10, "hiding") end
-  if world.zone and W.EERIE_ZONES[world.zone] and not world.resting then
+  if world.zoneKey and W.EERIE_ZONES[world.zoneKey] and not world.resting then
     add("uneasy", 18 + (world.night and 15 or 0), world.night and (world.zone .. " at night") or world.zone)
   elseif world.night and not world.resting and not world.grouped and not world.instance then
     add("uneasy", 8, "alone at night")
@@ -214,7 +214,7 @@ function Mood.Scores(world)
 
   -- Places that mean something to this race or class (subzone first, then zone).
   for _, list in ipairs(ns.db.reactPlaces and { W.RACE_PLACES[world.race or ""] or false, W.CLASS_PLACES[world.class or ""] or false } or {}) do
-    local hit = list and ((world.subzone and list[world.subzone]) or (world.zone and list[world.zone]))
+    local hit = list and ((world.subzone and list[world.subzone]) or (world.zoneKey and list[world.zoneKey]))
     if hit then add(hit[1], hit[2], hit[3]) end
   end
   local rt = W.RACE_TIME[world.race or ""]
@@ -222,8 +222,8 @@ function Mood.Scores(world)
     local hit = (world.night and rt.night) or (world.dawn and rt.dawn) or (world.dusk and rt.dusk)
     if hit then add(hit[1], hit[2], hit[3]) end
   end
-  if world.zone and world.zone == W.CAPITALS[world.race or ""] then add("ease", 15, "among {their} own people") end
-  if world.zone and W.ENEMY_CAPITALS[world.faction or ""] and W.ENEMY_CAPITALS[world.faction][world.zone] then
+  if world.zoneKey and world.zoneKey == W.CAPITALS[world.race or ""] then add("ease", 15, "among {their} own people") end
+  if world.zone and W.ENEMY_CAPITALS[world.faction or ""] and W.ENEMY_CAPITALS[world.faction][world.zoneKey] then
     add("tense", 25, "the enemy's capital")
   end
   if world.petHappy == 1 then add("uneasy", 15, (world.pet or "the pet") .. " is unhappy")
