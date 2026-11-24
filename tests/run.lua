@@ -455,6 +455,24 @@ UnitIsEnemy = function() return false end
 UnitName = function() return "Aldric" end
 UnitRace = function() return "Human", "Human" end
 
+-- Lately: a fight, a job
+RPGDialogueCharDB.deaths[1].t = NOW - 300000
+for _, d in ipairs(RPGDialogueCharDB.deaths) do if d.t > NOW - 300000 then d.t = NOW - 300000 end end
+ns.char.finds = nil
+RPGDialogueCharDB.npc.farley.last = NOW - 90000
+UnitCanAttack = function() return true end
+UnitName = function(u) if u == "target" then return "Defias Pillager" end return "Aldric" end
+event("PLAYER_REGEN_DISABLED")
+UnitName = function() return "Aldric" end
+event("PLAYER_REGEN_ENABLED")
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+check(ns.Compose.LatelyGlance().TX == "Fresh from a fight with a Defias Pillager.", "Lately: a fight just now: " .. ns.Compose.LatelyGlance().TX)
+ns.char.lastFight = nil
+ChronicleCharDB.quests = { { time = NOW - 30, title = "The Collector", status = "completed", zone = "Elwynn Forest" } }
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+check(ns.Compose.LatelyGlance().TX:find('Just saw a job through: "The Collector", in Elwynn Forest'), "Lately: a job just done")
+ChronicleCharDB.quests = {}
+
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")

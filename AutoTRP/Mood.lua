@@ -364,7 +364,12 @@ end)
 ns.On("ENCOUNTER_END", function(_, _, name, _, _, success)
   if success == 1 then Mood.Push("triumphant", 60, type(name) == "string" and ("brought down " .. name) or "a great foe fell") end
 end)
-ns.On("PLAYER_REGEN_DISABLED", function() lowest = 1; fightStart = U.Now() end)
+local foe
+ns.On("PLAYER_REGEN_DISABLED", function()
+  lowest = 1; fightStart = U.Now()
+  foe = nil
+  if U.Call(UnitCanAttack, "player", "target") then foe = U.Plain(ns.World.Safe(U.Call(UnitName, "target"))) end
+end)
 local function onHealth(_, unit)
   if unit == "player" then
     local hp, max = ns.World.Safe(U.Call(UnitHealth, "player")), ns.World.Safe(U.Call(UnitHealthMax, "player"))
@@ -389,7 +394,9 @@ ns.On("PLAYER_REGEN_ENABLED", function()
   table.insert(st.fights, U.Now()); prune(st.fights, 900)
   if lowest < 0.25 then Mood.Push("rattled", 40, "a close call") elseif lowest < 0.5 then Mood.Push("rattled", 15, "a hard fight") end
   if fightStart and U.Now() - fightStart > 45 and lowest >= 0.25 then Mood.Push("triumphant", 15, "won a long fight") end
-  lowest, fightStart = 1, nil
+  -- The fight, for the Lately glance.
+  ns.char.lastFight = { foe = foe, t = U.Now(), close = lowest < 0.25, long = fightStart and U.Now() - fightStart > 45 }
+  lowest, fightStart, foe = 1, nil, nil
 end)
 ns.On("GROUP_ROSTER_UPDATE", function()
   if ns.char and (U.Call(IsInGroup) or U.Call(IsInRaid)) then state().lastSocial = U.Now() end

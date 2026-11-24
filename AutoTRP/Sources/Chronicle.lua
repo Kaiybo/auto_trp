@@ -64,7 +64,12 @@ function CH.Read()
 
   out.questsDone = 0
   for _, q in ipairs(type(c.quests) == "table" and c.quests or {}) do
-    if type(q) == "table" and q.status == "completed" then out.questsDone = out.questsDone + 1 end
+    if type(q) == "table" and q.status == "completed" then
+      out.questsDone = out.questsDone + 1
+      if not out.lastQuest and U.Plain(q.title) then
+        out.lastQuest = { title = U.Plain(q.title), t = tonumber(q.time) or 0, zone = U.Plain(q.zone) }
+      end
+    end
   end
 
   out.created = tonumber(c.created)

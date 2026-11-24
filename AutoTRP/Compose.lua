@@ -136,6 +136,21 @@ function Compose.LatelyGlance()
     add(thread.t, 1, { TI = thread.state == "resolved" and "Loose Ends Tied" or "Caught Up in Something",
       IC = "INV_Misc_Note_02", TX = U.Pick(THREAD_PHRASE[thread.state], seed(thread.id)):format(lowerFirst(thread.title)) })
   end
+  -- A fight just now
+  local fight = ns.char and ns.char.lastFight
+  if fight and fight.foe and within(fight.t, 300) then
+    local tx = fight.close and ("Barely survived a fight with " .. article(fight.foe))
+      or fight.long and ("Fresh from a long, hard fight with " .. article(fight.foe))
+      or ("Fresh from a fight with " .. article(fight.foe))
+    add(fight.t, fight.close and 2 or 0, { TI = fight.close and "Close Call" or "Blood Up", IC = "Ability_DualWield", TX = tx .. "." })
+  end
+  -- A job just finished (Chronicle keeps the quest's name)
+  local q = chron and chron.lastQuest
+  if q and within(q.t, 1800) then
+    add(q.t, 0, { TI = "A Job Done", IC = "INV_Misc_Note_06",
+      TX = "Just saw a job through: \"" .. q.title .. "\"" .. (q.zone and (", in " .. U.Mid(q.zone)) or "") .. "." })
+  end
+
   -- A conversation just now in RPG Dialogue
   local talk = rpgd and rpgd.lastTalk
   if talk and within(talk.last, 1800) then
