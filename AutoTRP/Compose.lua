@@ -203,7 +203,12 @@ function Compose.LatelyGlance()
     end
   end
   local where = world.zone and U.Mid(world.zone) or "these parts"
-  return { TI = "Lately", IC = "INV_Misc_Map_01", TX = U.Pick({ "Keeping busy around " .. where .. ".", "Has been working " .. where .. " for a while now." }, seed("lately" .. where)) }
+  local list = { "Keeping busy around " .. where .. ".", "Has been working " .. where .. " for a while now." }
+  local ca = W.CLASS_ACTIVITY[world.class or ""]
+  if ca then
+    for _, a in ipairs(ca) do list[#list + 1] = "Has been " .. a:gsub("{place}", function() return where end) .. "." end
+  end
+  return { TI = "Lately", IC = "INV_Misc_Map_01", TX = U.Pick(list, seed("lately" .. where)) }
 end
 
 function Compose.CompanyGlance()
@@ -470,6 +475,20 @@ function Compose.Plural(name)
   return head .. p
 end
 
+-- How the week has felt, from the mood journal: mostly good or mostly hard days.
+function Compose.WeekTone()
+  local days = ns.Mood.RecentDays(7)
+  if #days < 3 then return nil end
+  local good, bad = 0, 0
+  for _, d in ipairs(days) do
+    local v = d.mood and W.VALENCE[d.mood] or 0
+    if v > 0 then good = good + 1 elseif v < 0 then bad = bad + 1 end
+  end
+  if bad >= 3 and bad > good * 2 then return "It's been a hard few days." end
+  if good >= 3 and good > bad * 2 then return "It's been a good stretch." end
+  return nil
+end
+
 -- Conversation starters for other players: things this character has a story about.
 function Compose.Hooks()
   local c = ns.cache
@@ -694,7 +713,10 @@ function Compose.History()
       bits[#bits + 1] = (m or "about") .. (d.zone and (m and " in " or " ") .. U.Mid(d.zone) or "") .. " " .. d.label
     end
   end
-  if #bits >= 2 then paras[#paras + 1] = "These past days: " .. U.Join(bits) .. "." end
+  if #bits >= 2 then
+    local tone = Compose.WeekTone()
+    paras[#paras + 1] = (tone and (tone .. " ") or "") .. "These past days: " .. U.Join(bits) .. "."
+  end
 
   -- A page from the diary
   if rpgd and ns.db.diaryExcerpt and rpgd.lastEntry and rpgd.lastEntry.text then

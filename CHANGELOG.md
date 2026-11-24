@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.0 (2026-11-24): Ore, Herb and Hide
+
+- Gathering and tradecraft in Currently: mining, herb gathering, skinning, disenchanting, picking locks and pockets.
+- Zone touches work in every game language (zones are recognised by map ID on non-English clients).
+- The settings panel scrolls; Auto TRP is in the AddOns menu by the minimap (click for the preview, right-click to pause); key bindings for the preview, pause and write-now.
+- History notices a hard few days or a good stretch from the mood journal.
+- The quiet Lately line has your class's flavour ("Has been tending to travellers around Goldshire").
+
 ## 0.10.0 (2026-11-24): Steady Hands
 
 - Lately: the fight you just had ("Fresh from a fight with a Defias Pillager", "Barely survived a fight with Hogger") and the job you just finished (from Chronicle).

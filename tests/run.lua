@@ -589,6 +589,12 @@ ns.World.SetContext("none")
 C_Spell = nil
 state.zone, state.sub = "Duskwood", "Raven Hill"
 
+-- A hard week
+ns.char.days = {}
+for i = 0, 4 do ns.char.days[os.date("%Y-%m-%d", NOW - i * 86400)] = { moods = { downcast = 5 }, zones = { Duskwood = 5 } } end
+check(ns.Compose.WeekTone() == "It's been a hard few days.", "a run of bad days is noticed")
+ns.char.days = {}
+
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")
