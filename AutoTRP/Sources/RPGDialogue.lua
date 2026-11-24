@@ -51,7 +51,8 @@ function R.Read()
   out.opinions = {}
   for topic, rec in pairs(type(c.opinions) == "table" and c.opinions or {}) do
     if type(rec) == "table" and type(rec.stance) == "string" then
-      out.opinions[#out.opinions + 1] = { topic = topic, stance = rec.stance, t = tonumber(rec.t) or 0 }
+      out.opinions[#out.opinions + 1] = { topic = topic, stance = rec.stance, t = tonumber(rec.t) or 0,
+        changed = type(rec.contradicts) == "table" }
     end
   end
   table.sort(out.opinions, function(x, y) return x.t > y.t end)
@@ -154,6 +155,10 @@ function R.Read()
   end
   table.sort(out.books, function(x, y) if x.n ~= y.n then return x.n > y.n end return x.title < y.title end)
   out.topics = U.Count(c.topics)
+  -- Claims you made, and how many were found out.
+  local claims = type(c.claims) == "table" and c.claims or {}
+  out.claimsMade = U.Count(claims.player)
+  out.liesExposed = U.Count(claims.exposed)
   out.heard = U.Count(type(c.claims) == "table" and c.claims.heard or nil)
 
   -- Arrivals, for the mood model (zone -> time)

@@ -595,6 +595,16 @@ for i = 0, 4 do ns.char.days[os.date("%Y-%m-%d", NOW - i * 86400)] = { moods = {
 check(ns.Compose.WeekTone() == "It's been a hard few days.", "a run of bad days is noticed")
 ns.char.days = {}
 
+-- Changing your tune; lies found out; letters
+RPGDialogueCharDB.opinions.night_elves = { stance = "admire", t = NOW - 10, contradicts = { stance = "distrust" } }
+RPGDialogueCharDB.claims = { player = { a = {}, b = {} }, exposed = { a = NOW } }
+RPGDialogueCharDB.letters = { l1 = { arrived = NOW }, l2 = { arrived = NOW }, l3 = { arrived = NOW } }
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+check(ns.Compose.Bearing():find("change %a+ tune about the night elves"), "Personality: changed tune")
+check(ns.Compose.History():find("caught in a lie"), "History: a lie found out")
+check(ns.Compose.Physical():find("bundle of letters"), "Physical: a bundle of letters")
+RPGDialogueCharDB.opinions.night_elves = nil
+
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")

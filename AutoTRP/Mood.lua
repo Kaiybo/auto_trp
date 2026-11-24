@@ -661,6 +661,7 @@ function Mood.Watch()
       if d >= 3 then Mood.Push("proud", 30, "earned some goodwill") elseif d <= -3 then Mood.Push("ashamed", 30, "lost some goodwill") end
     end)
     watch(seen, "letters", rpgd.lettersArrived, function(d) if d > 0 then Mood.Push("newsy", 35, "a letter came") end end)
+    watch(seen, "lies", rpgd.liesExposed, function(d) if d > 0 then Mood.Push("ashamed", 35, "caught in a lie") end end)
     watch(seen, "deathsRPGD", rpgd.deathCount, function() end)
   end
   local chron = ns.cache and ns.cache.chronicle

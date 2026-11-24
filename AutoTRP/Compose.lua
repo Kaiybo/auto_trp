@@ -448,6 +448,13 @@ function Compose.Bearing()
 
   local ops = opinions(rpgd, 3)
   if #ops > 0 then paras[#paras + 1] = sentence(name .. " " .. U.Join(ops)) end
+  for _, o in ipairs(rpgd.opinions) do
+    local topic = o.topic ~= "peace" and (W.TOPICS[o.topic] or (ns.RPGDNames.towns[o.topic]) or U.Humanize(o.topic))
+    if o.changed and topic then
+      paras[#paras + 1] = sentence("Has been known to change {their} tune about " .. topic)
+      break
+    end
+  end
 
   if (rpgd.align.taint or 0) >= 30 then
     paras[#paras + 1] = sentence("There is something faintly wrong about " .. name .. ", a taint that priests and dogs both seem to notice")
@@ -693,6 +700,12 @@ function Compose.History()
     paras[#paras + 1] = sentence(name .. " has an ear for gossip and knows more about local affairs than is strictly healthy")
   end
 
+  -- Lies found out
+  if rpgd and (rpgd.liesExposed or 0) > 0 then
+    paras[#paras + 1] = sentence(name .. " has been caught in " .. (rpgd.liesExposed == 1 and "a lie" or "more than one lie")
+      .. ", and some people haven't forgotten")
+  end
+
   -- Close calls
   local deaths = deathCount(c)
   if deaths > 0 then
@@ -765,6 +778,9 @@ function Compose.Physical()
     paras[#paras + 1] = sentence("The eye goes to " .. U.Pron("{their} ") .. where .. ": " .. finest.name)
   end
 
+  if c.rpgd and (c.rpgd.lettersArrived or 0) >= 3 then
+    paras[#paras + 1] = U.Pron("Carries a bundle of letters tucked into a coat pocket, worn soft from rereading.")
+  end
   local marks = {}
   local deaths = deathCount(c)
   if deaths >= 10 then marks[#marks + 1] = "scars on top of scars"
