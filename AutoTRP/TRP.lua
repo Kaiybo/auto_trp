@@ -79,6 +79,13 @@ function TRP.FirstName()
   return type(ch) == "table" and U.Plain(ch.FN) or nil
 end
 
+-- Total RP 3's roleplay status: 1 in character, 2 out of character.
+function TRP.IsOOC()
+  local p = TRP.Current()
+  local ch = type(p) == "table" and type(p.player) == "table" and p.player.character
+  return type(ch) == "table" and ch.RP == 2
+end
+
 function TRP.CustomPronouns()
   local p = TRP.Current()
   local ch = type(p) == "table" and type(p.player) == "table" and p.player.characteristics
@@ -210,6 +217,8 @@ TRP.FIELDS = {
   glance_mood = glanceField("mood"),
   glance_lately = glanceField("lately"),
   glance_company = glanceField("company"),
+  glance_ambition = glanceField("ambition"),
+  glance_marks = glanceField("marks"),
 }
 
 TRP.LABELS = {
@@ -217,12 +226,13 @@ TRP.LABELS = {
   birthplace = "Birthplace", motto = "Motto", nickname = "Nickname", bearing = "About: Personality",
   history = "About: History", physical = "About: Physical", traits = "Personality traits",
   glance_mood = "Glance: mood", glance_lately = "Glance: lately", glance_company = "Glance: company",
+  glance_ambition = "Glance: ambition", glance_marks = "Glance: marks",
 }
 
 -- Which setting switches a field on.
 local function enabled(key)
   local f = ns.db.fields
-  if key:find("^glance_") then return f.glances and (ns.db.glanceSlots[key:sub(8)] or 0) > 0 end
+  if key:find("^glance_") then return f.glances and f[key] ~= false and (ns.db.glanceSlots[key:sub(8)] or 0) > 0 end
   return f[key] and true or false
 end
 

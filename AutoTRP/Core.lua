@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.1.0"
+ns.VERSION = "0.2.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -88,11 +88,12 @@ ns.DEFAULTS = {
   -- Total RP 3 is left alone from then on (see TRP.lua).
   fields = {
     currently = true,   -- the "Currently" line: mood, what you're doing, where
-    glances = true,     -- three "At first glance" slots: mood, lately, company
+    glances = true,     -- the five "At first glance" slots
+    glance_mood = true, glance_lately = true, glance_company = true, glance_ambition = true, glance_marks = true,
     traits = true,      -- personality bars from your choices in RPG Dialogue
     bearing = true,     -- About > Personality: how you carry yourself, what you believe
     history = true,     -- About > History: origin, roads walked, people, deeds
-    physical = false,   -- About > Physical: off by default, your looks are yours
+    physical = true,    -- About > Physical: a sketch from your gear and build
     title = true,       -- short title from your alignment ("Lightsworn")
     fulltitle = true,   -- full title from your standing ("Respected in Goldshire")
     residence = true,   -- where your hearthstone is
@@ -100,13 +101,14 @@ ns.DEFAULTS = {
     motto = true,       -- a motto in keeping with your temperament
     nickname = true,    -- an epithet you've earned
   },
-  glanceSlots = { mood = 1, lately = 2, company = 3 },
+  glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },
   diaryExcerpt = true,     -- quote your latest RPG Dialogue diary entry in History
   chronicleGoals = true,   -- your open Chronicle goals as an ambition
   nameFriends = true,      -- name players you marked friend (or gave a relationship) in Social Diary
   currentlyEvery = 90,     -- seconds, at least, between "Currently" rewrites
   quiet = false,           -- no chat lines when the profile is updated
+  pauseOOC = false,        -- leave "Currently" and the glances alone while you're out of character
 }
 
 ns.CHAR_DEFAULTS = {
@@ -261,6 +263,7 @@ function U.Pron(text)
     they = p.sub, them = p.obj, their = p.pos, themselves = reflexive,
     ["they've"] = p.sub == "they" and "they've" or (p.sub .. "'s"),
     ["they're"] = p.sub == "they" and "they're" or (p.sub .. "'s"),
+    are = p.be, have = p.has,
   }
   return (text:gsub("{([%a']+)}", function(k) return map[k] or ("{" .. k .. "}") end))
 end

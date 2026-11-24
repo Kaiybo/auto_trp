@@ -10,7 +10,7 @@ ns.UI = UI
 ---------------------------------------------------------------------------
 -- What goes where
 ---------------------------------------------------------------------------
-local FAST = { currently = true, glance_mood = true, glance_lately = true, glance_company = true }
+local FAST = { currently = true, glance_mood = true, glance_lately = true, glance_company = true, glance_marks = true }
 
 local function values(sheet)
   return {
@@ -19,7 +19,8 @@ local function values(sheet)
     nickname = sheet.nickname, bearing = sheet.bearing, history = sheet.history,
     physical = sheet.physical, traits = sheet.traits,
     glance_mood = sheet.glances.mood, glance_lately = sheet.glances.lately,
-    glance_company = sheet.glances.company,
+    glance_company = sheet.glances.company, glance_ambition = sheet.glances.ambition,
+    glance_marks = sheet.glances.marks,
   }
 end
 
@@ -33,7 +34,8 @@ function UI.Update(force)
   local now = U.Now()
   local only = {}
   local any = false
-  if force or now - lastFast >= (ns.db.currentlyEvery or 90) then
+  local paused = ns.db.pauseOOC and TRP.IsOOC()
+  if not paused and (force or now - lastFast >= (ns.db.currentlyEvery or 90)) then
     for k in pairs(FAST) do only[k] = true end
     any = true
   end
@@ -170,10 +172,15 @@ function UI.PreviewText()
     for _, b in ipairs(s.traits) do t[#t + 1] = ("%s %d / %d %s"):format(b.LT, b.V2, 20 - b.V2, b.RT) end
     traits = table.concat(t, "\n")
   end
+  local why = s.mood.reasons and (" (" .. table.concat(s.mood.reasons, ", ") .. ")") or ""
+  out[#out + 1] = "|cffc8a165Mood|r  " .. s.mood.title .. why
+  out[#out + 1] = ""
   add("currently", s.currently)
   add("glance_mood", glanceText(s.glances.mood))
   add("glance_lately", s.glances.lately and glanceText(s.glances.lately))
   add("glance_company", s.glances.company and glanceText(s.glances.company))
+  add("glance_ambition", s.glances.ambition and glanceText(s.glances.ambition))
+  add("glance_marks", s.glances.marks and glanceText(s.glances.marks))
   add("title", s.title)
   add("fulltitle", s.fulltitle)
   add("nickname", s.nickname)
@@ -242,13 +249,18 @@ end
 local OPTIONS = {
   { head = "What Auto TRP writes" },
   { path = { "fields", "currently" }, label = "Currently: your mood, what you're doing and where" },
-  { path = { "fields", "glances" }, label = "At first glance: mood, lately, company" },
+  { path = { "fields", "glances" }, label = "At first glance (all five slots below)" },
+  { path = { "fields", "glance_mood" }, label = "   1: Mood, what a stranger notices" },
+  { path = { "fields", "glance_lately" }, label = "   2: Lately, the freshest news" },
+  { path = { "fields", "glance_company" }, label = "   3: Company, who you travel with" },
+  { path = { "fields", "glance_ambition" }, label = "   4: Ambition, what you're after" },
+  { path = { "fields", "glance_marks" }, label = "   5: Marks, scars, gear and tells" },
   { path = { "fields", "traits" }, label = "Personality traits, from your choices in conversation" },
   { path = { "fields", "bearing" }, label = "About: Personality (temperament and beliefs)" },
   { path = { "fields", "history" }, label = "About: History (origin, roads, people, deeds)" },
-  { path = { "fields", "physical" }, label = "About: Physical (a short sketch; off by default)" },
-  { path = { "fields", "title" }, label = "Title, from your alignment (\"Lightsworn\")" },
-  { path = { "fields", "fulltitle" }, label = "Full title, from your standing (\"Friend of Goldshire\")" },
+  { path = { "fields", "physical" }, label = "About: Physical (build, gear, scars)" },
+  { path = { "fields", "title" }, label = "Title: your rank by experience (\"Initiate\")" },
+  { path = { "fields", "fulltitle" }, label = "Full title: alignment and standing (\"Lightsworn, Friend of Goldshire\")" },
   { path = { "fields", "nickname" }, label = "Nickname: an epithet you've earned" },
   { path = { "fields", "motto" }, label = "Motto, in keeping with your temperament" },
   { path = { "fields", "residence" }, label = "Residence: where your hearthstone is" },
@@ -261,6 +273,7 @@ local OPTIONS = {
   { path = { "diaryExcerpt" }, label = "Quote your latest diary entry in History" },
   { path = { "chronicleGoals" }, label = "Share your open Chronicle goal as an ambition" },
   { path = { "nameFriends" }, label = "Name the players you marked as friends in Social Diary" },
+  { path = { "pauseOOC" }, label = "Pause Currently and glances while out of character" },
   { path = { "quiet" }, label = "Quiet: no chat messages" },
 }
 
@@ -313,7 +326,7 @@ function UI.BuildPanel()
       end)
       cb.path = opt.path
       boxes[#boxes + 1] = cb
-      y = y - 24
+      y = y - 21
     end
   end
 
@@ -372,6 +385,8 @@ local HELP = {
   "|cffffd100/atrp claim <field|all>|r: hand a field you wrote back to Auto TRP",
   "|cffffd100/atrp release <field|all>|r: take a field back from Auto TRP",
   "|cffffd100/atrp mood|r: how your character feels, and why",
+  "|cffffd100/atrp feel <mood>|r: choose a mood for the next hour (|cffffd100/atrp feel|r alone lists them, |cffffd100/atrp feel clear|r lets it go)",
+  "|cffffd100/atrp intent <text>|r: add what you're up to to Currently for two hours (|cffffd100/atrp intent|r alone clears it)",
   "|cffffd100/atrp on|r / |cffffd100off|r: pause or resume",
   "Fields: currently, title, fulltitle, nickname, motto, residence, birthplace, traits, bearing, history, physical, glance_mood, glance_lately, glance_company",
 }
@@ -420,6 +435,28 @@ SlashCmdList.AUTOTRP = function(msg)
     local parts = {}
     for i = 1, math.min(5, #list) do parts[i] = ("%s %d"):format(list[i].k, list[i].v) end
     if #parts > 0 then ns.Print("Feeling: " .. table.concat(parts, ", ")) end
+  elseif cmd == "feel" then
+    if arg == "" then
+      local names = {}
+      for k in pairs(ns.Words.MOODS) do names[#names + 1] = k end
+      table.sort(names)
+      ns.Print("Moods: " .. table.concat(names, ", "))
+    elseif arg == "clear" then
+      ns.Mood.SetManual(nil); ns.Print("Your mood follows events again."); UI.Update(true)
+    elseif ns.Mood.SetManual(arg) then
+      ns.Print("Feeling " .. ns.Words.MOODS[arg].title:lower() .. " for the next hour."); UI.Update(true)
+    else
+      ns.Print("No mood called '" .. arg .. "'. |cffffd100/atrp feel|r lists them.")
+    end
+  elseif cmd == "intent" then
+    local raw = (msg or ""):match("^%s*%S+%s*(.-)%s*$")
+    if raw == "" then
+      ns.char.intent = nil; ns.Print("Intent cleared.")
+    else
+      ns.char.intent = { text = U.Truncate(U.Plain(raw), 120), untilT = U.Now() + 7200 }
+      ns.Print("Added to Currently for two hours: " .. ns.char.intent.text)
+    end
+    UI.Update(true)
   elseif cmd == "status" then
     ns.Print(UI.StatusLine())
   else

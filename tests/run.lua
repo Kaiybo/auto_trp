@@ -64,6 +64,22 @@ GetBindLocation = function() return "Goldshire" end
 UnitHealth = function() return 100 end
 UnitHealthMax = function() return 100 end
 GetGameTime = function() return 22, 10 end
+UnitStat = function(_, i) return 0, ({ 30, 35, 40, 70, 75 })[i] end
+UnitPower = function() return 800 end
+UnitPowerMax = function() return 1000 end
+UnitXP = function() return 950 end
+UnitXPMax = function() return 1000 end
+GetMoney = function() return 250000 end
+GetZonePVPInfo = function() return "friendly" end
+UnitExists = function() return false end
+state.buffs = { "Power Word: Fortitude", "Divine Spirit", "Mark of the Wild", "Arcane Intellect" }
+UnitBuff = function(_, i) return state.buffs[i] end
+UnitDebuff = function() return nil end
+local GEAR = { [5] = { "Robe of the Moccasin", 2, "Cloth" }, [16] = { "Staff of Westfall", 3, "Staves" },
+  [19] = { "Stormwind Tabard", 1, "Miscellaneous" }, [1] = { "Crown of the Lost", 4, "Cloth" } }
+GetInventoryItemLink = function(_, slot) return GEAR[slot] and ("item:" .. slot) end
+GetItemInfo = function(link) local g = GEAR[tonumber(link:match("%d+"))]; if g then return g[1], link, g[2], 20, 1, "Armor", g[3] end end
+GetInventoryItemDurability = function() return 40, 50 end
 
 ---------------------------------------------------------------------------
 -- Total RP 3 mock (shapes from Total RP 3's Core/Profiles.lua and Core/Player.lua)
@@ -165,8 +181,11 @@ check(ns.char.profileID ~= nil and ns.char.profileID ~= "abc*", "setup makes and
 ns.UI.Update(true)
 local p = profiles[ns.char.profileID].player
 check(p.character.CU and p.character.CU:find("Lion's Pride Inn"), "Currently mentions the inn: " .. tostring(p.character.CU))
-check(p.characteristics.TI == "Lightsworn", "alignment title")
-check(p.characteristics.FT == "Friend of Goldshire", "full title from standing")
+check(p.characteristics.TI == "Deacon", "rank title by level: " .. tostring(p.characteristics.TI))
+check(p.characteristics.FT == "Lightsworn, Friend of Goldshire", "full title: " .. tostring(p.characteristics.FT))
+check(p.characteristics.PS[1].LT == "Good" and p.characteristics.PS[1].RT == "Evil", "plain good/evil bar")
+for i = 1, 5 do check(p.misc.PE[tostring(i)] and p.misc.PE[tostring(i)].AC and p.misc.PE[tostring(i)].TX ~= nil, "glance " .. i .. " filled") end
+check(p.about.T3.PH.TX and p.about.T3.PH.TX:find("Crown of the Lost"), "physical mentions the finest gear")
 check(p.about.TE == 3 and p.about.T3.HI.TX and p.about.T3.HI.TX:find("Hogger"), "history written in template 3")
 check(not p.about.T3.HI.TX:find("PRIVATE"), "Chronicle notes are never read")
 check(p.misc.PE["1"] and p.misc.PE["1"].AC, "mood glance written")
@@ -200,19 +219,39 @@ currentID = "abc*"
 check(not ns.TRP.Managed(), "another profile in use pauses writing")
 currentID = ns.char.profileID
 
--- A death shakes the character
+-- Buffs lift the mood
+ns.Compose.Refresh()
+local scores = ns.Mood.Scores(ns.cache.world)
+check((scores.bolstered or 0) >= 15, "four buffs: bolstered " .. tostring(scores.bolstered))
+check((scores.eager or 0) >= 15, "close to a level: eager")
+-- A death shakes the character, and grief lingers after
 event("PLAYER_DEAD")
 local m = ns.Mood.Current()
 check(m.key == "shaken", "a death leaves them shaken (" .. m.key .. ")")
+table.insert(RPGDialogueCharDB.deaths, { t = NOW - 1800, zone = "Duskwood" })
+table.insert(RPGDialogueCharDB.deaths, { t = NOW - 600, zone = "Duskwood" })
+ns.Compose.Refresh()
+scores = ns.Mood.Scores(ns.cache.world)
+check((scores.downcast or 0) > 30 and (scores.frustrated or 0) > 15, "recent deaths: downcast and frustrated")
+-- Emotes
+event("CHAT_MSG_TEXT_EMOTE", "You cry.", "Aldric")
+check((ns.char.mood.emo.sorrowful or 0) > 20, "crying makes them sorrowful")
+-- Manual mood and intent
+ns.Mood.SetManual("smitten")
+check(ns.Mood.Current().key == "smitten", "/atrp feel overrides")
+ns.char.intent = { text = "looking for passage to Theramore", untilT = NOW + 100 }
+ns.Compose.Refresh()
+check(ns.Compose.Currently(ns.Mood.Current()):find("Looking for passage to Theramore%."), "intent appended to Currently")
 
 print("\n--- written profile ---")
 print("CU: " .. tostring(p.character.CU))
 print("TI: " .. tostring(p.characteristics.TI) .. " | FT: " .. tostring(p.characteristics.FT) .. " | RE: " .. tostring(p.characteristics.RE) .. " | BP: " .. tostring(p.characteristics.BP))
 for _, e in ipairs(p.characteristics.MI) do print("MI " .. tostring(e.NA) .. ": " .. tostring(e.VA)) end
 for _, t in ipairs(p.characteristics.PS) do print(("PS %s %d %s"):format(t.LT, t.V2, t.RT)) end
-for i = 1, 3 do local g = p.misc.PE[tostring(i)]; if g then print("PE" .. i .. " " .. tostring(g.TI) .. ": " .. tostring(g.TX)) end end
+for i = 1, 5 do local g = p.misc.PE[tostring(i)]; if g then print("PE" .. i .. " " .. tostring(g.TI) .. ": " .. tostring(g.TX)) end end
 print("\nPersonality:\n" .. tostring(p.about.T3.PS.TX))
 print("\nHistory:\n" .. tostring(p.about.T3.HI.TX))
+print("\nPhysical:\n" .. tostring(p.about.T3.PH.TX))
 
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))
 os.exit(fails == 0 and 0 or 1)

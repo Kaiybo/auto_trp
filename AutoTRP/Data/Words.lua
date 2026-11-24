@@ -145,6 +145,178 @@ W.MOODS = {
       "Travelling with others, and easier for it.",
     },
   },
+  sorrowful = {
+    title = "Sorrowful", icon = "Spell_Holy_PainSupression",
+    adj = { "Red-eyed and quiet", "Sorrowful", "Heavy-hearted" },
+    tells = {
+      "Eyes rimmed red. Answers in as few words as {they} can manage.",
+      "Carries some private grief, and carries it badly today.",
+    },
+  },
+  angry = {
+    title = "Short-Tempered", icon = "Ability_Warrior_Rampage",
+    adj = { "Fuming", "Short-tempered", "Spoiling for a fight" },
+    tells = {
+      "Jaw set, knuckles white. Best not to jostle {them} right now.",
+      "Something has {their} blood up, and it isn't cooling.",
+    },
+  },
+  smitten = {
+    title = "Smitten", icon = "INV_ValentinesCandy",
+    adj = { "Smitten", "Distracted by someone", "Humming to {themselves}" },
+    tells = {
+      "Keeps smiling at nothing, and checking the door for someone.",
+      "Has the dreamy, faraway look of someone thinking about a particular face.",
+    },
+  },
+  devout = {
+    title = "At Prayer", icon = "Spell_Holy_PrayerOfHealing",
+    adj = { "Quiet and prayerful", "Lost in prayer" },
+    tells = {
+      "Head bowed, lips moving. Somewhere far from here.",
+      "Has the stillness of someone who has just finished praying.",
+    },
+  },
+  fed = {
+    title = "Well-Fed", icon = "INV_Misc_Food_15",
+    adj = { "Well-fed", "Pleasantly full" },
+    tells = { "Crumbs on the collar and the contented air of a good meal." },
+  },
+  downcast = {
+    title = "Downcast", icon = "Spell_Shadow_GatherShadows",
+    adj = { "Downcast", "Quiet and grim", "Carrying a bad day on {their} shoulders" },
+    tells = {
+      "Has the hollow, quiet look of someone who has died recently and hasn't made peace with it.",
+      "Moves carefully, like someone not yet sure the ground will hold.",
+      "Doesn't laugh at jokes today. Something cold followed {them} back.",
+    },
+  },
+  frustrated = {
+    title = "Frustrated", icon = "Ability_Warrior_Revenge",
+    adj = { "Thoroughly fed up", "Frustrated", "At the end of {their} rope" },
+    tells = {
+      "Muttering curses at no one in particular. It has clearly been one of those days.",
+      "Has fallen more than once today and is taking it personally.",
+    },
+  },
+  bolstered = {
+    title = "In Fine Fettle", icon = "Spell_Holy_WordFortitude",
+    adj = { "In fine fettle", "Brimming with vigour", "Feeling unstoppable" },
+    tells = {
+      "Fairly crackling with borrowed blessings. Stands like nothing could knock {them} down.",
+      "Glowing faintly with wards and blessings, and enjoying it.",
+    },
+  },
+  glorious = {
+    title = "Glorious", icon = "INV_Misc_Head_Dragon_01",
+    adj = { "Riding high on a city's cheer", "Glorious", "Blazing with borrowed glory" },
+    tells = {
+      "Carries the blessing of a whole city's victory. It shows in every step.",
+      "Positively radiant. Someone, somewhere, is singing about this.",
+    },
+  },
+  ailing = {
+    title = "Ailing", icon = "Spell_Shadow_AbominationExplosion",
+    adj = { "Feverish", "Ailing", "Green about the gills" },
+    tells = {
+      "Pale and sweating, with a cough that doesn't sound good.",
+      "Whatever {they} caught out there is still in {their} blood.",
+    },
+  },
+  drained = {
+    title = "Drained", icon = "Spell_Shadow_SoulLeech_2",
+    adj = { "Drained", "Weak as a kitten", "Hollow-eyed" },
+    tells = {
+      "Still grey from the trip back from the other side. Every movement costs.",
+    },
+  },
+  wounded = {
+    title = "Wounded", icon = "Ability_Rogue_FeignDeath",
+    adj = { "Nursing fresh wounds", "Bloodied", "Limping" },
+    tells = {
+      "Bandages wrapped tight and still spotting red.",
+      "Favouring one leg and wincing when {they} think no one's looking.",
+    },
+  },
+  festive = {
+    title = "Festive", icon = "INV_Holiday_Christmas_Present_01",
+    adj = { "In a festive mood" }, tells = { "Caught up in the season's cheer." },
+  },
+  fierce = {
+    title = "Battle-Hungry", icon = "Ability_Warrior_BattleShout",
+    adj = { "Blood up", "Battle-hungry", "Spoiling for the next fight" },
+    tells = {
+      "Still breathing hard from the last fight and already looking for the next.",
+      "Fresh blood on the blade, none of it {their} own.",
+    },
+  },
+  worried = {
+    title = "Worried", icon = "INV_Misc_Coin_04",
+    adj = { "Worried about money", "Counting copper", "Down to {their} last coins" },
+    tells = {
+      "Purse hangs light and flat. Checks prices twice before buying anything.",
+      "Mending {their} own gear because the smith costs too much.",
+    },
+  },
+  flush = {
+    title = "Flush", icon = "INV_Misc_Coin_01",
+    adj = { "Flush with coin", "Feeling wealthy", "Jingling as {they} walk" },
+    tells = {
+      "A heavy purse and a generous mood. Someone's buying the next round.",
+      "Recently came into money, and it shows in the swagger.",
+    },
+  },
+  thrilled = {
+    title = "Thrilled", icon = "INV_Misc_Gem_Pearl_04",
+    adj = { "Thrilled", "Admiring a new prize", "Barely able to keep still" },
+    tells = {
+      "Keeps taking out a new treasure to admire it.",
+      "Has just found something wonderful, and wants everyone to ask about it.",
+    },
+  },
+  conflicted = {
+    title = "Conflicted", icon = "Spell_Shadow_UnholyStrength",
+    adj = { "Conflicted", "Troubled by a choice", "Second-guessing {themselves}" },
+    tells = {
+      "Turns something over and over in {their} head, and doesn't like the answer.",
+      "Has the look of someone who did a thing they're not proud of.",
+    },
+  },
+  righteous = {
+    title = "Righteous", icon = "Spell_Holy_SealOfRighteousness",
+    adj = { "Quietly righteous", "At peace with {their} choices" },
+    tells = { "Stands a little straighter, like someone who just did the right thing." },
+  },
+  proud = {
+    title = "Proud", icon = "INV_Misc_Ribbon_01",
+    adj = { "Proud", "Standing tall" },
+    tells = { "Has earned some goodwill lately, and walks like it." },
+  },
+  ashamed = {
+    title = "Ashamed", icon = "Spell_Shadow_Charm",
+    adj = { "Ashamed", "Keeping {their} head down" },
+    tells = { "Avoids meeting people's eyes. Word of something has got around." },
+  },
+  eager = {
+    title = "Eager", icon = "Spell_Holy_BlessingOfStrength",
+    adj = { "Eager", "On the verge of something", "Restless with promise" },
+    tells = { "Has the restless energy of someone right on the edge of getting better at this." },
+  },
+  burdened = {
+    title = "Overloaded", icon = "INV_Misc_Bag_08",
+    adj = { "Weighed down", "Overloaded" },
+    tells = { "Packs stuffed to bursting, clanking with every step." },
+  },
+  newsy = {
+    title = "Full of News", icon = "INV_Letter_03",
+    adj = { "Full of news", "Mulling over a letter" },
+    tells = { "Has a letter tucked in {their} coat and keeps rereading it." },
+  },
+  accomplished = {
+    title = "Accomplished", icon = "INV_Misc_Note_06",
+    adj = { "Having a good day", "On a roll" },
+    tells = { "Has been crossing jobs off the list all day and is pleased about it." },
+  },
   lonely = {
     title = "Solitary", icon = "Spell_Shadow_Teleport",
     adj = { "Alone with {their} thoughts", "Keeping to {themselves}" },
@@ -200,16 +372,16 @@ W.TRAIT_BARS = {
   { "Kind", "Cruel", "kind", "cruel", "Spell_Holy_Renew", "Spell_Shadow_ShadowWordPain" },
   { "Brave", "Cautious", "brave", "cautious", "Ability_Warrior_BattleShout", "Ability_Stealth" },
   { "Generous", "Greedy", "generous", "greedy", "INV_Misc_Bag_10", "INV_Misc_Coin_02" },
-  { "Devout", "Skeptical", "pious", "skeptical", "Spell_Holy_PrayerOfHealing", "INV_Misc_QuestionMark" },
-  { "Charming", "Reserved", "charming", "reserved", "INV_ValentinesCard02", "INV_Misc_Book_08" },
-  { "Witty", "Stern", "witty", "stern", "INV_Misc_Toy_07", "Ability_Warrior_CommandingShout" },
+  { "Religious", "Skeptical", "pious", "skeptical", "Spell_Holy_PrayerOfHealing", "INV_Misc_QuestionMark" },
+  { "Outgoing", "Reserved", "charming", "reserved", "INV_ValentinesCard02", "INV_Misc_Book_08" },
+  { "Playful", "Serious", "witty", "stern", "INV_Misc_Toy_07", "Ability_Warrior_CommandingShout" },
 }
 
 -- Alignment axes: positive is the left word.
 W.AXIS_BARS = {
-  { axis = "light", left = "Light", right = "Shadow", li = "Spell_Holy_HolyBolt", ri = "Spell_Shadow_ShadowBolt" },
-  { axis = "order", left = "Lawful", right = "Free-Spirited", li = "INV_Misc_Book_11", ri = "Spell_Nature_Cyclone" },
-  { axis = "honor", left = "Honest", right = "Silver-Tongued", li = "Spell_Holy_SealOfWisdom", ri = "INV_Misc_Mask_01" },
+  { axis = "light", left = "Good", right = "Evil", li = "Spell_Holy_HolyBolt", ri = "Spell_Shadow_ShadowBolt" },
+  { axis = "order", left = "Lawful", right = "Chaotic", li = "INV_Misc_Book_11", ri = "Spell_Nature_Cyclone" },
+  { axis = "honor", left = "Honest", right = "Deceitful", li = "Spell_Holy_SealOfWisdom", ri = "INV_Misc_Mask_01" },
 }
 
 -- RPG Dialogue's alignment titles (Effects.TITLES), by faction.
@@ -327,4 +499,172 @@ W.SEASONED = {
   { max = 44, words = { "seasoned", "capable" } },
   { max = 59, words = { "hardened", "veteran" } },
   { max = 99, words = { "legendary", "battle-scarred" } },
+}
+
+---------------------------------------------------------------------------
+-- Zone atmosphere for "Currently", out on the road. Each is a whole phrase.
+---------------------------------------------------------------------------
+W.ZONE_FLAVOR = {
+  ["Elwynn Forest"] = { "wandering the oak woods of Elwynn", "walking the farm lanes of Elwynn" },
+  ["Westfall"] = { "crossing the fallow fields of Westfall", "on the dusty roads of Westfall, past empty farmhouses" },
+  ["Redridge Mountains"] = { "in the red hills above Lake Everstill", "on the mountain trails of Redridge" },
+  ["Duskwood"] = { "beneath the dead trees of Duskwood", "on the dark road through Duskwood" },
+  ["Stranglethorn Vale"] = { "hacking through the jungle of Stranglethorn", "sweating through the vines of Stranglethorn" },
+  ["Dun Morogh"] = { "trudging through the snows of Dun Morogh", "in the frozen valleys of Dun Morogh" },
+  ["Loch Modan"] = { "along the shores of Loch Modan", "in the green hills of Loch Modan" },
+  ["Wetlands"] = { "slogging through the Wetlands", "knee-deep in the marshes of the Wetlands" },
+  ["Arathi Highlands"] = { "crossing the windswept Arathi Highlands", "among the old stones of Arathor" },
+  ["Hillsbrad Foothills"] = { "in the rolling foothills of Hillsbrad", "among the orchards of Hillsbrad" },
+  ["Alterac Mountains"] = { "in the cold passes of Alterac", "among the ruins of Alterac" },
+  ["The Hinterlands"] = { "in the wild Hinterlands", "under the gryphon-haunted peaks of the Hinterlands" },
+  ["Silverpine Forest"] = { "under the grey pines of Silverpine", "in the fog of Silverpine Forest" },
+  ["Tirisfal Glades"] = { "among the withered fields of Tirisfal", "in the gloom of Tirisfal Glades" },
+  ["Western Plaguelands"] = { "in the blighted fields of the Western Plaguelands", "past the ruined farms of Lordaeron" },
+  ["Eastern Plaguelands"] = { "deep in the Eastern Plaguelands", "on the ash-grey roads of the Plaguelands" },
+  ["Badlands"] = { "under the baking sun of the Badlands", "among the dry canyons of the Badlands" },
+  ["Searing Gorge"] = { "in the smoke and slag of the Searing Gorge" },
+  ["Burning Steppes"] = { "on the scorched earth of the Burning Steppes" },
+  ["Swamp of Sorrows"] = { "in the mists of the Swamp of Sorrows" },
+  ["Blasted Lands"] = { "on the red wastes of the Blasted Lands", "within sight of the Dark Portal" },
+  ["Deadwind Pass"] = { "in the silent gorge of Deadwind Pass" },
+  ["Durotar"] = { "on the red earth of Durotar", "in the dry canyons of Durotar" },
+  ["Mulgore"] = { "on the open grass of Mulgore", "beneath the mesas of Mulgore" },
+  ["The Barrens"] = { "crossing the endless Barrens", "on the long, hot road through the Barrens" },
+  ["Teldrassil"] = { "beneath the great boughs of Teldrassil", "in the twilight woods of Teldrassil" },
+  ["Darkshore"] = { "along the grey beaches of Darkshore", "on the misty shore of Darkshore" },
+  ["Ashenvale"] = { "under the ancient canopy of Ashenvale", "in the deep woods of Ashenvale" },
+  ["Stonetalon Mountains"] = { "on the high trails of Stonetalon", "among the logged-out slopes of Stonetalon" },
+  ["Desolace"] = { "crossing the barren wastes of Desolace" },
+  ["Thousand Needles"] = { "among the stone spires of Thousand Needles" },
+  ["Dustwallow Marsh"] = { "slogging through Dustwallow Marsh", "in the humid fens of Dustwallow" },
+  ["Feralas"] = { "in the rain-soaked forests of Feralas", "beneath the giant trees of Feralas" },
+  ["Tanaris"] = { "squinting across the dunes of Tanaris", "in the shifting sands of Tanaris" },
+  ["Un'Goro Crater"] = { "in the steaming jungle of Un'Goro", "keeping clear of the dinosaurs in Un'Goro" },
+  ["Felwood"] = { "in the sickly woods of Felwood", "among the corrupted trees of Felwood" },
+  ["Azshara"] = { "among the ruined Highborne halls of Azshara", "on the autumn coast of Azshara" },
+  ["Winterspring"] = { "in the snowfields of Winterspring", "on the frozen roads of Winterspring" },
+  ["Moonglade"] = { "in the peaceful glades of Moonglade" },
+  ["Silithus"] = { "in the stinging sands of Silithus", "among the hives of Silithus" },
+}
+
+---------------------------------------------------------------------------
+-- What you're busy with (held for a few minutes after it happens). {place} is filled in.
+---------------------------------------------------------------------------
+W.ACTIVITY = {
+  mail = { "reading letters at the mailbox in {place}", "sorting the post in {place}" },
+  bank = { "settling accounts at the bank in {place}", "counting coin at the bank in {place}" },
+  auction = { "haggling at the auction house in {place}", "picking over the auction lots in {place}" },
+  merchant = { "bartering with a merchant in {place}", "haggling over prices in {place}" },
+  trainer = { "taking lessons in {place}", "learning something new in {place}" },
+  fishing = { "fishing the waters of {place}", "with a line in the water at {place}" },
+  eating = { "sitting down to a meal in {place}", "eating in {place}" },
+  drinking = { "taking a long drink in {place}" },
+  flightmaster = { "waiting on a flight out of {place}" },
+}
+
+-- At work on a craft (keyed by the profession name the game reports).
+W.CRAFT = {
+  Alchemy = "bent over an alchemy table", Blacksmithing = "hammering at the anvil",
+  Leatherworking = "working a stretched hide", Tailoring = "busy with needle and thread",
+  Engineering = "tinkering with a half-built contraption", Enchanting = "tracing runes with a glowing rod",
+  Cooking = "cooking over an open fire", ["First Aid"] = "rolling bandages", Jewelcrafting = "cutting gems",
+  Mining = "smelting ore", Poisons = "mixing poisons, carefully",
+}
+
+-- Text emotes you use move your mood. Matched against "You <verb>..." lines.
+W.EMOTES = {
+  sorrowful = { "cry", "sob", "weep", "mourn" },
+  angry = { "rage", "growl", "snarl", "threaten", "glare", "angry", "fume" },
+  merry = { "dance", "cheer", "laugh", "giggle", "chuckle", "toast", "rofl", "guffaw" },
+  smitten = { "flirt", "kiss", "blush", "love", "swoon", "cuddle" },
+  devout = { "pray", "kneel" },
+  shaken = { "cower", "scared", "flee", "tremble" },
+  sociable = { "wave", "greet", "hug", "thank", "bow", "welcome", "hail" },
+  ease = { "sleep", "relax" },
+}
+
+---------------------------------------------------------------------------
+-- What you wear and carry (for the Physical sketch and the Marks glance).
+---------------------------------------------------------------------------
+W.ARMOR = { Plate = "plate", Mail = "mail", Leather = "leathers", Cloth = "robes" }
+W.WEAR_QUALITY = { [0] = "threadbare", [1] = "patched, mismatched", [2] = "serviceable", [3] = "fine", [4] = "remarkable", [5] = "storied" }
+W.WEAPONS = {
+  ["Two-Handed Axes"] = "a great axe", ["One-Handed Axes"] = "an axe", ["Two-Handed Swords"] = "a greatsword",
+  ["One-Handed Swords"] = "a sword", ["Two-Handed Maces"] = "a heavy maul", ["One-Handed Maces"] = "a mace",
+  ["Polearms"] = "a polearm", ["Staves"] = "a staff", ["Daggers"] = "a dagger", ["Fist Weapons"] = "fist weapons",
+  ["Bows"] = "a bow", ["Guns"] = "a rifle", ["Crossbows"] = "a crossbow", ["Wands"] = "a wand",
+  ["Thrown"] = "throwing knives", ["Fishing Poles"] = "a fishing pole", ["Shields"] = "a shield",
+}
+
+-- Pets, for "Currently": {pet} is its name, {kind} what it is.
+W.PET = {
+  HUNTER = { "with {pet} at heel", "{pet} the {kind} padding alongside" },
+  WARLOCK = { "with {pet} the {kind} in tow", "{pet} the {kind} lurking close behind" },
+}
+
+-- The festive mood takes the season's colours.
+W.FESTIVALS = {
+  winterveil = { title = "Merry Winter Veil", adj = { "Full of Winter Veil cheer", "Festive" },
+    tells = { "Smells of pine and gingerbread, and has a gift-wrapped something under one arm." } },
+  hallowsend = { title = "Spooky", adj = { "In a spooky mood", "Grinning like a carved gourd" },
+    tells = { "There are candle drippings on {their} sleeves and a mischievous glint in {their} eye." } },
+  love = { title = "Lovestruck", adj = { "Feeling romantic", "Lovestruck" },
+    tells = { "Has a pink ribbon tucked somewhere and a soft look about {them}." } },
+  midsummer = { title = "Sun-Warmed", adj = { "Sun-warmed and cheerful", "Full of summer" },
+    tells = { "Smells of bonfire smoke and summer flowers." } },
+  brewfest = { title = "Brewfest Spirit", adj = { "In the Brewfest spirit", "Ale-happy" },
+    tells = { "Wears a slightly crooked festival hat and a foam moustache." } },
+  lunar = { title = "Honouring Elders", adj = { "Thoughtful, as the old year turns" },
+    tells = { "Carries a lantern and a quiet thought for those who came before." } },
+  noblegarden = { title = "Springtime", adj = { "Full of spring" },
+    tells = { "Has a painted egg in one pocket and grass stains on {their} knees." } },
+}
+
+-- What a character wants, when nothing else says (by class). Kept broad and lore-safe.
+W.AMBITIONS = {
+  WARRIOR = { "To be the last one standing when it matters.", "To earn a name worth shouting on a battlefield." },
+  PALADIN = { "To be worthy of the Light {they} carry.", "To stand between the innocent and the dark." },
+  HUNTER = { "To track down the beast no one else can.", "To know every trail in the wild by heart." },
+  ROGUE = { "One big score, and then maybe an honest life.", "To always know a little more than anyone else in the room." },
+  PRIEST = { "To mend what can be mended, and bury what can't.", "To keep faith when it's hardest." },
+  SHAMAN = { "To keep the elements in balance.", "To be a voice the spirits will listen to." },
+  MAGE = { "To understand the arcane, not just wield it.", "To find a library no one else has read." },
+  WARLOCK = { "Power enough that no one can ever take anything from {them} again.", "To master what others only fear." },
+  DRUID = { "To heal the wounded land.", "To walk every shape the wild offers." },
+  default = { "To find out what's over the next hill." },
+}
+
+-- What a stranger notices on the body, by physique (strongest attribute).
+W.PHYSIQUE = {
+  strength = { "broad-shouldered and strong", "heavy with muscle" },
+  agility = { "lean and quick on {their} feet", "wiry and light-footed" },
+  stamina = { "sturdy and hard to knock down", "thick-set and solid" },
+  intellect = { "sharp-eyed, with a scholar's stoop", "ink-stained and thoughtful" },
+  spirit = { "calm, with an unhurried air", "serene, with steady eyes" },
+}
+
+W.SLOT_NOUN = { [1] = "helm", [3] = "shoulders", [5] = "chest", [7] = "legs", [10] = "gloves", [15] = "cloak",
+  [16] = "weapon", [17] = "off-hand", [18] = "ranged weapon", [19] = "tabard", [8] = "boots", [6] = "belt", [9] = "bracers" }
+
+---------------------------------------------------------------------------
+-- Rank by experience (the short title before your name), per class, in level bands
+-- 1-9, 10-19, 20-29, 30-39, 40-49, 50-59, 60.
+---------------------------------------------------------------------------
+W.RANKS = {
+  WARRIOR = { "Recruit", "Militiaman", "Soldier", "Sergeant", "Veteran", "Champion", "Warmaster" },
+  PALADIN = { "Initiate", "Squire", "Knight", "Templar", "Crusader", "Justicar", "Grand Templar" },
+  HUNTER = { "Novice", "Tracker", "Ranger", "Pathfinder", "Stalker", "Huntmaster", "Master Hunter" },
+  ROGUE = { "Cutpurse", "Footpad", "Thief", "Shadow", "Blade", "Nightblade", "Master Assassin" },
+  PRIEST = { "Acolyte", "Initiate", "Deacon", "Priest", "Confessor", "High Cleric", "Elder Cleric" },
+  SHAMAN = { "Initiate", "Seer", "Spirit-Speaker", "Stormcaller", "Farseer", "Elder Farseer", "Elder Shaman" },
+  MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Sorcerer", "Arcanist", "Master Arcanist" },
+  WARLOCK = { "Initiate", "Occultist", "Summoner", "Shadowcaster", "Diabolist", "Dreadcaller", "Master Diabolist" },
+  DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder Druid", "Elder of the Circle" },
+  default = { "Initiate", "Apprentice", "Journeyman", "Adept", "Expert", "Master", "Grandmaster" },
+}
+
+-- Professions by skill, for History.
+W.PROF_RANK = {
+  { min = 225, word = "a master" }, { min = 150, word = "an expert" },
+  { min = 75, word = "a journeyman" }, { min = 1, word = "an apprentice" },
 }

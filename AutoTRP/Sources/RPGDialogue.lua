@@ -132,6 +132,19 @@ function R.Read()
     end
   end
 
+  -- Letters that reached the mailbox, books read, topics heard of
+  out.lettersArrived = 0
+  for _, l in pairs(type(c.letters) == "table" and c.letters or {}) do
+    if type(l) == "table" and l.arrived then out.lettersArrived = out.lettersArrived + 1 end
+  end
+  out.books = {}
+  for title, b in pairs(type(c.books) == "table" and c.books or {}) do
+    if type(title) == "string" then out.books[#out.books + 1] = { title = U.Plain(title), n = type(b) == "table" and tonumber(b.n) or 1 } end
+  end
+  table.sort(out.books, function(x, y) if x.n ~= y.n then return x.n > y.n end return x.title < y.title end)
+  out.topics = U.Count(c.topics)
+  out.heard = U.Count(type(c.claims) == "table" and c.claims.heard or nil)
+
   -- Arrivals, for the mood model (zone -> time)
   out.arrived = type(c.arrived) == "table" and c.arrived or {}
   return out
