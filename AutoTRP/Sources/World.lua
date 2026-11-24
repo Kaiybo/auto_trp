@@ -198,8 +198,12 @@ function World.Form(auras)
   end
   local idx = call("GetShapeshiftForm")
   if type(idx) == "number" and idx > 0 then
-    local _, _, _, spellID = call("GetShapeshiftFormInfo", idx)
-    local name = spellID and ((C_Spell and C_Spell.GetSpellName and U.Call(C_Spell.GetSpellName, spellID)) or call("GetSpellInfo", spellID))
+    -- Classic returns (icon, name, active, castable); later clients (icon, active, castable, spellID).
+    local _, second, _, fourth = call("GetShapeshiftFormInfo", idx)
+    local name = type(second) == "string" and second or nil
+    if not name and type(fourth) == "number" then
+      name = (C_Spell and C_Spell.GetSpellName and U.Call(C_Spell.GetSpellName, fourth)) or call("GetSpellInfo", fourth)
+    end
     return FORMS[World.Safe(name) or ""]
   end
   return nil
