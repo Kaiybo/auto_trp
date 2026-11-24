@@ -190,7 +190,7 @@ check(ns.char.profileID ~= nil and ns.char.profileID ~= "abc*", "setup makes and
 ns.UI.Update(true)
 local p = profiles[ns.char.profileID].player
 check(p.character.CU and p.character.CU:find("Lion's Pride Inn"), "Currently mentions the inn: " .. tostring(p.character.CU))
-check(p.characteristics.TI == "Deacon", "rank title by level: " .. tostring(p.characteristics.TI))
+check(p.characteristics.TI == "Cleric of the Light", "rank title by level (human priest): " .. tostring(p.characteristics.TI))
 check(p.characteristics.FT == "Lightsworn, Friend of Goldshire", "full title: " .. tostring(p.characteristics.FT))
 check(p.characteristics.PS[1].LT == "Good" and p.characteristics.PS[1].RT == "Evil", "plain good/evil bar")
 for i = 1, 5 do check(p.misc.PE[tostring(i)] and p.misc.PE[tostring(i)].AC and p.misc.PE[tostring(i)].TX ~= nil, "glance " .. i .. " filled") end
@@ -336,6 +336,26 @@ print("\nPhysical:\n" .. tostring(p.about.T3.PH.TX))
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")
 check(ns.TRP.Status("history") == "yours", "after restore every field is the player's")
+
+-- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
+if os.getenv("SAMPLES") then
+  local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
+    { "NightElf", "PRIEST", "Alliance" }, { "Troll", "SHAMAN", "Horde" }, { "Gnome", "MAGE", "Alliance" }, { "Orc", "WARLOCK", "Horde" } }
+  for i, c in ipairs(combos) do
+    UnitRace = function() return c[1], c[1] end
+    UnitClass = function() return c[2], c[2] end
+    UnitFactionGroup = function() return c[3] end
+    ns.char.seedName = "sample" .. i
+    RPGDialogueCharDB.origin = nil
+    local sh = ns.Compose.Sheet()
+    print(("\n=== %s %s: %s / %s ==="):format(c[1], c[2], sh.title, sh.fulltitle))
+    print("CU: " .. sh.currently)
+    print("Mood: " .. sh.glances.mood.TX)
+    print("Ambition: " .. sh.glances.ambition.TX .. " | Motto: " .. sh.motto)
+    print("Physical: " .. sh.physical:gsub("\n\n", " "))
+    print("History start: " .. (sh.history:match("^[^\n]+")))
+  end
+end
 
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))
 os.exit(fails == 0 and 0 or 1)

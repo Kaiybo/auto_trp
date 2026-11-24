@@ -393,8 +393,12 @@ function World.Activity(s, seed)
     text = U.Pick({ "riding through " .. where, "on horseback in " .. where }, seed)
   else
     local flavor = W.ZONE_FLAVOR[s.zone or ""]
-    if flavor and U.Hash(seed .. "flavor") % 3 ~= 0 then
+    local classAct = W.CLASS_ACTIVITY[s.class or ""]
+    local roll = U.Hash(seed .. "flavor") % 3
+    if flavor and roll == 0 then
       text = U.Pick(flavor, seed .. "fl")
+    elseif classAct and roll == 1 then
+      text = U.Pick(classAct, seed .. "cl"):gsub("{place}", s.subzone and place or where)
     else
       local around = s.subzone and ("around " .. place) or ("in " .. where)
       text = U.Pick({ "on the road " .. around, "out " .. around, "travelling " .. around }, seed)

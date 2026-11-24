@@ -10,7 +10,7 @@ It reads three addons if you have them (all optional, and it never changes them)
 
 ## What it writes
 
-Everything updates on its own while you play: **Currently** and the glances at most every 90 seconds (sooner after something happens), the rest every five minutes or right after a level, a death or a boss.
+**It reacts as things happen.** Over two dozen game events (changing zone or subzone, resting, leaving combat, a buff or sickness landing, mounting, shapeshifting, your pet, joining a group, the mailbox, bank or crafting table, loot, money, your emotes, a death, a level, a boss, a conversation in RPG Dialogue, new gear, reputation) trigger an update within a couple of seconds. **Currently** and the glances are rewritten whenever they change (at most every 15 seconds), the story within half a minute of something that matters, and anything held back during combat is written the moment it ends.
 
 | Total RP 3 field | From |
 |---|---|
@@ -19,14 +19,18 @@ Everything updates on its own while you play: **Currently** and the glances at m
 | **Personality traits** | Plain words: **Good/Evil**, **Lawful/Chaotic**, **Honest/Deceitful** from your RPG Dialogue alignment, and Kind/Cruel, Brave/Cautious, Generous/Greedy, Religious/Skeptical, Outgoing/Reserved, Playful/Serious from your choices. |
 | **About: Personality** | Temperament, a plain *"By most accounts: good and lawful"*, the opinions you've said out loud, and conversation starters for other players: *"Ask them about the gold of Elwynn's mines, what's down in the Deadmines..."* |
 | **About: History** | Your origin in your own words, how long you've been on the road, the lands and dungeons you've seen, your usual inn (and the one you gave up), friends and rivals, where you're liked or distrusted, who you ride with, your guild, faction reputations and PvP rank, deeds, crafts, the creatures you've thinned out, books you've read, close calls, how the last few days have felt, and a line from your diary. |
-| **About: Physical** | Your build (from your strongest attribute), what you wear and carry, the finest thing on you (live, or from Chronicle's equipment snapshot), and your scars. |
-| **Title** | Your rank by experience, per class: a priest goes Acolyte, Initiate, Deacon, Priest, Confessor... a warrior Recruit, Militiaman, Soldier... |
+| **About: Physical** | Your race's look (a dwarf's braided beard, a Forsaken's stitched grey flesh, a tauren's beaded horns...), your class's marks (a paladin's holy symbol, a shaman's totems, a warlock's whiff of brimstone...), your build, what you wear and carry, the finest thing on you, and your scars. |
+| **Title** | Your rank by experience, specific to your race, class and faction: a Forsaken rogue rises from Newly Risen to Deathstalker, a dwarf hunter from Novice to Mountaineer, a tauren warrior from Young Brave to Plainsrunner, a troll shaman to Loa-Speaker and Witch Doctor, a night elf priest to Acolyte of Elune, an orc warrior from Grunt to Warlord. |
 | **Full title** | Alignment and standing (*Lightsworn, Friend of Goldshire*), else what you are and where from. |
 | **Relationship status** | Married or Taken, if you've named a wife, husband, betrothed or sweetheart in Social Diary. |
 | **OOC note** | Off by default: a line saying the profile updates itself. |
 | **Nickname, Motto, Residence, Birthplace** | An epithet you've earned (*the Far-Walker*, *Grave-Cheater*, *the Bookish*), a motto that fits your temperament, your inn, your homeland. |
 
 Each one has a switch in the settings.
+
+## Race and class
+
+Your race and class shape almost everything: the rank ladder, how each mood shows on you (a tauren's ears pinned back, a Forsaken's creaking joints, a mage's sparks at the fingertips), what you get up to on the road (a hunter tracking, a shaman listening to the spirits, a warlock gathering reagents best not named), your background when RPG Dialogue has no origin for you, your ambitions and your motto.
 
 ## How your character feels
 

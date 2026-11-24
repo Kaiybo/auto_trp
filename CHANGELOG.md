@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 (2026-11-24): Blood and Bone
+
+- **Reactive**: two dozen game events update your profile within seconds. Currently and the glances are rewritten whenever they change (at most every 15 seconds), the story within half a minute of something that matters, and anything held back in combat right after it.
+- **Race and class everywhere**: rank ladders by race, class and faction (Deathstalker, Mountaineer, Brave, Loa-Speaker, Acolyte of Elune, Grunt...); racial and class mood tells; racial looks and class marks in Physical; backgrounds, ambitions and mottos by race; class activities in Currently.
+- Milestones: each new rank, where you were and how you felt, in History. Your epic finds become prized possessions, and a fresh one shows in Lately.
+- Checks run on GitHub for every push; `tools/build_zip.py` makes an installable zip.
+
 ## 0.3.0 (2026-11-24): The Mood Journal
 
 - A mood badge on screen: hover for why you feel the way you do, click for the preview, right-click to pause.

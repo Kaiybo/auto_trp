@@ -651,7 +651,7 @@ W.SLOT_NOUN = { [1] = "helm", [3] = "shoulders", [5] = "chest", [7] = "legs", [1
 -- 1-9, 10-19, 20-29, 30-39, 40-49, 50-59, 60.
 ---------------------------------------------------------------------------
 W.RANKS = {
-  WARRIOR = { "Recruit", "Militiaman", "Soldier", "Sergeant", "Veteran", "Champion", "Warmaster" },
+  WARRIOR = { "Recruit", "Militia", "Soldier", "Sergeant", "Veteran", "Champion", "Warmaster" },
   PALADIN = { "Initiate", "Squire", "Knight", "Templar", "Crusader", "Justicar", "Grand Templar" },
   HUNTER = { "Novice", "Tracker", "Ranger", "Pathfinder", "Stalker", "Huntmaster", "Master Hunter" },
   ROGUE = { "Cutpurse", "Footpad", "Thief", "Shadow", "Blade", "Nightblade", "Master Assassin" },
@@ -732,4 +732,172 @@ W.RACE_TELLS = {
     downcast = { "Stares at nothing with empty eyes, remembering a life that was taken." },
     fed = { "Has eaten something, and nobody wants to ask what." },
   },
+}
+
+---------------------------------------------------------------------------
+-- RACE AND CLASS
+---------------------------------------------------------------------------
+
+-- Rank ladders that differ by faction (shared bands as W.RANKS).
+W.RANKS_FACTION = {
+  Horde = {
+    WARRIOR = { "Recruit", "Grunt", "Raider", "Sergeant", "Veteran", "Champion", "Warlord" },
+    ROGUE = { "Cutthroat", "Footpad", "Thief", "Shadow", "Blade", "Nightblade", "Master Assassin" },
+  },
+  Alliance = {
+    WARRIOR = { "Recruit", "Foot Soldier", "Soldier", "Sergeant", "Veteran", "Knight-Champion", "Warmaster" },
+  },
+}
+
+-- Ladders specific to a race and class: these win over the class and faction ones.
+W.RANKS_RACE = {
+  Scourge = {
+    ROGUE = { "Newly Risen", "Footpad", "Deathstalker Initiate", "Deathstalker", "Deathstalker Captain", "Dark Ranger's Blade", "Master Deathstalker" },
+    PRIEST = { "Acolyte", "Initiate", "Dark Acolyte", "Dark Cleric", "Shadow Priest", "Deathspeaker", "High Deathspeaker" },
+    MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Dark Sorcerer", "Arcanist", "Master Arcanist" },
+    WARLOCK = { "Initiate", "Occultist", "Summoner", "Necrolyte", "Diabolist", "Dreadcaller", "Master Diabolist" },
+    WARRIOR = { "Risen", "Grunt", "Deathguard Recruit", "Deathguard", "Deathguard Sergeant", "Executor", "High Executor" },
+  },
+  Dwarf = {
+    HUNTER = { "Novice", "Mountaineer", "Mountaineer Scout", "Sharpshooter", "Senior Mountaineer", "Mountain King's Hunter", "Master Mountaineer" },
+    WARRIOR = { "Recruit", "Shieldbearer", "Guard", "Ironforge Sergeant", "Thane's Guard", "Champion of the Hold", "Mountain Thane" },
+    PRIEST = { "Acolyte", "Initiate", "Cleric of the Light", "Priest", "Confessor", "High Cleric", "Elder of the Mystic Ward" },
+    PALADIN = { "Initiate", "Squire", "Knight of Ironforge", "Templar", "Crusader", "Justicar", "Hammer of the Light" },
+  },
+  Gnome = {
+    MAGE = { "Apprentice", "Tinker-Mage", "Adept", "Magus", "Arcanotech", "Arcanist", "Grand Arcanotech" },
+    ROGUE = { "Pickpocket", "Saboteur", "Thief", "Shadow", "Infiltrator", "Nightblade", "Master Saboteur" },
+    WARRIOR = { "Recruit", "Foot Soldier", "Gnomeregan Guard", "Sergeant", "Veteran", "Champion of Gnomeregan", "Warmaster" },
+    WARLOCK = { "Initiate", "Occultist", "Summoner", "Shadowcaster", "Diabolist", "Dreadcaller", "Master Diabolist" },
+  },
+  NightElf = {
+    HUNTER = { "Novice", "Tracker", "Ranger", "Pathfinder", "Moonstalker", "Huntmaster", "Master of the Wilds" },
+    PRIEST = { "Novice of Elune", "Initiate of Elune", "Acolyte of Elune", "Priest of the Moon", "Moon Priest", "High Priest of the Moon", "Voice of Elune" },
+    DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder Druid", "Elder of the Cenarion Circle" },
+    WARRIOR = { "Recruit", "Sentinel Recruit", "Sentinel", "Sentinel Sergeant", "Sentinel Captain", "Champion of the Kaldorei", "Warden" },
+    ROGUE = { "Cutpurse", "Shadow-Walker", "Thief", "Shadow", "Blade", "Nightblade", "Master of Shadows" },
+  },
+  Human = {
+    ROGUE = { "Cutpurse", "Footpad", "Thief", "Informant", "SI:7 Operative", "SI:7 Agent", "Master Assassin" },
+    PALADIN = { "Initiate", "Squire", "Knight", "Knight of the Silver Hand", "Crusader", "Justicar", "Exemplar of the Silver Hand" },
+    PRIEST = { "Acolyte", "Initiate", "Cleric of the Light", "Priest", "Confessor", "Bishop", "Archbishop's Chosen" },
+    MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Sorcerer", "Arcanist", "Magister" },
+  },
+  Orc = {
+    SHAMAN = { "Initiate", "Seer", "Spirit-Speaker", "Stormcaller", "Farseer", "Elder Farseer", "Elder Shaman" },
+    HUNTER = { "Novice", "Tracker", "Wolf Rider", "Pathfinder", "Beastmaster", "Huntmaster", "Master Hunter" },
+    WARLOCK = { "Initiate", "Occultist", "Summoner", "Shadowcaster", "Diabolist", "Dreadcaller", "Master Diabolist" },
+  },
+  Troll = {
+    HUNTER = { "Novice", "Tracker", "Headhunter", "Pathfinder", "Shadow Stalker", "Huntmaster", "Master Headhunter" },
+    SHAMAN = { "Initiate", "Seer", "Loa-Speaker", "Witch Doctor", "Hexer", "Elder Witch Doctor", "Voice of the Loa" },
+    PRIEST = { "Acolyte", "Initiate", "Loa-Speaker", "Priest", "Shadow Priest", "High Priest", "Voice of the Loa" },
+    ROGUE = { "Cutthroat", "Footpad", "Thief", "Shadow", "Shadow Hunter's Blade", "Nightblade", "Master Assassin" },
+    MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Sorcerer", "Arcanist", "Master Arcanist" },
+  },
+  Tauren = {
+    WARRIOR = { "Young Brave", "Brave", "Plainsrunner", "Warrior", "Veteran Brave", "Champion of the Tribes", "Chieftain's Guard" },
+    HUNTER = { "Novice", "Brave", "Plainsrunner", "Pathfinder", "Wind Rider", "Huntmaster", "Hunter of the Earth Mother" },
+    DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder", "Archdruid's Chosen" },
+    SHAMAN = { "Initiate", "Seer", "Spirit-Speaker", "Earthcaller", "Farseer", "Elder Seer", "Elder Shaman" },
+  },
+}
+
+-- How each race looks to a stranger.
+W.RACE_LOOK = {
+  Human = { "Broad, open features weathered by wind and road.", "An ordinary human face that's seen more than its share of trouble." },
+  Dwarf = { "A thick braided beard, broad shoulders and forearms like anvils.", "Stocky and solid as the mountain, beard braided with bands of metal." },
+  Gnome = { "Small, bright-eyed and constantly fidgeting, hair sticking out at odd angles.", "Tiny, quick and covered in soot smudges and little burns." },
+  NightElf = { "Tall and graceful, with long ears and eyes that glow faintly silver.", "Violet skin, sweeping ears and the stillness of someone who has lived a very long time." },
+  Orc = { "Green-skinned and heavy-jawed, tusks jutting from a scarred face.", "Massive shoulders, a heavy brow and the bearing of a born warrior." },
+  Troll = { "Tall and lanky, blue-skinned, with long tusks and a wild crest of hair.", "Loose-limbed and hunched, tusks curving up past a wide grin." },
+  Tauren = { "Enormous and calm, horned and hoofed, with braided mane and gentle eyes.", "A towering bulk of fur and muscle, horns hung with beads and feathers." },
+  Scourge = { "Grey, rotting flesh stretched over bone, with a jaw that doesn't quite close.", "Gaunt and stitched-together, eyes burning a cold yellow in a ruined face." },
+}
+
+-- What a class carries that marks it out.
+W.CLASS_LOOK = {
+  WARRIOR = { "Moves with the heavy confidence of someone used to taking hits.", "Knuckles scarred, shoulders squared; built for the front line." },
+  PALADIN = { "A holy symbol hangs at {their} breast, polished bright.", "Carries {themselves} like a sworn knight, with a prayer book on the belt." },
+  HUNTER = { "Quiver at the hip, tracks and fur stuck to {their} boots.", "A hunter's patience in the eyes; never far from {their} beast." },
+  ROGUE = { "Soft boots, dark clothes, and more blades than are visible.", "Hands never still, always resting near a hidden knife." },
+  PRIEST = { "A worn prayer book and a quiet, attentive manner.", "Smells faintly of incense and clean linen." },
+  SHAMAN = { "Totems hang from {their} belt, carved and painted.", "Bones and feathers knotted into hair and harness; the spirits' mark." },
+  MAGE = { "Ink-stained fingers, a pouch of reagents, the faint smell of ozone.", "A spellbook chained to the belt and frost on the cuffs." },
+  WARLOCK = { "A faint whiff of brimstone; shadows lean a little closer.", "Eyes a shade too knowing; a soul-shard pouch at the hip." },
+  DRUID = { "Leaves tangled in {their} hair and earth under the nails.", "Feathers and antler charms; smells of moss and rain." },
+}
+
+-- Where they come from, when RPG Dialogue has no origin chosen. {name} is filled in.
+W.RACE_BACKGROUND = {
+  Human = { "{name} grew up in the shadow of Stormwind's walls, in a kingdom still rebuilding from war.", "{name} comes from farming stock in Elwynn, raised on stories of the Second War." },
+  Dwarf = { "{name} hails from the halls of Ironforge, where the forges never go cold.", "{name} was raised among the snows of Dun Morogh, in a clan that never forgets a grudge or a debt." },
+  Gnome = { "{name} fled Gnomeregan when the troggs came and the city was flooded with poison, and has been rebuilding ever since.", "{name} is a child of Gnomeregan, living as an exile in Ironforge's Tinker Town." },
+  NightElf = { "{name} was born beneath the boughs of Teldrassil, in a people only lately woken from long isolation.", "{name} is kaldorei, of a people who have watched the forests of Kalimdor for ten thousand years." },
+  Orc = { "{name} was born in an internment camp after the Second War and freed by the Warchief.", "{name} grew up in the new Durotar, raised on stories of Draenor and the long road to freedom." },
+  Troll = { "{name} is Darkspear, of the tribe that followed Thrall to Durotar after the sea witch drove them from the Echo Isles.", "{name} grew up on the Echo Isles, until Zalazane's madness drove the Darkspear to Sen'jin." },
+  Tauren = { "{name} grew up on the grasslands of Mulgore, under Cairne Bloodhoof's wise rule.", "{name} is tauren of Mulgore, raised to honour the Earth Mother and walk the plains." },
+  Scourge = { "{name} woke in a crypt in Tirisfal, free of the Lich King's grip, with only fragments of a former life.", "{name} died in the plague and rose again; the Dark Lady gave {them} a will of {their} own." },
+}
+
+W.CLASS_BACKGROUND = {
+  WARRIOR = { "Took up the sword because someone had to stand in front.", "Learned to fight before learning much else." },
+  PALADIN = { "Swore the oaths of the Light and has tried to live up to them since.", "Was raised to the Light and taught to carry a hammer for it." },
+  HUNTER = { "Learned to track and shoot as a child, and has never been comfortable indoors.", "Bonded with a beast early and has rarely travelled alone since." },
+  ROGUE = { "Learned early that quick hands and a quiet step solve most problems.", "Took to the shadows when honest work didn't pay." },
+  PRIEST = { "Answered a calling to tend the hurt and the dying.", "Studied the faith and found it asks more than it gives, most days." },
+  SHAMAN = { "Heard the elements speak young, and learned to answer.", "Was taught by an elder shaman to listen to earth, fire, water and air." },
+  MAGE = { "Showed a spark of the arcane young, and has been chasing it ever since.", "Spent years with books and candles before ever casting in anger." },
+  WARLOCK = { "Went looking for power the respectable schools wouldn't teach.", "Learned the darker arts, and keeps the reasons private." },
+  DRUID = { "Was drawn to the Cenarion Circle and the old ways of the wild.", "Learned to walk in other shapes and listen to the land." },
+}
+
+-- What they do when out and about, by class (a choice alongside the zone's own).
+W.CLASS_ACTIVITY = {
+  WARRIOR = { "patrolling around {place}", "looking for a fight around {place}" },
+  PALADIN = { "keeping watch over {place}", "seeing to the faithful around {place}" },
+  HUNTER = { "tracking something through {place}", "out hunting around {place}" },
+  ROGUE = { "keeping a low profile around {place}", "watching the comings and goings around {place}" },
+  PRIEST = { "tending to travellers around {place}", "seeing to the sick around {place}" },
+  SHAMAN = { "listening to the spirits of {place}", "reading the winds around {place}" },
+  MAGE = { "studying the ley lines around {place}", "taking arcane readings around {place}" },
+  WARLOCK = { "gathering reagents best not named around {place}", "about some private business around {place}" },
+  DRUID = { "walking the wilds around {place}", "tending the land around {place}" },
+}
+
+-- Class tells for moods (used about a third of the time, when one fits).
+W.CLASS_TELLS = {
+  WARRIOR = { angry = { "Jaw clenched, hand on the hilt, looking for an excuse." }, weary = { "Armour straps loosened; even the strongest arms tire." }, fierce = { "Rolling {their} shoulders and grinning at the next fight." } },
+  PALADIN = { downcast = { "Hand on {their} holy symbol, praying for strength." }, righteous = { "A faint golden warmth seems to follow {them} today." }, conflicted = { "Turning a prayer bead over and over, troubled in conscience." } },
+  HUNTER = { ease = { "Brushing out {their} companion's coat, perfectly content." }, uneasy = { "Reading the ground for tracks, bow half-drawn." }, wonder = { "Studying the local beasts with keen interest." } },
+  ROGUE = { uneasy = { "Eyes on every exit, fingers near a hidden blade." }, flush = { "Suspiciously well off. Nobody's asking where it came from." }, tense = { "Moving silently, never quite in the light." } },
+  PRIEST = { shaken = { "Murmuring a prayer, over and over, until the hands stop shaking." }, devout = { "Kneeling in quiet devotion, lips moving." }, sorrowful = { "Has said the rites over someone recently. It shows." } },
+  SHAMAN = { uneasy = { "The spirits are restless here, and it shows in {their} face." }, ease = { "Humming with the earth, perfectly at home." }, angry = { "The air crackles a little around {them}. Best not to provoke the storm." } },
+  MAGE = { weary = { "Rubbing {their} temples; too many hours over spellbooks." }, intrigued = { "Muttering formulae and scribbling notes in the margins." }, angry = { "Small sparks dance at {their} fingertips." } },
+  WARLOCK = { ease = { "A faint smell of brimstone; the demon at {their} side is, for once, quiet." }, haunted = { "Whispers that aren't {their} own seem to cling to {them}." }, angry = { "The shadows around {them} have grown noticeably darker." } },
+  DRUID = { uneasy = { "Leaves in {their} hair rustle though there's no wind." }, ease = { "Barefoot on the grass, at one with the place." }, angry = { "A low growl in the throat that sounds more bear than person." } },
+}
+
+-- Ambitions by race (mixed with the class ones).
+W.RACE_AMBITIONS = {
+  Human = { "To see Stormwind made whole again.", "To earn a place in the histories of the kingdom." },
+  Dwarf = { "To uncover the secrets of the Titans buried in the deep places.", "To bring honour to {their} clan and a good story home to Ironforge." },
+  Gnome = { "To see Gnomeregan taken back from the troggs.", "To build something no one has ever built before." },
+  NightElf = { "To keep the forests of Kalimdor safe from axe and fel.", "To prove the kaldorei were right to wake and walk the world again." },
+  Orc = { "To prove the orcs are more than the monsters humans remember.", "To earn a place in the Warchief's sagas." },
+  Troll = { "To see the Echo Isles free of Zalazane's hexes.", "To make the loa proud, mon." },
+  Tauren = { "To walk every plain the Earth Mother made.", "To bring honour to {their} tribe and the memory of {their} ancestors." },
+  Scourge = { "To find out who {they} were before the plague.", "To make the Lich King pay for what was taken." },
+}
+
+-- Mottos by race (mixed with the temperament ones).
+W.RACE_MOTTOS = {
+  Human = { "For the Alliance, and for home.", "Stand fast." },
+  Dwarf = { "Stone and steel and stubbornness.", "Never trust a beardless wizard." },
+  Gnome = { "If it's not broken, improve it.", "Gnomeregan forever!" },
+  NightElf = { "Elune guides my path.", "The forest remembers." },
+  Orc = { "Lok'tar ogar!", "Strength and honour." },
+  Troll = { "Stay away from da voodoo.", "Da loa are watchin'." },
+  Tauren = { "Walk with the Earth Mother.", "The winds guide us." },
+  Scourge = { "Victory for the Forsaken.", "What joy is there in this curse?" },
 }

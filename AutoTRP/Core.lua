@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.3.0"
+ns.VERSION = "0.4.0"
 
 ---------------------------------------------------------------------------
 -- Events

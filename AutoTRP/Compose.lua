@@ -212,7 +212,9 @@ function Compose.AmbitionGlance()
         TX = "Wants to get to the bottom of " .. lowerFirst(t.title) .. "." }
     end
   end
-  local list = W.AMBITIONS[world.class or ""] or W.AMBITIONS.default
+  local list = {}
+  for _, a in ipairs(W.AMBITIONS[world.class or ""] or W.AMBITIONS.default) do list[#list + 1] = a end
+  for _, a in ipairs(W.RACE_AMBITIONS[world.race or ""] or {}) do list[#list + 1] = a end
   return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = U.Pron(U.Pick(list, seed("ambition"))) }
 end
 
@@ -422,8 +424,11 @@ function Compose.History()
     if rpgd.origin.blurb then p = p .. " In " .. U.Pron("{their}") .. " own words: \"" .. rpgd.origin.blurb .. "\"" end
     paras[#paras + 1] = p
   else
-    local home = W.RACE_HOME[world.race or ""]
-    if home then paras[#paras + 1] = sentence(name .. " comes from " .. home) end
+    local bg = W.RACE_BACKGROUND[world.race or ""]
+    local cbg = W.CLASS_BACKGROUND[world.class or ""]
+    local p = bg and (U.Pick(bg, seed("bg")):gsub("{name}", name)) or nil
+    if cbg then p = (p and (p .. " ") or "") .. U.Pick(cbg, seed("cbg")) end
+    if p then paras[#paras + 1] = U.Pron(p) end
   end
   if (world.level or 1) < 10 then
     paras[#paras + 1] = sentence(name .. " is new to the road, and the world hasn't had its say yet")
@@ -631,6 +636,12 @@ function Compose.Physical()
   local build = physique(c)
   if build then p = p .. ", " .. build end
   paras[#paras + 1] = sentence(p)
+  local looks = {}
+  local rl = W.RACE_LOOK[world.race or ""]
+  if rl then looks[#looks + 1] = U.Pron(U.Pick(rl, seed("racelook"))) end
+  local cl = W.CLASS_LOOK[world.class or ""]
+  if cl then looks[#looks + 1] = U.Pron(U.Pick(cl, seed("classlook"))) end
+  if #looks > 0 then paras[#paras + 1] = table.concat(looks, " ") end
 
   local k = kit(world, false)
   if k then paras[#paras + 1] = k end
@@ -658,7 +669,10 @@ end
 -- The short title: a rank by experience ("Initiate" at the start).
 function Compose.Title()
   local world = ns.cache.world
-  local ranks = W.RANKS[world.class or ""] or W.RANKS.default
+  local class = world.class or ""
+  local ranks = (W.RANKS_RACE[world.race or ""] or {})[class]
+    or (W.RANKS_FACTION[world.faction or ""] or {})[class]
+    or W.RANKS[class] or W.RANKS.default
   return ranks[band(world.level)]
 end
 
@@ -706,7 +720,11 @@ end
 function Compose.Motto()
   local rpgd = ns.cache.rpgd
   local key = rpgd and rpgd.dominant[1] or "default"
-  return U.Pick(W.MOTTOS[key] or W.MOTTOS.default, seed("motto:" .. key))
+  local list = {}
+  if key ~= "default" then for _, m in ipairs(W.MOTTOS[key] or {}) do list[#list + 1] = m end end
+  for _, m in ipairs(W.RACE_MOTTOS[ns.cache.world.race or ""] or {}) do list[#list + 1] = m end
+  if #list == 0 then list = W.MOTTOS.default end
+  return U.Pick(list, seed("motto:" .. key))
 end
 
 -- An epithet, earned by doing something a lot. The most remarkable one wins.

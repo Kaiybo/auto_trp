@@ -269,10 +269,14 @@ function Mood.Current(world)
     d = W.CALM[key] or W.CALM.default
     key = "calm:" .. key
   end
-  local tell = pick(d.tells, seed .. key .. "t")
-  local raceTells = W.RACE_TELLS[world.race or ""]
-  local own = raceTells and raceTells[key]
-  if own and U.Hash(seed .. key .. "race") % 2 == 0 then tell = pick(own, seed .. key .. "r") end
+  -- A tell from the general list, this race's, or this class's: one of the three.
+  local pools = { d.tells }
+  local rt = W.RACE_TELLS[world.race or ""]
+  if rt and rt[key] then pools[#pools + 1] = rt[key] end
+  local ct = W.CLASS_TELLS[world.class or ""]
+  if ct and ct[key] then pools[#pools + 1] = ct[key] end
+  local pool = pools[(U.Hash(seed .. key .. "pool") % #pools) + 1]
+  local tell = pick(pool, seed .. key .. "t")
   local out = {
     key = key, title = d.title, icon = d.icon,
     adj = pick(d.adj, seed .. key), tell = tell,
