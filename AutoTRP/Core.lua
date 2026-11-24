@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.4.0"
+ns.VERSION = "0.5.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -31,6 +31,19 @@ frame:SetScript("OnEvent", function(_, event, ...)
     if not ok then ns.Error(event, err) end
   end
 end)
+
+-- Unit events for one unit only (the game filters, so other units cost nothing).
+function ns.OnUnit(event, unit, fn)
+  local f = CreateFrame("Frame")
+  if not pcall(f.RegisterUnitEvent, f, event, unit) then
+    return ns.On(event, function(_, u, ...) if u == unit then fn(event, u, ...) end end)
+  end
+  f:SetScript("OnEvent", function(_, e, ...)
+    local ok, err = pcall(fn, e, ...)
+    if not ok then ns.Error(e, err) end
+  end)
+  return true
+end
 
 -- Internal messages between our own files.
 local listeners = {}
@@ -118,8 +131,6 @@ ns.DEFAULTS = {
 
 ns.CHAR_DEFAULTS = {
   profileID = nil,   -- the TRP3 profile Auto TRP may write to
-  owned = {},        -- profileID -> field -> signature of what we last wrote
-  released = {},     -- profileID -> field -> true: the player took it back
   declined = false,  -- said "not now" to the first-time setup
   mood = { emo = {}, t = 0 },
   seen = {},         -- snapshots of the sources, to notice what changed
@@ -143,6 +154,20 @@ ns.On("ADDON_LOADED", function(_, loaded)
   if AutoTRPDB.currentlyEvery == 90 then AutoTRPDB.currentlyEvery = 15 end
   AutoTRPCharDB = fill(type(AutoTRPCharDB) == "table" and AutoTRPCharDB or {}, ns.CHAR_DEFAULTS)
   ns.db, ns.char = AutoTRPDB, AutoTRPCharDB
+  -- 0.5.0: who wrote what is kept per profile for the whole account (two characters can
+  -- share a profile), and each character has its own glance slots.
+  for _, name in ipairs({ "owned", "released" }) do
+    ns.db[name] = ns.db[name] or {}
+    for id, t in pairs(type(ns.char[name]) == "table" and ns.char[name] or {}) do
+      ns.db[name][id] = ns.db[name][id] or t
+    end
+    ns.char[name] = nil
+  end
+  ns.char.backup = nil
+  if type(ns.char.glanceSlots) ~= "table" then
+    ns.char.glanceSlots = {}
+    for k, v in pairs(ns.db.glanceSlots) do ns.char.glanceSlots[k] = v end
+  end
   ns.Fire("INIT")
 end)
 

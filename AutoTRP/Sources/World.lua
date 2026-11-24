@@ -235,8 +235,8 @@ function World.Snapshot()
   s.subzone = U.Plain(call("GetSubZoneText"))
   if s.subzone == s.zone then s.subzone = nil end
   s.resting = call("IsResting") and true or false
-  s.combat = call("UnitAffectingCombat", "player") and true or false
-  s.dead = call("UnitIsDeadOrGhost", "player") and true or false
+  s.combat = World.Safe(call("UnitAffectingCombat", "player")) and true or false
+  s.dead = World.Safe(call("UnitIsDeadOrGhost", "player")) and true or false
   s.ghost = call("UnitIsGhost", "player") and true or false
   s.taxi = call("UnitOnTaxi", "player") and true or false
   s.mounted = call("IsMounted") and true or false
@@ -256,11 +256,11 @@ function World.Snapshot()
   s.bind = U.Plain(call("GetBindLocation"))
   s.pvpZone = call("GetZonePVPInfo")
   s.pvpFlag = call("UnitIsPVP", "player") and true or false
-  local hp, max = call("UnitHealth", "player"), call("UnitHealthMax", "player")
+  local hp, max = World.Safe(call("UnitHealth", "player")), World.Safe(call("UnitHealthMax", "player"))
   if type(hp) == "number" and type(max) == "number" and max > 0 then s.health = hp / max end
-  local mana, manaMax = call("UnitPower", "player", 0), call("UnitPowerMax", "player", 0)
+  local mana, manaMax = World.Safe(call("UnitPower", "player", 0)), World.Safe(call("UnitPowerMax", "player", 0))
   if type(mana) == "number" and type(manaMax) == "number" and manaMax > 0 then s.mana = mana / manaMax end
-  local xp, xpMax = call("UnitXP", "player"), call("UnitXPMax", "player")
+  local xp, xpMax = World.Safe(call("UnitXP", "player")), World.Safe(call("UnitXPMax", "player"))
   if type(xp) == "number" and type(xpMax) == "number" and xpMax > 0 then s.xp = xp / xpMax end
   s.rested = call("GetXPExhaustion")
   s.money = call("GetMoney")

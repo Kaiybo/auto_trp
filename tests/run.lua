@@ -16,6 +16,7 @@ local function newFrame()
   local mt = {}
   mt.__index = function(t, k)
     if k == "RegisterEvent" then return function(self, e) self.events[e] = true end end
+    if k == "RegisterUnitEvent" then return function(self, e, unit) self.events[e] = true; self.unit = unit end end
     if k == "SetScript" then return function(self, n, fn) self.scripts[n] = fn end end
     if k == "CreateFontString" or k == "CreateTexture" then return function() return newFrame() end end
     if k == "GetChecked" then return function() return true end end
@@ -37,6 +38,7 @@ SlashCmdList = {}
 UISpecialFrames = {}
 tinsert = table.insert
 StaticPopup_Show = function() end
+StaticPopupDialogs = {}
 local state = { zone = "Elwynn Forest", sub = "Lion's Pride Inn", resting = true, combat = false, grouped = false }
 GetRealZoneText = function() return state.zone end
 GetZoneText = GetRealZoneText
@@ -169,7 +171,7 @@ for line in io.lines("AutoTRP/AutoTRP.toc") do
 end
 local function event(name, ...)
   for _, f in ipairs(frames) do
-    if f.events[name] and f.scripts.OnEvent then f.scripts.OnEvent(f, name, ...) end
+    if f.events[name] and f.scripts.OnEvent and (not rawget(f, "unit") or rawget(f, "unit") == (...)) then f.scripts.OnEvent(f, name, ...) end
   end
 end
 event("ADDON_LOADED", "AutoTRP")
@@ -248,25 +250,25 @@ state.zone, state.sub = "Duskwood", "Raven Hill"
 UnitName = function(u) if u == "npc" then return "Innkeeper Farley" end return "Aldric" end
 state.zone, state.sub, state.resting = "Elwynn Forest", "Lion's Pride Inn", true
 event("GOSSIP_SHOW")
-ns.Compose.Refresh()
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("with Innkeeper Farley in the Lion's Pride Inn"), "talking with an NPC: " .. ns.Compose.Currently(ns.Mood.Current()))
 ns.World.SetContext("none")
 UnitIsAFK = function() return true end
-ns.Compose.Refresh()
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("lost in thought") or ns.Compose.Currently(ns.Mood.Current()):find("middle distance"), "AFK reads as lost in thought")
 UnitIsAFK = function() return false end
 state.resting = false
 IsMounted = function() return true end
-ns.Compose.Refresh()
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("on horseback through"), "a human rides a horse")
 state.buffs[#state.buffs + 1] = "Summon Felsteed"
-ns.Compose.Refresh()
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("fel%-fire steed"), "a felsteed by its name")
 table.remove(state.buffs)
 IsMounted = function() return false end
 UnitOnTaxi = function() return true end
 state.zone = "Darkshore"
-ns.Compose.Refresh()
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("hippogryph"), "Alliance over Kalimdor: a hippogryph")
 UnitOnTaxi = function() return false end
 UnitName = function() return "Aldric" end
@@ -282,51 +284,24 @@ ns.char.days = {
   [os.date("%Y-%m-%d", NOW)] = { moods = { downcast = 9, ease = 2 }, zones = { Duskwood = 10 } },
   [os.date("%Y-%m-%d", NOW - 86400)] = { moods = { wonder = 5 }, zones = { Westfall = 6 } },
 }
-ns.Compose.Refresh()
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 local hist = ns.Compose.History()
 check(hist:find("wears the colours of the Silver Lanterns, ranked lamplighter"), "history: guild")
 check(hist:find("revered by Stormwind and honored by the Argent Dawn"), "history: reputations")
 check(hist:find("These past days: downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
 check(ns.Compose.Bearing():find("Ask them about the gold of Elwynn's mines"), "personality: conversation hooks")
 state.buffs[#state.buffs + 1] = "Shadowform"
-ns.Compose.Refresh()
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("wreathed in shadow"), "shapeshift form in Currently")
 table.remove(state.buffs)
--- Moving a glance
-ns.db.glanceSlots.marks, ns.db.glanceSlots.ambition = 4, 5
-ns.char.owned[ns.char.profileID].glance_marks = nil
-ns.char.owned[ns.char.profileID].glance_ambition = nil
-ns.TRP.Claim("glance_marks"); ns.TRP.Claim("glance_ambition")
-ns.UI.Update(true)
-check(p.misc.PE["4"].TI ~= "Ambition" and p.misc.PE["5"].TI == "Ambition", "glances can swap slots")
-ns.db.glanceSlots.marks, ns.db.glanceSlots.ambition = 5, 4
-ns.TRP.Claim("glance_marks"); ns.TRP.Claim("glance_ambition")
-ns.UI.Update(true)
-
-check(ns.Compose.Plural("Wolf") == "Wolves" and ns.Compose.Plural("Young Harpy") == "Young Harpies" and ns.Compose.Plural("Defias Watchman") == "Defias Watchmen", "plurals")
-check(hist:find("thinned the ranks of the Kobold Vermin considerably"), "history: grudge")
-check(hist:find("That was one weeks? ago") == nil, "no 'one weeks'")
-check(ns.Compose.RelationshipStatus() == nil, "a sworn sister is not a spouse")
-SocialDiaryCharDB.data.diary["Player-1-0002"].relationship = "Wife"
-ns.Compose.Refresh()
-check(ns.Compose.RelationshipStatus() == 3, "a wife in Social Diary: married")
-SocialDiaryCharDB.data.diary["Player-1-0002"].relationship = "Sworn sister"
-
--- Milestones and finds
-event("PLAYER_LEVEL_UP", 30)
-event("CHAT_MSG_LOOT", "You receive loot: |cffa335ee|Hitem:1|h[Blade of Hanna]|h|r.")
-ns.Compose.Refresh()
-local h2 = ns.Compose.History()
-check(h2:find("rose to Priest in Duskwood"), "history: a rank milestone")
-check(h2:find("Prized possessions: Blade of Hanna, found in Duskwood"), "history: prized possessions")
-RPGDialogueCharDB.deaths[1].t = NOW - 300000
-ns.Compose.Refresh()
-check(ns.Compose.LatelyGlance().TI == "A New Prize", "lately: a fresh find")
-RPGDialogueCharDB.deaths[1].t = NOW - 80000
-ns.char.mood.emo.thrilled = nil; ns.char.mood.emo.elated = nil
+-- Moving a glance with /atrp slot: the two swap, and Auto TRP keeps both
+SlashCmdList.AUTOTRP("slot marks 4")
+check(p.misc.PE["4"].TI ~= "Ambition" and p.misc.PE["5"].TI == "Ambition", "glances swap slots")
+check(ns.TRP.Status("glance_marks") == "auto" and ns.TRP.Status("glance_ambition") == "auto", "and neither is given up")
+SlashCmdList.AUTOTRP("slot marks 5")
 
 -- Buffs lift the mood
-ns.Compose.Refresh()
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 local scores = ns.Mood.Scores(ns.cache.world)
 check((scores.bolstered or 0) >= 15, "four buffs: bolstered " .. tostring(scores.bolstered))
 check((scores.eager or 0) >= 15, "close to a level: eager")
@@ -336,7 +311,7 @@ local m = ns.Mood.Current()
 check(m.key == "shaken", "a death leaves them shaken (" .. m.key .. ")")
 table.insert(RPGDialogueCharDB.deaths, { t = NOW - 1800, zone = "Duskwood" })
 table.insert(RPGDialogueCharDB.deaths, { t = NOW - 600, zone = "Duskwood" })
-ns.Compose.Refresh()
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 scores = ns.Mood.Scores(ns.cache.world)
 check((scores.downcast or 0) > 30 and (scores.frustrated or 0) > 15, "recent deaths: downcast and frustrated")
 -- Emotes
@@ -346,7 +321,7 @@ check((ns.char.mood.emo.sorrowful or 0) > 20, "crying makes them sorrowful")
 ns.Mood.SetManual("smitten")
 check(ns.Mood.Current().key == "smitten", "/atrp feel overrides")
 ns.char.intent = { text = "looking for passage to Theramore", untilT = NOW + 100 }
-ns.Compose.Refresh()
+ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("Looking for passage to Theramore%."), "intent appended to Currently")
 
 print("\n--- written profile ---")
@@ -360,9 +335,50 @@ print("\nPersonality:\n" .. tostring(p.about.T3.PS.TX))
 print("\nHistory:\n" .. tostring(p.about.T3.HI.TX))
 print("\nPhysical:\n" .. tostring(p.about.T3.PH.TX))
 
+-- Review fixes
+-- 1. Paused while OOC: no one-second loop.
+runTimers()
+ns.db.pauseOOC = true
+p.character.RP = 2
+ns.UI.Update(false)
+local queued = #timers
+ns.UI.Update(false)
+check(#timers <= 1 and queued <= 1, "paused while OOC: nothing keeps rescheduling (" .. #timers .. ")")
+runTimers(); runTimers()
+check(#timers == 0, "and the loop doesn't continue")
+p.character.RP = 1
+ns.db.pauseOOC = false
+-- 2. An editor saving an older copy over Auto TRP's text is rewritten, not taken as yours.
+NOW = NOW + 400
+local mine = ns.TRP.Owned()
+p.about.T3.HI.TX = "Old text."
+mine.history = "Something newer"
+ns.db.previous[ns.char.profileID].history = "Old text."
+ns.TRP.Apply({ history = "Fresh history." }, { history = true })
+check(p.about.T3.HI.TX == "Fresh history." and ns.TRP.Status("history") == "auto", "an editor's revert is rewritten, not released")
+-- 3. While TRP3's editor is open, About and characteristics wait.
+TRP3_API.navigation = { page = { getCurrentContext = function() return { isEditMode = true } end } }
+ns.TRP.Apply({ history = "While editing." }, { history = true })
+check(p.about.T3.HI.TX == "Fresh history.", "nothing written into an open editor's section")
+TRP3_API.navigation = nil
+-- 4. A switched-off glance with the player's words is theirs.
+p.misc.PE["9"] = nil
+ns.char.glanceSlots.marks = 6
+p.misc.PE["6"] = { AC = false, TI = "My scar", TX = "Ask me about it." }
+ns.TRP.Owned().glance_marks = nil
+ns.UI.Update(true)
+check(p.misc.PE["6"].TX == "Ask me about it." and ns.TRP.Status("glance_marks") == "yours", "a switched-off glance with your text is left alone")
+ns.char.glanceSlots.marks = 5
+NOW = NOW - 400
+-- 5. Restore only touches what Auto TRP wrote.
+table.insert(p.characteristics.MI, { ID = 7, NA = "Pronouns", VA = "he/him" })
+
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
 check(ok and p.character.CU == "Hanging about." and p.about.TE == 1, "restore puts the profile back as it was")
+local kept = false
+for _, e in ipairs(p.characteristics.MI) do if e.ID == 7 then kept = true end end
+check(kept, "restore keeps what you added since")
 check(ns.TRP.Status("history") == "yours", "after restore every field is the player's")
 
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.

@@ -95,8 +95,10 @@ end
 local function allDeaths()
   local list = {}
   local c = ns.cache or {}
-  for _, d in ipairs(c.rpgd and c.rpgd.deaths or {}) do list[#list + 1] = d.t end
+  local cutoff = U.Now() - 6 * 3600
+  for _, d in ipairs(c.rpgd and c.rpgd.deaths or {}) do if d.t >= cutoff then list[#list + 1] = d.t end end
   for _, d in ipairs(c.chronicle and c.chronicle.deaths or {}) do
+    if d.t < cutoff then break end   -- Chronicle lists newest first
     local dup = false
     for _, t in ipairs(list) do if math.abs(t - d.t) < 30 then dup = true break end end
     if not dup then list[#list + 1] = d.t end
@@ -339,14 +341,14 @@ ns.On("ENCOUNTER_END", function(_, _, name, _, _, success)
   if success == 1 then Mood.Push("triumphant", 60, type(name) == "string" and ("brought down " .. name) or "a great foe fell") end
 end)
 ns.On("PLAYER_REGEN_DISABLED", function() lowest = 1; fightStart = U.Now() end)
-ns.On("UNIT_HEALTH", function(_, unit)
+local function onHealth(_, unit)
   if unit == "player" then
-    local hp, max = U.Call(UnitHealth, "player"), U.Call(UnitHealthMax, "player")
+    local hp, max = ns.World.Safe(U.Call(UnitHealth, "player")), ns.World.Safe(U.Call(UnitHealthMax, "player"))
     if type(hp) == "number" and type(max) == "number" and max > 0 and hp > 0 then lowest = math.min(lowest, hp / max) end
   elseif type(unit) == "string" and unit:find("^party%d$") then
     -- A companion falls
     ns.partyDead = ns.partyDead or {}
-    local dead = U.Call(UnitIsDeadOrGhost, unit) and true or false
+    local dead = ns.World.Safe(U.Call(UnitIsDeadOrGhost, unit)) and true or false
     local name = U.Call(UnitName, unit)
     if dead and name and not ns.partyDead[name] then
       Mood.Push("sorrowful", 18, "watched " .. name .. " fall")
@@ -354,7 +356,9 @@ ns.On("UNIT_HEALTH", function(_, unit)
     end
     if name then ns.partyDead[name] = dead end
   end
-end)
+end
+-- Only these units: the game filters, so the rest of the world's health bars cost nothing.
+for _, u in ipairs({ "player", "party1", "party2", "party3", "party4" }) do ns.OnUnit("UNIT_HEALTH", u, onHealth) end
 ns.On("PLAYER_REGEN_ENABLED", function()
   if not ns.char or U.Call(UnitIsDeadOrGhost, "player") then return end
   local st = state()

@@ -68,7 +68,7 @@ function SD.Read()
       if r:find(w) then out.partner = { name = f.name, status = 3 }; break end
     end
     if out.partner then break end
-    for _, w in ipairs({ "betrothed", "fianc", "partner", "lover", "sweetheart", "girlfriend", "boyfriend", "beloved" }) do
+    for _, w in ipairs({ "betrothed", "fianc", "lover", "sweetheart", "girlfriend", "boyfriend", "beloved" }) do
       if r:find(w) then out.partner = { name = f.name, status = 2 }; break end
     end
     if out.partner then break end

@@ -68,7 +68,7 @@ function R.Read()
   out.friends, out.rivals = {}, {}
   out.met = 0
   for _, m in pairs(type(c.npc) == "table" and c.npc or {}) do
-    if type(m) == "table" and type(m.name) == "string" and (m.times or 0) > 0 then
+    if type(m) == "table" and U.Plain(m.name) and (tonumber(m.times) or 0) > 0 then
       out.met = out.met + 1
       local aff = tonumber(m.affinity) or 0
       local rec = { name = U.Plain(m.name), affinity = aff, times = m.times or 0, zone = m.zone, last = tonumber(m.last) or 0 }
@@ -100,7 +100,7 @@ function R.Read()
   out.cleared = {}
   for id, d in pairs(type(c.deeds) == "table" and c.deeds or {}) do
     local place = type(id) == "string" and id:match("^cleared:(.+)$")
-    if place and type(d) == "table" then out.cleared[#out.cleared + 1] = { name = place, t = tonumber(d.t) or 0 } end
+    if place and U.Plain(place) and type(d) == "table" then out.cleared[#out.cleared + 1] = { name = place, t = tonumber(d.t) or 0 } end
   end
   table.sort(out.cleared, function(x, y) return x.t > y.t end)
   out.kills = type(c.kills) == "table" and tonumber(c.kills.total) or 0
@@ -126,7 +126,7 @@ function R.Read()
   for name, n in pairs(out.killsByName) do
     if type(n) == "number" and n > topN then topName, topN = name, n end
   end
-  out.grudge = topName and { name = U.Plain(topName), n = topN } or nil
+  out.grudge = topName and U.Plain(topName) and { name = U.Plain(topName), n = topN } or nil
   out.drunk = tonumber(c.drunk) or 0
   out.drunkAt = tonumber(c.drunkAt) or 0
   out.insanity = type(c.insanity) == "table" and tonumber(c.insanity.level) or 0
@@ -149,7 +149,7 @@ function R.Read()
   end
   out.books = {}
   for title, b in pairs(type(c.books) == "table" and c.books or {}) do
-    if type(title) == "string" then out.books[#out.books + 1] = { title = U.Plain(title), n = type(b) == "table" and tonumber(b.n) or 1 } end
+    if U.Plain(title) then out.books[#out.books + 1] = { title = U.Plain(title), n = type(b) == "table" and tonumber(b.n) or 1 } end
   end
   table.sort(out.books, function(x, y) if x.n ~= y.n then return x.n > y.n end return x.title < y.title end)
   out.topics = U.Count(c.topics)

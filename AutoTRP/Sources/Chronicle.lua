@@ -28,7 +28,7 @@ function CH.Read()
   out.goals, out.goalsDone = {}, 0
   for _, g in ipairs(type(c.goals) == "table" and c.goals or {}) do
     if type(g) == "table" and g.done then out.goalsDone = out.goalsDone + 1 end
-    if type(g) == "table" and not g.done and type(g.text) == "string" then
+    if type(g) == "table" and not g.done and U.Plain(g.text) then
       out.goals[#out.goals + 1] = { text = U.Plain(g.text), t = tonumber(g.created) or 0 }
     end
   end
@@ -46,7 +46,7 @@ function CH.Read()
 
   out.bosses = {}
   for _, b in pairs(type(c.bosses) == "table" and c.bosses or {}) do
-    if type(b) == "table" and (tonumber(b.kills) or 0) > 0 and type(b.name) == "string" then
+    if type(b) == "table" and (tonumber(b.kills) or 0) > 0 and U.Plain(b.name) then
       out.bosses[#out.bosses + 1] = { name = U.Plain(b.name), t = tonumber(b.lastSuccess) or 0, where = U.Plain(b.instanceName) }
     end
   end
@@ -56,7 +56,7 @@ function CH.Read()
 
   out.professions = {}
   for name, p in pairs(type(c.professions) == "table" and c.professions or {}) do
-    if type(p) == "table" and type(name) == "string" and (tonumber(p.rank) or 0) > 0 then
+    if type(p) == "table" and U.Plain(name) and (tonumber(p.rank) or 0) > 0 then
       out.professions[#out.professions + 1] = { name = name, rank = tonumber(p.rank), max = tonumber(p.maxRank) }
     end
   end

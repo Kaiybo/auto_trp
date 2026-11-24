@@ -30,9 +30,14 @@ UI.STORY_EVERY = 300   -- and a refresh of the story this often regardless
 
 -- force: write everything now. Otherwise "Currently" and the glances are written whenever
 -- they've changed (at most every few seconds), and the story when something happened.
-function UI.Update(force)
+function UI.Update(force, fresh)
   if not ns.char or not ns.db.enabled then return end
   if not TRP.Managed() then return end
+  -- Nothing is written in combat, so don't work it out either: leaving combat catches up.
+  if U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") then
+    if force then ns.Print("Not updated: in combat.") end
+    return
+  end
   local now = U.Now()
   local only = {}
   local any = false
@@ -47,11 +52,11 @@ function UI.Update(force)
     any = true
   end
   if not any then
-    -- Too soon: come back when the gap has passed.
-    UI.Later(math.max(1, gap - (now - lastFast)))
+    -- Too soon: come back when the gap has passed (unless paused, when the ticker will do).
+    if not paused then UI.Later(math.max(1, gap - (now - lastFast))) end
     return
   end
-  local sheet = ns.Compose.Sheet()
+  local sheet = ns.Compose.Sheet(fresh)
   local changed, why = TRP.Apply(values(sheet), only)
   if not changed then
     if force then ns.Print("Not updated: " .. tostring(why) .. ".") end
@@ -84,13 +89,14 @@ UI.DEBOUNCE = 1.5
 function UI.React()
   pending = false
   if not ns.char then return end
+  if U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") then return end
   lastReact = U.Now()
   ns.Compose.Refresh()
   ns.Mood.Watch()
   local mood = ns.Mood.Current(ns.cache.world)
   ns.Mood.Note(mood)
   UI.UpdateBadge(mood)
-  UI.Update(false)
+  UI.Update(false, true)
 end
 
 function UI.Later(seconds)
@@ -103,6 +109,7 @@ end
 function UI.Poke(story)
   if story then slowDue = true end
   if pending then return end
+  if U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") then return end
   local wait = UI.DEBOUNCE
   local since = U.Now() - lastReact
   if since < 3 then wait = math.max(wait, 3 - since) end
@@ -125,8 +132,8 @@ local STORY_EVENTS = {
 }
 for _, e in ipairs(FAST_EVENTS) do ns.On(e, function() UI.Poke(false) end) end
 for _, e in ipairs(STORY_EVENTS) do ns.On(e, function() UI.Poke(true) end) end
-ns.On("UNIT_AURA", function(_, unit) if unit == "player" then UI.Poke(false) end end)
-ns.On("UNIT_PET", function(_, unit) if unit == "player" then UI.Poke(false) end end)
+ns.OnUnit("UNIT_AURA", "player", function() UI.Poke(false) end)
+ns.OnUnit("UNIT_PET", "player", function() UI.Poke(false) end)
 ns.On("UNIT_SPELLCAST_CHANNEL_START", function(_, unit) if unit == "player" then UI.Poke(false) end end)
 ns.On("UNIT_SPELLCAST_START", function(_, unit, _, spellID)
   if unit == "player" and (spellID == 8690 or spellID == 556) then UI.Poke(false) end
@@ -161,25 +168,25 @@ ns.Listen("LOGIN", function()
   lastPulse = pulse()
   ns.Ticker(5, function()
     local now = pulse()
-    if now ~= lastPulse then lastPulse = now; UI.Poke(true) end
+    if now ~= lastPulse then lastPulse = now; ns.Compose.SourcesChanged(); UI.Poke(true) end
   end)
 end)
 
 ---------------------------------------------------------------------------
 -- First run
 ---------------------------------------------------------------------------
-StaticPopupDialogs = StaticPopupDialogs or {}
 StaticPopupDialogs["AUTOTRP_SETUP"] = {
   text = "|cffc8a165Auto TRP|r can keep your Total RP 3 profile up to date with your story: your mood, where you are, your history and the people you've met.\n\nIt will make a new profile, a copy of your current one, and only ever write to that. Anything you edit there yourself stays yours.",
   button1 = "Make the profile",
   button2 = "Not now",
   button3 = "Use my current profile",
   OnAccept = function() UI.Setup() end,
-  OnCancel = function(_, _, reason)
-    if reason == "clicked" then
-      ns.char.declined = true
-      ns.Print("No problem. |cffffd100/atrp setup|r whenever you'd like.")
-    end
+  OnCancel = function()
+    -- Escape and "Not now" look the same to the popup, so ask again on a later login,
+    -- and stop after the third no.
+    ns.char.declines = (ns.char.declines or 0) + 1
+    if ns.char.declines >= 3 then ns.char.declined = true end
+    ns.Print("No problem. |cffffd100/atrp setup|r whenever you'd like.")
   end,
   OnAlt = function() UI.UseCurrent() end,
   timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
@@ -211,7 +218,8 @@ local function firstRun(tries)
     if tries < 10 then ns.After(3, function() firstRun(tries + 1) end) end
     return
   end
-  if ns.char.profileID or ns.char.declined then return end
+  if ns.char.profileID or ns.char.declined or UI.askedThisSession then return end
+  UI.askedThisSession = true
   if U.Call(InCombatLockdown) then ns.After(10, function() firstRun(tries) end) return end
   StaticPopup_Show("AUTOTRP_SETUP")
 end
@@ -222,6 +230,7 @@ ns.Listen("LOGIN", function()
   ns.After(6, function() firstRun(0) end)
   ns.Ticker(ns.Mood.TICK, function()
     ns.Mood.Road(ns.Mood.TICK)
+    if U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") then return end
     ns.Compose.Refresh()
     ns.Mood.Watch()
     local mood = ns.Mood.Current(ns.cache.world)
@@ -231,7 +240,7 @@ ns.Listen("LOGIN", function()
     local profile, why = TRP.Managed()
     if profile then
       warnedOther = false
-      UI.Update(false)
+      UI.Update(false, true)
     elseif ns.char.profileID and why and why:find("different") and not warnedOther then
       warnedOther = true
       if not ns.db.quiet then ns.Print("You've switched Total RP 3 profiles, so Auto TRP is pausing. Switch back, or |cffffd100/atrp use|r this one.") end
@@ -476,7 +485,7 @@ ns.Listen("LOGIN", function() UI.BuildPanel(); UI.BuildBadge() end)
 -- Mood badge: a small icon showing how your character feels. Hover for why and what your
 -- profile says; click for the preview; right-click to pause or resume. Drag to move.
 ---------------------------------------------------------------------------
-local badge
+local badge, badgeMood
 function UI.BuildBadge()
   if badge then return end
   badge = CreateFrame("Button", "AutoTRPBadge", UIParent)
@@ -515,7 +524,7 @@ function UI.BuildBadge()
     end
   end)
   badge:SetScript("OnEnter", function(self)
-    local m = self.mood
+    local m = badgeMood
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
     GameTooltip:AddLine("Auto TRP" .. (ns.db.enabled and "" or " |cff808080(paused)|r"))
     if m then
@@ -542,8 +551,8 @@ function UI.UpdateBadge(mood)
   if not badge then return end
   if not ns.db.showBadge then badge:Hide() return end
   badge:Show()
-  if mood then badge.mood = mood end
-  local icon = badge.mood and badge.mood.icon or "INV_Misc_Book_11"
+  if mood then badgeMood = mood end
+  local icon = badgeMood and badgeMood.icon or "INV_Misc_Book_11"
   badge.icon:SetTexture("Interface\\Icons\\" .. icon)
   badge.icon:SetDesaturated(not ns.db.enabled)
 end
@@ -632,7 +641,9 @@ SlashCmdList.AUTOTRP = function(msg)
     if raw == "" then
       ns.char.intent = nil; ns.Print("Intent cleared.")
     else
-      ns.char.intent = { text = U.Truncate(U.Plain(raw), 120), untilT = U.Now() + 7200 }
+      local text = U.Plain(raw)
+      if not text then ns.Print("Nothing to add.") return end
+      ns.char.intent = { text = U.Truncate(text, 120), untilT = U.Now() + 7200 }
       ns.Print("Added to Currently for two hours: " .. ns.char.intent.text)
     end
     UI.Update(true)
@@ -646,7 +657,7 @@ SlashCmdList.AUTOTRP = function(msg)
   elseif cmd == "slot" then
     local which, n = arg:match("^(%a+)%s+(%d)$")
     n = tonumber(n)
-    local slots = ns.db.glanceSlots
+    local slots = ns.char.glanceSlots
     if not which or slots[which] == nil or not n or n > 5 then
       local cur = {}
       for k, v in pairs(slots) do cur[#cur + 1] = k .. "=" .. v end
@@ -654,26 +665,29 @@ SlashCmdList.AUTOTRP = function(msg)
       ns.Print("Usage: /atrp slot <mood|lately|company|ambition|marks> <1-5, or 0 for none>. Now: " .. table.concat(cur, ", "))
       return
     end
-    if n > 0 then
-      for k, v in pairs(slots) do if v == n and k ~= which then slots[k] = slots[which] end end
+    local from = slots[which]
+    if from == n then return end
+    local id = ns.char.profileID
+    local mine = id and TRP.Owned(id)
+    -- Whatever shares the target slot swaps into the old one, and what Auto TRP knows about
+    -- each slot's text goes with it, so neither is mistaken for your own words.
+    local other
+    for k, v in pairs(slots) do if n > 0 and v == n and k ~= which then other = k end end
+    if mine then
+      local a, b = mine["glance_" .. which], other and mine["glance_" .. other]
+      if other then mine["glance_" .. which], mine["glance_" .. other] = b, a
+      else mine["glance_" .. which] = nil end
     end
-    -- Whatever was in the old slots is no longer Auto TRP's to judge: start fresh there.
-    if ns.char.profileID then
-      for k in pairs(slots) do
-        local key = "glance_" .. k
-        if ns.char.owned[ns.char.profileID] then ns.char.owned[ns.char.profileID][key] = nil end
-      end
-    end
+    if other then slots[other] = from end
     slots[which] = n
+    -- A slot left empty is switched off if Auto TRP's text was in it.
+    if not other and from > 0 and mine and TRP.Managed() then
+      local profile = TRP.Managed()
+      local pe = profile.player.misc and profile.player.misc.PE
+      if type(pe) == "table" and type(pe[tostring(from)]) == "table" then pe[tostring(from)].AC = false end
+    end
     ns.Print("Glance '" .. which .. "' is now in slot " .. n .. ".")
     UI.Update(true)
-  elseif cmd == "days" then
-    local days = ns.Mood.RecentDays(7)
-    if #days == 0 then ns.Print("Nothing in the mood journal yet.") return end
-    for _, d in ipairs(days) do
-      local m = d.mood and ns.Words.MOODS[d.mood] and ns.Words.MOODS[d.mood].title or "Steady"
-      ns.Print(U.Cap(d.label) .. ": " .. m .. (d.zone and (", mostly in " .. d.zone) or ""))
-    end
   elseif cmd == "badge" then
     ns.db.showBadge = not ns.db.showBadge
     UI.UpdateBadge()

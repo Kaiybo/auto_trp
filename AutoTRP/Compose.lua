@@ -11,13 +11,23 @@ ns.Compose = Compose
 
 ns.cache = {}
 
+-- The other addons' data is read again only when it has changed (the pulse in UI.lua
+-- notices) or once a minute; the game's own state is cheap and read every time.
+local sourcesAt = 0
+function Compose.SourcesChanged() sourcesAt = 0 end
+
 function Compose.Refresh()
   local S = ns.Sources
   local c = ns.cache
+  local now = U.Now()
   c.world = ns.World.Snapshot()
-  c.rpgd = S.RPGD.Read()
-  c.sd = S.SocialDiary.Read()
-  c.chronicle = S.Chronicle.Read()
+  if now - sourcesAt >= 60 or not c.read then
+    c.rpgd = S.RPGD.Read()
+    c.sd = S.SocialDiary.Read()
+    c.chronicle = S.Chronicle.Read()
+    sourcesAt, c.read = now, true
+  end
+  c.t = now
   return c
 end
 
@@ -426,7 +436,7 @@ function Compose.History()
   else
     local bg = W.RACE_BACKGROUND[world.race or ""]
     local cbg = W.CLASS_BACKGROUND[world.class or ""]
-    local p = bg and (U.Pick(bg, seed("bg")):gsub("{name}", name)) or nil
+    local p = bg and (U.Pick(bg, seed("bg")):gsub("{name}", function() return name end)) or nil
     if cbg then p = (p and (p .. " ") or "") .. U.Pick(cbg, seed("cbg")) end
     if p then paras[#paras + 1] = U.Pron(p) end
   end
@@ -749,8 +759,9 @@ end
 ---------------------------------------------------------------------------
 -- Everything at once
 ---------------------------------------------------------------------------
-function Compose.Sheet()
-  Compose.Refresh()
+-- fresh: the cache was just refreshed by the caller; don't read everything twice.
+function Compose.Sheet(fresh)
+  if not fresh then Compose.Refresh() end
   local mood = ns.Mood.Current(ns.cache.world)
   return {
     mood = mood,

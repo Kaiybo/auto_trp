@@ -4,8 +4,9 @@
 --   2. Never Total RP 3's default profile (Total RP 3 itself refuses edits to it).
 --   3. Never over your own words. A field that already has text Auto TRP didn't write is
 --      left alone, and a field you edit after Auto TRP wrote it goes back to you. /atrp claim
---      hands one back to Auto TRP.
---   4. Never in combat, and "Currently" no more often than the setting allows.
+--      hands one back to Auto TRP. /atrp restore puts back exactly the fields it wrote.
+--   4. Never in combat, never into a section whose Total RP 3 editor is open, and
+--      "Currently" and the glances only when they change, at most every 15 seconds.
 -- Writing follows Total RP 3's own pattern (Core/Player.lua UpdateProfileField): set the
 -- field, bump the section's version, fire REGISTER_DATA_UPDATED so other players fetch it.
 local _, ns = ...
@@ -65,6 +66,13 @@ local function icon(name)
   return name
 end
 
+local function copy(v)
+  if type(v) ~= "table" then return v end
+  local o = {}
+  for k, x in pairs(v) do o[k] = copy(x) end
+  return o
+end
+
 local function miscEntry(ch, id)
   if type(ch.MI) ~= "table" then ch.MI = {} end
   for i, e in ipairs(ch.MI) do
@@ -96,41 +104,79 @@ function TRP.CustomPronouns()
 end
 
 ---------------------------------------------------------------------------
--- Fields. read(profile) -> signature string ("" when empty); write(profile, value).
+-- Text as Total RP 3 will keep it: its own sanitizer (and no line breaks in one-line fields),
+-- so what Auto TRP compares is what TRP3 stores after a reload.
+---------------------------------------------------------------------------
+local function clean(text, multiLine)
+  if type(text) ~= "string" then return nil end
+  local util = type(TRP3_API) == "table" and type(TRP3_API.utils) == "table" and TRP3_API.utils.str
+  if util and type(util.sanitize) == "function" then
+    local ok, v = pcall(util.sanitize, text, multiLine)
+    if ok and type(v) == "string" then text = v end
+  end
+  if not multiLine then text = text:gsub("[\r\n]+", " ") end
+  if not U.Plain(text) then return nil end
+  return text
+end
+TRP.Clean = clean
+
+---------------------------------------------------------------------------
+-- Fields. read(profile) -> signature string ("" when empty); write(profile, value);
+-- raw/setRaw for the backup.
 ---------------------------------------------------------------------------
 local function textField(section, key)
   return {
     section = section,
     read = function(p) return U.Plain(sub(p, section)[key]) or "" end,
-    write = function(p, v) sub(p, section)[key] = v end,
+    write = function(p, v) sub(p, section)[key] = clean(v, false) end,
+    raw = function(p) return sub(p, section)[key] end,
+    setRaw = function(p, v) sub(p, section)[key] = v end,
   }
 end
 
 local SECTION_ICONS = { PH = "INV_Chest_Cloth_17", PS = "Spell_Holy_MindVision", HI = "INV_Misc_Book_09" }
 
+local function t3(p)
+  local about = sub(p, "about")
+  if type(about.T3) ~= "table" then about.T3 = {} end
+  for _, part in ipairs({ "PH", "PS", "HI" }) do
+    if type(about.T3[part]) ~= "table" then about.T3[part] = {} end
+  end
+  return about.T3
+end
+
+-- Template 2 counts as used only when one of its frames has text (as TRP3 itself decides).
+local function t2HasText(about)
+  for _, frame in pairs(type(about.T2) == "table" and about.T2 or {}) do
+    if type(frame) == "table" and U.Plain(frame.TX) then return true end
+  end
+  return false
+end
+
 local function aboutField(part)
   return {
-    section = "about",
+    section = "about", multiLine = true,
     read = function(p)
       local about = sub(p, "about")
-      local t3 = type(about.T3) == "table" and about.T3[part]
-      return type(t3) == "table" and (U.Plain(t3.TX) or "") or ""
+      local sec = type(about.T3) == "table" and about.T3[part]
+      return type(sec) == "table" and (U.Plain(sec.TX) or "") or ""
     end,
     write = function(p, v)
-      local about = sub(p, "about")
-      if type(about.T3) ~= "table" then about.T3 = {} end
-      if type(about.T3[part]) ~= "table" then about.T3[part] = {} end
-      about.T3[part].TX = v
-      if v and not about.T3[part].IC then about.T3[part].IC = icon(SECTION_ICONS[part]) end
+      local sec = t3(p)[part]
+      sec.TX = clean(v, true)
+      if sec.TX and not sec.IC then sec.IC = icon(SECTION_ICONS[part]) end
     end,
+    raw = function(p) return copy(t3(p)[part]) end,
+    setRaw = function(p, v) t3(p)[part] = type(v) == "table" and v or {} end,
     -- About only shows template 3's sections when the profile uses template 3. Switch to it
     -- only when the other templates are empty.
-    ready = function(p)
+    ready = function(p, id)
       local about = sub(p, "about")
       if about.TE == 3 then return true end
       local t1 = type(about.T1) == "table" and U.Plain(about.T1.TX)
-      local t2 = type(about.T2) == "table" and #about.T2 > 0
-      if t1 or t2 then return false end
+      if t1 or t2HasText(about) then return false end
+      local b = ns.TRP.BackupFor(id)
+      if b.TE == nil then b.TE = about.TE or false end
       about.TE = 3
       return true
     end,
@@ -147,6 +193,7 @@ local function miscField(id, label, iconName)
     write = function(p, v)
       local ch = sub(p, "characteristics")
       local e, i = miscEntry(ch, id)
+      v = clean(v, false)
       if not v then
         if i then table.remove(ch.MI, i) end
         return
@@ -157,18 +204,34 @@ local function miscField(id, label, iconName)
       end
       e.VA = v
     end,
+    raw = function(p) local e = miscEntry(sub(p, "characteristics"), id); return copy(e) end,
+    setRaw = function(p, v)
+      local ch = sub(p, "characteristics")
+      local _, i = miscEntry(ch, id)
+      if i then table.remove(ch.MI, i) end
+      if type(v) == "table" then table.insert(ch.MI, i or (#ch.MI + 1), v) end
+    end,
   }
 end
 
+-- The slot each glance lives in, for this character.
+function TRP.GlanceSlot(slotKey)
+  local slots = ns.char and ns.char.glanceSlots or ns.db.glanceSlots
+  return slots[slotKey] or 0
+end
+
 local function glanceField(slotKey)
-  local function slot() return tostring(ns.db.glanceSlots[slotKey] or 0) end
+  local function slot() return tostring(TRP.GlanceSlot(slotKey)) end
   return {
     section = "misc",
+    -- An inactive slot still holds the player's words; count them.
     read = function(p)
       local misc = sub(p, "misc")
       local g = type(misc.PE) == "table" and misc.PE[slot()]
-      if type(g) ~= "table" or not g.AC then return "" end
-      return (U.Plain(g.TI) or "") .. "\n" .. (U.Plain(g.TX) or "")
+      if type(g) ~= "table" then return "" end
+      local ti, tx = U.Plain(g.TI), U.Plain(g.TX)
+      if not ti and not tx then return "" end
+      return (g.AC and "" or "off:") .. (ti or "") .. "\n" .. (tx or "")
     end,
     write = function(p, v)
       local misc = sub(p, "misc")
@@ -177,9 +240,11 @@ local function glanceField(slotKey)
         if type(misc.PE[slot()]) == "table" then misc.PE[slot()].AC = false end
         return
       end
-      misc.PE[slot()] = { AC = true, TI = v.TI, TX = v.TX, IC = icon(v.IC) }
+      misc.PE[slot()] = { AC = true, TI = clean(v.TI, false), TX = clean(v.TX, true), IC = icon(v.IC) }
     end,
     sig = function(v) return v and ((U.Plain(v.TI) or "") .. "\n" .. (U.Plain(v.TX) or "")) or "" end,
+    raw = function(p) local misc = sub(p, "misc"); return copy(type(misc.PE) == "table" and misc.PE[slot()] or nil) end,
+    setRaw = function(p, v) local misc = sub(p, "misc"); if type(misc.PE) ~= "table" then misc.PE = {} end; misc.PE[slot()] = v end,
   }
 end
 
@@ -211,6 +276,8 @@ TRP.FIELDS = {
     read = function(p) local v = sub(p, "characteristics").RS; return (v and v ~= 0) and tostring(v) or "" end,
     write = function(p, v) sub(p, "characteristics").RS = v end,
     sig = function(v) return v and tostring(v) or "" end,
+    raw = function(p) return sub(p, "characteristics").RS end,
+    setRaw = function(p, v) sub(p, "characteristics").RS = v end,
   },
   traits = {
     section = "characteristics",
@@ -223,6 +290,8 @@ TRP.FIELDS = {
       sub(p, "characteristics").PS = list
     end,
     sig = traitsSig,
+    raw = function(p) return copy(sub(p, "characteristics").PS) end,
+    setRaw = function(p, v) sub(p, "characteristics").PS = type(v) == "table" and v or {} end,
   },
   glance_mood = glanceField("mood"),
   glance_lately = glanceField("lately"),
@@ -243,21 +312,25 @@ TRP.LABELS = {
 -- Which setting switches a field on.
 local function enabled(key)
   local f = ns.db.fields
-  if key:find("^glance_") then return f.glances and f[key] ~= false and (ns.db.glanceSlots[key:sub(8)] or 0) > 0 end
+  if key:find("^glance_") then return f.glances and f[key] ~= false and TRP.GlanceSlot(key:sub(8)) > 0 end
   return f[key] and true or false
 end
+TRP.Enabled = enabled
 
 ---------------------------------------------------------------------------
--- Ownership bookkeeping, per profile
+-- Ownership bookkeeping, per profile, kept account-wide so two characters sharing one
+-- profile agree about what Auto TRP wrote.
 ---------------------------------------------------------------------------
-local function owned(id)
-  ns.char.owned[id] = ns.char.owned[id] or {}
-  return ns.char.owned[id]
+local function book(name, id)
+  ns.db[name] = ns.db[name] or {}
+  ns.db[name][id] = ns.db[name][id] or {}
+  return ns.db[name][id]
 end
-local function released(id)
-  ns.char.released[id] = ns.char.released[id] or {}
-  return ns.char.released[id]
-end
+local function owned(id) return book("owned", id) end
+local function released(id) return book("released", id) end
+local function previous(id) return book("previous", id) end   -- the signature before the last write
+
+function TRP.Owned(id) return owned(id or ns.char.profileID) end
 
 function TRP.Claim(key, id)
   id = id or ns.char.profileID
@@ -287,12 +360,9 @@ end
 ---------------------------------------------------------------------------
 local function fire(id, sections)
   local playerID = type(TRP3_API.globals) == "table" and TRP3_API.globals.player_id
+  if type(TRP3_Addon) ~= "table" or type(TRP3_Addon.TriggerEvent) ~= "function" or type(TRP3_Addon.Events) ~= "table" then return end
   for section in pairs(sections) do
-    if type(TRP3_Addon) == "table" and type(TRP3_Addon.TriggerEvent) == "function" and type(TRP3_Addon.Events) == "table" then
-      pcall(TRP3_Addon.TriggerEvent, TRP3_Addon, TRP3_Addon.Events.REGISTER_DATA_UPDATED, playerID, id, section)
-    elseif type(TRP3_API.events) == "table" and type(TRP3_API.events.fireEvent) == "function" then
-      pcall(TRP3_API.events.fireEvent, TRP3_API.events.REGISTER_DATA_UPDATED, playerID, id, section)
-    end
+    pcall(TRP3_Addon.TriggerEvent, TRP3_Addon, TRP3_Addon.Events.REGISTER_DATA_UPDATED, playerID, id, section)
   end
 end
 
@@ -303,48 +373,47 @@ local function bump(section)
   section.v = v
 end
 
----------------------------------------------------------------------------
--- Backup: before the first write to a profile, a copy of everything Auto TRP might touch,
--- so /atrp restore can put it back exactly.
----------------------------------------------------------------------------
-local function copy(v)
-  if type(v) ~= "table" then return v end
-  local o = {}
-  for k, x in pairs(v) do o[k] = copy(x) end
-  return o
+-- Total RP 3's Characteristics and About editors work on a copy and put it back on Save.
+-- While one is open, leave those sections alone (the next pass catches up).
+local EDITED_SECTIONS = { characteristics = true, about = true }
+function TRP.Editing()
+  local nav = type(TRP3_API) == "table" and type(TRP3_API.navigation) == "table" and TRP3_API.navigation.page
+  if type(nav) ~= "table" or type(nav.getCurrentContext) ~= "function" then return false end
+  local ok, ctx = pcall(nav.getCurrentContext)
+  if not ok or type(ctx) ~= "table" or not ctx.isEditMode then return false end
+  local main = _G.TRP3_MainFrame
+  return not (type(main) == "table" and main.IsShown and not main:IsShown())
 end
 
-local BACKUP = {
-  character = { "CU" }, characteristics = { "TI", "FT", "RE", "BP", "MI", "PS" },
-  about = { "TE", "T3" }, misc = { "PE" },
-}
-
-local function backup(profile, id)
-  ns.char.backup = ns.char.backup or {}
-  if ns.char.backup[id] then return end
-  local b = { t = U.Now() }
-  for section, keys in pairs(BACKUP) do
-    b[section] = {}
-    local src = sub(profile, section)
-    for _, k in ipairs(keys) do b[section][k] = copy(src[k]) end
-  end
-  ns.char.backup[id] = b
+---------------------------------------------------------------------------
+-- Backup: before Auto TRP first writes a field in a profile, the field as it was, so
+-- /atrp restore can put back exactly those fields and nothing else.
+---------------------------------------------------------------------------
+function TRP.BackupFor(id)
+  ns.db.backup = ns.db.backup or {}
+  ns.db.backup[id] = ns.db.backup[id] or { fields = {} }
+  return ns.db.backup[id]
 end
 
--- Puts the profile back as it was and hands every field back to the player.
+-- Puts every field Auto TRP touched back as it was and hands them all to the player.
 function TRP.Restore()
   local profile, id = TRP.Managed()
   if not profile then return false, id end
-  local b = ns.char.backup and ns.char.backup[id]
-  if not b then return false, "there's no backup for this profile (Auto TRP hasn't written to it yet)." end
+  if U.Call(InCombatLockdown) then return false, "not in combat." end
+  local b = ns.db.backup and ns.db.backup[id]
+  if not b or not next(b.fields) then return false, "there's no backup for this profile (Auto TRP hasn't written to it yet)." end
   local sections = {}
-  for section, keys in pairs(BACKUP) do
-    local dst = sub(profile, section)
-    for _, k in ipairs(keys) do dst[k] = copy(b[section] and b[section][k]) end
-    bump(dst)
-    sections[section] = true
+  for key, saved in pairs(b.fields) do
+    local def = TRP.FIELDS[key]
+    if def and def.setRaw then
+      def.setRaw(profile, copy(saved.raw))
+      sections[def.section] = true
+    end
   end
+  if b.TE ~= nil then sub(profile, "about").TE = b.TE or nil; sections.about = true end
+  for section in pairs(sections) do bump(sub(profile, section)) end
   for key in pairs(TRP.FIELDS) do TRP.Release(key, id) end
+  ns.db.backup[id] = nil
   fire(id, sections)
   return true
 end
@@ -355,14 +424,15 @@ function TRP.Apply(values, only)
   local profile, id = TRP.Managed()
   if not profile then return nil, id end
   if U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") then return nil, "in combat" end
-  local mine, theirs = owned(id), released(id)
+  local mine, theirs, prev = owned(id), released(id), previous(id)
   local dirty, changed, left = {}, {}, {}
-  backup(profile, id)
+  local editing = TRP.Editing()
+  local bk = TRP.BackupFor(id)
 
   for key, def in pairs(TRP.FIELDS) do
-    if (not only or only[key]) and enabled(key) and not theirs[key] then
+    if (not only or only[key]) and enabled(key) and not theirs[key] and not (editing and EDITED_SECTIONS[def.section]) then
       local value = values[key]
-      if type(value) == "string" then value = U.Plain(value) and value or nil end
+      if type(value) == "string" then value = clean(value, def.multiLine) end
       local want = def.sig and def.sig(value) or (U.Plain(value) or "")
       local have = def.read(profile)
       local last = mine[key]
@@ -372,16 +442,19 @@ function TRP.Apply(values, only)
         else
           last = have
         end
-      elseif last ~= CLAIM and last ~= have then
+      elseif last ~= CLAIM and last ~= have and prev[key] ~= have then
         TRP.Release(key, id); left[#left + 1] = key     -- you edited what Auto TRP wrote
         last = nil
       end
+      -- (have == prev[key]: an editor saved an older copy over Auto TRP's text; just rewrite.)
       if last ~= nil then
         if have == want then
           mine[key] = have
-        elseif def.ready and not def.ready(profile) then
+        elseif def.ready and not def.ready(profile, id) then
           TRP.Release(key, id); left[#left + 1] = key   -- About uses another layout, with text
         else
+          if not bk.fields[key] and def.raw then bk.fields[key] = { raw = copy(def.raw(profile)) } end
+          prev[key] = have
           def.write(profile, value)
           mine[key] = def.read(profile)
           bump(sub(profile, def.section))
@@ -425,7 +498,8 @@ function TRP.Setup()
   local selected = pcall(api.selectProfile, id)
   if not selected then return false, "the profile was made but couldn't be selected." end
   ns.char.profileID = id
-  ns.char.owned[id], ns.char.released[id] = {}, {}
+  ns.db.owned = ns.db.owned or {}; ns.db.released = ns.db.released or {}
+  ns.db.owned[id], ns.db.released[id] = {}, {}
   for key in pairs(TRP.FIELDS) do TRP.Claim(key, id) end
   return true, name
 end
@@ -436,7 +510,5 @@ function TRP.UseCurrent()
   if not id then return false, "Total RP 3 hasn't finished loading." end
   if TRP.IsDefault(id) then return false, "that's Total RP 3's default profile, which it won't let addons change. Try /atrp setup." end
   ns.char.profileID = id
-  ns.char.owned[id] = ns.char.owned[id] or {}
-  ns.char.released[id] = ns.char.released[id] or {}
   return true, (TRP.Current() or {}).profileName or id
 end
