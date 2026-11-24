@@ -128,6 +128,38 @@ ns.On("UNIT_PET", function(_, unit) if unit == "player" then UI.Poke(false) end 
 ns.On("UNIT_SPELLCAST_CHANNEL_START", function(_, unit) if unit == "player" then UI.Poke(false) end end)
 ns.Listen("MOOD_CHANGED", function() UI.Poke(false) end)
 
+-- The other addons don't announce their changes, so glance at a few counters every five
+-- seconds (cheap: no reading of the data itself) and react when one moves.
+local function pulse()
+  local r, c, sd = _G.RPGDialogueCharDB, _G.ChronicleCharDB, _G.SocialDiaryCharDB
+  local parts = {}
+  if type(r) == "table" then
+    parts[#parts + 1] = tostring(r.conversations)
+    parts[#parts + 1] = tostring(type(r.journal) == "table" and #r.journal or 0)
+    parts[#parts + 1] = tostring(r.deathCount)
+    parts[#parts + 1] = tostring(type(r.insanity) == "table" and r.insanity.level or 0)
+    parts[#parts + 1] = tostring(r.drunk)
+  end
+  if type(c) == "table" then
+    parts[#parts + 1] = tostring(type(c.events) == "table" and #c.events or 0)
+    parts[#parts + 1] = tostring(type(c.goals) == "table" and #c.goals or 0)
+  end
+  if type(sd) == "table" and type(sd.data) == "table" then
+    local n = 0
+    for _ in pairs(type(sd.data.diary) == "table" and sd.data.diary or {}) do n = n + 1 end
+    parts[#parts + 1] = tostring(n)
+  end
+  return table.concat(parts, ":")
+end
+local lastPulse
+ns.Listen("LOGIN", function()
+  lastPulse = pulse()
+  ns.Ticker(5, function()
+    local now = pulse()
+    if now ~= lastPulse then lastPulse = now; UI.Poke(true) end
+  end)
+end)
+
 ---------------------------------------------------------------------------
 -- First run
 ---------------------------------------------------------------------------
