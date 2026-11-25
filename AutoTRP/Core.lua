@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.20.0"
+ns.VERSION = "0.21.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -389,7 +389,7 @@ function U.Pron(text)
     they = p.sub, them = p.obj, their = p.pos, themselves = reflexive,
     ["they've"] = p.sub == "they" and "they've" or (p.sub .. "'s"),
     ["they're"] = p.sub == "they" and "they're" or (p.sub .. "'s"),
-    are = p.be, have = p.has,
+    are = p.be, have = p.has, was = p.sub == "they" and "were" or "was",
     -- Verb endings after {they}: "{they} walk{s}" reads "they walk" or "she walks".
     s = p.s, es = p.s == "s" and "es" or "",
     ies = p.s == "s" and "ies" or "y",

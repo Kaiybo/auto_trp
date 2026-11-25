@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.21.0 (2026-11-25): One Story
+
+- **History reads as one story** instead of a run of facts: where it began, the road, the deed that gave the character a name, the people met on the way, and how things stand now, ending on what's still ahead.
+  - **Roots and what became of them.** When one of your opinions is about where you came from (the order or people in your origin, or the land you started in), History says so beside your roots: *"...started out as an initiate of the Cenarion Circle. And yet Lunaria distrusts the Cenarion Circle now."* Personality doesn't repeat it.
+  - **The road** names the lands after the first, not only the count: *"From Teldrassil their road led to Darkshore and Ashenvale, and on through twenty-seven lands in all, Stormwind Stockade the most recent of them."*
+  - **The deed behind the name** is the turn in the story (*"Then came the deed that gave them a name. Lunaria saw Dextren Ward answer for his crimes..."*), and what else they've seen through follows as one sentence, told as *"Since then..."* when it all came later.
+  - **The people met on the way**, in four beats: who they travel with and the friends made on the road; where they're welcome and where not (*"They are well thought of in Auberdine and liked in Astranaar, though they aren't trusted in Westfall Sentinel."*); who they answer to (guild, army rank, the factions they've worked for, a standing earned only lately); and who is set against them (*"Not every meeting has gone well: there is no love lost between them and Remy "Two Times", and they've made two enemies on the road."*).
+  - **What's still ahead** closes it: your Chronicle goal (*"What comes next, as they put it: ..."*), else a story still unsettled (*"Still unsettled: Westfall, left to fend for itself."*). Home and craft moved here, beside how you're doing.
+  - A one-line journal note such as *Read "A Dusty Unsent Letter".* is passed over for the newest entry in the character's own voice.
+- **Personality** reads as a portrait: temperament and conscience in one sentence, and warm views set against cold ones (*"Lunaria pities Stalvan, but has no love for the Dark Riders and distrusts the Cenarion Circle."*).
+- Every sentence in History and Personality has a subject and a verb that agrees with it ("They rose to Footpad in Silverpine Forest", "They've read...", "She has stories to tell about..."), rather than notes like "Was made..." or "Has read...".
+- Smaller things: opposed traits read "kind yet cruel"; the same mood in the same place three days running reads "downcast in Duskwood for three days now"; a find reads "in the Deadmines", not "from"; "that road" is only mentioned once the road has been told; a sentence after a quote now always starts with a capital (an old slip).
+- **Physical reads as a portrait** in three movements, every sentence with a subject:
+  - **The body**: *"Lunaria is a tall, graceful night elf, with long ears and eyes that glow faintly silver. They're a seasoned druid, calm-faced and unhurried, and move with a wild, easy grace."* Every race has four ways to say it and every class two ways it carries itself (a pet's line stands on its own: *"Fang lurks close behind them."*).
+  - **What they wear and carry**, in one sentence (*"They wear Forest Leather Mantle, Robes of Arugal and Red Wool Cloak, and carry Staff of the Blessed Seer."*), then the finest piece, how well it's all kept, what's in the bags (*"They keep a Soul Shard in their bags"*, not *"Keeps Soul Shard"*) and the coin pouch.
+  - **How they are right now**: *"Just now, they're freshly wounded, and moving carefully."*
+- A new test builds History, Personality and Physical for 400 mixes of what the sources hold, with each set of pronouns, and fails on a tag left over, a sentence with no subject, a capital mid-sentence, a verb that doesn't agree or stray punctuation. `STORIES=1 lua5.1 tests/run.lua` prints them (`STORIES_PRON=she/her` for another set).
+
 ## 0.20.0 (2026-11-25): In Good Order
 
 - **Fixed: some characters' profiles stopped being written.** 0.14.0 lost the class rank ladders every race shares, so a character whose race and class have no ladder of their own (a human warlock, a dwarf rogue) hit an error on every update: *Currently* and the glances kept going, but the title, About, History, statistics, nickname and the rest were never written. The ladders are back (a human warlock rises from Initiate to Summoner and on), and a new test builds the whole profile for every race and class.

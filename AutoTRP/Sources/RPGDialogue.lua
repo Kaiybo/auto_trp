@@ -134,12 +134,15 @@ function R.Read()
   out.drunkAt = tonumber(c.drunkAt) or 0
   out.insanity = type(c.insanity) == "table" and tonumber(c.insanity.level) or 0
 
-  -- Diary: the newest real entry (not a fold summary)
+  -- Diary: the newest real entry (not a fold summary, nor a one-line note like
+  -- 'Read "A Dusty Unsent Letter".', which says nothing in the character's voice)
   local journal = type(c.journal) == "table" and c.journal or {}
   out.journalCount = #journal
   for i = #journal, 1, -1 do
     local e = journal[i]
-    if type(e) == "table" and e.kind ~= "summary" and e.kind ~= "origin" and type(e.text) == "string" then
+    local text = type(e) == "table" and type(e.text) == "string" and e.text
+    local words = text and select(2, text:gsub("%S+", "")) or 0
+    if text and e.kind ~= "summary" and e.kind ~= "origin" and words >= 6 and not text:find("^Read \"") then
       out.lastEntry = { text = U.Plain(e.text), t = tonumber(e.t) or 0, zone = e.zone, otherHand = e.otherHand }
       break
     end
