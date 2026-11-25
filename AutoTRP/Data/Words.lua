@@ -2254,3 +2254,669 @@ W.SAY = {
   newname = { "Has lately come to be called {nick}.", "Some have started calling {them} {nick}.",
     "Answers to {nick} now, a name earned only lately." },
 }
+
+---------------------------------------------------------------------------
+-- 0.21.0: more to feel, more to say. New moods for new triggers (Sources/Triggers.lua),
+-- and a second helping of lines for nearly every list above. Lines already in a list are
+-- skipped, so nothing doubles up.
+---------------------------------------------------------------------------
+local function addUnique(list, lines)
+  local have = {}
+  for _, l in ipairs(list) do have[l] = true end
+  for _, l in ipairs(lines) do if not have[l] then list[#list + 1] = l; have[l] = true end end
+end
+
+W.MOODS.grateful = {
+  title = "Grateful", icon = "Spell_Holy_Resurrection",
+  adj = { "Grateful", "Thankful", "Glad to be alive", "Warm with thanks", "Humbled" },
+  tells = {
+    "Thanks people for small things, and means it.",
+    "Has the soft, open face of someone who was helped when it mattered.",
+    "Quick to smile at strangers, slower to take anything for granted.",
+    "Looks around as if hoping to find someone to thank.",
+    "Speaks gently, like someone with a debt {they're} glad to owe.",
+  },
+}
+W.MOODS.chilled = {
+  title = "Chilled", icon = "Spell_Frost_FrostArmor",
+  adj = { "Chilled to the bone", "Shivering", "Numb with cold", "Frost-nipped", "Cold through" },
+  tells = {
+    "Breath steaming, arms wrapped tight against the cold.",
+    "Shifts from foot to foot to keep the blood moving.",
+    "Nose and cheeks red with cold.",
+    "Talks through chattering teeth.",
+    "Hunched against the wind, shoulders drawn up high.",
+  },
+}
+W.MOODS.sweltering = {
+  title = "Sweltering", icon = "Spell_Fire_Fire",
+  adj = { "Sweltering", "Wilting in the heat", "Sun-baked", "Parched", "Hot and short-tempered" },
+  tells = {
+    "Squinting against the glare, face shiny with sweat.",
+    "Moves slowly, the way people do when the heat is winning.",
+    "Lips cracked and dry, and short of patience.",
+    "Red-faced from the sun, breathing through the mouth.",
+    "Has the glazed, heavy look of someone who has had too much sun.",
+  },
+}
+W.MOODS.nostalgic = {
+  title = "Wistful", icon = "INV_Misc_Rune_01",
+  adj = { "Wistful", "Thinking of old days", "Remembering", "Far away in memory" },
+  tells = {
+    "Looks at familiar places as if they've grown smaller.",
+    "A faraway smile, the kind people wear going back to where it started.",
+    "Slow to move on, as if each turn of the road holds a memory.",
+    "Quiet, with the look of someone measuring how far {they've} come.",
+  },
+}
+W.VALENCE.grateful, W.VALENCE.chilled, W.VALENCE.sweltering = 1, -1, -1
+
+-- More ways to say every mood.
+local MORE_MOODS = {
+  shaken = { adj = { "Hollow-eyed", "Trembling" }, tells = { "Holds {themselves} very carefully, as if something might break.",
+    "Answers a beat too late, mind still somewhere else.", "Swallows hard before speaking.",
+    "Breath comes shallow and quick, even standing still." } },
+  rattled = { adj = { "Wide-eyed and jittery", "On edge" }, tells = { "Jumps at a snapped twig, then laughs at {themselves}.",
+    "Talks in short bursts, still wound up.", "Looks back the way {they} came more often than {they} need{s} to.",
+    "Still flushed, heart plainly racing." } },
+  elated = { adj = { "Glowing", "Over the moon" }, tells = { "Hums under {their} breath without noticing.",
+    "There's a lightness to every step today.", "Quick to laugh, quicker to share good news.",
+    "Looks like someone who'd stand the whole room a round." } },
+  triumphant = { adj = { "Chin high", "Cock-a-hoop" }, tells = { "Stands tall, still flushed from the fight.",
+    "Grins at anyone who'll meet {their} eye.", "Moves with the loose confidence of someone who just came out on top.",
+    "Battered, breathless, and not sorry for any of it." } },
+  satisfied = { adj = { "Well pleased", "At peace with the day" }, tells = { "Settled and unhurried, like the work is done for now.",
+    "Wears the look of a job well finished.", "Easy-going, with nothing to prove right now.", "A contented set to the mouth." } },
+  weary = { adj = { "Drooping", "Worn out" }, tells = { "Eyes heavy-lidded, blinking slowly.", "Moves like every step costs something.",
+    "Voice flat with tiredness.", "Rubs {their} eyes with the heels of both hands." } },
+  ease = { adj = { "Unwound", "At peace" }, tells = { "Loose-shouldered and slow to stir.", "Smiles lazily at nothing.",
+    "Looks as comfortable as {they've} been in days.", "Lets silences sit without hurrying to fill them." } },
+  merry = { adj = { "Jolly", "Full of laughter" }, tells = { "Laughs from the belly, and often.", "Cheeks flushed, eyes merry.",
+    "Voice a notch too loud, and happy about it.", "Ready to raise a cup to anyone who'll drink with {them}." } },
+  haunted = { adj = { "Hollow-eyed", "Not all there" }, tells = { "Stares into corners as though something might be standing there.",
+    "Murmurs half-words to no one.", "Flinches from shadows that aren't moving.", "Eyes ringed dark, as if sleep doesn't come easily." } },
+  wonder = { adj = { "Awestruck", "Starry-eyed" }, tells = { "Turns slowly on the spot, taking it all in.",
+    "Eyes wide as a child's at a fair.", "Has the open, startled face of someone seeing a place for the first time.",
+    "Stops mid-sentence to stare at something new." } },
+  homecoming = { adj = { "Glad to be back", "Home at last" }, tells = { "Breathes in the air here like it's sweeter than elsewhere.",
+    "Shoulders down, finally, among familiar sights.", "Greets the place with a long, slow look.",
+    "Smiles at the familiar, the way people do coming home." } },
+  tense = { adj = { "Wound tight", "Braced" }, tells = { "Shoulders up and jaw set.", "Speaks quietly, eyes never still.",
+    "Stands on the balls of {their} feet, ready to move.", "Every muscle drawn tight." } },
+  uneasy = { adj = { "Ill at ease", "Skittish" }, tells = { "Keeps glancing at the edges of things.",
+    "Shifts {their} weight from foot to foot.", "Speaks in a low voice, as if not wanting to be overheard.",
+    "Has the look of someone who'd rather be anywhere else." } },
+  sociable = { adj = { "Talkative", "Friendly" }, tells = { "Ready with a greeting for whoever passes.",
+    "Has the easy warmth of someone who's spent the day in good company.", "Leans into conversations, not away from them.",
+    "Laughs easily and listens well." } },
+  intrigued = { adj = { "Puzzling something out", "Thoughtful" }, tells = { "Brow furrowed, turning something over in {their} mind.",
+    "Taps a finger against {their} lip, deep in thought.", "Half-listening, as if to a question no one asked aloud.",
+    "Eyes narrowed in thought, piecing something together." } },
+  determined = { adj = { "Set on a purpose", "Single-minded" }, tells = { "Walks like someone with somewhere to be.",
+    "Jaw set, eyes on the road ahead.", "Answers briefly, mind on the task.",
+    "Has the fixed look of someone who has made up {their} mind." } },
+  company = { adj = { "Among friends", "In good company" }, tells = { "Laughs at a shared joke, eyes on {their} companions.",
+    "Easy and relaxed, with company at {their} back.", "Keeps an eye out for the rest of the group.",
+    "Seems steadier with others close by." } },
+  sorrowful = { adj = { "Grieving", "Heavy-hearted" }, tells = { "Eyes red-rimmed and far away.",
+    "Speaks softly, when {they} speak{s} at all.", "Blinks hard, as if holding back tears.",
+    "Has the stillness that only grief brings." } },
+  angry = { adj = { "Seething", "Short-tempered" }, tells = { "Jaw tight, words clipped.", "Glares at nothing, and at anyone in the way.",
+    "Breathes through the nose, slow and hard.", "Fists open and close at {their} sides." } },
+  smitten = { adj = { "Moon-eyed", "Dreamy" }, tells = { "Smiles at nothing, then catches {themselves} doing it.",
+    "Distracted, with a soft look about the eyes.", "Blushes easily today.", "Mind plainly on someone else." } },
+  devout = { adj = { "Reverent", "Faithful" }, tells = { "Speaks of the divine in a hushed voice.",
+    "Has the calm, inward look of prayer.", "Murmurs a blessing under {their} breath.", "Eyes lowered for a moment, lips moving." } },
+  fed = { adj = { "Full and content", "Comfortably full" }, tells = { "Loose and contented, the way a good meal leaves people.",
+    "A satisfied sigh now and then.", "Slower and happier for having eaten.", "Has the drowsy look that follows a big meal." } },
+  downcast = { adj = { "Low", "Dispirited" }, tells = { "Shoulders slumped, eyes on the ground.",
+    "Answers in few words, without much life in them.", "Smiles when spoken to, but it doesn't reach the eyes.",
+    "Has the heavy tread of a bad day." } },
+  frustrated = { adj = { "Fed up", "Exasperated" }, tells = { "Mutters under {their} breath, none of it kind.",
+    "Sighs loudly, to no one in particular.", "Rubs {their} face with both hands.", "Short-tempered, and knows it." } },
+  bolstered = { adj = { "Well warded", "Strengthened" }, tells = { "Stands taller under the blessings on {them}.",
+    "Moves with borrowed vigour.", "Looks ready for anything today.", "Has the confident ease of someone well protected." } },
+  glorious = { adj = { "Blazing with blessing", "Radiant with power" }, tells = { "Seems to stand taller than {they} should.",
+    "Moves with a fierce, borrowed brightness.", "Grins like someone who can't lose today.", "Practically hums with power." } },
+  ailing = { adj = { "Unwell", "Feverish" }, tells = { "Pale and clammy, swallowing hard.", "Coughs now and then, a dry, rattling sound.",
+    "Moves stiffly, like every joint aches.", "Eyes glassy, cheeks hot." } },
+  drained = { adj = { "Washed out", "Hollow" }, tells = { "Moves slowly, as though weighed down.", "Grey-faced, and slow to answer.",
+    "Has the hollow look of someone only just back from death.", "Every movement takes visible effort." } },
+  wounded = { adj = { "Hurt", "Battered" }, tells = { "Favours one side, wincing.", "Moves carefully, holding {themselves} stiff.",
+    "Breath catches with every step.", "Pale under the grime, and hurting." } },
+  fierce = { adj = { "Bloodied and eager", "Spoiling for more" }, tells = { "Eyes bright with the fight still in them.",
+    "Rolls {their} neck, loose and ready.", "Breathes hard, but grins through it.", "Looks around for the next one." } },
+  worried = { adj = { "Anxious", "Fretful" }, tells = { "Chews {their} lip, deep in some calculation.", "Brow creased with worry.",
+    "Counts something on {their} fingers, frowning.", "Distracted and short with people." } },
+  flush = { adj = { "Feeling rich", "In funds" }, tells = { "A pleased, private look, like a merchant after a good day.",
+    "Generous with smiles today.", "Stands straighter, money worries forgotten.", "Has the easy step of someone with coin to spare." } },
+  thrilled = { adj = { "Delighted", "Fit to burst" }, tells = { "Can barely stand still for excitement.", "Eyes shining, talking fast.",
+    "Keeps grinning at nothing.", "Rocks on {their} heels, too pleased to keep still." } },
+  conflicted = { adj = { "Torn", "Uneasy in conscience" }, tells = { "Frowns at nothing, turning something over.",
+    "Slow to meet anyone's eye.", "Starts to speak, then thinks better of it.",
+    "Has the restless look of someone arguing with {themselves}." } },
+  righteous = { adj = { "Upright", "Clear-eyed" }, tells = { "Stands straight, conscience clear.", "Meets every eye without hesitation.",
+    "Calm, with the certainty of having done right.", "Speaks plainly, with nothing to hide." } },
+  proud = { adj = { "Head held high", "Pleased with {their} lot" }, tells = { "Chin up and shoulders back.", "A small, satisfied smile.",
+    "Walks like {they've} earned the road under {their} feet.", "Doesn't mind being looked at today." } },
+  ashamed = { adj = { "Shamefaced", "Abashed" }, tells = { "Avoids people's eyes.", "Speaks quietly, as if hoping not to be noticed.",
+    "Colours when certain things come up.", "Shoulders hunched in, making {themselves} smaller." } },
+  eager = { adj = { "Impatient", "Raring to go" }, tells = { "Can't keep still, all restless energy.",
+    "Leans forward, ready for whatever's next.", "Eyes bright, impatient for something.", "Drums {their} fingers, itching to move on." } },
+  burdened = { adj = { "Laden", "Overloaded" }, tells = { "Walks like a mule at the end of a long day.",
+    "Stooped under all {they're} carrying.", "Sighs every time {they} stop{s}.", "Shifts {their} load with a grunt." } },
+  newsy = { adj = { "Full of news", "Distracted by news" }, tells = { "Has the look of someone who's just heard something.",
+    "Mind elsewhere, turning over some news.", "Eager to tell someone something.", "Half-smiling at something heard." } },
+  accomplished = { adj = { "On a roll", "Getting things done" }, tells = { "Brisk and pleased, with a list getting shorter.",
+    "Moves like someone who gets things done.", "Satisfied, and looking for the next thing to finish.",
+    "A good day's work behind {them}, and it suits {them}." } },
+  lonely = { adj = { "Withdrawn", "Quiet" }, tells = { "Looks up hopefully when anyone passes.", "Talks to {themselves} now and then.",
+    "Gives a wistful look to any group that laughs.", "Slow to start a conversation, slower to end one." } },
+  festive = { adj = { "Festive", "In a holiday mood" }, tells = { "Cheerful and quick to wish people well.", "In a celebrating mood." } },
+}
+for k, m in pairs(MORE_MOODS) do
+  local d = W.MOODS[k]
+  if d then
+    d.adj = d.adj or {}; d.tells = d.tells or {}
+    addUnique(d.adj, m.adj or {}); addUnique(d.tells, m.tells or {})
+  end
+end
+
+local MORE_CALM = {
+  default = { "Even-voiced and unhurried.", "Neither friendly nor unfriendly, just steady." },
+  kind = { "Has a gentle way of speaking.", "Looks at people as if hoping the best of them." },
+  stern = { "Stands very straight.", "Says no more than needs saying." },
+  witty = { "Seems to be enjoying a private joke.", "A dry turn of phrase never far off." },
+  cruel = { "Has a smile that stops short of the eyes.", "Watches other people's discomfort with interest." },
+  pious = { "Speaks of the divine as of an old friend.", "A calm, inward face." },
+  skeptical = { "Raises a brow at most of what {they} hear{s}.", "Takes nothing on faith." },
+  greedy = { "Weighs every offer twice.", "Knows the price of everything nearby." },
+  generous = { "Easy to approach, and quick to help.", "Has a ready, open-handed manner." },
+  curious = { "Looks at everything as if it might be important.", "Tilts {their} head at anything new." },
+  brave = { "Shoulders back, chin up.", "Holds {their} ground without thinking about it." },
+  cautious = { "Watches before acting.", "Measures each word." },
+  charming = { "Has an easy, friendly manner.", "Makes conversation look effortless." },
+  reserved = { "Gives little of {themselves} away.", "Polite and distant." },
+}
+for k, lines in pairs(MORE_CALM) do if W.CALM[k] then addUnique(W.CALM[k].tells, lines) end end
+
+-- New seasons (World.Festival): the Harvest Festival, Children's Week, the Day of the Dead.
+W.FESTIVALS.harvest = { title = "Thankful", adj = { "Thankful for the harvest", "Mindful of the fallen", "Grateful for the year" },
+  tells = { "Quiet and thankful, with a thought for those who fell.", "Calm and grateful, as the year's work comes in." } }
+W.FESTIVALS.childrensweek = { title = "Young at Heart", adj = { "Young at heart", "Playful", "Soft-hearted" },
+  tells = { "Softer than usual, with a smile for every child in sight.", "Playful, as if remembering being small." } }
+W.FESTIVALS.deadday = { title = "Remembering", adj = { "Remembering the dead", "Wistful and merry", "Fond of absent friends" },
+  tells = { "Merry and sad at once, as the dead are remembered.", "Has a thought for old friends gone, and a smile for them anyway." } }
+for k, m in pairs({
+  winterveil = { adj = { "Full of good cheer" }, tells = { "Wishes everyone a merry Winter Veil, strangers included." } },
+  hallowsend = { adj = { "Ghoulishly cheerful" }, tells = { "Grins in a way that's meant to be frightening, and isn't." } },
+  love = { adj = { "Sweet on someone" }, tells = { "Has a dreamy, faraway smile." } },
+  midsummer = { adj = { "Full of the long days" }, tells = { "Sun-browned and easy, in no hurry for the day to end." } },
+  brewfest = { adj = { "Merry with the season's ale" }, tells = { "Talks about ale with the seriousness others save for war." } },
+  lunar = { adj = { "Mindful of the elders" }, tells = { "Respectful and quiet, as the old year passes." } },
+  noblegarden = { adj = { "Springlike" }, tells = { "Has a spring in {their} step to match the season." } },
+}) do
+  if W.FESTIVALS[k] then addUnique(W.FESTIVALS[k].adj, m.adj); addUnique(W.FESTIVALS[k].tells, m.tells) end
+end
+
+-- Lands with weather that gets into the bones: strength while outdoors (night adds to
+-- the cold; the midday sun to the heat). Keyed by the zone's English name.
+W.CLIMATE = {
+  cold = { ["Winterspring"] = 18, ["Dun Morogh"] = 14, ["Alterac Mountains"] = 14, ["Alterac Valley"] = 12 },
+  hot = { ["Tanaris"] = 18, ["Silithus"] = 18, ["Searing Gorge"] = 16, ["Burning Steppes"] = 14, ["Badlands"] = 16,
+    ["Un'Goro Crater"] = 14, ["Stranglethorn Vale"] = 12, ["Thousand Needles"] = 12, ["The Barrens"] = 10,
+    ["Durotar"] = 10, ["Desolace"] = 10, ["Blasted Lands"] = 12, ["Dustwallow Marsh"] = 10 },
+}
+-- Where each race starts out, for going back there with years on the road.
+W.START_ZONE = {
+  Human = "Elwynn Forest", Dwarf = "Dun Morogh", Gnome = "Dun Morogh", NightElf = "Teldrassil",
+  Orc = "Durotar", Troll = "Durotar", Tauren = "Mulgore", Scourge = "Tirisfal Glades", Undead = "Tirisfal Glades",
+}
+
+-- Emotes other people aim at you ("Mirelle waves at you."): the verb after their name.
+-- Checked in order; {who} is their name (it only ever shows in /atrp mood).
+W.EMOTES_AT = {
+  { mood = "smitten", amount = 22, why = "{who} flirted", verbs = { "kiss", "flirt", "love", "wink", "cuddle", "blow", "sexy" } },
+  { mood = "angry", amount = 22, why = "{who} was rude", verbs = { "slap", "spit", "is rude", "threaten", "insult", "glare", "growl",
+    "snarl", "shake", "rude", "taunt", "spank" } },
+  { mood = "ashamed", amount = 15, why = "{who} laughed at {them}", verbs = { "laugh", "point", "mock", "rofl", "giggle", "snicker" } },
+  { mood = "proud", amount = 20, why = "{who} cheered {them} on", verbs = { "applaud", "cheer", "clap", "praise", "salute",
+    "congratulate", "bravo" } },
+  { mood = "grateful", amount = 18, why = "{who} offered comfort", verbs = { "comfort", "soothe", "console", "pat", "heal" } },
+  { mood = "merry", amount = 16, why = "{who} made {them} laugh", verbs = { "tickle", "dance", "poke", "boop", "joke", "silly" } },
+  { mood = "tense", amount = 14, why = "{who} sized {them} up", verbs = { "stare", "eye", "charge", "roar", "look you" } },
+  { mood = "sociable", amount = 16, why = "{who} greeted {them}", verbs = { "wave", "greet", "bow", "hug", "thank", "welcome", "hail",
+    "smile", "nod", "beckon", "introduce", "grin", "high" } },
+}
+
+-- More emotes of your own that move your mood.
+for k, verbs in pairs({
+  sorrowful = { "sigh sadly", "grieve", "whimper", "moan" },
+  angry = { "spit", "shake your fist", "stomp", "seethe", "snort" },
+  merry = { "grin", "clap", "applaud", "whistle", "sing", "tickle", "silly", "joke" },
+  smitten = { "wink", "flutter", "pine", "nuzzle" },
+  devout = { "bless", "worship", "praise the light" },
+  shaken = { "panic", "gasp", "shiver", "cringe" },
+  sociable = { "salute", "nod", "beckon", "introduce", "shake hands", "high five" },
+  ease = { "stretch", "lie down", "doze", "sit" },
+  weary = { "yawn", "are tired", "are so tired" },
+  proud = { "flex", "strut", "puff", "pose" },
+  fierce = { "roar", "charge", "bellow" },
+  ashamed = { "apologize", "plead", "grovel", "blush in shame" },
+  intrigued = { "ponder", "think", "are curious", "peer" },
+  frustrated = { "grumble", "groan", "facepalm", "mutter" },
+}) do
+  W.EMOTES[k] = W.EMOTES[k] or {}
+  addUnique(W.EMOTES[k], verbs)
+end
+
+---------------------------------------------------------------------------
+-- What you're busy with: new moments, and more ways to say the old ones.
+---------------------------------------------------------------------------
+extendAll(W.ACTIVITY, {
+  mail = { "reading the post at the mailbox in {place}", "posting something in {place}" },
+  bank = { "seeing to {their} savings in {place}", "at the vaults in {place}" },
+  auction = { "watching the bids in {place}", "weighing up the auction lots in {place}" },
+  merchant = { "at a trader's counter in {place}", "counting out coin for a trader in {place}" },
+  trainer = { "at a lesson in {place}", "learning from a master of the craft in {place}" },
+  fishing = { "watching a float bob in the water at {place}", "fishing patiently in {place}" },
+  eating = { "breaking bread in {place}", "stopping for a meal in {place}" },
+  drinking = { "slaking {their} thirst in {place}" },
+  flightmaster = { "seeing about a flight in {place}", "waiting by the flight master in {place}" },
+  talk = { "trading words with {who} in {place}", "passing the time with {who} in {place}" },
+  reading = { "reading {what} carefully in {place}" },
+  duel = { "trading blows in a friendly duel in {place}" },
+  away = { "lost in a daydream in {place}", "with {their} mind elsewhere, in {place}" },
+  sitting = { "off {their} feet for a while in {place}" },
+  sleeping = { "sound asleep in {place}" },
+  dancing = { "dancing for the joy of it in {place}" },
+  hearth = { "on the way home from {place}" },
+  trade = { "trading goods with someone in {place}", "striking a deal in {place}", "haggling face to face in {place}" },
+  repair = { "having {their} gear mended in {place}", "waiting on a smith's repairs in {place}", "seeing to worn gear in {place}" },
+  stable = { "at the stables in {place}", "seeing to {their} animals at the stable in {place}" },
+  binder = { "talking with the innkeeper about a room in {place}", "settling with the innkeeper in {place}" },
+  battlemaster = { "putting {their} name down for the battlefield in {place}", "talking war with a battlemaster in {place}" },
+  charter = { "looking over a charter in {place}", "signing a charter in {place}" },
+  returned = { "only just back on {their} feet in {place}", "newly returned from death in {place}", "freshly back among the living in {place}" },
+  summoned = { "answering a summons in {place}", "drawn away by a summoning in {place}" },
+  tipsy = { "pleasantly tipsy in {place}", "a drink or two in, in {place}" },
+  drunk = { "drunk and cheerful in {place}", "well into {their} cups in {place}", "swaying on {their} feet in {place}" },
+  smashed = { "blind drunk in {place}", "barely upright after a long night's drinking in {place}" },
+  landed = { "just off a flight into {place}", "fresh off a long flight, in {place}" },
+  campfire = { "warming {their} hands at a campfire in {place}", "by a crackling campfire in {place}", "close to the fire in {place}" },
+  teleport = { "vanishing in a flash toward {dest}", "stepping away toward {dest} in a swirl of light" },
+  levitate = { "floating a hand's breadth above the ground in {place}", "drifting lightly over the ground in {place}" },
+  waterwalk = { "walking on the water in {place}", "striding across the waves in {place}" },
+  treasure = { "hunting for buried treasure in {place}", "searching the ground for treasure in {place}" },
+  firstaid = { "tending {their} wounds in {place}", "patching {themselves} up in {place}" },
+  scrying = { "watching through a demon's eye in {place}", "looking out through other eyes in {place}" },
+  questgiver = { "reporting back to {who} in {place}", "settling up with {who} in {place}", "talking business with {who} in {place}" },
+  portal = { "tearing open a portal to {dest} in {place}" },
+  summoning = { "calling a companion through a summoning circle in {place}" },
+  mining = { "breaking ore out of a vein in {place}", "swinging at a rich seam in {place}" },
+  herbs = { "picking through the undergrowth for herbs in {place}" },
+  skinning = { "working a hide off a kill in {place}" },
+  lockpick = { "bent over a stubborn lock in {place}" },
+  pickpocket = { "relieving someone of their coin in {place}" },
+})
+W.SPELLS["Tame Beast"] = { mood = { "elated", 30, "tamed a new companion" } }
+W.SPELLS["Revive Pet"] = { mood = { "ease", 15, "brought {their} companion back" } }
+W.SPELLS["Levitate"] = { context = "levitate" }
+W.SPELLS["Water Walking"] = { context = "waterwalk" }
+W.SPELLS["Find Treasure"] = { context = "treasure" }
+W.SPELLS["First Aid"] = { context = "firstaid" }
+W.SPELLS["Eye of Kilrogg"] = { context = "scrying" }
+W.SPELLS["Basic Campfire"] = { context = "campfire" }
+W.SPELLS["Divine Intervention"] = { mood = { "righteous", 30, "gave {themselves} up for another" } }
+W.SPELLS["Lay on Hands"] = { mood = { "righteous", 18, "laid hands on the dying" } }
+W.SPELLS["Reincarnation"] = { mood = { "devout", 25, "the ancestors sent {them} back" } }
+W.SPELLS["Soulstone Resurrection"] = { mood = { "intrigued", 10, "bound a soul for later" } }
+W.SPELLS["Enslave Demon"] = { mood = { "fierce", 12, "bent a demon to {their} will" } }
+W.SPELLS["Mind Vision"] = { context = "scrying" }
+W.SPELLS["Far Sight"] = { context = "scrying" }
+W.SPELLS["Perception"] = { mood = { "tense", 10, "on the lookout" } }
+W.SPELLS["Gift of the Wild"] = { mood = { "sociable", 10, "blessed the whole group" } }
+W.SPELLS["Prayer of Fortitude"] = { mood = { "devout", 10, "prayed over the whole group" } }
+W.SPELLS["Arcane Brilliance"] = { mood = { "sociable", 8, "shared {their} wits with the group" } }
+W.SPELLS["Conjure Food"] = { mood = { "satisfied", 6, "conjured a meal" } }
+W.SPELLS["Create Healthstone"] = { mood = { "satisfied", 6, "made a healthstone" } }
+
+extendAll(W.TRAVEL, {
+  ghost = { "a pale spirit making its way back toward {where}", "a ghost on the road near {where}" },
+  taxi = { "riding {beast} high above {where}", "carried over {where} by {beast}" },
+  dungeon = { "somewhere below ground in {where}", "pressing deeper into {where}" },
+  battleground = { "fighting for {their} side at {where}", "in the press of battle at {where}" },
+  inn = { "putting up at {place}", "warm and dry at {place}" },
+  town = { "among the folk of {place}", "about town in {place}" },
+  stealth = { "moving unseen {around}", "a shadow among shadows {around}" },
+  swimming = { "swimming hard through the waters of {where}", "paddling through the waters of {where}" },
+  flying = { "soaring over {where}", "on the wing above {where}" },
+  mounted = { "{mount} along the roads of {where}", "{mount} at a steady pace through {where}" },
+  road = { "on the trail {around}", "making {their} way {around}", "passing through {around}" },
+})
+extendAll(W.TIME_OF_DAY, {
+  night = { "in the small hours", "by starlight", "deep in the night" },
+  dawn = { "with the dew still on the grass", "as the sky pales", "at daybreak" },
+  dusk = { "in the last of the light", "as the shadows lengthen", "at sundown" },
+})
+
+---------------------------------------------------------------------------
+-- More lands: two more ways to say every zone, and the cities and battlefields too.
+---------------------------------------------------------------------------
+extendAll(W.ZONE_FLAVOR, {
+  ["Elwynn Forest"] = { "by the streams and mills of Elwynn", "on the quiet forest paths of Elwynn" },
+  ["Westfall"] = { "among the windmills of Westfall", "on the long, empty roads of Westfall" },
+  ["Redridge Mountains"] = { "among the pines of Redridge", "on the bridges and switchbacks of Redridge" },
+  ["Duskwood"] = { "among the graves and gallows of Duskwood", "where the trees of Duskwood shut out the sky" },
+  ["Stranglethorn Vale"] = { "on the steaming jungle tracks of Stranglethorn", "among the pirate coves of Stranglethorn" },
+  ["Dun Morogh"] = { "among the pine-dark ridges of Dun Morogh", "on the icy roads below Ironforge" },
+  ["Loch Modan"] = { "by the still waters of Loch Modan", "among the dwarven farmsteads of Loch Modan" },
+  ["Wetlands"] = { "among the bogs and crocolisks of the Wetlands", "under the grey drizzle of the Wetlands" },
+  ["Arathi Highlands"] = { "on the open moors of Arathi", "among the standing stones of the highlands" },
+  ["Hillsbrad Foothills"] = { "along the rivers of Hillsbrad", "on the fields between Southshore and Tarren Mill" },
+  ["Alterac Mountains"] = { "among the frozen ruins of Alterac", "on the bitter mountain trails of Alterac" },
+  ["The Hinterlands"] = { "on the overgrown trails of the Hinterlands", "beneath the cliffs of the Hinterlands" },
+  ["Silverpine Forest"] = { "along the grey shore of Lordamere Lake", "on the misty roads of Silverpine" },
+  ["Tirisfal Glades"] = { "among the dead orchards of Tirisfal", "past the bare fields of Tirisfal" },
+  ["Western Plaguelands"] = { "among the grey, dying farms of the Western Plaguelands", "on the roads to Andorhal" },
+  ["Eastern Plaguelands"] = { "among the fungal trees of the Eastern Plaguelands", "on the haunted roads of the east" },
+  ["Badlands"] = { "among the red mesas of the Badlands", "in the dry, scorched gullies of the Badlands" },
+  ["Searing Gorge"] = { "among the slag heaps of the Searing Gorge", "near the lava flows of the Searing Gorge" },
+  ["Burning Steppes"] = { "among the smouldering ruins of the Burning Steppes", "within sight of Blackrock Mountain" },
+  ["Swamp of Sorrows"] = { "among the reeds and dark pools of the Swamp of Sorrows", "on the sodden trails of the Swamp of Sorrows" },
+  ["Blasted Lands"] = { "among the scorched rocks of the Blasted Lands", "on the cracked red earth before the Dark Portal" },
+  ["Deadwind Pass"] = { "among the dead trees of Deadwind Pass", "near the silent tower of Karazhan" },
+  ["Durotar"] = { "among the cactus and scrub of Durotar", "on the red coast of Durotar" },
+  ["Mulgore"] = { "among the windmills and wells of Mulgore", "on the grassy plains below Thunder Bluff" },
+  ["The Barrens"] = { "among the thorn trees of the Barrens", "on the gold grass of the Barrens" },
+  ["Teldrassil"] = { "along the moonlit streams of Teldrassil", "high in the boughs of the world tree" },
+  ["Darkshore"] = { "along the tide line of Darkshore", "past the broken towers of Darkshore" },
+  ["Ashenvale"] = { "along the rivers of Ashenvale", "among the moonwells of Ashenvale" },
+  ["Stonetalon Mountains"] = { "among the windy ridges of Stonetalon", "on the switchback trails of Stonetalon" },
+  ["Desolace"] = { "among the centaur grounds of Desolace", "under the pale sky of Desolace" },
+  ["Thousand Needles"] = { "on the salt-white floor of Thousand Needles", "among the high mesas of Thousand Needles" },
+  ["Dustwallow Marsh"] = { "on the boardwalks of Dustwallow", "among the mangroves of Dustwallow Marsh" },
+  ["Feralas"] = { "beneath the towering ancients of Feralas", "along the rainy coast of Feralas" },
+  ["Tanaris"] = { "among the sun-bleached ruins of Tanaris", "on the long desert road to Gadgetzan" },
+  ["Un'Goro Crater"] = { "among the hot springs of Un'Goro", "beneath the volcano of Un'Goro" },
+  ["Felwood"] = { "among the oozing pools of Felwood", "where the trees of Felwood have turned sick" },
+  ["Azshara"] = { "among the crumbling marble of Azshara", "on the cliffs above the sea in Azshara" },
+  ["Winterspring"] = { "among the hot springs of Winterspring", "on the snowbound road to Everlook" },
+  ["Moonglade"] = { "on the soft grass of Moonglade", "among the barrow dens of Moonglade" },
+  ["Silithus"] = { "among the crystal spires of Silithus", "in the hot, buzzing wastes of Silithus" },
+})
+extendAll(W.INSTANCE_FLAVOR, {
+  ["The Deadmines"] = { "among the ships and tunnels of the Deadmines" },
+  ["Wailing Caverns"] = { "among the druids' dreaming caves" },
+  ["Shadowfang Keep"] = { "on the cold stone stairs of Shadowfang Keep" },
+  ["Ragefire Chasm"] = { "among the cultists of Ragefire Chasm" },
+  ["Blackfathom Deeps"] = { "in the dark, flooded halls of Blackfathom" },
+  ["The Stockade"] = { "among the cells and corridors of the Stockade" },
+  ["Gnomeregan"] = { "deep in the ruined gnomish city" },
+  ["Razorfen Kraul"] = { "among the bramble walls of Razorfen Kraul" },
+  ["Scarlet Monastery"] = { "among the crimson banners of the Scarlet Monastery" },
+  ["Razorfen Downs"] = { "among the barrows and bones of Razorfen Downs" },
+  ["Uldaman"] = { "in the buried halls of the Titans" },
+  ["Zul'Farrak"] = { "within the walls of the Sandfury city" },
+  ["Maraudon"] = { "among the waterfalls and crystals of Maraudon" },
+  ["The Temple of Atal'Hakkar"] = { "in the drowned temple of the Atal'ai" },
+  ["Blackrock Depths"] = { "among the forges of the Dark Iron dwarves" },
+  ["Blackrock Spire"] = { "in the dragon-haunted spire of Blackrock" },
+  ["Dire Maul"] = { "among the ogres and ghosts of Dire Maul" },
+  ["Stratholme"] = { "in the ashes of the city that was culled" },
+  ["Scholomance"] = { "among the bones and books of Caer Darrow's school" },
+  ["Molten Core"] = { "among the fire lords of the Molten Core" },
+  ["Onyxia's Lair"] = { "in the smoky caverns of Onyxia" },
+  ["Blackwing Lair"] = { "in the halls of the black dragonflight" },
+  ["Zul'Gurub"] = { "among the altars of the Blood God" },
+  ["Ruins of Ahn'Qiraj"] = { "among the sand-swept ruins of the Qiraji" },
+  ["Temple of Ahn'Qiraj"] = { "among the hives of the Qiraji" },
+  ["Naxxramas"] = { "aboard the Scourge's flying fortress" },
+})
+extendAll(W.CITY_FLAVOR, {
+  ["The Park"] = { "among the trees of Stormwind's park" },
+  ["Valley of Heroes"] = { "beneath the great statues of the Valley of Heroes" },
+  ["Stormwind Keep"] = { "in the halls of Stormwind Keep" },
+  ["The Canals"] = { "along the canals of Stormwind" },
+  ["The Forlorn Cavern"] = { "in the dim, forgotten Forlorn Cavern" },
+  ["Grommash Hold"] = { "beneath the great hall of Grommash Hold" },
+  ["The Royal Quarter"] = { "in the cold heart of the Royal Quarter" },
+  ["The Temple Gardens"] = { "among the gardens of Elune's temple" },
+  ["The Pools of Vision"] = { "by the still Pools of Vision" },
+})
+
+-- More places that mean something to a race or class.
+for race, places in pairs({
+  Human = { ["Goldshire"] = { "ease", 15, "the Lion's Pride country" }, ["Stromgarde Keep"] = { "sorrowful", 15, "fallen Stromgarde" },
+    ["Southshore"] = { "ease", 10, "a human town in the hills" }, ["Theramore Isle"] = { "proud", 12, "Theramore's walls" },
+    ["Tirisfal Glades"] = { "sorrowful", 10, "the lost kingdom of Lordaeron" }, ["Darkshire"] = { "uneasy", 12, "the Night Watch's town" } },
+  Dwarf = { ["Kharanos"] = { "ease", 15, "Kharanos and its brewery" }, ["Aerie Peak"] = { "ease", 15, "the Wildhammer aerie" },
+    ["Blackrock Mountain"] = { "angry", 20, "the Dark Irons' seat" }, ["Grim Batol"] = { "uneasy", 15, "Grim Batol's shadow" },
+    ["Thelsamar"] = { "ease", 10, "a dwarven town" }, ["Thandol Span"] = { "proud", 10, "the great bridge" } },
+  Gnome = { ["Gadgetzan"] = { "intrigued", 12, "goblin engineering" }, ["Loch Modan"] = { "ease", 8, "the great dam" },
+    ["Kharanos"] = { "ease", 10, "a refugee's welcome" }, ["Badlands"] = { "intrigued", 10, "old machinery in the rocks" } },
+  NightElf = { ["Auberdine"] = { "ease", 12, "Auberdine" }, ["Astranaar"] = { "ease", 12, "Astranaar" },
+    ["Ruins of Mathystra"] = { "sorrowful", 15, "the old ruins" }, ["Silithus"] = { "angry", 15, "the Qiraji threat" },
+    ["Stonetalon Mountains"] = { "angry", 12, "the Venture Company's saws" }, ["Feralas"] = { "intrigued", 10, "the old Highborne ruins" } },
+  Orc = { ["Razor Hill"] = { "ease", 15, "Razor Hill's walls" }, ["Demon Fall Canyon"] = { "proud", 20, "Grom's monument" },
+    ["The Crossroads"] = { "ease", 10, "the Crossroads" }, ["Blackrock Mountain"] = { "conflicted", 15, "the Blackrock clan's old seat" },
+    ["Grom'gol Base Camp"] = { "ease", 10, "a Horde camp" } },
+  Troll = { ["Grom'gol Base Camp"] = { "ease", 12, "a Horde camp in the jungle" }, ["Zul'Farrak"] = { "uneasy", 15, "the Sandfury" },
+    ["The Hinterlands"] = { "angry", 12, "the Witherbark" }, ["Jintha'Alor"] = { "uneasy", 18, "Vilebranch blood magic" } },
+  Tauren = { ["Bloodhoof Village"] = { "ease", 18, "Bloodhoof Village" }, ["Camp Taurajo"] = { "ease", 10, "Camp Taurajo" },
+    ["Freewind Post"] = { "ease", 12, "Freewind Post" }, ["Camp Mojache"] = { "ease", 12, "Camp Mojache" },
+    ["Desolace"] = { "angry", 10, "the centaur clans" }, ["Razorfen Kraul"] = { "angry", 15, "the quilboar warrens" } },
+  Scourge = { ["Brill"] = { "ease", 12, "Brill" }, ["Stratholme"] = { "angry", 25, "the Scourge's city" },
+    ["Scarlet Monastery"] = { "angry", 20, "the Scarlet zealots" }, ["Andorhal"] = { "downcast", 18, "Andorhal's ruins" },
+    ["The Sepulcher"] = { "ease", 12, "the Sepulcher" }, ["Hearthglen"] = { "angry", 15, "the Scarlet stronghold" } },
+}) do
+  W.RACE_PLACES[race] = W.RACE_PLACES[race] or {}
+  for k, v in pairs(places) do if not W.RACE_PLACES[race][k] then W.RACE_PLACES[race][k] = v end end
+end
+for class, places in pairs({
+  PALADIN = { ["Northshire Abbey"] = { "devout", 15, "the abbey" }, ["Scarlet Monastery"] = { "conflicted", 18, "the Crusade's fallen faith" },
+    ["Eastern Plaguelands"] = { "righteous", 12, "the Scourge to answer" } },
+  PRIEST = { ["Northshire Abbey"] = { "devout", 18, "the abbey" }, ["Scarlet Monastery"] = { "conflicted", 15, "faith gone wrong" },
+    ["The Sepulcher"] = { "devout", 10, "the Forsaken's chapel" } },
+  DRUID = { ["Ashenvale"] = { "ease", 12, "the old forest" }, ["Twilight Grove"] = { "uneasy", 20, "a Dream portal gone wrong" },
+    ["Teldrassil"] = { "ease", 10, "the world tree" }, ["Thunder Bluff"] = { "ease", 10, "the elders' bluffs" } },
+  SHAMAN = { ["Fire Plume Ridge"] = { "intrigued", 20, "fire spirits raging" }, ["Mulgore"] = { "ease", 10, "the Earth Mother's plains" },
+    ["Durotar"] = { "ease", 8, "the spirits of Durotar" } },
+  WARLOCK = { ["Ragefire Chasm"] = { "intrigued", 12, "the Burning Blade's cult" }, ["Demon Fall Canyon"] = { "intrigued", 18, "where a pit lord fell" },
+    ["Jaedenar"] = { "intrigued", 15, "the Shadow Council's hall" } },
+  MAGE = { ["Mage Quarter"] = { "ease", 15, "the Mage Quarter" }, ["The Magic Quarter"] = { "ease", 15, "the Magic Quarter" },
+    ["Dalaran"] = { "intrigued", 20, "Dalaran's shield" }, ["Dire Maul"] = { "intrigued", 18, "the Highborne library" } },
+  HUNTER = { ["Hunter Rise"] = { "ease", 18, "among fellow hunters" }, ["Nesingwary's Expedition"] = { "proud", 15, "the great hunt" },
+    ["Stranglethorn Vale"] = { "fierce", 12, "the hunting grounds of Stranglethorn" }, ["Winterspring"] = { "wonder", 10, "the white beasts of the north" } },
+  ROGUE = { ["The Rogues' Quarter"] = { "ease", 18, "among {their} own kind" }, ["Old Town"] = { "ease", 15, "Old Town's back alleys" },
+    ["Gadgetzan"] = { "ease", 10, "a town for deals" }, ["Ratchet"] = { "ease", 10, "a port with no questions" }, ["The Drag"] = { "ease", 12, "the Drag" } },
+  WARRIOR = { ["Valley of Honor"] = { "proud", 15, "the Valley of Honor" }, ["The Military Ward"] = { "proud", 15, "the Military Ward" },
+    ["Arathi Highlands"] = { "fierce", 10, "old battlefields" }, ["Blackrock Spire"] = { "fierce", 12, "the orc warlords' spire" } },
+}) do
+  W.CLASS_PLACES[class] = W.CLASS_PLACES[class] or {}
+  for k, v in pairs(places) do if not W.CLASS_PLACES[class][k] then W.CLASS_PLACES[class][k] = v end end
+end
+for race, t in pairs({
+  Human = { dawn = { "ease", 6, "the farmer's hour" } },
+  Orc = { night = { "fierce", 6, "a hunter's moon" } },
+  Scourge = { dawn = { "downcast", 6, "another dawn {they} won't feel" } },
+  NightElf = { dusk = { "devout", 8, "Elune rising" } },
+  Tauren = { dusk = { "ease", 8, "evening on the plains" } },
+  Troll = { night = { "intrigued", 6, "the loa's hour" } },
+  Dwarf = { dawn = { "determined", 6, "an early start" } },
+  Gnome = { night = { "intrigued", 6, "a tinkerer's late hours" } },
+}) do
+  W.RACE_TIME[race] = W.RACE_TIME[race] or {}
+  for k, v in pairs(t) do if not W.RACE_TIME[race][k] then W.RACE_TIME[race][k] = v end end
+end
+for race, t in pairs({
+  Human = { nostalgic = 1.2 }, Dwarf = { chilled = 0.6, sweltering = 1.3 }, Gnome = { chilled = 0.8 },
+  NightElf = { nostalgic = 1.3 }, Orc = { sweltering = 0.7 }, Troll = { chilled = 1.4, sweltering = 0.7 },
+  Tauren = { sweltering = 1.2, chilled = 0.8 }, Scourge = { chilled = 0.3, sweltering = 0.6, grateful = 0.8 },
+}) do
+  W.RACE_BIAS[race] = W.RACE_BIAS[race] or {}
+  for k, v in pairs(t) do W.RACE_BIAS[race][k] = v end
+end
+for class, t in pairs({ PRIEST = { grateful = 1.2 }, PALADIN = { grateful = 1.2 }, MAGE = { chilled = 0.8 },
+  SHAMAN = { chilled = 0.9, sweltering = 0.9 }, DRUID = { nostalgic = 1.2 } }) do
+  W.CLASS_BIAS[class] = W.CLASS_BIAS[class] or {}
+  for k, v in pairs(t) do W.CLASS_BIAS[class][k] = v end
+end
+
+-- More ways each race and class shows a mood.
+more("Human", {
+  proud = { "Stands like a Stormwind soldier on parade." },
+  tense = { "Eyes on the road, {their} {mainhand} close to hand." },
+  sorrowful = { "Quiet, with a prayer for the fallen on {their} lips." },
+  chilled = { "Blowing into cupped hands against the cold." },
+  nostalgic = { "Looks over the farmland like someone remembering harvests long gone." },
+  wonder = { "Gaping like a farmhand on a first trip to the city." },
+})
+more("Dwarf", {
+  chilled = { "Grumbling about the cold, though no dwarf would admit it bothers {them}." },
+  sweltering = { "Red-faced and puffing, built for mountains, not this heat." },
+  proud = { "Chest out, every bit a child of Khaz Modan." },
+  tense = { "Planted like a stone, waiting for trouble." },
+  wonder = { "Peering at the stonework with a mason's eye." },
+  sorrowful = { "Says nothing, and stares into the distance like a cold forge." },
+  nostalgic = { "Gruff and quiet, the way dwarves get near the hearths of home." },
+})
+more("Gnome", {
+  angry = { "Small fists clenched, face red, muttering about calibrations." },
+  ease = { "Humming a tinker's tune, perfectly content." },
+  chilled = { "Teeth chattering; small enough that the cold hits hard." },
+  sweltering = { "Wilting in the heat, big eyes squinting at the sun." },
+  proud = { "Drawn up to full height, which isn't much, and beaming." },
+  tense = { "Ears back, eyes huge, ready to bolt." },
+  nostalgic = { "Quiet, with a look toward Gnomeregan that says plenty." },
+})
+more("NightElf", {
+  angry = { "Eyes narrowed to burning slits." },
+  sorrowful = { "Ears low, grieving the way the long-lived grieve: slowly." },
+  wonder = { "Looks on this place with ancient, patient interest." },
+  chilled = { "Drawn in on {themselves}, ears flat against the cold." },
+  sweltering = { "Ill at ease in the glare, longing for the shade of the great trees." },
+  nostalgic = { "Has the faraway look of someone remembering a forest from long ago." },
+  proud = { "Tall and still, carrying the dignity of an old people." },
+})
+more("Orc", {
+  tense = { "A low growl, tusks bared, waiting for an excuse." },
+  sorrowful = { "Silent, jaw tight. Orcs grieve with clenched fists." },
+  proud = { "Chest thrust out, honour satisfied." },
+  ease = { "Sprawled at ease, for an orc, with a contented grunt now and then." },
+  chilled = { "Grumbling at the cold, breath steaming between the tusks." },
+  nostalgic = { "Gazes at the red rocks like a wolf come home to its den." },
+  fierce = { "Blood up, a war chant rumbling deep in the chest." },
+})
+more("Troll", {
+  tense = { "Crouched loose and low, tusks forward, ready to spring." },
+  sorrowful = { "The grin gone, eyes on the ground." },
+  proud = { "Standing tall, Darkspear to the bone." },
+  chilled = { "Shivering hard, jungle blood not made for this cold." },
+  wonder = { "Eyes wide, head cocked, a curious chuckle under the breath." },
+  fierce = { "Grinning wide, eager for the next fight, mon." },
+  nostalgic = { "Talking softly of the Echo Isles, eyes far off." },
+})
+more("Tauren", {
+  angry = { "Snorting, hooves pawing the ground." },
+  proud = { "Standing tall and unmoving, like a mesa at dusk." },
+  sorrowful = { "Head low, as if listening to the Earth Mother for comfort." },
+  sweltering = { "Panting in the heat, heavy fur no friend here." },
+  chilled = { "Hardly troubled by the cold, thick fur fluffed out against it." },
+  wonder = { "Looks around slowly, taking in this new land with calm interest." },
+  nostalgic = { "Breathes deep, as if the wind smelled of Mulgore's grass." },
+})
+more("Scourge", {
+  angry = { "A dry hiss through what's left of the teeth." },
+  tense = { "Utterly still, the way a corpse is still, and watching." },
+  proud = { "Stands as straight as the bones allow." },
+  wonder = { "Peers at the living world with a stranger's curiosity." },
+  nostalgic = { "Pauses at familiar landmarks, remembering a life before death." },
+  sorrowful = { "Hollow-eyed, mourning something long gone." },
+  chilled = { "Untroubled by the cold, and amused by those it troubles." },
+})
+moreClass("WARRIOR", {
+  tense = { "Weight forward, ready to charge." },
+  triumphant = { "Battered and grinning, a soldier who held the line." },
+  proud = { "Stands like a veteran on parade." },
+  wounded = { "Ignores the wounds with a soldier's stubbornness." },
+  determined = { "Looks like someone who has already decided to win." },
+  frustrated = { "Grinding {their} teeth, looking for something to hit." },
+})
+moreClass("PALADIN", {
+  tense = { "Lips moving in a prayer for strength." },
+  triumphant = { "Glowing with the Light's favour after the fight." },
+  wounded = { "Steady despite the wounds, trusting in the Light." },
+  proud = { "Upright as a sworn knight." },
+  sorrowful = { "Prays quietly for the fallen." },
+  determined = { "Resolute, like an oath made flesh." },
+  grateful = { "Gives thanks to the Light, and to whoever was its hand." },
+})
+moreClass("HUNTER", {
+  tense = { "Crouched, listening, eyes on the brush." },
+  proud = { "{pet} at {their} side, both looking pleased with the hunt." },
+  sorrowful = { "Staying close to {pet}, unwilling to be anywhere else." },
+  determined = { "Eyes narrowed, already on the trail." },
+  lonely = { "Talks to {pet} more than to people." },
+  sweltering = { "Squinting into the heat haze for movement." },
+})
+moreClass("ROGUE", {
+  wonder = { "Eyes taking in every exit and lock with professional interest." },
+  downcast = { "Quiet in a way that isn't the usual stealth." },
+  triumphant = { "A sly smile; it went exactly to plan." },
+  thrilled = { "Fingers twitching, eyes gleaming at the find." },
+  proud = { "Smug as a cat in the sun." },
+  worried = { "Counting coin in {their} head, and not liking the sum." },
+})
+moreClass("PRIEST", {
+  wounded = { "Pale and in pain, but still murmuring a healing prayer." },
+  tense = { "Lips moving in a silent ward against harm." },
+  righteous = { "Serene, like someone who has just mended a hurt." },
+  haunted = { "Pale and drawn, as if listening to voices only {they} hear{s}." },
+  grateful = { "Hands clasped, thanking the Light quietly." },
+  downcast = { "Prays without much hope today." },
+})
+moreClass("SHAMAN", {
+  tense = { "Head cocked, listening to the elements' warning." },
+  fierce = { "Crackling with barely leashed storm." },
+  righteous = { "Calm and grounded, the spirits at peace with {them}." },
+  sorrowful = { "Murmurs to the ancestors for those lost." },
+  chilled = { "Murmuring to the fire spirits for warmth." },
+  sweltering = { "Calling softly to the water spirits for relief." },
+})
+moreClass("MAGE", {
+  tense = { "Fingertips crackling with half-formed frost." },
+  chilled = { "Frost on {their} fingertips, and not all of the cold is the weather." },
+  sweltering = { "Looks like someone wishing for a spell against heat." },
+  proud = { "Looks quietly pleased with {their} own cleverness." },
+  frustrated = { "Muttering about lesser minds." },
+  haunted = { "Eyes flickering with arcane light, sleep long overdue." },
+})
+moreClass("WARLOCK", {
+  tense = { "Shadows gathering at {their} fingertips." },
+  triumphant = { "A cold smile; the price was paid by someone else." },
+  conflicted = { "Glances at {pet} with something like doubt." },
+  proud = { "Smug, as if a dark bargain went {their} way." },
+  sorrowful = { "Hard-faced, refusing to show grief." },
+  wounded = { "Pale, drawing on darker strength to stay upright." },
+})
+moreClass("DRUID", {
+  tense = { "Nostrils flared, as if catching a scent on the wind." },
+  fierce = { "A feral glint in the eyes." },
+  sorrowful = { "Quiet, grieving the way a forest grieves: slowly." },
+  proud = { "Stands like an old tree, rooted and unbowed." },
+  chilled = { "Looks like someone wishing for a warmer pelt." },
+  nostalgic = { "Looks at the wild places like old friends." },
+})
+
+extendAll(W.AMBITIONS, {
+  WARRIOR = { "To earn every scar honestly." },
+  PALADIN = { "To leave every town safer than {they} found it." },
+  HUNTER = { "To read the wild like others read a road sign." },
+  ROGUE = { "To be owed a favour in every port." },
+  PRIEST = { "To be there when someone needs a light in the dark." },
+  SHAMAN = { "To walk the land the way the ancestors did." },
+  MAGE = { "To master a spell no one else can cast." },
+  WARLOCK = { "To never again be at anyone's mercy." },
+  DRUID = { "To see the wounded places green again." },
+})

@@ -632,7 +632,7 @@ do
     end
   end
   local source = {}
-  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Compose.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua" }) do
+  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Compose.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua", "AutoTRP/Sources/Triggers.lua" }) do
     for line in io.lines(f) do
       if not line:match("^%s*%-%-") then source[#source + 1] = (line:gsub("%-%-[^\"]*$", "")):lower() end
     end
@@ -1303,6 +1303,136 @@ do
   ns.TRP.CustomPronouns = function() return "they/them" end
   check(U.Pron("{they} walk{s}, {they} watch{es}, {they} carr{ies}") == "they walk, they watch, they carry", "verb endings follow they")
   ns.TRP.CustomPronouns = oldPron
+end
+
+-- More triggers (Sources/Triggers.lua): each one is something the game reports.
+do
+  local T, W = ns.Triggers, ns.Words
+  local st = ns.char.mood
+  local function emo(name) return (st.emo[name] or 0) end
+  local function reason(name) return tostring(st.why[name]) end
+  T.Reset()
+
+  local p = T.Pattern("A buyer has been found for your auction of %s.")
+  check(("A buyer has been found for your auction of Linen Cloth."):match(p) == "Linen Cloth", "the game's messages become patterns")
+  check(("You won an auction for Copper Ore"):match(T.Pattern("You won an auction for %s")) == "Copper Ore", "a message with no full stop")
+
+  event("CHAT_MSG_SYSTEM", "You feel drunk.  Woah!")
+  check(ns.World.Context() and ns.World.Context().kind == "drunk" and emo("merry") > 0, "drink takes hold: merry, and Currently says so")
+  ns.Compose.Refresh()
+  local cur = ns.Compose.Currently(ns.Mood.Current())
+  local said = false
+  for _, l in ipairs(W.ACTIVITY.drunk) do if cur:find(l:gsub("{%a+}.*", ""), 1, true) then said = true end end
+  check(said, "a drunk Currently: " .. cur)
+  event("CHAT_MSG_SYSTEM", "You feel sober again.")
+  check(ns.World.Context().kind == "sober", "sobering up ends it")
+
+  local before = emo("flush")
+  event("CHAT_MSG_SYSTEM", "A buyer has been found for your auction of Linen Cloth.")
+  check(emo("flush") > before and reason("flush"):find("Linen Cloth"), "an auction sold: " .. reason("flush"))
+  event("CHAT_MSG_SYSTEM", "You have been outbid on Copper Ore.")
+  check(reason("frustrated"):find("outbid on Copper Ore"), "outbid: " .. reason("frustrated"))
+  event("CHAT_MSG_SYSTEM", "You have learned how to create a new item: Minor Healing Potion.")
+  check(reason("satisfied"):find("Minor Healing Potion"), "a recipe learned: " .. reason("satisfied"))
+
+  before = emo("sociable")
+  event("CHAT_MSG_TEXT_EMOTE", "Mirelle waves.", "Mirelle")
+  check(emo("sociable") == before, "an emote not aimed at you is nothing")
+  event("CHAT_MSG_TEXT_EMOTE", "Mirelle waves at you.", "Mirelle")
+  check(emo("sociable") > before and reason("sociable"):find("Mirelle"), "someone waves at you: " .. reason("sociable"))
+  local after = emo("sociable")
+  event("CHAT_MSG_TEXT_EMOTE", "Mirelle waves at you.", "Mirelle-Realm")
+  check(emo("sociable") == after, "but not every time")
+  event("CHAT_MSG_TEXT_EMOTE", "Mirelle kisses you on the cheek.", "Mirelle")
+  check(emo("smitten") > 0, "a kiss")
+  event("CHAT_MSG_TEXT_EMOTE", "Gorrok laughs at you.", "Gorrok")
+  check(emo("ashamed") > 0 and reason("ashamed"):find("Gorrok laughed at"), "laughed at: " .. reason("ashamed"))
+
+  event("RESURRECT_REQUEST", "Mirelle")
+  check(emo("grateful") > 0 and reason("grateful") == "brought back by Mirelle", "brought back from death: grateful")
+  event("PLAYER_UNGHOST")
+  check(ns.World.Context().kind == "returned", "back on your feet after death")
+
+  local oldRepair, oldCost = CanMerchantRepair, GetRepairAllCost
+  CanMerchantRepair = function() return true end
+  GetRepairAllCost = function() return 500 end
+  event("MERCHANT_SHOW")
+  check(ns.World.Context().kind == "repair", "a smith who repairs")
+  GetRepairAllCost = function() return 0 end
+  event("MERCHANT_CLOSED")
+  check(reason("satisfied"):find("gear mended"), "gear mended: " .. reason("satisfied"))
+  CanMerchantRepair, GetRepairAllCost = oldRepair, oldCost
+
+  local oldWinner = GetBattlefieldWinner
+  GetBattlefieldWinner = function() return 1 end
+  event("UPDATE_BATTLEFIELD_SCORE")
+  check(reason("triumphant"):find("won the battle"), "a battleground won: " .. reason("triumphant"))
+  GetBattlefieldWinner = oldWinner
+
+  local oldExists, oldPlayer, oldClass, oldName, oldDead = UnitExists, UnitIsPlayer, UnitClassification, UnitName, UnitIsDead
+  UnitExists = function(u) return u == "target" end
+  UnitIsPlayer = function() return false end
+  UnitClassification = function() return "rare" end
+  UnitName = function(u) if u == "target" then return "Old Murk-Eye" end return "Aldric" end
+  UnitIsDead = function() return false end
+  event("PLAYER_TARGET_CHANGED")
+  check(reason("thrilled") == "spotted Old Murk-Eye", "a rare beast in your sights")
+  UnitClassification = function() return "elite" end
+  UnitIsDead = function() return true end
+  event("PLAYER_REGEN_ENABLED")
+  check(reason("proud") == "brought down Old Murk-Eye", "an elite brought down: " .. reason("proud"))
+  UnitExists, UnitIsPlayer, UnitClassification, UnitName, UnitIsDead = oldExists, oldPlayer, oldClass, oldName, oldDead
+
+  ns.char.lastSeen = NOW - 5 * 86400
+  T.Back()
+  check(reason("determined"):find("after five days away"), "back after a long time: " .. reason("determined"))
+  check(ns.char.lastSeen == NOW, "and the clock starts again")
+
+  -- The weather of a land, and going back to where you started.
+  local world = {}
+  for k, v in pairs(ns.cache.world) do world[k] = v end
+  world.zone, world.zoneKey, world.subzone = "Winterspring", "Winterspring", nil
+  world.indoors, world.resting, world.instance, world.night = false, false, nil, true
+  local scores = ns.Mood.Scores(world)
+  check((scores.chilled or 0) >= 20, "the cold of Winterspring at night: " .. tostring(scores.chilled))
+  world.zone, world.zoneKey, world.night, world.hour = "Tanaris", "Tanaris", false, 13
+  scores = ns.Mood.Scores(world)
+  check((scores.sweltering or 0) >= 20 and not scores.chilled, "the midday heat of Tanaris: " .. tostring(scores.sweltering))
+  world.night = true
+  check(not ns.Mood.Scores(world).sweltering, "no heat at night")
+  world.zone, world.zoneKey, world.level = "Elwynn Forest", "Elwynn Forest", 40
+  scores = ns.Mood.Scores(world)
+  check((scores.nostalgic or 0) >= 16, "a veteran back where they started")
+  world.level = 12
+  check(not ns.Mood.Scores(world).nostalgic, "a beginner isn't nostalgic for home")
+
+  -- New seasons.
+  local oldDate = date
+  date = function(fmt, t) if fmt == "*t" then return { month = 5, day = 3 } end return oldDate(fmt, t) end
+  check(ns.World.Festival() == "childrensweek" and W.FESTIVALS.childrensweek, "Children's Week")
+  date = function(fmt, t) if fmt == "*t" then return { month = 11, day = 2 } end return oldDate(fmt, t) end
+  check(ns.World.Festival() == "deadday", "the Day of the Dead")
+  date = function(fmt, t) if fmt == "*t" then return { month = 9, day = 12 } end return oldDate(fmt, t) end
+  check(ns.World.Festival() == "harvest", "the Harvest Festival")
+  date = oldDate
+
+  -- Every new moment has words, and every new mood is one the badge can colour.
+  local missing = {}
+  for kind in pairs(ns.World.CONTEXT_LENGTH) do
+    if kind ~= "sober" and not W.ACTIVITY[kind] and kind ~= "craft" then missing[#missing + 1] = kind end
+  end
+  check(#missing == 0, "every moment has a way to say it: " .. table.concat(missing, ", "))
+  for _, e in ipairs(W.EMOTES_AT) do
+    if not W.MOODS[e.mood] then missing[#missing + 1] = e.mood end
+  end
+  for _, def in pairs(W.SPELLS) do
+    if def.mood and not W.MOODS[def.mood[1]] then missing[#missing + 1] = def.mood[1] end
+    if def.context and not W.ACTIVITY[def.context] then missing[#missing + 1] = def.context end
+  end
+  for _, places in pairs(W.RACE_PLACES) do for _, v in pairs(places) do if not W.MOODS[v[1]] then missing[#missing + 1] = v[1] end end end
+  for _, places in pairs(W.CLASS_PLACES) do for _, v in pairs(places) do if not W.MOODS[v[1]] then missing[#missing + 1] = v[1] end end end
+  check(#missing == 0, "every trigger feeds a mood that exists: " .. table.concat(missing, ", "))
+  ns.World.SetContext("none")
 end
 
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))

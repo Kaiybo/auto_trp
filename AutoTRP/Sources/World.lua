@@ -233,12 +233,15 @@ function World.Festival()
   if type(d) ~= "table" then return nil end
   local m, day = d.month, d.day
   if (m == 12 and day >= 15) or (m == 1 and day <= 2) then return "winterveil" end
-  if m == 10 and day >= 18 or (m == 11 and day <= 1) then return "hallowsend" end
+  if m == 10 and day >= 18 then return "hallowsend" end
+  if m == 11 and day <= 2 then return "deadday" end
   if m == 2 and day >= 7 and day <= 20 then return "love" end
   if (m == 6 and day >= 21) or (m == 7 and day <= 5) then return "midsummer" end
   if m == 9 and day >= 20 or (m == 10 and day <= 4) then return "brewfest" end
   if m == 1 and day >= 20 or (m == 2 and day <= 3) then return "lunar" end
   if m == 4 and day >= 1 and day <= 14 then return "noblegarden" end
+  if m == 5 and day >= 1 and day <= 7 then return "childrensweek" end
+  if m == 9 and day >= 10 and day <= 19 then return "harvest" end
   return nil
 end
 
@@ -348,6 +351,7 @@ World.CONTEXT_SECONDS = 180
 -- Some moments are brief.
 local CONTEXT_LENGTH = { shadowmeld = 30, cannibalize = 30, hearth = 20, portal = 90, mining = 60, herbs = 60,
   skinning = 45, disenchant = 45, lockpick = 30, pickpocket = 30 }
+World.CONTEXT_LENGTH = CONTEXT_LENGTH   -- Sources/Triggers.lua adds its own
 
 function World.SetContext(kind, detail)
   context = { kind = kind, detail = detail, t = U.Now() }

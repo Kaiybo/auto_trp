@@ -18,7 +18,10 @@ Mood.HALF_LIFE = {
   homecoming = 40, sociable = 20, intrigued = 90, sorrowful = 45, angry = 25, smitten = 40,
   devout = 30, merry = 30, ease = 20, thrilled = 40, flush = 60, conflicted = 60, righteous = 45,
   proud = 60, ashamed = 60, newsy = 45, fierce = 10, accomplished = 40, determined = 60,
+  grateful = 60, chilled = 20, sweltering = 20, nostalgic = 40,
 }
+-- More live feelings, added by other files (Sources/Triggers.lua): fn(world, add, now).
+Mood.Extra = {}
 Mood.THRESHOLD = 15
 Mood.TICK = 30
 
@@ -257,6 +260,7 @@ function Mood.Scores(world)
     end
   end
   if chron and #chron.goals > 0 then add("determined", 14, "a goal") end
+  for _, fn in ipairs(Mood.Extra) do fn(world, add, now) end
 
   return s, why
 end
