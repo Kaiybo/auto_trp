@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.14.0 (2026-11-25): Nothing Made Up
+
+- Nothing invented. Auto TRP still draws conclusions from what the game records, but no longer makes up actions, props or backstory:
+  - Mood lines describe a face, a posture or a voice. Gone: sitting beneath a tree, reading scripture, conjured tea, polishing a helm, brushing out a pet, sparks at the fingertips, fiddling with a gadget, pounding the table.
+  - Currently no longer picks a class activity at random ("tending the land around...") when you're just out in the open, and an inn is "resting at" or "staying at", not "warming up by the fire".
+  - History drops the invented turning point ("Something changed in them after...") and the "what the road has made of them" lines. Without an RPG Dialogue origin it says your race, class and starting land, not a made-up childhood.
+  - Personality drops "people still argue about whether they're a good sort", "doesn't always say why they changed" and "reads whenever there's light to read by". A changed opinion now says what it was ("Used to distrust the night elves, and has since changed their mind"); books read are listed plainly.
+  - Plainer deeds and wealth: no "most weeks", "has gone hungry more than once", "and still thinks about it", "and is not done yet" or "treasures it above anything else".
+  - The Ambition glance, with no goal or unfinished story, names the next rank on your road.
+  - Lately, Company and Marks lose their invented tails ("still smelling of the place", "would welcome company", "it comes up in most conversations", "banners and all").
+- Letters received and people met are gone from History and the Statistics (they meant little to anyone reading), and so is the "the Talker" nickname. Statistics an earlier version wrote for them are taken off the profile.
+- Physical: race looks are only what the race shares; the finest piece of gear is named instead of "Eyes go first to their chest".
+- `tests/banned_phrases.txt` now bans the invented lines too.
+
 ## 0.13.0 (2026-11-24): A Life, Not a Ledger
 
 - About is written as the character's story instead of a list of what the addons know. History runs in five short paragraphs (roots, the road, the people, the deeds, how things stand now), and events come with what they did to the character: the place that changed them, what the road has made of them at their stage of life. All of it shaped by temperament.

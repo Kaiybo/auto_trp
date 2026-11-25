@@ -605,9 +605,10 @@ RPGDialogueCharDB.opinions.night_elves = { stance = "admire", t = NOW - 10, cont
 RPGDialogueCharDB.claims = { player = { a = {}, b = {} }, exposed = { a = NOW } }
 RPGDialogueCharDB.letters = { l1 = { arrived = NOW }, l2 = { arrived = NOW }, l3 = { arrived = NOW } }
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
-check(ns.Compose.Bearing():find("Used to feel differently about the night elves"), "Personality: changed tune")
+check(ns.Compose.Bearing():find("Used to distrust the night elves, and has since changed"), "Personality: changed tune: " .. ns.Compose.Bearing())
 check(ns.Compose.Bearing():find("caught in a lie"), "History: a lie found out")
-check(ns.Compose.History():find("letters find %a+ on the road"), "History: letters received")
+check(not ns.Compose.History():find("letters"), "letters stay out of History")
+check(ns.Compose.Stats().letters == nil and ns.Compose.Stats().met == nil, "letters and people met are no longer statistics")
 RPGDialogueCharDB.opinions.night_elves = nil
 
 -- Restore puts everything back
