@@ -48,7 +48,7 @@ W.MOODS = {
     adj = { "Quietly satisfied", "Content with a day's work" },
     tells = {
       "Has the easy shoulders of someone who kept {their} word today.",
-      "Has done well out of today, and looks pleased about it.",
+      "{their} {pouch} is heavier than it was this morning.",
     },
   },
   weary = {
@@ -254,7 +254,7 @@ W.MOODS = {
     title = "Worried", icon = "INV_Misc_Coin_04",
     adj = { "Worried about money", "Counting copper", "Down to {their} last coins" },
     tells = {
-      "Short of coin, and checks prices twice before buying anything.",
+      "{their} {pouch} hangs light. Checks prices twice before buying anything.",
       "Mending {their} own gear because the smith costs too much.",
     },
   },
@@ -469,17 +469,17 @@ W.PEACE = {
 -- Standing (RPG Dialogue town tiers).
 ---------------------------------------------------------------------------
 W.TIERS = {
-  { name = "Reviled", max = -60, phrase = "reviled in {town}" },
-  { name = "Distrusted", max = -20, phrase = "distrusted in {town}" },
+  { name = "Reviled", max = -60, phrase = "isn't welcome in {town}" },
+  { name = "Distrusted", max = -20, phrase = "isn't trusted in {town}" },
   { name = "Stranger", max = 9 },
-  { name = "Known", max = 29, phrase = "known in {town}" },
-  { name = "Liked", max = 54, phrase = "well-liked in {town}" },
-  { name = "Respected", max = 79, phrase = "respected in {town}" },
-  { name = "Hero", max = 100, phrase = "a hero to {town}" },
+  { name = "Known", max = 29, phrase = "has been seen around {town}" },
+  { name = "Liked", max = 54, phrase = "is liked in {town}" },
+  { name = "Respected", max = 79, phrase = "is trusted in {town}" },
+  { name = "Hero", max = 100, phrase = "is well thought of in {town}" },
 }
 
 W.FULLTITLE_TIER = {
-  Known = "Known in {town}", Liked = "Friend of {town}", Respected = "Respected in {town}", Hero = "Hero of {town}",
+  Liked = "Friend of {town}", Respected = "Friend of {town}", Hero = "Friend of {town}",
 }
 
 ---------------------------------------------------------------------------
@@ -508,7 +508,7 @@ W.SEASONED = {
   { max = 24, words = { "promising", "road-tested" } },
   { max = 44, words = { "seasoned", "capable" } },
   { max = 59, words = { "hardened", "veteran" } },
-  { max = 99, words = { "legendary", "battle-scarred" } },
+  { max = 99, words = { "long-travelled", "weathered" } },
 }
 
 ---------------------------------------------------------------------------
@@ -696,16 +696,16 @@ W.SLOT_NOUN = { [1] = "helm", [3] = "shoulders", [5] = "chest", [7] = "legs", [1
 -- 1-9, 10-19, 20-29, 30-39, 40-49, 50-59, 60.
 ---------------------------------------------------------------------------
 W.RANKS = {
-  WARRIOR = { "Recruit", "Militia", "Soldier", "Sergeant", "Veteran", "Champion", "Warmaster" },
-  PALADIN = { "Initiate", "Squire", "Knight", "Templar", "Crusader", "Justicar", "Grand Templar" },
+  WARRIOR = { "Recruit", "Militia", "Soldier", "Sergeant", "Veteran", "Battle-Hardened", "Hardened Veteran" },
+  PALADIN = { "Initiate", "Squire", "Knight", "Templar", "Crusader", "Justicar", "Elder Templar" },
   HUNTER = { "Novice", "Tracker", "Ranger", "Pathfinder", "Stalker", "Huntmaster", "Master Hunter" },
   ROGUE = { "Cutpurse", "Footpad", "Thief", "Shadow", "Blade", "Nightblade", "Master Assassin" },
   PRIEST = { "Acolyte", "Initiate", "Deacon", "Priest", "Confessor", "High Cleric", "Elder Cleric" },
   SHAMAN = { "Initiate", "Seer", "Spirit-Speaker", "Stormcaller", "Farseer", "Elder Farseer", "Elder Shaman" },
   MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Sorcerer", "Arcanist", "Master Arcanist" },
   WARLOCK = { "Initiate", "Occultist", "Summoner", "Shadowcaster", "Diabolist", "Dreadcaller", "Master Diabolist" },
-  DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder Druid", "Elder of the Circle" },
-  default = { "Initiate", "Apprentice", "Journeyman", "Adept", "Expert", "Master", "Grandmaster" },
+  DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder Druid", "Wildkeeper" },
+  default = { "Initiate", "Apprentice", "Journeyman", "Adept", "Expert", "Master", "Old Hand" },
 }
 
 -- Professions by skill, for History.
@@ -786,47 +786,47 @@ W.RACE_TELLS = {
 -- Rank ladders that differ by faction (shared bands as W.RANKS).
 W.RANKS_FACTION = {
   Horde = {
-    WARRIOR = { "Recruit", "Grunt", "Raider", "Sergeant", "Veteran", "Champion", "Warlord" },
+    WARRIOR = { "Recruit", "Grunt", "Raider", "Sergeant", "Veteran", "Battle-Hardened", "Blooded Veteran" },
     ROGUE = { "Cutthroat", "Footpad", "Thief", "Shadow", "Blade", "Nightblade", "Master Assassin" },
   },
   Alliance = {
-    WARRIOR = { "Recruit", "Foot Soldier", "Soldier", "Sergeant", "Veteran", "Knight-Champion", "Warmaster" },
+    WARRIOR = { "Recruit", "Foot Soldier", "Soldier", "Sergeant", "Veteran", "Battle-Hardened", "Hardened Veteran" },
   },
 }
 
 -- Ladders specific to a race and class: these win over the class and faction ones.
 W.RANKS_RACE = {
   Scourge = {
-    ROGUE = { "Newly Risen", "Footpad", "Deathstalker Initiate", "Deathstalker", "Deathstalker Captain", "Dark Ranger's Blade", "Master Deathstalker" },
-    PRIEST = { "Acolyte", "Initiate", "Dark Acolyte", "Dark Cleric", "Shadow Priest", "Deathspeaker", "High Deathspeaker" },
+    ROGUE = { "Newly Risen", "Footpad", "Deathstalker Initiate", "Deathstalker", "Senior Deathstalker", "Shadow Blade", "Master Deathstalker" },
+    PRIEST = { "Acolyte", "Initiate", "Dark Acolyte", "Dark Cleric", "Shadow Priest", "Deathspeaker", "Elder Deathspeaker" },
     MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Dark Sorcerer", "Arcanist", "Master Arcanist" },
     WARLOCK = { "Initiate", "Occultist", "Summoner", "Necrolyte", "Diabolist", "Dreadcaller", "Master Diabolist" },
-    WARRIOR = { "Risen", "Grunt", "Deathguard Recruit", "Deathguard", "Deathguard Sergeant", "Executor", "High Executor" },
+    WARRIOR = { "Risen", "Grunt", "Deathguard Recruit", "Deathguard", "Deathguard Sergeant", "Deathguard Veteran", "Deathguard Elder" },
   },
   Dwarf = {
-    HUNTER = { "Novice", "Mountaineer", "Mountaineer Scout", "Sharpshooter", "Senior Mountaineer", "Mountain King's Hunter", "Master Mountaineer" },
-    WARRIOR = { "Recruit", "Shieldbearer", "Guard", "Ironforge Sergeant", "Thane's Guard", "Champion of the Hold", "Mountain Thane" },
-    PRIEST = { "Acolyte", "Initiate", "Cleric of the Light", "Priest", "Confessor", "High Cleric", "Elder of the Mystic Ward" },
-    PALADIN = { "Initiate", "Squire", "Knight of Ironforge", "Templar", "Crusader", "Justicar", "Hammer of the Light" },
+    HUNTER = { "Novice", "Mountaineer", "Mountaineer Scout", "Sharpshooter", "Senior Mountaineer", "Mountain Ranger", "Master Mountaineer" },
+    WARRIOR = { "Recruit", "Shieldbearer", "Guard", "Ironforge Sergeant", "Hold Guard", "Ironforge Veteran", "Hold Veteran" },
+    PRIEST = { "Acolyte", "Initiate", "Cleric of the Light", "Priest", "Confessor", "High Cleric", "Elder Cleric" },
+    PALADIN = { "Initiate", "Squire", "Knight of Ironforge", "Templar", "Crusader", "Justicar", "Elder Templar" },
   },
   Gnome = {
     MAGE = { "Apprentice", "Tinker-Mage", "Adept", "Magus", "Arcanotech", "Arcanist", "Grand Arcanotech" },
     ROGUE = { "Pickpocket", "Saboteur", "Thief", "Shadow", "Infiltrator", "Nightblade", "Master Saboteur" },
-    WARRIOR = { "Recruit", "Foot Soldier", "Gnomeregan Guard", "Sergeant", "Veteran", "Champion of Gnomeregan", "Warmaster" },
+    WARRIOR = { "Recruit", "Foot Soldier", "Gnomeregan Guard", "Sergeant", "Veteran", "Gnomeregan Veteran", "Hardened Veteran" },
     WARLOCK = { "Initiate", "Occultist", "Summoner", "Shadowcaster", "Diabolist", "Dreadcaller", "Master Diabolist" },
   },
   NightElf = {
     HUNTER = { "Novice", "Tracker", "Ranger", "Pathfinder", "Moonstalker", "Huntmaster", "Master of the Wilds" },
-    PRIEST = { "Novice of Elune", "Initiate of Elune", "Acolyte of Elune", "Priest of the Moon", "Moon Priest", "High Priest of the Moon", "Voice of Elune" },
-    DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder Druid", "Elder of the Cenarion Circle" },
-    WARRIOR = { "Recruit", "Sentinel Recruit", "Sentinel", "Sentinel Sergeant", "Sentinel Captain", "Champion of the Kaldorei", "Warden" },
+    PRIEST = { "Novice of Elune", "Initiate of Elune", "Acolyte of Elune", "Priest of the Moon", "Moon Priest", "Senior Moon Priest", "Elder of the Moon" },
+    DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder Druid", "Wildkeeper" },
+    WARRIOR = { "Recruit", "Sentinel Recruit", "Sentinel", "Sentinel Sergeant", "Senior Sentinel", "Sentinel Veteran", "Elder Sentinel" },
     ROGUE = { "Cutpurse", "Shadow-Walker", "Thief", "Shadow", "Blade", "Nightblade", "Master of Shadows" },
   },
   Human = {
-    ROGUE = { "Cutpurse", "Footpad", "Thief", "Informant", "SI:7 Operative", "SI:7 Agent", "Master Assassin" },
-    PALADIN = { "Initiate", "Squire", "Knight", "Knight of the Silver Hand", "Crusader", "Justicar", "Exemplar of the Silver Hand" },
-    PRIEST = { "Acolyte", "Initiate", "Cleric of the Light", "Priest", "Confessor", "Bishop", "Archbishop's Chosen" },
-    MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Sorcerer", "Arcanist", "Magister" },
+    ROGUE = { "Cutpurse", "Footpad", "Thief", "Informant", "Operative", "Agent", "Master Assassin" },
+    PALADIN = { "Initiate", "Squire", "Knight", "Knight of the Light", "Crusader", "Justicar", "Elder Knight" },
+    PRIEST = { "Acolyte", "Initiate", "Cleric of the Light", "Priest", "Confessor", "Senior Cleric", "Elder Cleric" },
+    MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Sorcerer", "Arcanist", "Master Arcanist" },
   },
   Orc = {
     SHAMAN = { "Initiate", "Seer", "Spirit-Speaker", "Stormcaller", "Farseer", "Elder Farseer", "Elder Shaman" },
@@ -835,15 +835,15 @@ W.RANKS_RACE = {
   },
   Troll = {
     HUNTER = { "Novice", "Tracker", "Headhunter", "Pathfinder", "Shadow Stalker", "Huntmaster", "Master Headhunter" },
-    SHAMAN = { "Initiate", "Seer", "Loa-Speaker", "Witch Doctor", "Hexer", "Elder Witch Doctor", "Voice of the Loa" },
-    PRIEST = { "Acolyte", "Initiate", "Loa-Speaker", "Priest", "Shadow Priest", "High Priest", "Voice of the Loa" },
-    ROGUE = { "Cutthroat", "Footpad", "Thief", "Shadow", "Shadow Hunter's Blade", "Nightblade", "Master Assassin" },
+    SHAMAN = { "Initiate", "Seer", "Loa-Speaker", "Witch Doctor", "Hexer", "Elder Witch Doctor", "Master Witch Doctor" },
+    PRIEST = { "Acolyte", "Initiate", "Loa-Speaker", "Priest", "Shadow Priest", "High Priest", "Elder Loa-Speaker" },
+    ROGUE = { "Cutthroat", "Footpad", "Thief", "Shadow", "Shadow Blade", "Nightblade", "Master Assassin" },
     MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Sorcerer", "Arcanist", "Master Arcanist" },
   },
   Tauren = {
-    WARRIOR = { "Young Brave", "Brave", "Plainsrunner", "Warrior", "Veteran Brave", "Champion of the Tribes", "Chieftain's Guard" },
+    WARRIOR = { "Young Brave", "Brave", "Plainsrunner", "Warrior", "Veteran Brave", "Seasoned Brave", "Elder Brave" },
     HUNTER = { "Novice", "Brave", "Plainsrunner", "Pathfinder", "Wind Rider", "Huntmaster", "Hunter of the Earth Mother" },
-    DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder", "Archdruid's Chosen" },
+    DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder", "Elder of the Grove" },
     SHAMAN = { "Initiate", "Seer", "Spirit-Speaker", "Earthcaller", "Farseer", "Elder Seer", "Elder Shaman" },
   },
 }
@@ -1357,21 +1357,21 @@ W.ARC_STAGE = {
     skeptical = { "Has heard a great many promises by now and believes almost none of them." },
   },
   established = {
-    default = { "People know the name now, in a few places. That brings its own weight.", "Long past the point of wondering whether {they} belong out here." },
-    brave = { "Others look to {them} when a fight turns bad. {they've} grown into it." },
+    default = { "Sure-footed now, in a way {they} weren't at the start.", "Long past the point of wondering whether {they} belong out here." },
+    brave = { "Steadier in a bad fight than {they} used to be." },
     cautious = { "Has outlived a good many bolder people by being careful, and knows it." },
     kind = { "Has buried friends and kept going, softer in some ways and harder in others." },
-    cruel = { "Has a reputation now, and does nothing to soften it." },
+    cruel = { "Has grown hard, and does nothing to soften it." },
     stern = { "The road has made {them} quieter and harder to move." },
     witty = { "The jokes have got darker, but they haven't stopped." },
     reserved = { "Says less than ever, and what is said tends to matter." },
   },
   veteran = {
-    default = { "Has walked further and seen more than most people ever will, and carries all of it.", "The young ones ask {them} for stories now. {they} tell fewer than {they} could." },
+    default = { "Has walked further and seen more than most people ever will, and carries all of it.", "Carries more stories than {they've} ever told." },
     brave = { "Has stood at the front of more battles than {they} can name, and still stands there." },
     cautious = { "Old for the road, in the way only the careful get to be." },
     kind = { "After all of it, still the first to help a stranger up. That may be the hardest-won thing about {them}." },
-    cruel = { "Has become someone people warn each other about." },
+    cruel = { "Has grown colder than {they} used to be." },
     pious = { "Faith that has survived this much isn't easily shaken by anything." },
   },
 }
@@ -1419,9 +1419,20 @@ W.CLASS_REAGENTS = {
 
 -- How well off they are, against what's usual at their level (money in copper / level^2).
 W.WEALTH = {
-  { max = 20, word = "Living hand to mouth", flair = "Lives hand to mouth, and has gone hungry more than once." },
-  { max = 100, word = "Getting by", flair = "Gets by, most weeks, with little to spare." },
-  { max = 400, word = "Comfortable", flair = "Comfortable, with enough coin put by not to worry about it." },
-  { max = 1500, word = "Well off", flair = "Well off, and it's been a while since money was a worry." },
-  { max = math.huge, word = "Wealthy", flair = "Wealthy, with more gold than {they} could easily spend." },
+  { max = 20, word = "Living hand to mouth", flair = "Lives hand to mouth, and has gone hungry more than once.", pouch = "{their} {pouch} is close to empty" },
+  { max = 100, word = "Getting by", flair = "Gets by, most weeks, with little to spare.", pouch = "{their} {pouch} is light" },
+  { max = 400, word = "Comfortable", flair = "Comfortable, with enough coin put by not to worry about it.", pouch = "{their} {pouch} clinks when {they} walk" },
+  { max = 1500, word = "Well off", flair = "Well off, and it's been a while since money was a worry.", pouch = "{their} {pouch} sits heavy" },
+  { max = math.huge, word = "Wealthy", flair = "Wealthy, with more gold than {they} could easily spend.", pouch = "{their} {pouch} is fat with gold" },
+}
+
+-- How kept their gear is, by the worst piece's durability in the game. {item} is that piece.
+W.DURABILITY = {
+  { max = 0.001, glance = "Broken Gear", text = "{item} is broken outright and needs a smith before it's any use" },
+  { max = 0.2, glance = "Battered Kit", text = "{item} is close to breaking" },
+  { max = 0.4, glance = "Worn Kit", text = "{item} is badly worn and overdue for a smith" },
+  { max = 0.6, text = "{item} shows hard use" },
+  { max = 0.8, text = "{item} is scuffed from the road" },
+  { max = 0.95 },
+  { max = 2, text = "Everything {they} wear is well kept" },
 }

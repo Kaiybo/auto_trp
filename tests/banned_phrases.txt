@@ -69,6 +69,20 @@ have limits
 ask them about
 since setting out
 
+# Fame: the profile is public, so the character isn't made out to be widely known
+a hero to
+hero of
+champion of
+respected in
+renowned
+famous
+legendary
+people know the name
+warn each other about
+ask them for stories
+well-known
+known in
+
 # Allowed, but not as a habit
 a little | max 6
 for once | max 3

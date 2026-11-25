@@ -57,7 +57,11 @@ Dozens of signals feed it, and each feeling remembers why (`/atrp mood` shows th
 
 ## Only what the game backs up
 
-The profile never describes something your character doesn't have. Gear is named only when it's equipped, and by its own name (*"Wears Crown of the Lost and Robe of the Moccasin"*), never "a hat" or "a holy symbol" from thin air. A mood line that mentions a weapon, helm, shield or pet is used only when you have one, and names the real one (*"Leaning on his Staff of Westfall more than usual"*). Your class's reagents (Soul Shards, totems, Arcane Powder, Sacred Candles...) are mentioned only when they're in your bags. Looks are limited to what every one of your race shares, with nothing you can customise, like beards, hair or skin colour.
+The profile never describes something your character doesn't have. Gear is named only when it's equipped, and by its own name (*"Wears Crown of the Lost and Robe of the Moccasin"*), never "a hat" or "a holy symbol" from thin air. A mood line that mentions a weapon, helm, shield or pet is used only when you have one, and names the real one (*"Leaning on his Staff of Westfall more than usual"*). Your class's reagents (Soul Shards, totems, Arcane Powder, Sacred Candles...) are mentioned only when they're in your bags, and a coin pouch only when you carry coin (how full it is follows your wealth). How worn your gear looks follows its real durability and names the worst piece (*"Their Robe of the Moccasin shows hard use"*, *"...is broken outright and needs a smith"*). Looks are limited to what every one of your race shares, with nothing you can customise, like beards, hair or skin colour.
+
+## Not too famous
+
+A profile is public, so the character isn't made out to be widely known. Standing is local and modest (*"is liked in Goldshire"*, *"is trusted in Auberdine"*, never "a hero to"), the full title is at most *"Friend of Goldshire"*, reputations read *"Has done good work for Stormwind"*, and rank titles stay clear of offices and patrons (no Thane, Warlord, Magister, SI:7 Agent or Archbishop's Chosen). `tests/banned_phrases.txt` holds the line.
 
 ## Your words stay yours
 

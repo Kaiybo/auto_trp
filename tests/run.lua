@@ -291,7 +291,7 @@ ns.char.days = {
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 local hist = ns.Compose.History()
 check(hist:find("Wears the colours of the Silver Lanterns and holds the rank of lamplighter there"), "history: guild")
-check(hist:find("Revered by Stormwind and honoured by the Argent Dawn"), "history: reputations")
+check(hist:find("Has done good work for Stormwind and the Argent Dawn"), "history: reputations")
 check(hist:find("Felt downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
 check(ns.Compose.Bearing():find("Has stories about the gold of Elwynn's mines"), "personality: conversation hooks")
 state.buffs[#state.buffs + 1] = "Shadowform"
@@ -700,6 +700,33 @@ do
   check(ns.Compose.Physical():find("Keeps twelve Soul Shards in %a+ bags"), "shards in the bags: " .. ns.Compose.Physical())
   UnitClass, GetItemCount = oldClass, oldCount
   ns.World.Invalidate(); ns.Compose.Refresh()
+end
+
+-- Gear wear follows the game's durability, naming the worst piece.
+do
+  local g = ns.cache.world.gear
+  local d, w = g.durability, g.worstName
+  g.worstName = "Robe of the Moccasin"
+  g.durability = 0
+  check(ns.Compose.Wear(ns.cache.world).text:find("Robe of the Moccasin is broken outright"), "broken gear: " .. ns.Compose.Wear(ns.cache.world).text)
+  g.durability = 0.5
+  check(ns.Compose.Wear(ns.cache.world).text:find("shows hard use"), "half-worn gear")
+  check(ns.Compose.MarksGlance().TI ~= "Battered Kit", "half-worn gear isn't battered")
+  g.durability = 0.9
+  check(ns.Compose.Wear(ns.cache.world) == nil, "nearly whole gear says nothing")
+  g.durability = 1
+  check(ns.Compose.Wear(ns.cache.world).text:find("well kept"), "whole gear is well kept")
+  g.durability, g.worstName = d, w
+end
+
+-- A coin pouch only when they carry coin.
+do
+  local world = ns.cache.world
+  local m = world.money
+  check(ns.U.Backed("{their} {pouch} is light", world) == "{their} coin pouch is light", "a coin pouch when there's coin")
+  world.money = 0
+  check(ns.U.Backed("{their} {pouch} is light", world) == nil, "no coin, no pouch")
+  world.money = m
 end
 
 -- Statistics: each has its own switch, and wealth is told by the purse.

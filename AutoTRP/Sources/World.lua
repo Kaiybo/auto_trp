@@ -115,15 +115,16 @@ function World.Gear()
   g.tabard = U.Plain((slot(19)))
   g.cloak = U.Plain((slot(15)))
   -- Durability: the worst-kept piece
-  local worst
+  local worst, worstSlot
   for _, id in ipairs(SLOTS) do
     local cur, max = call("GetInventoryItemDurability", id)
     if type(cur) == "number" and type(max) == "number" and max > 0 then
       local r = cur / max
-      if not worst or r < worst then worst = r end
+      if not worst or r < worst then worst, worstSlot = r, id end
     end
   end
   g.durability = worst
+  g.worstName = worstSlot and U.Plain((slot(worstSlot)))
   return g
 end
 

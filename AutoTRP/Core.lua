@@ -319,7 +319,7 @@ function U.Pronouns()
 end
 
 -- Gear and companions a line may name: {head} {shoulders} {chest} {cloak} {tabard}
--- {mainhand} {offhand} {ranged} {shield} {pet}. They are filled with the real item's or
+-- {mainhand} {offhand} {ranged} {shield} {pet}, and {pouch} (a coin pouch, when they carry coin). They are filled with the real item's or
 -- pet's name, and a line that names something the character doesn't have returns nil, so
 -- the profile never mentions a hat that isn't on their head.
 local GEAR_TAGS = { head = 1, shoulders = 3, chest = 5, cloak = 15, tabard = 19, mainhand = 16, offhand = 17, ranged = 18 }
@@ -333,6 +333,7 @@ function U.Backed(text, world)
     if GEAR_TAGS[k] then v = names[GEAR_TAGS[k]]
     elseif k == "shield" then v = g.offType == "Shields" and names[17] or nil
     elseif k == "pet" then v = world and world.pet
+    elseif k == "pouch" then v = world and type(world.money) == "number" and world.money > 0 and "coin pouch" or nil
     else return nil end
     if not v then missing = true; return "" end
     return v

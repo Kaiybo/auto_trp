@@ -248,11 +248,11 @@ function Compose.CompanyGlance()
   local friend = rpgd and rpgd.friends[1]
   if town and town.value >= 10 then
     local tx = U.Cap((ns.Sources.RPGD.Tier(town.value).phrase:gsub("{town}", town.name)))
-    if friend then tx = tx .. ", and on good terms with " .. friend.name end
-    return { TI = "A Known Face", IC = "INV_Misc_Bag_11", TX = tx .. "." }
+    if friend then tx = tx .. ", and gets on well with " .. friend.name end
+    return { TI = "Local Ties", IC = "INV_Misc_Bag_11", TX = tx .. "." }
   end
   if friend then
-    return { TI = "A Known Face", IC = "INV_Misc_Bag_11", TX = "On good terms with " .. friend.name .. "." }
+    return { TI = "Local Ties", IC = "INV_Misc_Bag_11", TX = "Gets on well with " .. friend.name .. "." }
   end
   if world.pet and (world.class == "HUNTER" or world.class == "WARLOCK") then
     local mood = world.petHappy and W.PET_HAPPY[world.petHappy]
@@ -311,6 +311,20 @@ function Compose.AmbitionGlance()
   return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = U.Pron(U.Pick(list, seed("ambition"))) }
 end
 
+-- How kept their gear is, from the game's durability: { band, text } naming the worst piece.
+function Compose.Wear(world)
+  local g = world.gear or {}
+  if type(g.durability) ~= "number" then return nil end
+  for _, b in ipairs(W.DURABILITY) do
+    if g.durability < b.max then
+      if not b.text then return nil end
+      if b.text:find("{item}") and not g.worstName then return nil end
+      local item = g.worstName and ("{their} " .. g.worstName)
+      return { band = b, text = U.Pron((b.text:gsub("{item}", function() return item end))) }
+    end
+  end
+end
+
 -- Lines that don't name gear (for beside the kit line, which names it all already).
 local function noGear(list)
   local out = {}
@@ -362,9 +376,8 @@ function Compose.MarksGlance()
     mark(6, "Something Wrong", "A faint wrongness hangs about {them}, like smoke that won't clear.", "Spell_Shadow_ShadowWordPain")
   end
   local g = world.gear or {}
-  if g.durability and g.durability < 0.25 then
-    mark(5, "Battered Kit", "Gear in a sorry state, close to breaking.", "INV_Hammer_20")
-  end
+  local wear = Compose.Wear(world)
+  if wear and wear.band.glance then mark(5, wear.band.glance, U.Cap(wear.text) .. ".", "INV_Hammer_20") end
   local finest = g.finest or (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
   if finest and finest.name and finest.quality >= 4 then
     mark(4, "Remarkable Gear", "People tend to notice {their} " .. finest.name .. " first.", "INV_Misc_Gem_Pearl_04")
@@ -749,13 +762,11 @@ function Compose.History()
     byWord[f.word] = byWord[f.word] or {}
     if #byWord[f.word] < 2 then table.insert(byWord[f.word], W.FactionName(f.name)) end
   end
-  local reps = {}
-  local REP = { Exalted = "exalted", Revered = "revered", Honored = "honoured" }
+  local served = {}
   for _, w in ipairs({ "Exalted", "Revered", "Honored" }) do
-    if byWord[w] then reps[#reps + 1] = REP[w] .. " by " .. U.Join(byWord[w]) end
-    if #reps >= 2 then break end
+    for _, f in ipairs(byWord[w] or {}) do if #served < 3 then served[#served + 1] = f end end
   end
-  if #reps > 0 then people[#people + 1] = U.Cap(U.Join(reps)) end
+  if #served > 0 then people[#people + 1] = "Has done good work for " .. U.Join(served) end
   if rpgd and rpgd.met >= 20 then
     people[#people + 1] = "Has met " .. U.Roughly(rpgd.met) .. " people along the road"
   end
@@ -881,13 +892,17 @@ function Compose.Physical()
     bag[#bag + 1] = r.count > 1 and (U.Number(r.count) .. " " .. Compose.Plural(r.name)) or r.name
   end
   if #bag > 0 then dress[#dress + 1] = "Keeps " .. U.Join(bag) .. " in {their} bags" end
+  local band = Compose.WealthBand(world)
+  local pouch = band and U.Backed(band.pouch, world)
+  if pouch then dress[#dress + 1] = pouch end
 
   -- How they are right now
   local marks = {}
   if world.health and world.health < 0.5 and not world.dead then marks[#marks + 1] = "Wounded, and trying not to show how badly" end
   if c.rpgd and (c.rpgd.insanity or 0) >= 30 then marks[#marks + 1] = "{their} eyes never settle anywhere for long" end
   if c.rpgd and (c.rpgd.align.taint or 0) >= 30 then marks[#marks + 1] = "Something about {them} feels wrong to those who can sense such things" end
-  if world.gear and world.gear.durability and world.gear.durability < 0.25 then marks[#marks + 1] = "{their} gear is battered and close to breaking" end
+  local wear = Compose.Wear(world)
+  if wear then marks[#marks + 1] = wear.text end
 
   return pages({ paragraph(body), paragraph(dress), paragraph(marks) })
 end
@@ -1003,7 +1018,6 @@ function Compose.FullTitle()
   local noun = U.Cap(W.CLASS_NOUN[world.class or ""] or "wanderer")
   if align then return align .. " " .. noun end
   local top = world.factions and world.factions[1]
-  if top and top.standing >= 8 then return "Champion of " .. W.FactionName(top.name) end
   if top and top.standing >= 7 then return "Friend of " .. W.FactionName(top.name) end
   local home = W.RACE_HOME[world.race or ""]
   return U.Cap(seasoned(world.level, "seasoned")) .. " " .. noun .. (home and (" of " .. home) or "")
@@ -1059,7 +1073,7 @@ function Compose.Nickname()
     { "Grave-Cheater", deathCount(c) / 25 },
     { "the Far-Walker", math.max(rpgd and #rpgd.zones or 0, chron and chron.zones or 0) / 20 },
     { "the Relentless", (rpgd and rpgd.kills or 0) / 2500 },
-    { "Friend of Many Towns", (rpgd and rpgd.met or 0) / 60 },
+    { "the Talker", (rpgd and rpgd.met or 0) / 60 },
     { "the Unquiet", (rpgd and rpgd.insanity or 0) / 50 },
     { "the Bookish", (rpgd and #rpgd.books or 0) / 8 },
     { "Rare-Hunter", (chron and chron.rares or 0) / 15 },
