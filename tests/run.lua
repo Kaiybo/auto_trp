@@ -695,6 +695,7 @@ do
   for _, t in pairs(W.CLASS_TELLS) do for _, l in pairs(t) do add(l) end end
   for _, l in pairs(W.RACE_LOOK) do add(l) end
   for _, l in pairs(W.CLASS_LOOK) do add(l) end
+  for _, l in pairs(W.CLASS_MANNER) do add(l) end
   for _, l in pairs(W.PHYSIQUE) do add(l) end
   local bad = {}
   for _, list in ipairs(lists) do
@@ -725,7 +726,7 @@ do
   check(not ns.Compose.Physical():find("Soul Shard"), "no shards in the bags, none in the profile")
   GetItemCount = function(id) return id == 6265 and 12 or 0 end
   ns.World.Invalidate(); ns.Compose.Refresh()
-  check(ns.Compose.Physical():find("Keeps twelve Soul Shards in %a+ bags"), "shards in the bags: " .. ns.Compose.Physical())
+  check(ns.Compose.Physical():find("keeps? twelve Soul Shards in %a+ bags"), "shards in the bags: " .. ns.Compose.Physical())
   UnitClass, GetItemCount = oldClass, oldCount
   ns.World.Invalidate(); ns.Compose.Refresh()
 end
@@ -1243,7 +1244,7 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
--- Every combination reads as one story: History and Personality are built for hundreds of
+-- Every combination reads as one story: History, Personality and Physical are built for hundreds of
 -- mixes of what the sources hold (and don't), with each set of pronouns, and checked for
 -- what reads badly: a tag left over, a sentence with no subject, a verb that doesn't agree,
 -- stray punctuation. STORIES=1 prints them.
@@ -1276,7 +1277,9 @@ do
   local THREADS = { { "elwynn_gold", "resolved" }, { "westfall_fend", "unfolding" }, { "duskwood_tutor", "soured" },
     { "broken_span", "stirring" }, { "arugal_wolves", "resolved" } }
   local RACES = { { "Human", "PRIEST", "Alliance" }, { "NightElf", "DRUID", "Alliance" }, { "Scourge", "ROGUE", "Horde" },
-    { "Orc", "WARRIOR", "Horde" }, { "Dwarf", "HUNTER", "Alliance" } }
+    { "Orc", "WARRIOR", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Gnome", "MAGE", "Alliance" },
+    { "Troll", "SHAMAN", "Horde" }, { "Tauren", "WARRIOR", "Horde" }, { "Human", "PALADIN", "Alliance" },
+    { "Orc", "WARLOCK", "Horde" }, { "Human", "WARLOCK", "Alliance" } }
 
   local function build(i)
     local rpgd
@@ -1341,6 +1344,18 @@ do
     end
     world.professions = chance(0.5) and { { name = "Herbalism", rank = pick({ 40, 120, 280 }) } } or {}
     world.money = pick({ 0, 5000, 2000000, 90000000 })
+    -- What they wear and carry, its upkeep, their build, a wound, the bags, a pet
+    local names, q = {}, {}
+    for _, slot in ipairs({ 1, 3, 5, 15, 19, 16, 17, 18 }) do
+      if chance(0.5) then names[slot] = "Item" .. slot; q[slot] = pick({ 1, 2, 3, 4 }) end
+    end
+    world.gear = { names = names, q = q, durability = pick({ nil, 0, 0.3, 0.5, 0.7, 0.9, 1 }),
+      worstName = chance(0.8) and "Item5" or nil, offType = chance(0.3) and "Shields" or nil,
+      finest = chance(0.4) and { name = "Item1", quality = pick({ 3, 4, 5 }) } or nil }
+    world.stats = chance(0.8) and { [pick({ "strength", "agility", "stamina", "intellect", "spirit" })] = 50 } or {}
+    world.health, world.dead = pick({ 1, 1, 0.3 }), false
+    world.reagents = chance(0.3) and { { name = "Soul Shard", count = pick({ 1, 12 }) } } or nil
+    world.pet = chance(0.4) and "Fang" or nil
     local deeds = { finished = {}, bosses = {}, questsDone = 0 }
     if chance(0.4) then deeds.finished["Crime and Punishment"] = { t = NOW - 40000, zone = "Stormwind Stockade" } end
     if chance(0.3) then deeds.finished["Wanted: Hogger"] = { t = NOW - 90000, zone = "Elwynn Forest" } end
@@ -1367,7 +1382,8 @@ do
   -- What reads badly, outside quotes (a quote is the character's or a book's own words).
   local SUBJECTLESS = { Has = 1, Have = 1, Was = 1, Were = 1, Is = 1, Saw = 1, Helped = 1, Stood = 1, Found = 1, Also = 1,
     Felt = 1, Wears = 1, Holds = 1, Uses = 1, Reaches = 1, Used = 1, Watched = 1, Collected = 1, Followed = 1, Only = 1,
-    Keeps = 1, Believes = 1, Travels = 1, Counts = 1, Answers = 1, Put = 1, Rose = 1 }
+    Keeps = 1, Believes = 1, Travels = 1, Counts = 1, Answers = 1, Put = 1, Rose = 1, Carries = 1, Moves = 1,
+    Stands = 1, Watches = 1, Freshly = 1, Calm = 1, Cold = 1, Light = 1, Tall = 1, Short = 1, Human = 1 }
   local THEY_OK = { also = 1, always = 1, as = 1, was = 1, has = 1, is = 1, does = 1 }
   local problems, stories, count = {}, {}, 0
   local function inspect(label, text, pron)
@@ -1375,6 +1391,9 @@ do
     local plain = text:gsub("{col:%x+}.-{/col}", "Q"):gsub("\"[^\"]*\"", "Q")
     local function bad(why) problems[#problems + 1] = label .. " [" .. pron .. "] " .. why .. ": " .. text end
     if plain:find("{") then bad("a tag left over") end
+    for _, w in ipairs({ "Something", "Her", "His", "Their", "They", "She", "He", "It", "The" }) do
+      if plain:find(", " .. w .. " ") then bad("a capital mid-sentence (" .. w .. ")") end
+    end
     -- After a quote that ends a sentence, the next one still starts with a capital.
     local raw = text:gsub("{col:%x+}", ""):gsub("{/col}", "")
     for start in raw:gmatch("[%.!%?]\" +(%l%a*)") do bad("lower-case after a quote (" .. start .. ")") end
@@ -1405,10 +1424,15 @@ do
       ns.TRP.CustomPronouns = function() return pron end
       local ok1, h = pcall(C.History)
       local ok2, b = pcall(C.Bearing)
-      if not ok1 or not ok2 then problems[#problems + 1] = "error in combination " .. i .. ": " .. tostring(ok1 and b or h) end
-      if ok1 and ok2 then
-        inspect("History " .. i, h, pron); inspect("Personality " .. i, b, pron)
-        if pron == (os.getenv("STORIES_PRON") or "they/them") then stories[#stories + 1] = "== " .. i .. " ==\n" .. tostring(b) .. "\n\n" .. tostring(h) end
+      local ok3, ph = pcall(C.Physical)
+      if not ok1 or not ok2 or not ok3 then
+        problems[#problems + 1] = "error in combination " .. i .. ": " .. tostring(not ok1 and h or not ok2 and b or ph)
+      end
+      if ok1 and ok2 and ok3 then
+        inspect("History " .. i, h, pron); inspect("Personality " .. i, b, pron); inspect("Physical " .. i, ph, pron)
+        if pron == (os.getenv("STORIES_PRON") or "they/them") then
+          stories[#stories + 1] = "== " .. i .. " ==\n" .. tostring(ph) .. "\n\n" .. tostring(b) .. "\n\n" .. tostring(h)
+        end
         count = count + 1
       end
     end
@@ -1470,7 +1494,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", partner = "x", made = "x",
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", partner = "x", made = "x", build = "", who = "x", s = "x",
     start = "x", ago = "", next = "x", last = "x", entry = "x", goal = "x", view = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
@@ -1489,7 +1513,7 @@ do
     ns.TRP.CustomPronouns = function() return pron end
     seen = {}
     for _, key in ipairs({ "MOODS", "CALM", "RACE_TELLS", "CLASS_TELLS", "FESTIVALS", "SAY", "TRAVEL", "ACTIVITY", "PET",
-      "AMBITIONS", "RACE_LOOK", "CLASS_LOOK", "PHYSIQUE", "WEEK_TONE", "WEALTH", "DURABILITY" }) do
+      "AMBITIONS", "RACE_LOOK", "CLASS_LOOK", "CLASS_MANNER", "PHYSIQUE", "WEEK_TONE", "WEALTH", "DURABILITY" }) do
       scan(W[key], key)
     end
   end

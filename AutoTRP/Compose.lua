@@ -388,8 +388,9 @@ local function noGear(list)
 end
 
 -- What they wear and carry, by the items' own names: nothing that isn't equipped.
--- fmt colours a name (the About page); short is for a glance.
-local function kit(world, short, fmt)
+-- fmt colours a name (the About page); short is for a glance; told gives Physical's sentence,
+-- with a subject: "They wear X and Y, with Z over the top, and carry W."
+local function kit(world, short, fmt, told)
   local g = world.gear or {}
   local n, q = g.names or {}, g.q or {}
   local function it(slot) return n[slot] and (fmt and fmt(n[slot], q[slot]) or n[slot]) end
@@ -399,6 +400,15 @@ local function kit(world, short, fmt)
   arms[#arms + 1] = it(16)
   if n[17] and n[17] ~= n[16] then arms[#arms + 1] = it(17) end
   if not short then arms[#arms + 1] = it(18) end
+  if told then
+    local tabard = n[19] and it(19)
+    local w = #wear > 0 and (U.Join(wear) .. (tabard and (", with " .. tabard .. " over the top") or "")) or tabard
+    local a = #arms > 0 and U.Join(arms) or nil
+    if w and a then return "{they} wear{s} " .. w .. ", and carr{ies} " .. a end
+    if w then return "{they} wear{s} " .. w end
+    if a then return "{they} carr{ies} " .. a end
+    return nil
+  end
   local parts = {}
   if #wear > 0 then
     parts[#parts + 1] = "Wears " .. U.Join(wear) .. ((not short and n[19]) and (", with " .. it(19) .. " over the top") or "")
@@ -632,7 +642,7 @@ function Compose.Bearing()
     for _, bar in ipairs(W.TRAIT_BARS) do
       if (bar[3] == a and bar[4] == b) or (bar[3] == b and bar[4] == a) then opposed = true end
     end
-    first = name .. " is " .. (opposed and table.concat(adjs, ", yet ") or U.Join(adjs))
+    first = name .. " is " .. (opposed and table.concat(adjs, " yet ") or U.Join(adjs))
     if #lean == 1 then first = first .. ", and " .. lean[1]
     elseif #lean == 2 then first = first .. ", " .. lean[1] .. " and " .. lean[2] end
   elseif #lean > 0 then
@@ -1069,45 +1079,59 @@ local function physique(c)
   return best and U.Pron(U.Pick(W.PHYSIQUE[best], seed("phys" .. best))) or nil
 end
 
+-- A portrait in three movements: the body (race, build and bearing), what they wear and
+-- carry, and how they are right now. Every sentence with a subject.
 function Compose.Physical()
   local c = ns.cache
   local world = c.world
+  local name = firstName()
   local noun = W.CLASS_NOUN[world.class or ""] or "wanderer"
 
-  -- The body: only what every one of their race shares, and their build from their stats
+  -- "Lunaria is a tall, graceful night elf... They're a seasoned druid, calm-faced and
+  -- unhurried, and move with a wild, easy grace."
   local body = {}
   local rl = U.BackedList(W.RACE_LOOK[world.race or ""], world)
-  if #rl > 0 then body[#body + 1] = U.Pick(rl, seed("racelook")) end
+  if #rl > 0 then body[#body + 1] = name .. " is " .. U.Pick(rl, seed("racelook")) end
   local build = physique(c)
-  body[#body + 1] = article(seasoned(world.level, "seasoned")) .. " " .. noun .. (build and (", " .. build) or "")
+  local who = article(seasoned(world.level, "seasoned")) .. " " .. noun
+  local line = say("build", { who = who, build = build and (", " .. build) or "" }, world.class)
+  local manners = U.BackedList(W.CLASS_MANNER[world.class or ""], world)
+  local manner = #manners > 0 and U.Pick(manners, seed("manner")) or nil
+  if manner and (manner:find("^%l") or manner:find("^{")) then
+    line = line .. ", and " .. manner; manner = nil
+  end
+  body[#body + 1] = line
+  body[#body + 1] = manner
 
-  -- What they wear and carry, by name, and what their class keeps in the bags
+  -- What they wear and carry, by name, how it's kept, and what's in the bags and the pouch
   local dress = {}
-  local cl = U.BackedList(noGear(W.CLASS_LOOK[world.class or ""]), world)
-  if #cl > 0 then dress[#dress + 1] = U.Pick(cl, seed("classlook")) end
-  dress[#dress + 1] = kit(world, false, itemName)
+  dress[#dress + 1] = kit(world, false, itemName, true)
   local finest = world.gear and world.gear.finest
   if finest and finest.name and (finest.quality or 0) >= 4 then
-    dress[#dress + 1] = "The finest piece is " .. itemName(finest.name, finest.quality)
+    dress[#dress + 1] = say("finest", { item = itemName(finest.name, finest.quality) }, finest.name)
   end
-  -- How their gear is kept belongs with the gear, not on a line of its own.
   local wear = Compose.Wear(world)
   if wear then dress[#dress + 1] = wear.text end
   local bag = {}
   for i, r in ipairs(world.reagents or {}) do
     if i > 3 then break end
-    bag[#bag + 1] = r.count > 1 and (U.Number(r.count) .. " " .. Compose.Plural(r.name)) or r.name
+    bag[#bag + 1] = r.count > 1 and (U.Number(r.count) .. " " .. Compose.Plural(r.name)) or article(r.name)
   end
-  if #bag > 0 then dress[#dress + 1] = "Keeps " .. U.Join(bag) .. " in {their} bags" end
+  if #bag > 0 then dress[#dress + 1] = "{they} keep{s} " .. U.Join(bag) .. " in {their} bags" end
   local band = Compose.WealthBand(world)
   local pouch = band and U.Backed(band.pouch, world)
   if pouch then dress[#dress + 1] = pouch end
 
   -- How they are right now
   local marks = {}
-  if world.health and world.health < 0.5 and not world.dead then marks[#marks + 1] = "Freshly wounded, and moving carefully" end
+  if world.health and world.health < 0.5 and not world.dead then marks[#marks + 1] = "{they're} freshly wounded, and moving carefully" end
   if c.rpgd and (c.rpgd.insanity or 0) >= 30 then marks[#marks + 1] = "{their} eyes never settle on anything for long" end
   if c.rpgd and (c.rpgd.align.taint or 0) >= 30 then marks[#marks + 1] = "Something about {them} is off, in a way that's hard to name" end
+  if #marks > 0 then
+    local first = U.Pron(marks[1])
+    local key = first:find("^Something") and "rightnow_plain" or "rightnow"
+    marks[1] = say(key, { s = key == "rightnow" and first:gsub("^%u", string.lower) or first }, #marks)
+  end
 
   return pages({ paragraph(body), paragraph(dress), paragraph(marks) })
 end

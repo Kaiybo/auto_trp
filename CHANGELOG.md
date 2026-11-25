@@ -11,9 +11,12 @@
   - A one-line journal note such as *Read "A Dusty Unsent Letter".* is passed over for the newest entry in the character's own voice.
 - **Personality** reads as a portrait: temperament and conscience in one sentence, and warm views set against cold ones (*"Lunaria pities Stalvan, but has no love for the Dark Riders and distrusts the Cenarion Circle."*).
 - Every sentence in History and Personality has a subject and a verb that agrees with it ("They rose to Footpad in Silverpine Forest", "They've read...", "She has stories to tell about..."), rather than notes like "Was made..." or "Has read...".
-- Smaller things: opposed traits read "kind, yet cruel"; the same mood in the same place three days running reads "downcast in Duskwood for three days now"; a find reads "in the Deadmines", not "from"; "that road" is only mentioned once the road has been told; a sentence after a quote now always starts with a capital (an old slip).
-- **Physical**: how well kept the gear is sits with the gear, not on a line of its own.
-- A new test builds History and Personality for 400 mixes of what the sources hold, with each set of pronouns, and fails on a tag left over, a sentence with no subject, a verb that doesn't agree or stray punctuation. `STORIES=1 lua5.1 tests/run.lua` prints them (`STORIES_PRON=she/her` for another set).
+- Smaller things: opposed traits read "kind yet cruel"; the same mood in the same place three days running reads "downcast in Duskwood for three days now"; a find reads "in the Deadmines", not "from"; "that road" is only mentioned once the road has been told; a sentence after a quote now always starts with a capital (an old slip).
+- **Physical reads as a portrait** in three movements, every sentence with a subject:
+  - **The body**: *"Lunaria is a tall, graceful night elf, with long ears and eyes that glow faintly silver. They're a seasoned druid, calm-faced and unhurried, and move with a wild, easy grace."* Every race has four ways to say it and every class two ways it carries itself (a pet's line stands on its own: *"Fang lurks close behind them."*).
+  - **What they wear and carry**, in one sentence (*"They wear Forest Leather Mantle, Robes of Arugal and Red Wool Cloak, and carry Staff of the Blessed Seer."*), then the finest piece, how well it's all kept, what's in the bags (*"They keep a Soul Shard in their bags"*, not *"Keeps Soul Shard"*) and the coin pouch.
+  - **How they are right now**: *"Just now, they're freshly wounded, and moving carefully."*
+- A new test builds History, Personality and Physical for 400 mixes of what the sources hold, with each set of pronouns, and fails on a tag left over, a sentence with no subject, a capital mid-sentence, a verb that doesn't agree or stray punctuation. `STORIES=1 lua5.1 tests/run.lua` prints them (`STORIES_PRON=she/her` for another set).
 
 ## 0.20.0 (2026-11-25): In Good Order
 

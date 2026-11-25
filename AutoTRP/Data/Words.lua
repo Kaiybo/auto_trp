@@ -1108,8 +1108,8 @@ W.PHYSIQUE = {
   strength = { "broad-shouldered and strong", "heavy with muscle" },
   agility = { "lean and quick on {their} feet", "wiry and light-footed" },
   stamina = { "sturdy and hard to knock down", "thick-set and solid" },
-  intellect = { "sharp-eyed and thoughtful", "quick-eyed, with a thinker's frown" },
-  spirit = { "calm, with an unhurried air", "even-tempered and slow to rattle" },
+  intellect = { "sharp-eyed and thoughtful", "quick-eyed and given to frowning in thought" },
+  spirit = { "calm and unhurried in manner", "even-tempered and slow to rattle" },
 }
 
 
@@ -1270,16 +1270,47 @@ W.RANKS_RACE = {
 }
 
 -- How each race looks to a stranger.
+-- The body, as Physical opens with it: "{name} is <one of these>". Only what every one of the
+-- race shares: nothing a player can customise (hair, beards, skin colour).
 W.RACE_LOOK = {
-  Human = { "Human, of middling height and ordinary build." },
-  Dwarf = { "Short, broad and solid as the mountain.", "Stocky, with forearms like anvils." },
-  Gnome = { "Small, bright-eyed and never still.", "Tiny and quick, with large eyes and long ears." },
-  NightElf = { "Tall and graceful, with long ears and eyes that glow faintly silver.", "Tall, with long sweeping ears and silver eyes." },
-  Orc = { "Green-skinned and heavy-jawed, with jutting tusks.", "Massive shoulders, a heavy brow and jutting tusks." },
-  Troll = { "Tall and lanky, with long tusks and longer ears.", "Loose-limbed and hunched, tusks curving up past a wide grin." },
-  Tauren = { "Enormous and calm, horned and hoofed, with gentle eyes.", "A towering bulk of fur and muscle, crowned with horns." },
-  Scourge = { "Grey, rotting flesh stretched over bone, with a jaw that doesn't quite close.", "Gaunt, eyes burning a cold yellow in a ruined face." },
+  Human = { "a human of middling height and ordinary build", "a human of ordinary height and build",
+    "a human, much like any other at first glance" },
+  Dwarf = { "a short, broad dwarf, solid as the mountain", "a stocky dwarf with forearms like anvils",
+    "a short, stout dwarf, built like a barrel", "a broad, squat dwarf with a heavy step" },
+  Gnome = { "a small gnome, bright-eyed and never still", "a tiny, quick gnome with large eyes and long ears",
+    "a gnome barely waist-high to a human, with large bright eyes", "a small, quick gnome with oversized ears" },
+  NightElf = { "a tall, graceful night elf, with long ears and eyes that glow faintly silver",
+    "a tall night elf with long sweeping ears and silver eyes", "a tall, lean night elf with pointed ears and glowing eyes",
+    "a graceful, long-limbed night elf whose eyes shine silver" },
+  Orc = { "a heavy-jawed orc with jutting tusks", "an orc with massive shoulders, a heavy brow and jutting tusks",
+    "a broad, powerful orc with a heavy jaw and tusks", "a big, heavily muscled orc" },
+  Troll = { "a tall, lanky troll with long tusks and longer ears", "a loose-limbed, hunched troll, tusks curving up past a wide grin",
+    "a long-limbed, lean troll with upcurving tusks", "a lanky, stooped troll with long arms" },
+  Tauren = { "an enormous, calm tauren, horned and hoofed, with gentle eyes", "a towering tauren, all fur and muscle, crowned with horns",
+    "a huge tauren with horns and broad hooves", "a towering tauren, horned and heavy" },
+  Scourge = { "one of the Forsaken, grey flesh stretched over bone, with a jaw that doesn't quite close",
+    "a gaunt Forsaken, eyes burning a cold yellow in a ruined face", "a thin, decayed Forsaken with glowing eyes",
+    "a pale, gaunt Forsaken, rotting at the edges" },
 }
+W.RACE_LOOK.Undead = W.RACE_LOOK.Scourge
+
+-- How each class carries itself, for Physical: what follows "They're a seasoned druid, and
+-- ...". A line starting with {pet} stands as its own sentence. (CLASS_LOOK, the short form, is
+-- for the Marks glance.) No gear here: Physical names the gear itself.
+W.CLASS_MANNER = {
+  WARRIOR = { "stand{s} like someone used to holding a line", "carr{ies} {themselves} square and steady, shoulders back" },
+  PALADIN = { "carr{ies} {themselves} with a guardian's calm", "stand{s} straight-backed, like someone sworn to something" },
+  HUNTER = { "watch{es} everything with a tracker's eye", "{pet} is never far from {their} side" },
+  ROGUE = { "move{s} lightly and never stop{s} watching", "move{s} quietly and miss{es} very little" },
+  PRIEST = { "{have} a calm, gentle way about {them}", "speak{s} softly and listen{s} closely" },
+  SHAMAN = { "carr{ies} {themselves} with an easy calm, as if listening to something far off",
+    "seem{s} to hear things no one else does" },
+  MAGE = { "{have} a scholar's watchful eyes", "watch{es} the world like a problem to be solved" },
+  WARLOCK = { "watch{es} people with cold, careful eyes", "{pet} lurks close behind {them}" },
+  DRUID = { "move{s} with a wild, easy grace", "{are} as hard to startle as a wild thing" },
+}
+
+
 
 -- What a class carries that marks it out.
 W.CLASS_LOOK = {
@@ -2156,21 +2187,11 @@ extendAll(W.AMBITIONS, {
   default = { "To see the world.", "To make something of {themselves}." },
 })
 extendAll(W.PHYSIQUE, {
-  strength = { "powerfully built", "brawny, with a heavy tread" },
-  agility = { "quick and supple", "nimble, light on {their} feet" },
+  strength = { "powerfully built", "brawny and heavy-footed" },
+  agility = { "quick and supple", "nimble and light on {their} feet" },
   stamina = { "hardy and enduring", "built to last" },
-  intellect = { "keen-eyed and thoughtful", "with a sharp, studious face" },
+  intellect = { "keen-eyed and thoughtful", "sharp-faced and studious" },
   spirit = { "serene and steady", "calm-faced and unhurried" },
-})
-extendAll(W.RACE_LOOK, {
-  Human = { "Human, of ordinary height and build.", "A human, much like any other at first glance." },
-  Dwarf = { "Short and stout, built like a barrel.", "Broad and squat, with a heavy step." },
-  Gnome = { "Barely waist-high, with large bright eyes.", "Small and quick, with oversized ears." },
-  NightElf = { "Tall and lean, with pointed ears and glowing eyes.", "Graceful and long-limbed, eyes shining silver." },
-  Orc = { "Broad and powerful, with a heavy jaw and tusks.", "A big, heavily muscled orc." },
-  Troll = { "Long-limbed and lean, tusks curving up.", "Lanky and stooped, with long arms." },
-  Tauren = { "Huge and horned, with broad hooves.", "A towering tauren, horned and heavy." },
-  Scourge = { "Thin and decayed, with glowing eyes.", "Pale, rotting and gaunt." },
 })
 extendAll(W.CLASS_LOOK, {
   WARRIOR = { "Stands like someone used to holding a line." },
@@ -2269,6 +2290,11 @@ W.SAY = {
   rootview = { "These days {name} {view}" },
   turn = { "Of everything on that road, one deed stayed with {them}.", "Then came the deed that gave {them} a name.",
     "One thing along the way changed how people speak of {them}." },
+  -- Physical
+  build = { "{they're} {who}{build}", "By the look of {them}, {they're} {who}{build}" },
+  finest = { "The finest of it is {item}", "Of all of it, {item} draws the most looks" },
+  rightnow = { "{s}", "Just now, {s}" },
+  rightnow_plain = { "{s}" },
   turn_noroad = { "{their} name came from a deed.", "It was a deed that gave {them} a name." },
   since = { "Since then {they} ", "There has been more since: {they} " },
   besides = { "Besides that, {they} ", "Beyond that, {they} " },
