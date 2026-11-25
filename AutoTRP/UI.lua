@@ -35,7 +35,11 @@ UI.STORY_EVERY = 300   -- and a refresh of the story this often regardless
 -- they've changed (at most every few seconds), and the story when something happened.
 function UI.Update(force, fresh, mood)
   if not ns.char or not ns.db.enabled then return end
-  if not TRP.Managed() then return end
+  local managed, why = TRP.Managed()
+  if not managed then
+    if force then ns.Print("Not updated: " .. tostring(why or "no profile chosen for Auto TRP (/atrp setup).")) end
+    return
+  end
   -- Nothing is written in combat, so don't work it out either: leaving combat catches up.
   if U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") then
     if force then ns.Print("Not updated: in combat.") end
@@ -51,7 +55,8 @@ function UI.Update(force, fresh, mood)
     any = true
   end
   if force or (slowDue and now - lastSlow >= UI.STORY_GAP) or now - lastSlow >= UI.STORY_EVERY then
-    for k in pairs(TRP.FIELDS) do if not FAST[k] then only[k] = true end end
+    -- Paused out of character: no glance at all, the slower Ambition included.
+    for k in pairs(TRP.FIELDS) do if not FAST[k] and not (paused and k:find("^glance_")) then only[k] = true end end
     any = true
   end
   if not any then
@@ -229,8 +234,8 @@ local function firstRun(tries)
     return
   end
   if ns.char.profileID or ns.char.declined or UI.askedThisSession then return end
-  UI.askedThisSession = true
   if U.Call(InCombatLockdown) then ns.After(10, function() firstRun(tries) end) return end
+  UI.askedThisSession = true
   StaticPopup_Show("AUTOTRP_SETUP")
 end
 
@@ -791,8 +796,8 @@ SlashCmdList.AUTOTRP = function(msg)
   elseif cmd == "update" then UI.Update(true)
   elseif cmd == "setup" then UI.Setup()
   elseif cmd == "use" then UI.UseCurrent()
-  elseif cmd == "on" then ns.db.enabled = true; ns.Print("On."); UI.Update(true)
-  elseif cmd == "off" then ns.db.enabled = false; ns.Print("Paused. Your profile stays as it is.")
+  elseif cmd == "on" then ns.db.enabled = true; ns.Print("On."); UI.UpdateBadge(); UI.Update(true)
+  elseif cmd == "off" then ns.db.enabled = false; ns.Print("Paused. Your profile stays as it is."); UI.UpdateBadge()
   elseif cmd == "claim" then
     if not ns.char.profileID then ns.Print("Choose a profile first: |cffffd100/atrp setup|r or |cffffd100/atrp use|r.") return end
     if eachField(arg, function(k) TRP.Claim(k) end) then ns.Print("Handed to Auto TRP: " .. arg .. "."); UI.Update(true) end
@@ -850,28 +855,10 @@ SlashCmdList.AUTOTRP = function(msg)
       ns.Print("Usage: /atrp slot <mood|lately|company|ambition|marks> <1-5, or 0 for none>. Now: " .. table.concat(cur, ", "))
       return
     end
-    local from = slots[which]
-    if from == n then return end
-    local id = ns.char.profileID
-    local mine = id and TRP.Owned(id)
-    -- Whatever shares the target slot swaps into the old one, and what Auto TRP knows about
-    -- each slot's text goes with it, so neither is mistaken for your own words.
-    local other
-    for k, v in pairs(slots) do if n > 0 and v == n and k ~= which then other = k end end
-    if mine then
-      local a, b = mine["glance_" .. which], other and mine["glance_" .. other]
-      if other then mine["glance_" .. which], mine["glance_" .. other] = b, a
-      else mine["glance_" .. which] = nil end
-    end
-    if other then slots[other] = from end
-    slots[which] = n
-    -- A slot left empty is switched off if Auto TRP's text was in it.
-    if not other and from > 0 and mine and TRP.Managed() then
-      local profile = TRP.Managed()
-      local pe = profile.player.misc and profile.player.misc.PE
-      if type(pe) == "table" and type(pe[tostring(from)]) == "table" then pe[tostring(from)].AC = false end
-    end
-    ns.Print("Glance '" .. which .. "' is now in slot " .. n .. ".")
+    if slots[which] == n then return end
+    local other = TRP.MoveGlance(which, n)
+    if other then ns.Print("Glance '" .. other .. "' moves to slot " .. slots[other] .. ".") end
+    ns.Print(n > 0 and ("Glance '" .. which .. "' is now in slot " .. n .. ".") or ("Glance '" .. which .. "' is off."))
     UI.Update(true)
   elseif cmd == "days" then
     UI.ListDays()

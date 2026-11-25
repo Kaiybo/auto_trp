@@ -304,6 +304,36 @@ SlashCmdList.AUTOTRP("slot marks 4")
 check(p.misc.PE["4"].TI ~= "Ambition" and p.misc.PE["5"].TI == "Ambition", "glances swap slots")
 check(ns.TRP.Status("glance_marks") == "auto" and ns.TRP.Status("glance_ambition") == "auto", "and neither is given up")
 SlashCmdList.AUTOTRP("slot marks 5")
+-- A glance taken off leaves the player's words alone, and hides only Auto TRP's own.
+do
+  local PE = p.misc.PE
+  PE["5"] = { AC = true, TI = "Scar", TX = "A long scar across one hand." }
+  ns.UI.Update(true)
+  check(ns.TRP.Status("glance_marks") == "yours", "a glance the player wrote is theirs")
+  SlashCmdList.AUTOTRP("slot marks 0")
+  check(PE["5"].AC == true and PE["5"].TX == "A long scar across one hand.", "taking it off doesn't hide the player's words")
+  SlashCmdList.AUTOTRP("slot marks 5")
+  check(PE["5"].TX == "A long scar across one hand." and PE["5"].AC == true, "and putting it back doesn't overwrite them")
+  ns.TRP.Claim("glance_marks"); ns.UI.Update(true)
+  local v, n = p.misc.v, #fired
+  SlashCmdList.AUTOTRP("slot company 0")
+  check(PE["3"].AC == false, "Auto TRP's own glance taken off is hidden")
+  check(p.misc.v ~= v and #fired > n, "and the change is sent out")
+  SlashCmdList.AUTOTRP("slot company 3")
+  check(PE["3"].AC == true and ns.TRP.Status("glance_company") == "auto", "and it comes back")
+  -- Swapping onto the player's glance: their words stay where they are, and the glance
+  -- that moves into Auto TRP's old slot keeps being written.
+  PE["2"] = { AC = true, TI = "Rumour", TX = "Owes money in Booty Bay." }
+  ns.UI.Update(true)
+  check(ns.TRP.Status("glance_lately") == "yours", "the player wrote Lately")
+  SlashCmdList.AUTOTRP("slot mood 2")
+  ns.UI.Update(true)
+  check(PE["2"].TX == "Owes money in Booty Bay.", "their words stay in slot 2")
+  check(ns.TRP.Status("glance_lately") == "auto" and PE["1"].TX == ns.Compose.LatelyGlance().TX,
+    "and slot 1 is written for the glance now in it: " .. tostring(PE["1"].TX))
+  SlashCmdList.AUTOTRP("slot mood 1")
+  ns.TRP.Claim("glance_lately"); ns.TRP.Claim("glance_mood"); ns.UI.Update(true)
+end
 
 -- Buffs lift the mood
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()

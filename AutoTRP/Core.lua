@@ -330,9 +330,10 @@ U.Unsecret = unsecret
 -- Every game API read goes through here, so no secret value ever reaches add-on logic.
 function U.Call(fn, ...)
   if type(fn) ~= "function" then return nil end
-  local ok, a, b, c, d = pcall(fn, ...)
-  if ok then return U.Unsecret(a), U.Unsecret(b), U.Unsecret(c), U.Unsecret(d) end
-  return nil
+  return (function(ok, ...)
+    if ok then return scrub(...) end
+    return nil
+  end)(pcall(fn, ...))
 end
 
 -- The player's pronouns for prose. Total RP 3's own pronoun field wins when it is set;
