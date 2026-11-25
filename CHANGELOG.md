@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.21.0 (2026-11-25): One Story
+
+- **History reads as one story** instead of a run of facts: where it began, the road, the deed that gave the character a name, the people met on the way, and how things stand now, ending on what's still ahead.
+  - **Roots and what became of them.** When one of your opinions is about where you came from (the order or people in your origin, or the land you started in), History says so beside your roots: *"...started out as an initiate of the Cenarion Circle. And yet Lunaria distrusts the Cenarion Circle now."* Personality doesn't repeat it.
+  - **The road** names the lands after the first, not only the count: *"From Teldrassil their road led to Darkshore and Ashenvale, and on through twenty-seven lands in all, Stormwind Stockade the most recent of them."*
+  - **The deed behind the name** is the turn in the story (*"Then came the deed that gave them a name. Lunaria saw Dextren Ward answer for his crimes..."*), and what else they've seen through follows as one sentence, told as *"Since then..."* when it all came later.
+  - **The people met on the way**: *"Along the way Lunaria has made friends of Raene Wolfrunner and Pelturas Whitemoon, and is well thought of in Auberdine and liked in Astranaar."*
+  - **What's still ahead** closes it: your Chronicle goal (*"What comes next, as they put it: ..."*), else a story still unsettled (*"Still unsettled: Westfall, left to fend for itself."*). Home and craft moved here, beside how you're doing.
+  - A one-line journal note such as *Read "A Dusty Unsent Letter".* is passed over for the newest entry in the character's own voice.
+- **Personality** reads as a portrait: temperament and conscience in one sentence, and warm views set against cold ones (*"Lunaria pities Stalvan, but has no love for the Dark Riders and distrusts the Cenarion Circle."*).
+- **Physical**: how well kept the gear is sits with the gear, not on a line of its own.
+
 ## 0.20.0 (2026-11-25): In Good Order
 
 - **Fixed: some characters' profiles stopped being written.** 0.14.0 lost the class rank ladders every race shares, so a character whose race and class have no ladder of their own (a human warlock, a dwarf rogue) hit an error on every update: *Currently* and the glances kept going, but the title, About, History, statistics, nickname and the rest were never written. The ladders are back (a human warlock rises from Initiate to Summoner and on), and a new test builds the whole profile for every race and class.

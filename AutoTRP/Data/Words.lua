@@ -872,6 +872,14 @@ W.STANCES = {
   dead = "thinks {t} is dead and buried", mistaken = "thinks {t} was a mistake",
 }
 
+-- How a stance sits: warm views and cold ones are told as a contrast ("pities Stalvan, but
+-- distrusts the Cenarion Circle"). Stances not listed are neither.
+W.STANCE_TONE = {
+  respect = 1, admire = 1, trust = 1, loyal = 1, pity = 1, sympathize = 1, faith = 1, power = 1,
+  distrust = -1, hate = -1, enemy = -1, traitor = -1, arrogant = -1, dangerous = -1, hardline = -1,
+  defy = -1, wrong = -1, mistaken = -1, lost = -1, soft = -1,
+}
+
 W.PEACE = {
   ["for"] = "would rather keep the peace", peace = "would rather keep the peace",
   against = "doesn't believe the peace will hold", war = "thinks war is coming, and should",
@@ -1716,11 +1724,11 @@ W.CLASS_REAGENTS = {
 
 -- How well off they are, against what's usual at their level (money in copper / level^2).
 W.WEALTH = {
-  { max = 20, word = "Living hand to mouth", flair = "These days {they're} living hand to mouth, with almost nothing put by.", pouch = "{their} {pouch} is close to empty" },
-  { max = 100, word = "Getting by", flair = "These days {they're} getting by, with little to spare.", pouch = "{their} {pouch} is light" },
-  { max = 400, word = "Comfortable", flair = "These days {they're} comfortable, with enough coin put by not to worry about it.", pouch = "{their} {pouch} clinks when {they} walk{s}" },
-  { max = 1500, word = "Well off", flair = "These days {they're} well off, and money hasn't been a worry for a while.", pouch = "{their} {pouch} sits heavy" },
-  { max = math.huge, word = "Wealthy", flair = "These days {they're} wealthy, with more gold than {they} could easily spend.", pouch = "{their} {pouch} is fat with gold" },
+  { max = 20, word = "Living hand to mouth", flair = "{they're} living hand to mouth, with almost nothing put by.", pouch = "{their} {pouch} is close to empty" },
+  { max = 100, word = "Getting by", flair = "{they're} getting by, with little to spare.", pouch = "{their} {pouch} is light" },
+  { max = 400, word = "Comfortable", flair = "{they're} comfortable, with enough coin put by not to worry about it.", pouch = "{their} {pouch} clinks when {they} walk{s}" },
+  { max = 1500, word = "Well off", flair = "{they're} well off, and money hasn't been a worry for a while.", pouch = "{their} {pouch} sits heavy" },
+  { max = math.huge, word = "Wealthy", flair = "{they're} wealthy, with more gold than {they} could easily spend.", pouch = "{their} {pouch} is fat with gold" },
 }
 
 -- How kept their gear is, by the worst piece's durability in the game. {item} is that piece.
@@ -2228,6 +2236,8 @@ W.SAY = {
   plain = { "Gives little away at first glance.", "Hard to read at first glance.", "Nothing about {them} stands out at first." },
   -- About
   stories = { "Has stories about {list}", "Can tell a story or two about {list}", "Has tales to tell about {list}" },
+  friends_road = { "Along the way {name} has made friends of {list}", "On the road {name} has come to count {list} among {their} friends",
+    "{name} has made friends of {list} along the way" },
   friends = { "{name} counts {list} among {their} friends", "{name} is on good terms with {list}", "{name} has made friends of {list}" },
   rival = { "There is no love lost between {them} and {who}", "Is at odds with {who}", "Doesn't get on with {who}" },
   delved = { "Has gone down into {list} and come back up", "Has been down into {list}, and come out again",
@@ -2242,10 +2252,29 @@ W.SAY = {
     "{name} is new to the road, and hasn't been far from home yet" },
   home = { "Calls {inn} home", "Has made {inn} {their} home" },
   lastplace = { "The last new place {they} reached was {place}", "Most recently reached {place}" },
+  -- History as one story: the road, the deed that gave them a name, what followed, and
+  -- what's still ahead. {ago} is ", three weeks ago," or empty.
+  road = { "From {start}{ago} {their} road led to {next}, and on through {n} lands in all, {last} the most recent of them",
+    "{their} road began in {start}{ago}, ran by way of {next}, and has crossed {n} lands in all. The newest of them is {last}",
+    "{start} was the first of {n} lands{ago}. After it came {next}, and lately {last}" },
+  road_short = { "From {start}{ago} {their} road has led to {next}", "{their} road began in {start}{ago} and has led on to {next}" },
+  rootview_warm = { "To this day {name} {view}", "{name} still {view}" },
+  rootview_cold = { "For all that, these days {name} {view}", "And yet {name} {view} now" },
+  rootview = { "These days {name} {view}" },
+  turn = { "Of everything on that road, one deed stayed with {them}.", "Then came the deed that gave {them} a name.",
+    "One thing along the way changed how people speak of {them}." },
+  since = { "Since then {name} ", "There has been more since: {name} " },
+  besides = { "Besides that, {name} ", "Beyond that, {name} " },
+  ahead_thread = { "Still unsettled: {t}.", "Unfinished business remains: {t}.", "What's still open: {t}." },
+  ahead_goal = { "What comes next, as {they} put{s} it: {goal}", "{they've} set {themselves} a goal: {goal}" },
+  journal = { "{their} latest journal entry reads {entry}", "The last thing {they} wrote in {their} journal: {entry}",
+    "{their} journal's newest page reads {entry}" },
+  homenow = { "Home these days is {inn}", "These days home is {inn}" },
   -- Earned names: where the name came from, the saying that came with it, the others that
   -- stuck, and a name earned only lately (Lately).
-  earned = { "{deed}. That's how {name} came to be called {nick}", "{deed}, and some have called {name} {nick} since",
-    "{deed}. The name {nick} has stuck to {name} since", "{deed}. It's why {name} answers to {nick}" },
+  -- {deed} comes with its subject: "Aldric saw the gold of Elwynn's mines through to the end".
+  earned = { "{deed}. That's how {they} came to be called {nick}", "{deed}, and some have called {them} {nick} since",
+    "{deed}. The name {nick} has stuck to {them} since", "{deed}. It's why {they} answer{s} to {nick}" },
   saying = { "It's where {they} picked up the saying {motto}", "{they} came away from it with a saying: {motto}",
     "{they} took a saying from it: {motto}" },
   othernames = { "Has been called {list} as well", "Also answers to {list}", "Other names have stuck too: {list}" },

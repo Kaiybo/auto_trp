@@ -613,6 +613,30 @@ check(ns.Compose.Bearing():find("caught in a lie"), "History: a lie found out")
 check(not ns.Compose.History():find("letters"), "letters stay out of History")
 check(ns.Compose.Stats().letters == nil and ns.Compose.Stats().met == nil, "letters and people met are no longer statistics")
 RPGDialogueCharDB.opinions.night_elves = nil
+-- One story, not a list: a view about where they came from is told beside their roots, warm
+-- and cold views read as a contrast, a one-line journal note is passed over, and History ends
+-- on what's still unsettled.
+do
+  local r = RPGDialogueCharDB
+  local saved = { origin = r.origin, opinions = r.opinions, threads = r.threads, journal = r.journal, goals = ChronicleCharDB.goals }
+  r.origin = { id = "elf_initiate", name = "Initiate of the Cenarion Circle", blurb = "I woke into a world the Circle had slept through." }
+  r.opinions = { cenarion_circle = { stance = "distrust", t = NOW - 10 }, stalvan = { stance = "pity", t = NOW - 20 },
+    dark_riders = { stance = "hate", t = NOW - 30 } }
+  r.threads = { elwynn_gold = saved.threads.elwynn_gold, westfall_fend = { state = "unfolding", t = NOW - 100 } }
+  r.journal = { saved.journal[1], { t = NOW - 5, text = "Read \"A Dusty Unsent Letter\"." } }
+  ChronicleCharDB.goals = {}
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+  local h, b = ns.Compose.History(), ns.Compose.Bearing()
+  check(h:find("Cenarion Circle. .-distrusts the Cenarion Circle") , "History ties the origin to a view of it: " .. h)
+  check(not b:find("Cenarion"), "and Personality doesn't say it twice: " .. b)
+  check(b:find("pities Stalvan, but has no love for Dark Riders", 1, true), "warm and cold views read as a contrast: " .. b)
+  check(not h:find("A Dusty Unsent Letter", 1, true) and h:find("Farley poured me one", 1, true), "a one-line journal note is passed over")
+  check(h:find("Westfall Fend[%.\"]") or h:find("Westfall, left to fend for itself", 1, true), "History ends on unfinished business: " .. h)
+  print("\n-- one story --\n" .. b .. "\n\n" .. h)
+  r.origin, r.opinions, r.threads, r.journal, ChronicleCharDB.goals = saved.origin, saved.opinions, saved.threads, saved.journal, saved.goals
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+end
+
 
 -- Restore puts everything back
 local ok = ns.TRP.Restore()
@@ -737,7 +761,7 @@ end
 do
   local sh = ns.Compose.Sheet()
   check(sh.stats.wealth and sh.stats.wealth:find("gold"), "wealth statistic: " .. tostring(sh.stats.wealth))
-  check(sh.history:find(ns.U.Pron(ns.Compose.WealthBand(ns.cache.world).flair):sub(1, 20), 1, true), "wealth flair in History")
+  check(sh.history:find(ns.U.Pron(ns.Compose.WealthBand(ns.cache.world).flair):sub(2, 20), 1, true), "wealth flair in History")
   ns.db.fields.stat_wealth = false
   check(not ns.TRP.Enabled("stat_wealth") and ns.TRP.Enabled("stat_lands"), "one statistic switched off, the rest on")
   ns.db.fields.stats = false
@@ -751,7 +775,7 @@ do
   local sh = ns.Compose.Sheet()
   check(sh.nickname == "Mine-Warden" and sh.motto == "Gold isn't worth a life.", "a finished story earns a nickname and motto: " .. tostring(sh.nickname))
   check(sh.icon == "INV_Misc_Coin_02", "the icon follows the nickname: " .. tostring(sh.icon))
-  check(sh.history:find("Saw the gold of Elwynn's mines through to the end", 1, true) and sh.history:find("\"Mine-Warden\"", 1, true)
+  check(sh.history:find("saw the gold of Elwynn's mines through to the end", 1, true) and sh.history:find("\"Mine-Warden\"", 1, true)
     and sh.history:find("Gold isn't worth a life", 1, true), "History explains the nickname and motto")
   check(sh.history:find("\"VanCleef's Bane\"", 1, true), "and names the other name that stuck")
   check(sh.stats.names == "Mine-Warden and VanCleef's Bane", "Names earned statistic, the worn one first: " .. tostring(sh.stats.names))
@@ -761,7 +785,7 @@ do
   sh = ns.Compose.Sheet(true)
   check(sh.nickname == "VanCleef's Bane" and sh.motto == "Every mask comes off.", "no story: the dungeon master felled names them: " .. tostring(sh.nickname))
   check(sh.icon == "INV_Misc_Mask_01", "with the master's own icon: " .. tostring(sh.icon))
-  check(sh.history:find("Was there when Edwin VanCleef fell in the Deadmines", 1, true), "and History says so")
+  check(sh.history:find("was there when Edwin VanCleef fell in the Deadmines", 1, true), "and History says so")
   ChronicleCharDB.bosses["2"] = { name = "Archmage Arugal", kills = 1, lastSuccess = NOW - 90000, instanceName = "Shadowfang Keep" }
   ChronicleCharDB.bosses["3"] = { name = "Some Random Ogre", kills = 1, lastSuccess = NOW - 100 }
   ns.Compose.SourcesChanged(); ns.Compose.Refresh()
@@ -777,7 +801,7 @@ do
   ChronicleCharDB.bosses = {}
   ns.Compose.SourcesChanged(); ns.Compose.Refresh()
   sh = ns.Compose.Sheet(true)
-  check(sh.nickname == "Hogger's Bane" and sh.history:find("Collected the bounty on Hogger", 1, true), "a bounty collected: " .. tostring(sh.nickname))
+  check(sh.nickname == "Hogger's Bane" and sh.history:find("collected the bounty on Hogger", 1, true), "a bounty collected: " .. tostring(sh.nickname))
   ChronicleCharDB.quests = {}
   ns.Compose.SourcesChanged(); ns.Compose.Refresh()
   sh = ns.Compose.Sheet(true)
@@ -1266,7 +1290,8 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x",
+    start = "x", ago = "", next = "x", last = "x", entry = "x", goal = "x", view = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then

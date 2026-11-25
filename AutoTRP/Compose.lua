@@ -581,6 +581,27 @@ function Compose.FavouriteSpell()
   return say("favspell", { spell = top.name, noun = noun }, top.name)
 end
 
+-- A view about where they came from (the order or people in their origin, or the land they
+-- started in). History tells it beside their roots; Personality leaves it out.
+local function rootView(rpgd, world)
+  if not rpgd then return nil end
+  local origin = rpgd.origin and rpgd.origin.name and rpgd.origin.name:lower() or ""
+  local starts = {}
+  if rpgd.zones[1] then starts[rpgd.zones[1].name:lower()] = true end
+  local home = W.RACE_HOME[world and world.race or ""]
+  if home then starts[home:lower():gsub("^the ", "")] = true end
+  for _, o in ipairs(rpgd.opinions) do
+    local topic = o.topic ~= "peace" and topicName(o.topic)
+    local verb = W.STANCES[o.stance]
+    if topic and verb then
+      local bare = topic:gsub("^the ", ""):lower()
+      if #bare >= 4 and (origin:find(bare, 1, true) or starts[bare]) then
+        return o, (verb:gsub("{t}", topic))
+      end
+    end
+  end
+end
+
 function Compose.Bearing()
   local c = ns.cache
   local rpgd, world = c.rpgd, c.world
@@ -591,7 +612,8 @@ function Compose.Bearing()
   -- game itself records.
   if not rpgd then return habit and paragraph({ habit }) or nil end
 
-  -- Temperament and conscience
+  -- Temperament and conscience, in one sentence: "Aldric is kind and brave, keeps to the
+  -- Light and believes in law and keeping one's place."
   local adjs = {}
   for _, t in ipairs(rpgd.dominant) do adjs[#adjs + 1] = W.TRAIT_ADJ[t] end
   local leans = {}
@@ -600,27 +622,52 @@ function Compose.Bearing()
     if math.abs(v) >= 25 then leans[#leans + 1] = { v = math.abs(v), text = W.AXIS_PROSE[b.axis][v > 0 and 1 or -1] } end
   end
   table.sort(leans, function(a, b) return a.v > b.v end)
-  local first = {}
+  local lean = {}
+  for k = 1, math.min(2, #leans) do lean[k] = leans[k].text end
+  local first
   if #adjs > 0 then
-    first[#first + 1] = name .. " is " .. U.Join(adjs) .. (leans[1] and (", and " .. leans[1].text) or "")
-  elseif leans[1] then
-    first[#first + 1] = name .. " " .. leans[1].text
+    first = name .. " is " .. U.Join(adjs)
+    if #lean == 1 then first = first .. ", and " .. lean[1]
+    elseif #lean == 2 then first = first .. ", " .. lean[1] .. " and " .. lean[2] end
+  elseif #lean > 0 then
+    first = name .. " " .. U.Join(lean)
   end
-  if leans[2] then first[#first + 1] = U.Cap(leans[2].text) end
 
-  -- Beliefs, and where they have shifted
-  local views = {}
-  local ops = opinions(rpgd, 3)
-  if #ops > 0 then views[#views + 1] = U.Join(ops) end
+  -- Beliefs: the warm ones set against the cold ones, then where they have shifted
+  local skip = rootView(rpgd, world)
+  local warm, cold, other = {}, {}, {}
+  local changed
   for _, o in ipairs(rpgd.opinions) do
-    local topic = o.topic ~= "peace" and topicName(o.topic)
-    if o.changed and topic then
-      local was = o.was and W.STANCES[o.was] and Compose.UsedTo(W.STANCES[o.was]:gsub("{t}", topic))
-      views[#views + 1] = was and (was .. ", and has since changed {their} mind")
-        or ("Has changed {their} mind about " .. topic)
-      break
+    local phrase
+    if o.topic == "peace" then
+      phrase = W.PEACE[o.stance]
+    elseif o ~= skip then
+      local verb, topic = W.STANCES[o.stance], topicName(o.topic)
+      if verb and topic then phrase = (verb:gsub("{t}", topic)) end
+      if o.changed and topic and not changed then
+        local was = o.was and W.STANCES[o.was] and Compose.UsedTo(W.STANCES[o.was]:gsub("{t}", topic))
+        changed = was and (was .. ", and has since changed {their} mind") or ("Has changed {their} mind about " .. topic)
+      end
+    end
+    if phrase and o ~= skip then
+      local tone = W.STANCE_TONE[o.stance] or 0
+      local list = tone > 0 and warm or tone < 0 and cold or other
+      if #list < 2 then list[#list + 1] = phrase end
     end
   end
+  -- "Lunaria would rather keep the peace and pities Stalvan, but distrusts the Cenarion Circle."
+  local views = {}
+  local held = {}
+  for _, list in ipairs({ other, #cold > 0 and warm or {} }) do
+    for _, p in ipairs(list) do held[#held + 1] = p end
+  end
+  if #cold == 0 then for _, p in ipairs(warm) do held[#held + 1] = p end end
+  if #held > 0 and #cold > 0 then
+    views[#views + 1] = name .. " " .. U.Join(held) .. ", but " .. U.Join(cold)
+  elseif #held + #cold > 0 then
+    views[#views + 1] = name .. " " .. U.Join(#held > 0 and held or cold)
+  end
+  views[#views + 1] = changed
 
   -- What else the sources record about the inner life
   local more = {}
@@ -640,7 +687,7 @@ function Compose.Bearing()
   local hooks = Compose.Hooks()
   local stories = #hooks > 0 and paragraph({ say("stories", { list = U.Join(hooks) }) }) or nil
 
-  return pages({ paragraph(first), #views > 0 and paragraph({ name .. " " .. views[1], views[2] }) or nil, paragraph(more), stories })
+  return pages({ first and paragraph({ first }) or nil, paragraph(views), paragraph(more), stories })
 end
 
 -- "Kobold Miner" -> "Kobold Miners", "Wolf" -> "Wolves", "Harpy" -> "Harpies"
@@ -716,7 +763,7 @@ function Compose.History()
   local noun = W.CLASS_NOUN[world.class or ""]
   local what = race and noun and (article(race) .. " " .. noun) or nil
 
-  -- 1. Where it began
+  -- 1. Where it began, and what they make of it now
   local roots = {}
   if rpgd and rpgd.origin and rpgd.origin.name then
     local o = rpgd.origin.name
@@ -731,9 +778,20 @@ function Compose.History()
       roots[#roots + 1] = name .. " is " .. what .. (home and (" who started out in " .. home) or "")
     end
   end
+  local ro, view = rootView(rpgd, world)
+  if ro then
+    local was = ro.changed and ro.was and W.STANCES[ro.was] and Compose.UsedTo(W.STANCES[ro.was]:gsub("{t}", topicName(ro.topic)))
+    if was then
+      roots[#roots + 1] = name .. " " .. was:gsub("^U", "u") .. ", and has since changed {their} mind"
+    else
+      local tone = W.STANCE_TONE[ro.stance] or 0
+      roots[#roots + 1] = say(tone > 0 and "rootview_warm" or tone < 0 and "rootview_cold" or "rootview",
+        { name = name, view = view }, ro.topic)
+    end
+  end
   paras[#paras + 1] = paragraph(roots)
 
-  -- 2. The road so far
+  -- 2. The road so far: where it began, the first lands after, the latest, and the ranks on the way
   local road = {}
   local zones = rpgd and rpgd.zones or {}
   local zoneCount = math.max(#zones, chron and chron.zones or 0)
@@ -742,10 +800,17 @@ function Compose.History()
     local weeks = since < math.huge and math.floor((U.Now() - since) / 604800) or 0
     local ago = weeks >= 9 and (U.Number(math.floor(weeks / 4.3)) .. " months ago")
       or weeks >= 2 and (U.Number(weeks) .. " weeks ago") or nil
+    local nexts = {}
+    for k = 2, math.min(3, #zones - 1) do nexts[#nexts + 1] = placeName(zones[k].name) end
     local last = zones[#zones]
-    local latest = (last and last.name ~= zones[1].name) and (", " .. placeName(last.name) .. " the latest of them") or ""
-    road[#road + 1] = "From " .. placeName(zones[1].name) .. (ago and (", " .. ago .. ",") or "") .. " {their} road has led through "
-      .. U.Number(zoneCount) .. " lands" .. latest
+    local vars = { start = placeName(zones[1].name), ago = ago and (", " .. ago) or "", n = U.Number(zoneCount) }
+    if #nexts > 0 then
+      vars.next, vars.last = U.Join(nexts), placeName(last.name)
+      road[#road + 1] = say("road", vars, zones[1].name)
+    elseif last.name ~= zones[1].name then
+      vars.next = placeName(last.name)
+      road[#road + 1] = say("road_short", vars, zones[1].name)
+    end
     local dungeons = chron and chron.dungeons or 0
     if dungeons >= 2 then road[#road + 1] = "Along the way {they've} been inside " .. U.Number(dungeons) .. " dungeons" end
   elseif (world.level or 1) < 10 then
@@ -764,50 +829,38 @@ function Compose.History()
     end
     if #steps > 0 then road[#road + 1] = "Was made " .. U.Join(steps) end
   end
-  if rpgd and rpgd.homeInn then
-    local s = "Home these days is " .. placeName(rpgd.homeInn)
-    if rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and within(rpgd.homeSince, 14 * 86400) then
-      s = s .. ", lately moved from " .. placeName(rpgd.homePrev)
-    end
-    road[#road + 1] = s
-  end
   paras[#paras + 1] = paragraph(road)
 
-  -- 3. What they've done, and the name it earned them. (Deaths and kills are counted in the
-  -- Statistics, not told here.)
+  -- 3. The deed that gave them a name, and what else they've seen through: told as what
+  -- followed it when it all came later. (Deaths and kills are counted in the Statistics.)
   local deeds = {}
-  local earned, earnedKey = Compose.EarnedStory(name)
+  local earned, earnedKey, earnedT = Compose.EarnedStory(name)
+  if earned then
+    deeds[#deeds + 1] = say("turn", nil, earnedKey)
+    for _, s in ipairs(earned) do deeds[#deeds + 1] = s end
+  end
+  local more = {}
+  local function also(text, t) more[#more + 1] = { text = text, t = t } end
   local told = 0
   if rpgd then
     for _, t in ipairs(rpgd.threads) do
       if earnedKey ~= "thread:" .. t.id and told < 2 then
-        if t.state == "resolved" then deeds[#deeds + 1] = "Saw " .. lowerFirst(t.title) .. " through to the end"; told = told + 1
-        elseif t.state == "soured" then deeds[#deeds + 1] = "Watched " .. lowerFirst(t.title) .. " go sour"; told = told + 1 end
+        if t.state == "resolved" then also("Saw " .. lowerFirst(t.title) .. " through to the end", t.t); told = told + 1
+        elseif t.state == "soured" then also("Watched " .. lowerFirst(t.title) .. " go sour", t.t); told = told + 1 end
       end
     end
-  end
-  for _, s in ipairs(earned or {}) do deeds[#deeds + 1] = s end
-  if rpgd then
     local places = {}
     for k = 1, math.min(3, #rpgd.cleared) do places[k] = U.Mid(rpgd.cleared[k].name) end
-    if #places > 0 then deeds[#deeds + 1] = say("delved", { list = U.Join(places) }, places[1]) end
+    if #places > 0 then also(say("delved", { list = U.Join(places) }, places[1]), rpgd.cleared[#places].t) end
   end
   local bosses = Compose.Bosses(c)
   local latest = bosses[1]
   local named = earnedKey and latest and earnedKey == "boss:" .. latest.name
-  if #bosses >= 3 then deeds[#deeds + 1] = say("bosses", { n = U.Number(#bosses), who = latest.name }, latest.name)
-  elseif latest and not named then deeds[#deeds + 1] = say("boss", { who = latest.name, where = "" }, latest.name) end
-  if chron and chron.rares >= 5 then deeds[#deeds + 1] = say("rares", { n = U.Number(chron.rares) }) end
+  if #bosses >= 3 then also(say("bosses", { n = U.Number(#bosses), who = latest.name }, latest.name))
+  elseif latest and not named then also(say("boss", { who = latest.name, where = "" }, latest.name), latest.first or latest.t) end
+  if chron and chron.rares >= 5 then also(say("rares", { n = U.Number(chron.rares) })) end
   local questsDone = Compose.QuestsDone(c)
-  if questsDone >= 25 then deeds[#deeds + 1] = say("jobs", { n = U.Roughly(questsDone) }) end
-  local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
-  local crafts = {}
-  for k = 1, math.min(2, #profs) do
-    local pr = profs[k]
-    local pn = W.PROF_NOUN[pr.name:lower()]
-    if pr.rank >= 50 and pn then crafts[#crafts + 1] = profWord(pr.rank) .. " " .. pn end
-  end
-  if #crafts > 0 then deeds[#deeds + 1] = "Between roads {they're} " .. U.Join(crafts) end
+  if questsDone >= 25 then also(say("jobs", { n = U.Roughly(questsDone) })) end
   local finds = ns.char and ns.char.finds or {}
   if #finds > 0 then
     local items = {}
@@ -815,11 +868,29 @@ function Compose.History()
       local f = finds[k]
       items[#items + 1] = itemName(f.item, f.quality) .. (f.zone and (" from " .. U.Mid(f.zone)) or "")
     end
-    deeds[#deeds + 1] = say("finds", { list = U.Join(items) }, finds[#finds].item)
+    also(say("finds", { list = U.Join(items) }, finds[#finds].item), finds[math.max(1, #finds - 1)].t)
+  end
+  if earned and more[1] then
+    -- "Since then Aldric has seen the inside of the Deadmines", only when all of it came later.
+    local after = true
+    for _, m in ipairs(more) do
+      if type(m.t) ~= "number" or not earnedT or m.t <= earnedT then after = false end
+    end
+    local lead = U.Pron(say(after and "since" or "besides", { name = name }, earnedKey))
+    more[1].text = lead .. more[1].text:gsub("^%u", string.lower)
+  end
+  -- Three or fewer read as one sentence: "...has seen the inside of the Deadmines and helped
+  -- bring down Edwin VanCleef."
+  if #more > 0 and #more <= 3 then
+    local parts = { more[1].text }
+    for k = 2, #more do parts[k] = more[k].text:gsub("^Has ", "has "):gsub("^%u%l", string.lower) end
+    deeds[#deeds + 1] = U.Join(parts)
+  else
+    for _, m in ipairs(more) do deeds[#deeds + 1] = m.text end
   end
   paras[#paras + 1] = paragraph(deeds)
 
-  -- 4. The people, friends and otherwise
+  -- 4. The people met on the way, friends and otherwise, and where they're welcome
   local people = {}
   local friends = {}
   if rpgd then
@@ -836,27 +907,36 @@ function Compose.History()
       partner = U.Join(names)
     end
   end
-  if #friends > 0 then
-    people[#people + 1] = say("friends", { name = name, list = U.Join(friends) }, friends[1])
-      .. (partner and (", and travels with " .. partner) or "")
-  elseif partner then
-    people[#people + 1] = name .. " travels with " .. partner
-  end
-  if sd and sd.recentPeople >= 4 then
-    people[#people + 1] = "Has fought beside " .. U.Number(sd.recentPeople) .. " others this past week"
-  end
+  local standing
   if rpgd then
     local good, bad = {}, nil
     for _, t in ipairs(rpgd.towns) do
-      if t.value >= 10 and #good < 2 then good[#good + 1] = (ns.Sources.RPGD.Tier(t.value).phrase:gsub("{town}", t.name)) end
+      if t.value >= 10 and #good < 2 then
+        local ph = ns.Sources.RPGD.Tier(t.value).phrase:gsub("{town}", t.name)
+        -- "is well thought of in Auberdine and liked in Astranaar"
+        if #good > 0 and good[1]:find("^is ") then ph = ph:gsub("^is ", "") end
+        good[#good + 1] = ph
+      end
     end
     local worst = rpgd.towns[#rpgd.towns]
     if worst and worst.value <= -20 then bad = (ns.Sources.RPGD.Tier(worst.value).phrase:gsub("{town}", worst.name)) end
-    if #good > 0 then
-      people[#people + 1] = U.Cap(U.Join(good)) .. (bad and (", though " .. bad) or "")
-    elseif bad then
-      people[#people + 1] = U.Cap(bad)
+    if #good > 0 then standing = U.Join(good) .. (bad and (", though " .. bad) or "")
+    elseif bad then standing = bad end
+  end
+  if #friends > 0 then
+    local s = say(road[1] and "friends_road" or "friends", { name = name, list = U.Join(friends) }, friends[1])
+    if partner then
+      s = s .. ", and travels with " .. partner
+    elseif standing then
+      s = s .. ", and " .. standing; standing = nil
     end
+    people[#people + 1] = s
+  elseif partner then
+    people[#people + 1] = name .. " travels with " .. partner
+  end
+  if standing then people[#people + 1] = name .. " " .. standing end
+  if sd and sd.recentPeople >= 4 then
+    people[#people + 1] = "Has fought beside " .. U.Number(sd.recentPeople) .. " others this past week"
   end
   if world.guild then
     local g = world.guild:find("^The ") and U.Mid(world.guild) or world.guild
@@ -888,8 +968,26 @@ function Compose.History()
   end
   paras[#paras + 1] = paragraph(people)
 
-  -- 5. How things stand now
+  -- 5. How things stand now, and what's still ahead
   local now = {}
+  if rpgd and rpgd.homeInn then
+    local s = say("homenow", { inn = placeName(rpgd.homeInn) }, rpgd.homeInn)
+    if rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and within(rpgd.homeSince, 14 * 86400) then
+      s = s .. ", lately moved from " .. placeName(rpgd.homePrev)
+    end
+    now[#now + 1] = s
+  end
+  local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
+  local crafts = {}
+  for k = 1, math.min(2, #profs) do
+    local pr = profs[k]
+    local pn = W.PROF_NOUN[pr.name:lower()]
+    if pr.rank >= 50 and pn then crafts[#crafts + 1] = profWord(pr.rank) .. " " .. pn end
+  end
+  if #crafts > 0 then now[#now + 1] = "Between roads {they're} " .. U.Join(crafts) end
+  local wb = Compose.WealthBand(world)
+  if wb then now[#now + 1] = wb.flair end
+  now[#now + 1] = Compose.WeekTone()
   local days = ns.Mood.RecentDays(3)
   local bits = {}
   for _, d in ipairs(days) do
@@ -897,13 +995,24 @@ function Compose.History()
     if m and d.zone then bits[#bits + 1] = m .. " in " .. U.Mid(d.zone) .. " " .. d.label
     elseif m then bits[#bits + 1] = m .. " " .. d.label end
   end
-  now[#now + 1] = Compose.WeekTone()
   if #bits >= 2 then now[#now + 1] = "Felt " .. U.Join(bits) end
-  local wb = Compose.WealthBand(world)
-  if wb then now[#now + 1] = wb.flair end
   if rpgd and ns.db.diaryExcerpt and rpgd.lastEntry and rpgd.lastEntry.text then
-    now[#now + 1] = "{their} latest journal entry reads " .. quote(U.Truncate(rpgd.lastEntry.text, 280))
+    now[#now + 1] = say("journal", { entry = quote(U.Truncate(rpgd.lastEntry.text, 280)) }, rpgd.lastEntry.t)
   end
+  -- What's still ahead: the goal they set themselves, else a story not yet settled
+  local ahead
+  if chron and ns.db.chronicleGoals and chron.goals[1] then
+    local goal = U.Cap(U.Truncate(chron.goals[1].text, 120))
+    if not goal:find("[%.!%?]\"?$") then goal = goal .. "." end
+    ahead = say("ahead_goal", { goal = quote(goal) }, chron.goals[1].text)
+  else
+    for _, t in ipairs(rpgd and rpgd.threads or {}) do
+      if t.state == "unfolding" or t.state == "stirring" then
+        ahead = say("ahead_thread", { t = lowerFirst(t.title) }, t.id); break
+      end
+    end
+  end
+  now[#now + 1] = ahead
   paras[#paras + 1] = paragraph(now)
 
   return pages(paras)
@@ -942,6 +1051,9 @@ function Compose.Physical()
   if finest and finest.name and (finest.quality or 0) >= 4 then
     dress[#dress + 1] = "The finest piece is " .. itemName(finest.name, finest.quality)
   end
+  -- How their gear is kept belongs with the gear, not on a line of its own.
+  local wear = Compose.Wear(world)
+  if wear then dress[#dress + 1] = wear.text end
   local bag = {}
   for i, r in ipairs(world.reagents or {}) do
     if i > 3 then break end
@@ -957,8 +1069,6 @@ function Compose.Physical()
   if world.health and world.health < 0.5 and not world.dead then marks[#marks + 1] = "Freshly wounded, and moving carefully" end
   if c.rpgd and (c.rpgd.insanity or 0) >= 30 then marks[#marks + 1] = "{their} eyes never settle on anything for long" end
   if c.rpgd and (c.rpgd.align.taint or 0) >= 30 then marks[#marks + 1] = "Something about {them} is off, in a way that's hard to name" end
-  local wear = Compose.Wear(world)
-  if wear then marks[#marks + 1] = wear.text end
 
   return pages({ paragraph(body), paragraph(dress), paragraph(marks) })
 end
@@ -1242,14 +1352,15 @@ end
 function Compose.EarnedStory(name)
   local e = Compose.Earned()
   if not e then return nil end
-  local out = { say("earned", { deed = e.deed, name = name, nick = quote(e.nick) }, e.key) }
+  local deed = name .. " " .. e.deed:gsub("^%u", string.lower)
+  local out = { say("earned", { deed = deed, nick = quote(e.nick) }, e.key) }
   if e.motto then out[#out + 1] = say("saying", { motto = quote(e.motto) }, e.key) end
   local others = {}
   for _, o in ipairs(Compose.EarnedAll()) do
     if o.key ~= e.key and #others < 2 then others[#others + 1] = quote(o.nick) end
   end
   if #others > 0 then out[#out + 1] = say("othernames", { list = U.Join(others) }, others[1]) end
-  return out, e.key
+  return out, e.key, e.t
 end
 
 -- Names earned since last time (called every tick). The first time, and when a source comes
