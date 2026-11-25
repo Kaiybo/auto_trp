@@ -116,7 +116,7 @@ local function deathCount(c)
 end
 
 local function sentence(s)
-  s = U.Pron(U.Cap(s))
+  s = U.Cap(U.Pron(s))
   local tail = s:gsub("{/col}$", "")
   if not (tail:find("[%.!%?]$") or tail:find("[%.!%?]\"$")) then s = s .. "." end
   return s
@@ -626,7 +626,13 @@ function Compose.Bearing()
   for k = 1, math.min(2, #leans) do lean[k] = leans[k].text end
   local first
   if #adjs > 0 then
-    first = name .. " is " .. U.Join(adjs)
+    -- Two that pull against each other read as such: "kind, yet cruel".
+    local a, b = rpgd.dominant[1], rpgd.dominant[2]
+    local opposed = false
+    for _, bar in ipairs(W.TRAIT_BARS) do
+      if (bar[3] == a and bar[4] == b) or (bar[3] == b and bar[4] == a) then opposed = true end
+    end
+    first = name .. " is " .. (opposed and table.concat(adjs, ", yet ") or U.Join(adjs))
     if #lean == 1 then first = first .. ", and " .. lean[1]
     elseif #lean == 2 then first = first .. ", " .. lean[1] .. " and " .. lean[2] end
   elseif #lean > 0 then
@@ -646,7 +652,8 @@ function Compose.Bearing()
       if verb and topic then phrase = (verb:gsub("{t}", topic)) end
       if o.changed and topic and not changed then
         local was = o.was and W.STANCES[o.was] and Compose.UsedTo(W.STANCES[o.was]:gsub("{t}", topic))
-        changed = was and (was .. ", and has since changed {their} mind") or ("Has changed {their} mind about " .. topic)
+        changed = was and ("{they} " .. was:gsub("^U", "u") .. ", and {have} since changed {their} mind")
+          or ("{they've} changed {their} mind about " .. topic)
       end
     end
     if phrase and o ~= skip then
@@ -674,13 +681,13 @@ function Compose.Bearing()
   if (rpgd.align.taint or 0) >= 30 then more[#more + 1] = "There is a taint on {them} now" end
   if (rpgd.insanity or 0) >= 40 then more[#more + 1] = "{their} hold on {their} own mind has been slipping" end
   if (rpgd.liesExposed or 0) > 0 then
-    more[#more + 1] = "Has been caught in " .. (rpgd.liesExposed == 1 and "a lie" or U.Number(rpgd.liesExposed) .. " lies")
+    more[#more + 1] = "{they've} been caught in " .. (rpgd.liesExposed == 1 and "a lie" or U.Number(rpgd.liesExposed) .. " lies")
   end
   if #rpgd.books >= 1 then
     local titles = {}
     for i = 1, math.min(2, #rpgd.books) do titles[i] = quote(rpgd.books[i].title) end
     local extra = #rpgd.books - #titles
-    more[#more + 1] = "Has read " .. U.Join(titles)
+    more[#more + 1] = "{they've} read " .. U.Join(titles)
       .. (extra > 0 and (", and " .. U.Number(extra) .. " " .. U.Plural(extra, "other book") .. " besides") or "")
   end
   if habit then more[#more + 1] = habit end
@@ -780,19 +787,16 @@ function Compose.History()
   end
   local ro, view = rootView(rpgd, world)
   if ro then
-    local was = ro.changed and ro.was and W.STANCES[ro.was] and Compose.UsedTo(W.STANCES[ro.was]:gsub("{t}", topicName(ro.topic)))
-    if was then
-      roots[#roots + 1] = name .. " " .. was:gsub("^U", "u") .. ", and has since changed {their} mind"
-    else
-      local tone = W.STANCE_TONE[ro.stance] or 0
-      roots[#roots + 1] = say(tone > 0 and "rootview_warm" or tone < 0 and "rootview_cold" or "rootview",
-        { name = name, view = view }, ro.topic)
-    end
+    -- "These days Lunaria thinks Teldrassil is wrong, though they once thought otherwise."
+    local tone = W.STANCE_TONE[ro.stance] or 0
+    local key = ro.changed and "rootview" or tone > 0 and "rootview_warm" or tone < 0 and "rootview_cold" or "rootview"
+    roots[#roots + 1] = say(key, { name = name, view = view }, ro.topic) .. (ro.changed and ", though {they} once thought otherwise" or "")
   end
   paras[#paras + 1] = paragraph(roots)
 
   -- 2. The road so far: where it began, the first lands after, the latest, and the ranks on the way
   local road = {}
+  local roadTold = false   -- the lands themselves were told, so "that road" means something
   local zones = rpgd and rpgd.zones or {}
   local zoneCount = math.max(#zones, chron and chron.zones or 0)
   if zoneCount >= 3 and zones[1] then
@@ -806,10 +810,10 @@ function Compose.History()
     local vars = { start = placeName(zones[1].name), ago = ago and (", " .. ago) or "", n = U.Number(zoneCount) }
     if #nexts > 0 then
       vars.next, vars.last = U.Join(nexts), placeName(last.name)
-      road[#road + 1] = say("road", vars, zones[1].name)
+      road[#road + 1] = say("road", vars, zones[1].name); roadTold = true
     elseif last.name ~= zones[1].name then
       vars.next = placeName(last.name)
-      road[#road + 1] = say("road_short", vars, zones[1].name)
+      road[#road + 1] = say("road_short", vars, zones[1].name); roadTold = true
     end
     local dungeons = chron and chron.dungeons or 0
     if dungeons >= 2 then road[#road + 1] = "Along the way {they've} been inside " .. U.Number(dungeons) .. " dungeons" end
@@ -827,7 +831,7 @@ function Compose.History()
       local rank = (tonumber(m.level) and ladder[band(m.level)]) or m.rank
       if rank then steps[#steps + 1] = rank .. (m.zone and (" in " .. U.Mid(m.zone)) or "") end
     end
-    if #steps > 0 then road[#road + 1] = "Was made " .. U.Join(steps) end
+    if #steps > 0 then road[#road + 1] = "{they} rose to " .. table.concat(steps, ", then to ") end
   end
   paras[#paras + 1] = paragraph(road)
 
@@ -836,7 +840,7 @@ function Compose.History()
   local deeds = {}
   local earned, earnedKey, earnedT = Compose.EarnedStory(name)
   if earned then
-    deeds[#deeds + 1] = say("turn", nil, earnedKey)
+    deeds[#deeds + 1] = say(roadTold and "turn" or "turn_noroad", nil, earnedKey)
     for _, s in ipairs(earned) do deeds[#deeds + 1] = s end
   end
   local more = {}
@@ -866,27 +870,37 @@ function Compose.History()
     local items = {}
     for k = #finds, math.max(1, #finds - 1), -1 do
       local f = finds[k]
-      items[#items + 1] = itemName(f.item, f.quality) .. (f.zone and (" from " .. U.Mid(f.zone)) or "")
+      items[#items + 1] = itemName(f.item, f.quality) .. (f.zone and (" in " .. U.Mid(f.zone)) or "")
     end
     also(say("finds", { list = U.Join(items) }, finds[#finds].item), finds[math.max(1, #finds - 1)].t)
   end
-  if earned and more[1] then
-    -- "Since then Aldric has seen the inside of the Deadmines", only when all of it came later.
-    local after = true
-    for _, m in ipairs(more) do
-      if type(m.t) ~= "number" or not earnedT or m.t <= earnedT then after = false end
+  -- Told with a subject, two to a sentence: "Since then Aldric has seen the inside of the
+  -- Deadmines and helped bring down Edwin VanCleef. They have also tracked down..."
+  -- ("Since then" only when all of it came after the name.)
+  if #more > 0 then
+    local lead = name .. " "
+    if earned then
+      local after = true
+      for _, m in ipairs(more) do
+        if type(m.t) ~= "number" or not earnedT or m.t <= earnedT then after = false end
+      end
+      lead = say(after and "since" or "besides", nil, earnedKey)
     end
-    local lead = U.Pron(say(after and "since" or "besides", { name = name }, earnedKey))
-    more[1].text = lead .. more[1].text:gsub("^%u", string.lower)
-  end
-  -- Three or fewer read as one sentence: "...has seen the inside of the Deadmines and helped
-  -- bring down Edwin VanCleef."
-  if #more > 0 and #more <= 3 then
-    local parts = { more[1].text }
-    for k = 2, #more do parts[k] = more[k].text:gsub("^Has ", "has "):gsub("^%u%l", string.lower) end
-    deeds[#deeds + 1] = U.Join(parts)
-  else
-    for _, m in ipairs(more) do deeds[#deeds + 1] = m.text end
+    for k = 1, #more, 2 do
+      local parts = {}
+      for j = k, math.min(k + 1, #more) do
+        local text = more[j].text:gsub("%.$", ""):gsub("^(%u)(%l)", function(a, b) return a:lower() .. b end)
+        if k > 1 or earned then text = text:gsub("^has ", "{have} "):gsub("^was ", "{was} ") end
+        parts[#parts + 1] = text
+      end
+      local first = parts[1]
+      if k > 1 then
+        -- "They have also tracked down...", "They also found..."
+        local verb, rest = first:match("^(%S+) (.*)$")
+        parts[1] = (verb == "{have}" or verb == "{was}") and (verb .. " also " .. rest) or ("also " .. first)
+      end
+      deeds[#deeds + 1] = (k == 1 and lead or "{they} ") .. table.concat(parts, " and ")
+    end
   end
   paras[#paras + 1] = paragraph(deeds)
 
@@ -907,44 +921,53 @@ function Compose.History()
       partner = U.Join(names)
     end
   end
-  local standing
+  -- Four beats: who they travel with and the friends made on the way; where they're welcome
+  -- (and where not); who they answer to; and who is set against them.
+  local company
+  local fought = sd and sd.recentPeople >= 4 and U.Number(sd.recentPeople) or nil
+  if partner and #friends > 0 then
+    company = say("company_friends", { name = name, partner = partner, list = U.Join(friends) }, friends[1])
+  elseif partner then
+    company = name .. " travels with " .. partner
+  elseif #friends > 0 then
+    company = say(roadTold and "friends_road" or "friends", { name = name, list = U.Join(friends) }, friends[1])
+  end
+  people[#people + 1] = company
+  if fought then
+    people[#people + 1] = company and ("{they've} fought beside " .. fought .. " others this past week")
+      or (name .. " has fought beside " .. fought .. " others this past week")
+  end
+
+  -- "They're liked in Goldshire and have been seen around Northshire, though they aren't
+  -- trusted in Westfall Sentinel."
+  local function theyForm(ph)
+    return (ph:gsub("^isn't ", "{are}n't "):gsub("^is ", "{are} "):gsub("^has ", "{have} "))
+  end
   if rpgd then
     local good, bad = {}, nil
     for _, t in ipairs(rpgd.towns) do
       if t.value >= 10 and #good < 2 then
-        local ph = ns.Sources.RPGD.Tier(t.value).phrase:gsub("{town}", t.name)
-        -- "is well thought of in Auberdine and liked in Astranaar"
-        if #good > 0 and good[1]:find("^is ") then ph = ph:gsub("^is ", "") end
+        local ph = theyForm((ns.Sources.RPGD.Tier(t.value).phrase:gsub("{town}", t.name)))
+        if #good > 0 and good[1]:find("^{are} ") then ph = ph:gsub("^{are} ", "") end
         good[#good + 1] = ph
       end
     end
     local worst = rpgd.towns[#rpgd.towns]
-    if worst and worst.value <= -20 then bad = (ns.Sources.RPGD.Tier(worst.value).phrase:gsub("{town}", worst.name)) end
-    if #good > 0 then standing = U.Join(good) .. (bad and (", though " .. bad) or "")
-    elseif bad then standing = bad end
+    if worst and worst.value <= -20 then bad = theyForm((ns.Sources.RPGD.Tier(worst.value).phrase:gsub("{town}", worst.name))) end
+    if #good > 0 then people[#people + 1] = "{they} " .. U.Join(good) .. (bad and (", though {they} " .. bad) or "")
+    elseif bad then people[#people + 1] = "{they} " .. bad end
   end
-  if #friends > 0 then
-    local s = say(road[1] and "friends_road" or "friends", { name = name, list = U.Join(friends) }, friends[1])
-    if partner then
-      s = s .. ", and travels with " .. partner
-    elseif standing then
-      s = s .. ", and " .. standing; standing = nil
-    end
-    people[#people + 1] = s
-  elseif partner then
-    people[#people + 1] = name .. " travels with " .. partner
-  end
-  if standing then people[#people + 1] = name .. " " .. standing end
-  if sd and sd.recentPeople >= 4 then
-    people[#people + 1] = "Has fought beside " .. U.Number(sd.recentPeople) .. " others this past week"
-  end
+
+  -- Who they answer to: guild, army rank, the factions they've worked for
+  local sworn = {}
   if world.guild then
     local g = world.guild:find("^The ") and U.Mid(world.guild) or world.guild
-    people[#people + 1] = "Wears the colours of " .. g .. (world.guildRank and (" and holds the rank of " .. world.guildRank:lower() .. " there") or "")
+    sworn[#sworn + 1] = "wear{s} the colours of " .. g .. (world.guildRank and (" and hold{s} the rank of " .. world.guildRank:lower() .. " there") or "")
   end
   if world.pvpRank then
-    people[#people + 1] = "Holds the rank of " .. world.pvpRank .. " in the " .. (world.faction or "faction") .. "'s army"
+    sworn[#sworn + 1] = "hold{s} the rank of " .. world.pvpRank .. " in the " .. (world.faction or "faction") .. "'s army"
   end
+  if #sworn > 0 then people[#people + 1] = "{they} " .. table.concat(sworn, ", and ") end
   local byWord = {}
   for _, f in ipairs(world.factions or {}) do
     byWord[f.word] = byWord[f.word] or {}
@@ -954,17 +977,24 @@ function Compose.History()
   for _, w in ipairs({ "Exalted", "Revered", "Honored" }) do
     for _, f in ipairs(byWord[w] or {}) do if #served < 3 then served[#served + 1] = f end end
   end
-  if #served > 0 then people[#people + 1] = "Has done good work for " .. U.Join(served) end
   local hon = ns.char and ns.char.honours or {}
   local h = hon[#hon]
-  if h and within(h.t, 14 * 86400) then
-    people[#people + 1] = "Only recently earned " .. h.standing:lower() .. " standing with " .. W.FactionName(h.faction)
+  local lately = h and within(h.t, 14 * 86400)
+    and ("only recently earned " .. h.standing:lower() .. " standing with " .. W.FactionName(h.faction)) or nil
+  if #served > 0 then
+    people[#people + 1] = "{they} {have} done good work for " .. U.Join(served) .. (lately and (", and " .. lately) or "")
+  elseif lately then
+    people[#people + 1] = "{they} " .. lately
   end
-  if rpgd and rpgd.rivals[1] then
-    people[#people + 1] = say("rival", { who = rpgd.rivals[1].name }, rpgd.rivals[1].name)
-  end
-  if sd and #sd.foes > 0 then
-    people[#people + 1] = "Has made " .. (#sd.foes == 1 and "an enemy" or (U.Number(#sd.foes) .. " enemies")) .. " on the road"
+
+  -- And who is set against them
+  local rival = rpgd and rpgd.rivals[1]
+  local foes = sd and #sd.foes or 0
+  local made = foes > 0 and ("{they've} made " .. (foes == 1 and "an enemy" or (U.Number(foes) .. " enemies")) .. " on the road") or nil
+  if rival then
+    people[#people + 1] = say("against", { who = rival.name, name = name }, rival.name) .. (made and (", and " .. made) or "")
+  elseif made then
+    people[#people + 1] = say("against_only", { made = made }, foes)
   end
   paras[#paras + 1] = paragraph(people)
 
@@ -995,7 +1025,16 @@ function Compose.History()
     if m and d.zone then bits[#bits + 1] = m .. " in " .. U.Mid(d.zone) .. " " .. d.label
     elseif m then bits[#bits + 1] = m .. " " .. d.label end
   end
-  if #bits >= 2 then now[#now + 1] = "Felt " .. U.Join(bits) end
+  local same = #bits >= 2
+  for k = 2, #days do
+    if days[k].mood ~= days[1].mood or days[k].zone ~= days[1].zone then same = false end
+  end
+  if same and #bits == #days then
+    local m = W.MOODS[days[1].mood].title:lower()
+    now[#now + 1] = "{they've} been " .. m .. (days[1].zone and (" in " .. U.Mid(days[1].zone)) or "") .. " for " .. U.Number(#days) .. " days now"
+  elseif #bits >= 2 then
+    now[#now + 1] = "{they've} been " .. U.Join(bits)
+  end
   if rpgd and ns.db.diaryExcerpt and rpgd.lastEntry and rpgd.lastEntry.text then
     now[#now + 1] = say("journal", { entry = quote(U.Truncate(rpgd.lastEntry.text, 280)) }, rpgd.lastEntry.t)
   end

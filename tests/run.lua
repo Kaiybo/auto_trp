@@ -291,9 +291,9 @@ ns.char.days = {
 }
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 local hist = ns.Compose.History()
-check(hist:find("Wears the colours of the Silver Lanterns and holds the rank of lamplighter there"), "history: guild")
-check(hist:find("Has done good work for Stormwind and the Argent Dawn"), "history: reputations")
-check(hist:find("Felt downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
+check(hist:find("wear%a* the colours of the Silver Lanterns and hold%a* the rank of lamplighter there"), "history: guild")
+check(hist:find("done good work for Stormwind and the Argent Dawn"), "history: reputations")
+check(hist:find("been downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
 check(ns.Compose.Bearing():find("about the gold of Elwynn's mines"), "personality: conversation hooks")
 state.buffs[#state.buffs + 1] = "Shadowform"
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
@@ -608,7 +608,7 @@ RPGDialogueCharDB.opinions.night_elves = { stance = "admire", t = NOW - 10, cont
 RPGDialogueCharDB.claims = { player = { a = {}, b = {} }, exposed = { a = NOW } }
 RPGDialogueCharDB.letters = { l1 = { arrived = NOW }, l2 = { arrived = NOW }, l3 = { arrived = NOW } }
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
-check(ns.Compose.Bearing():find("Used to distrust the night elves, and has since changed"), "Personality: changed tune: " .. ns.Compose.Bearing())
+check(ns.Compose.Bearing():find("used to distrust the night elves, and %a+ since changed"), "Personality: changed tune: " .. ns.Compose.Bearing())
 check(ns.Compose.Bearing():find("caught in a lie"), "History: a lie found out")
 check(not ns.Compose.History():find("letters"), "letters stay out of History")
 check(ns.Compose.Stats().letters == nil and ns.Compose.Stats().met == nil, "letters and people met are no longer statistics")
@@ -1105,7 +1105,7 @@ do
   -- One saved by an earlier version from the plain class ladder is told by its level.
   ns.char.milestones = { { level = 30, rank = "Cutthroat", zone = "Hillsbrad Foothills", t = NOW - 100 } }
   C.Refresh()
-  check(C.History():find("Was made Deathstalker in Hillsbrad Foothills"), "an old milestone reads on the right ladder")
+  check(C.History():find("rose to [%%a ,]*Deathstalker in Hillsbrad Foothills"), "an old milestone reads on the right ladder")
   ns.char.milestones = nil
   UnitRace = function() return "Human", "Human" end
   UnitClass = function() return "Priest", "PRIEST" end
@@ -1243,6 +1243,186 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- Every combination reads as one story: History and Personality are built for hundreds of
+-- mixes of what the sources hold (and don't), with each set of pronouns, and checked for
+-- what reads badly: a tag left over, a sentence with no subject, a verb that doesn't agree,
+-- stray punctuation. STORIES=1 prints them.
+do
+  local C, U = ns.Compose, ns.U
+  local saveCache, saveChar = {}, {}
+  for k, v in pairs(ns.cache) do saveCache[k] = v end
+  for _, k in ipairs({ "milestones", "honours", "finds", "days", "seedName", "chosenName" }) do saveChar[k] = ns.char[k] end
+  local saveDb = { nameFriends = ns.db.nameFriends, diaryExcerpt = ns.db.diaryExcerpt, chronicleGoals = ns.db.chronicleGoals }
+  local oldPron = ns.TRP.CustomPronouns
+  local function copy(t) local o = {} for k, v in pairs(t) do o[k] = v end return o end
+  math.randomseed(20261125)
+  local function chance(p) return math.random() < p end
+  local function pick(list) return list[math.random(#list)] end
+
+  local ORIGINS = {
+    { name = "Farmhand from the Westbrook fields", blurb = "I grew up hauling water for the Maclures." },
+    { name = "Initiate of the Cenarion Circle", blurb = "I woke into a world the Circle had slept through." },
+    { name = "Orphan of the Stormwind streets" },
+  }
+  local ZONES = { "Teldrassil", "Darkshore", "Ashenvale", "Stonetalon Mountains", "The Barrens", "Westfall", "Duskwood",
+    "Stormwind Stockade", "Wetlands" }
+  local TOWNS = { { 90, "Auberdine" }, { 50, "Astranaar" }, { 20, "Goldshire" }, { -30, "Westfall Sentinel" }, { -70, "Sentinel Hill" } }
+  local OPINIONS = {
+    { topic = "cenarion_circle", stance = "distrust" }, { topic = "cenarion_circle", stance = "respect" },
+    { topic = "teldrassil", stance = "wrong", changed = true, was = "faith" }, { topic = "stalvan", stance = "pity" },
+    { topic = "dark_riders", stance = "hate" }, { topic = "peace", stance = "for" }, { topic = "defias", stance = "masons_wronged" },
+    { topic = "night_elves", stance = "admire", changed = true, was = "distrust" }, { topic = "the_light", stance = "faith" },
+  }
+  local THREADS = { { "elwynn_gold", "resolved" }, { "westfall_fend", "unfolding" }, { "duskwood_tutor", "soured" },
+    { "broken_span", "stirring" }, { "arugal_wolves", "resolved" } }
+  local RACES = { { "Human", "PRIEST", "Alliance" }, { "NightElf", "DRUID", "Alliance" }, { "Scourge", "ROGUE", "Horde" },
+    { "Orc", "WARRIOR", "Horde" }, { "Dwarf", "HUNTER", "Alliance" } }
+
+  local function build(i)
+    local rpgd
+    if chance(0.85) then
+      local zones = {}
+      local nz = pick({ 0, 1, 2, 3, 4, 6, 9 })
+      for k = 1, nz do zones[k] = { name = ZONES[k], t = NOW - (nz - k + 1) * 86400 * pick({ 1, 5, 20 }) } end
+      local ops, seen = {}, {}
+      for k = 1, pick({ 0, 1, 2, 3, 5 }) do
+        local o = pick(OPINIONS)
+        if not seen[o.topic] then seen[o.topic] = true; ops[#ops + 1] = { topic = o.topic, stance = o.stance, changed = o.changed, was = o.was, t = NOW - k } end
+      end
+      local threads = {}
+      for k, th in ipairs(THREADS) do
+        if chance(0.35) then
+          threads[#threads + 1] = { id = th[1], title = ns.Sources.RPGD.ThreadName(th[1]), state = th[2], t = NOW - k * 3000, beats = 2 }
+        end
+      end
+      local towns = {}
+      for _, t in ipairs(TOWNS) do if chance(0.35) then towns[#towns + 1] = { id = t[2], name = t[2], value = t[1] } end end
+      table.sort(towns, function(a, b) return a.value > b.value end)
+      local friends, rivals = {}, {}
+      for k = 1, pick({ 0, 1, 2, 3 }) do friends[k] = { name = pick({ "Raene Wolfrunner", "Pelturas Whitemoon", "Marshal Dughan" }) .. k, affinity = 5, times = 3, last = NOW - k } end
+      if chance(0.4) then rivals[1] = { name = "Remy \"Two Times\"", affinity = -5, times = 2, last = NOW - 50 } end
+      local cleared = {}
+      for k = 1, pick({ 0, 0, 1, 2, 4 }) do cleared[k] = { name = pick({ "The Deadmines", "Wailing Caverns", "Shadowfang Keep", "The Stockade" }), t = NOW - k * 5000 } end
+      local books = {}
+      for k = 1, pick({ 0, 0, 1, 2, 3, 5 }) do books[k] = { title = "Book " .. k, n = 1 } end
+      local dom = {}
+      for k, t in ipairs({ "kind", "curious", "brave", "cruel" }) do if chance(0.3) and #dom < 2 then dom[#dom + 1] = t end end
+      rpgd = {
+        align = { light = pick({ 0, 40, -40 }), order = pick({ 0, 30, -30 }), honor = pick({ 0, 30, -30 }), taint = pick({ 0, 0, 40 }) },
+        traits = {}, dominant = dom, origin = chance(0.7) and copy(pick(ORIGINS)) or nil,
+        opinions = ops, towns = towns, friends = friends, rivals = rivals, met = #friends, conversations = 3,
+        zones = zones, threads = threads, cleared = cleared, kills = 0, killsByName = {}, deathCount = 0, deaths = {},
+        homeInn = chance(0.6) and pick({ "Lion's Pride Inn", "Stormwind City" }) or nil,
+        homePrev = chance(0.4) and "Auberdine" or nil, homeSince = NOW - 3600,
+        drunk = 0, drunkAt = 0, insanity = pick({ 0, 0, 50 }),
+        lastEntry = chance(0.6) and { text = "Back at the Lion's Pride. Farley poured me one on the house.", t = NOW - 60 } or nil,
+        journalCount = 1, lettersArrived = 0, books = books, topics = 0, claimsMade = 0, liesExposed = pick({ 0, 0, 1, 3 }), heard = 0,
+        arrived = {},
+      }
+    end
+    local sd
+    if chance(0.5) then
+      local f = {}
+      for k = 1, pick({ 0, 1, 2, 3 }) do f[k] = { name = "Mirelle" .. k, relationship = (k == 1 and chance(0.5)) and "Sworn sister" or nil } end
+      local foes = {}
+      for k = 1, pick({ 0, 0, 1, 2 }) do foes[k] = { name = "Foe" .. k } end
+      sd = { friends = f, foes = foes, added = 0, recentGroups = 0, recentPeople = pick({ 0, 0, 5 }) }
+    end
+    local race = pick(RACES)
+    local world = copy(saveCache.world)
+    world.race, world.class, world.faction = race[1], race[2], race[3]
+    world.level = pick({ 5, 18, 35, 60 })
+    world.guild = chance(0.5) and pick({ "The Silver Lanterns", "Harmonious Fist" }) or nil
+    world.guildRank = world.guild and chance(0.7) and "Oathsworn" or nil
+    world.pvpRank = chance(0.2) and "Knight" or nil
+    world.factions = {}
+    for _, f in ipairs({ { "Stormwind", "Revered" }, { "Darnassus", "Honored" }, { "Argent Dawn", "Exalted" } }) do
+      if chance(0.4) then world.factions[#world.factions + 1] = { name = f[1], standing = f[2], word = f[2] } end
+    end
+    world.professions = chance(0.5) and { { name = "Herbalism", rank = pick({ 40, 120, 280 }) } } or {}
+    world.money = pick({ 0, 5000, 2000000, 90000000 })
+    local deeds = { finished = {}, bosses = {}, questsDone = 0 }
+    if chance(0.4) then deeds.finished["Crime and Punishment"] = { t = NOW - 40000, zone = "Stormwind Stockade" } end
+    if chance(0.3) then deeds.finished["Wanted: Hogger"] = { t = NOW - 90000, zone = "Elwynn Forest" } end
+    if chance(0.4) then deeds.bosses[1] = { name = "Edwin VanCleef", first = NOW - pick({ 100, 80000 }), t = NOW - 100, where = "The Deadmines" } end
+    if chance(0.2) then deeds.bosses[#deeds.bosses + 1] = { name = "Archmage Arugal", first = NOW - 200, t = NOW - 200, where = "Shadowfang Keep" } end
+    local chron
+    if chance(0.3) then
+      chron = { zones = pick({ 0, 5, 30 }), created = NOW - 86400 * 40, dungeons = pick({ 0, 3 }), rares = pick({ 0, 6 }),
+        professions = {}, goals = chance(0.5) and { { text = pick({ "find the Defias hideout", "Will I ever see Theramore?" }) } } or {},
+        deaths = {}, bosses = {}, finished = {}, questsDone = pick({ 0, 30, 300 }) }
+    end
+    ns.cache.rpgd, ns.cache.sd, ns.cache.world, ns.cache.deeds, ns.cache.chronicle = rpgd, sd, world, deeds, chron
+    ns.char.milestones = chance(0.4) and { { level = 10, zone = "Darkshore", t = NOW - 9000 }, { level = 20, zone = "Ashenvale", t = NOW - 5000 } } or nil
+    ns.char.honours = chance(0.3) and { { t = NOW - 100, standing = "Exalted", faction = "Argent Dawn" } } or nil
+    ns.char.finds = chance(0.3) and { { item = "Crown of the Lost", quality = 4, zone = "The Deadmines", t = NOW - 500 } } or nil
+    ns.char.days = {}
+    if chance(0.3) then
+      for d = 0, 2 do ns.char.days[os.date("%Y-%m-%d", NOW - d * 86400)] = { moods = { [pick({ "downcast", "wonder", "ease" })] = 5 }, zones = { Duskwood = 5 } } end
+    end
+    ns.char.seedName, ns.char.chosenName = "combo" .. i, nil
+    ns.db.nameFriends, ns.db.diaryExcerpt, ns.db.chronicleGoals = chance(0.8), chance(0.8), chance(0.8)
+  end
+
+  -- What reads badly, outside quotes (a quote is the character's or a book's own words).
+  local SUBJECTLESS = { Has = 1, Have = 1, Was = 1, Were = 1, Is = 1, Saw = 1, Helped = 1, Stood = 1, Found = 1, Also = 1,
+    Felt = 1, Wears = 1, Holds = 1, Uses = 1, Reaches = 1, Used = 1, Watched = 1, Collected = 1, Followed = 1, Only = 1,
+    Keeps = 1, Believes = 1, Travels = 1, Counts = 1, Answers = 1, Put = 1, Rose = 1 }
+  local THEY_OK = { also = 1, always = 1, as = 1, was = 1, has = 1, is = 1, does = 1 }
+  local problems, stories, count = {}, {}, 0
+  local function inspect(label, text, pron)
+    if not text then return end
+    local plain = text:gsub("{col:%x+}.-{/col}", "Q"):gsub("\"[^\"]*\"", "Q")
+    local function bad(why) problems[#problems + 1] = label .. " [" .. pron .. "] " .. why .. ": " .. text end
+    if plain:find("{") then bad("a tag left over") end
+    -- After a quote that ends a sentence, the next one still starts with a capital.
+    local raw = text:gsub("{col:%x+}", ""):gsub("{/col}", "")
+    for start in raw:gmatch("[%.!%?]\" +(%l%a*)") do bad("lower-case after a quote (" .. start .. ")") end
+    for _, p in ipairs({ "  ", " ,", ",,", "%.%.", " %.", ",%.", "%.,", " and and ", " the the ", ", and,", " ;" }) do
+      if plain:find(p) then bad("'" .. p .. "'") end
+    end
+    for para in (plain .. "\n\n"):gmatch("(.-)\n\n") do
+      for stop, start in ("! " .. para):gmatch("([%.!%?Q:]) +(%a+)") do
+        if SUBJECTLESS[start] then bad("a sentence with no subject (" .. start .. ")") end
+        if start:find("^%l") and stop ~= "Q" and stop ~= ":" then bad("a sentence starting lower-case (" .. start .. ")") end
+      end
+    end
+    if pron == "they/them" then
+      for w in plain:gmatch("[Tt]hey (%a+)") do
+        if w:find("[^s]s$") and not THEY_OK[w] then bad("they " .. w) end
+        if THEY_OK[w] and w ~= "also" and w ~= "always" and w ~= "as" then bad("they " .. w) end
+      end
+    else
+      for w in plain:gmatch("%f[%a][SsHh]h?e (%a+)") do
+        if w == "have" or w == "are" or w == "were" or w == "do" or w == "don't" then bad("she/he " .. w) end
+      end
+    end
+  end
+  for i = 1, 400 do
+    build(i)
+    C.SourcesChanged()
+    for _, pron in ipairs({ "they/them", "she/her", "he/him" }) do
+      ns.TRP.CustomPronouns = function() return pron end
+      local ok1, h = pcall(C.History)
+      local ok2, b = pcall(C.Bearing)
+      if not ok1 or not ok2 then problems[#problems + 1] = "error in combination " .. i .. ": " .. tostring(ok1 and b or h) end
+      if ok1 and ok2 then
+        inspect("History " .. i, h, pron); inspect("Personality " .. i, b, pron)
+        if pron == (os.getenv("STORIES_PRON") or "they/them") then stories[#stories + 1] = "== " .. i .. " ==\n" .. tostring(b) .. "\n\n" .. tostring(h) end
+        count = count + 1
+      end
+    end
+  end
+  ns.TRP.CustomPronouns = oldPron
+  for k, v in pairs(saveCache) do ns.cache[k] = v end
+  for _, k in ipairs({ "rpgd", "sd", "deeds", "chronicle" }) do ns.cache[k] = saveCache[k] end
+  for k, v in pairs(saveChar) do ns.char[k] = v end
+  for k, v in pairs(saveDb) do ns.db[k] = v end
+  C.SourcesChanged(); C.Refresh()
+  if os.getenv("STORIES") then print("\n" .. table.concat(stories, "\n\n")) end
+  check(#problems == 0, "every combination reads as one story (" .. count .. " built): " .. table.concat(problems, "\n  ", 1, math.min(#problems, 25)) .. (#problems > 25 and ("\n  ... " .. #problems .. " in all") or ""))
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
@@ -1290,7 +1470,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x",
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", partner = "x", made = "x",
     start = "x", ago = "", next = "x", last = "x", entry = "x", goal = "x", view = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
