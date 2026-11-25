@@ -385,6 +385,9 @@ function U.Pron(text)
     ["they've"] = p.sub == "they" and "they've" or (p.sub .. "'s"),
     ["they're"] = p.sub == "they" and "they're" or (p.sub .. "'s"),
     are = p.be, have = p.has,
+    -- Verb endings after {they}: "{they} walk{s}" reads "they walk" or "she walks".
+    s = p.s, es = p.s == "s" and "es" or "",
+    ies = p.s == "s" and "ies" or "y",
   }
   return (text:gsub("{([%a']+)}", function(k) return map[k] or ("{" .. k .. "}") end))
 end

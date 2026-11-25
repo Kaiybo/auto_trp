@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.15.0 (2026-11-25): Many More Words
+
+- Far more writing to show up. Most moods now have five or more ways to put it in Currently and as many things a stranger notices (up to eight), and the calm temperaments four or five each. Every race and class has its own lines for many more moods (a dwarf planted like a boulder, a night elf utterly still with ears turned to every sound, a warrior who moves like someone who has held a line all day). Still faces, voices and postures only, never an invented action or prop.
+- Currently: three to five ways of describing every zone, a second and third for every dungeon, raid and city district, more for each activity (mail, bank, fishing, crafting, gathering, portals...), each craft, travelling, riding, flying, swimming, stealth, inns, towns, battlegrounds, flights and being a ghost, and different words for night, dawn and dusk.
+- The glances and About tell the same facts in different words from one character (or one event) to the next: Lately (fights, close calls, jobs, finds, story beats, conversations, new lands), Company, Ambition, Marks, and the History and Personality paragraphs (friends, rivals, dungeons, named foes, rare beasts, jobs, crafts, home, stories).
+- More mottos (by temperament and race), ambitions, builds, race and class looks, festival moods and ways to sum up the week.
+- Grammar: lines now agree with he or she as well as they ("she walks", "he carries"), and two moods at once read "In no hurry, hale and hearty" rather than a run of "and"s.
+- A new test fills every line with each set of pronouns and fails on any tag left over, and checks every mood has at least three ways to say it.
+
 ## 0.14.1 (2026-11-25): Secret Values
 
 - Fixed "attempt to perform boolean test on a secret boolean value" (World.lua, away-from-keyboard check) on clients that hide some game values. Every game API read and every event payload now treats a secret value as unknown, instead of patching one call at a time.
