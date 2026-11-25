@@ -52,7 +52,8 @@ function R.Read()
   for topic, rec in pairs(type(c.opinions) == "table" and c.opinions or {}) do
     if type(rec) == "table" and type(rec.stance) == "string" then
       out.opinions[#out.opinions + 1] = { topic = topic, stance = rec.stance, t = tonumber(rec.t) or 0,
-        changed = type(rec.contradicts) == "table" }
+        changed = type(rec.contradicts) == "table",
+        was = type(rec.contradicts) == "table" and type(rec.contradicts.stance) == "string" and rec.contradicts.stance or nil }
     end
   end
   table.sort(out.opinions, function(x, y) return x.t > y.t end)

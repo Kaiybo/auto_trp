@@ -91,3 +91,20 @@ quite | max 4
 not long ago | max 1
 best not | max 2
 faintly | max 3
+
+# Invented: actions, props and inner life the game never showed
+sitting beneath
+kneeling
+warming up by the fire
+doesn't always say why
+still argue
+most weeks
+something changed in
+light to read by
+would welcome company
+comes up in most conversations
+has gone hungry
+still thinks about it
+is not done yet
+above anything else
+makes a living

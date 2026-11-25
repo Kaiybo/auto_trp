@@ -307,7 +307,7 @@ function UI.PreviewText()
   add("history", s.history)
   add("physical", s.physical)
   if s.stats then
-    for _, st in ipairs(ns.Compose.STATS) do add("stat_" .. st.key, s.stats[st.key]) end
+    for _, st in ipairs(ns.Compose.STATS) do if not st.retired then add("stat_" .. st.key, s.stats[st.key]) end end
   end
   return table.concat(out, "\n")
 end
@@ -630,8 +630,12 @@ BINDING_NAME_AUTOTRP_UPDATE = "Write my profile now"
 do
   local at
   for i, o in ipairs(OPTIONS) do if o.path and o.path[2] == "stats" then at = i end end
-  for n, st in ipairs(ns.Compose.STATS) do
-    table.insert(OPTIONS, at + n, { path = { "fields", "stat_" .. st.key }, label = "    " .. st.label })
+  local n = 0
+  for _, st in ipairs(ns.Compose.STATS) do
+    if not st.retired then
+      n = n + 1
+      table.insert(OPTIONS, at + n, { path = { "fields", "stat_" .. st.key }, label = "    " .. st.label })
+    end
   end
 end
 
@@ -651,7 +655,7 @@ local HELP = {
   "|cffffd100/atrp slot <glance> <1-5|0>|r: move a glance (mood, lately, company, ambition, marks) to another slot, or 0 to drop it",
   "|cffffd100/atrp badge|r: show or hide the mood badge",
   "|cffffd100/atrp days|r: the mood journal, the last week of feelings and places",
-  "Fields: currently, title, fulltitle, nickname, motto, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, met, books, letters)",
+  "Fields: currently, title, fulltitle, nickname, motto, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, books)",
 }
 
 local function eachField(arg, fn)

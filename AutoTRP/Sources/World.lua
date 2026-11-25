@@ -478,7 +478,7 @@ function World.Activity(s, seed, terse)
   elseif s.instance == "pvp" then
     text = "fighting for the banner in " .. where
   elseif s.resting and World.IsInn(s.subzone) then
-    text = U.Pick({ "resting at " .. place, "warming up by the fire at " .. place, "taking a room at " .. place }, seed)
+    text = U.Pick({ "resting at " .. place, "staying at " .. place }, seed)
   elseif s.subzone and W.CITY_FLAVOR[s.subzone] then
     text = W.CITY_FLAVOR[s.subzone]
   elseif s.resting then
@@ -492,13 +492,10 @@ function World.Activity(s, seed, terse)
   elseif s.mounted then
     text = World.Mount(s) .. " through " .. where
   else
+    -- Out in the open: where they are, and nothing they aren't doing.
     local flavor = W.ZONE_FLAVOR[s.zoneKey or ""]
-    local classAct = W.CLASS_ACTIVITY[s.class or ""]
-    local roll = U.Hash(seed .. "flavor") % 3
-    if flavor and roll == 0 then
+    if flavor and U.Hash(seed .. "flavor") % 2 == 0 then
       text = U.Pick(flavor, seed .. "fl")
-    elseif classAct and roll == 1 then
-      text = U.Pick(classAct, seed .. "cl"):gsub("{place}", function() return s.subzone and place or where end)
     else
       local around = s.subzone and ("around " .. place) or ("in " .. where)
       text = U.Pick({ "on the road " .. around, "out " .. around, "travelling " .. around }, seed)
