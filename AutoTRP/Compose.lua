@@ -160,6 +160,12 @@ function Compose.LatelyGlance()
     add(thread.t, 1, { TI = thread.state == "resolved" and "Loose Ends Tied" or "Caught Up in Something",
       IC = "INV_Misc_Note_02", TX = say("thread_" .. thread.state, { t = lowerFirst(thread.title) }, thread.id) })
   end
+  -- A name earned lately
+  local fresh, freshT = Compose.NewName()
+  if fresh then
+    add(freshT, 2, { TI = "A Name Earned", IC = fresh.icon or "INV_Misc_Note_04",
+      TX = U.Pron(say("newname", { nick = "\"" .. fresh.nick .. "\"" }, fresh.key)) })
+  end
   -- A fight just now
   local fight = ns.char and ns.char.lastFight
   if fight and type(fight.foe) == "table" and within(fight.t, 300) then
@@ -703,7 +709,7 @@ function Compose.History()
       end
     end
   end
-  if earned then deeds[#deeds + 1] = earned end
+  for _, s in ipairs(earned or {}) do deeds[#deeds + 1] = s end
   if rpgd then
     local places = {}
     for k = 1, math.min(3, #rpgd.cleared) do places[k] = U.Mid(rpgd.cleared[k].name) end
@@ -896,6 +902,7 @@ Compose.STATS = {
   { key = "wealth", label = "Wealth", icon = "INV_Misc_Coin_02" },
   { key = "crafts", label = "Crafts", icon = "Trade_Engineering" },
   { key = "standing", label = "Best standing", icon = "INV_BannerPVP_02" },
+  { key = "names", label = "Names earned", icon = "INV_Misc_Note_04" },
   -- Retired: they meant little to anyone reading the profile. Kept so that what an
   -- earlier version wrote is taken off again (they never have a value now).
   { key = "met", label = "People met", icon = "Spell_Holy_PrayerOfSpirit", retired = true },
@@ -959,6 +966,13 @@ function Compose.Stats()
   local top = world.factions and world.factions[1]
   if top and top.word then out.standing = top.word .. " with " .. W.FactionName(top.name) end
   if rpgd and #rpgd.books > 0 then out.books = figure(#rpgd.books) end
+  -- Every name earned, the one worn first ("Mine-Warden, Defias-Breaker and Hogger's Bane").
+  local names, worn = {}, Compose.Earned()
+  if worn then names[1] = worn.nick end
+  for _, e in ipairs(Compose.EarnedAll()) do
+    if e ~= worn and #names < 5 then names[#names + 1] = e.nick end
+  end
+  if #names > 0 then out.names = U.Join(names) end
   return out
 end
 
@@ -1030,55 +1044,94 @@ function Compose.Birthplace()
   return W.RACE_HOME[ns.cache.world.race or ""]
 end
 
--- What the character has earned a name for: a story finished in RPG Dialogue first, then a
--- quest chain, then the hardest dungeon master brought down, then a bounty collected. A
--- nickname sticks, so within each kind the first one earned stands. Each comes with the
--- History sentence that says where the name came from.
--- Returns { nick, motto, icon, deed, key } or nil; key matches the story or deed it names.
-function Compose.Earned()
+-- What the character has earned a name for. Four kinds, highest first: a story finished in
+-- RPG Dialogue, a quest chain finished (Chronicle), a dungeon or raid master brought down,
+-- a bounty collected. Within a kind the greatest deed wins (the hardest master, the longest
+-- chain), and between equals the first one earned: a name sticks. Each comes with the
+-- History sentence that says where it came from.
+-- An entry: { nick, motto, icon, deed, key, rank, tier, t }; key names the story or deed.
+
+-- "Wanted: "Hogger"", "WANTED: Murkdeep!", "Wanted - Arnak Grimtotem" -> the target and
+-- the name the nickname uses, or nil when the poster is after a crowd.
+function Compose.BountyTarget(title)
+  local target = type(title) == "string" and title:match("^[Ww][Aa][Nn][Tt][Ee][Dd]%s*[:%-!]%s*(.-)%s*$")
+  if not target then return nil end
+  target = target:gsub("[!%.]+$", ""):gsub("^[\"']+", ""):gsub("[\"']+$", "")
+  if target == "" or target:find("^[Tt]he ") or not target:find("^%u") then return nil end
+  local short = target:match("([%a'%-]+)$")
+  if not short or #short < 3 or W.BOUNTY_NOT_A_NAME[short:lower()] then return nil end
+  return target, short
+end
+
+local function better(a, b)
+  if a.rank ~= b.rank then return a.rank > b.rank end
+  if a.tier ~= b.tier then return a.tier > b.tier end
+  if a.t ~= b.t then return a.t < b.t end
+  return a.key < b.key
+end
+
+local earnedCache = {}
+-- Every name earned, best first, one entry per nickname.
+function Compose.EarnedAll()
   local c = ns.cache
   local rpgd, chron = c.rpgd, c.chronicle
-  local best
-  local function offer(rank, t, e)
-    if not best or rank > best.rank or (rank == best.rank and t < best.t) then
-      e.rank, e.t = rank, t
-      best = e
-    end
+  local class = c.world and c.world.class
+  if earnedCache.rpgd == rpgd and earnedCache.chron == chron and earnedCache.class == class and earnedCache.list then
+    return earnedCache.list
   end
+  local all = {}
+  local function offer(e) all[#all + 1] = e end
   for _, th in ipairs(rpgd and rpgd.threads or {}) do
     local e = th.state == "resolved" and W.EARNED_STORY[th.id]
     if e then
-      offer(4, th.t, { nick = e.nick, motto = e.motto, icon = e.icon, key = "thread:" .. th.id,
+      offer({ rank = 4, tier = 0, t = th.t or 0, nick = e.nick, motto = e.motto, icon = e.icon, key = "thread:" .. th.id,
         deed = "Saw " .. lowerFirst(th.title) .. " through to the end" })
     end
   end
   local finished = chron and chron.finished or {}
   for title, q in pairs(finished) do
     local e = W.EARNED_QUEST[title]
-    if e then offer(3, q.t, { nick = e.nick, motto = e.motto, icon = e.icon, deed = e.deed, key = "quest:" .. title }) end
+    if e and (not e.class or e.class == class) then
+      offer({ rank = 3, tier = e.tier or 1, t = q.t or 0, nick = e.nick, motto = e.motto, icon = e.icon, deed = e.deed,
+        key = "quest:" .. title })
+    end
   end
   if chron and #chron.bosses > 0 then
     local felled = {}
     for _, b in ipairs(chron.bosses) do felled[b.name] = b end
-    for i = #W.EARNED_BOSS, 1, -1 do
-      local e = W.EARNED_BOSS[i]
+    for i, e in ipairs(W.EARNED_BOSS) do
       local b = felled[e.name]
       if b then
-        offer(2, 0, { nick = e.short .. "'s Bane", icon = W.EARNED_BOSS_ICON, key = "boss:" .. e.name,
+        offer({ rank = 2, tier = i, t = b.t or 0, nick = e.nick, motto = e.motto, icon = e.icon, key = "boss:" .. e.name,
           deed = "Was there when " .. e.name .. " fell" .. (b.where and (" in " .. U.Mid(b.where)) or "") })
-        break
       end
     end
   end
   for title, q in pairs(finished) do
-    local target = title:match("^[Ww][Aa][Nn][Tt][Ee][Dd]:%s*(.-)[!%.]*$")
-    local short = target and target:match("([%a'%-]+)$")
-    if short and #short > 2 then
-      offer(1, q.t, { nick = short .. "'s Bane", icon = W.EARNED_BOUNTY_ICON, key = "quest:" .. title,
-        deed = "Collected the bounty on " .. target .. (q.zone and (" in " .. U.Mid(q.zone)) or "") })
+    local target, short = Compose.BountyTarget(title)
+    if target then
+      local e = W.EARNED_BOUNTY[short] or {}
+      offer({ rank = 1, tier = 0, t = q.t or 0, nick = short .. "'s Bane", motto = e.motto, icon = W.EARNED_BOUNTY_ICON,
+        key = "quest:" .. title, deed = "Collected the bounty on " .. target .. (q.zone and (" in " .. U.Mid(q.zone)) or "") })
     end
   end
-  return best
+  table.sort(all, better)
+  local list, nicks = {}, {}
+  for _, e in ipairs(all) do
+    if not nicks[e.nick] then nicks[e.nick] = true; list[#list + 1] = e end
+  end
+  earnedCache.rpgd, earnedCache.chron, earnedCache.class, earnedCache.list = rpgd, chron, class, list
+  return list
+end
+
+-- The name they go by: the one chosen with /atrp name, if it's still theirs, else the best.
+function Compose.Earned()
+  local all = Compose.EarnedAll()
+  local chosen = ns.char and ns.char.chosenName
+  if chosen then
+    for _, e in ipairs(all) do if e.key == chosen then return e end end
+  end
+  return all[1]
 end
 
 -- The saying they took from what they went through, or nothing yet.
@@ -1099,16 +1152,60 @@ function Compose.Icon()
   return (e and e.icon) or W.CLASS_ICON[ns.cache.world.class or ""]
 end
 
--- The History sentences for the deed behind the name (the deed itself, then where the name
--- and the saying came from).
+-- The History sentences for the deed behind the name: the deed and where the name came
+-- from, the saying that came with it, and the other names that stuck (two at most).
+-- Returns a list of sentences and the key of the deed told.
 function Compose.EarnedStory(name)
   local e = Compose.Earned()
   if not e then return nil end
-  local s = e.deed .. ". That's how " .. name .. " came to be called \"" .. e.nick .. "\""
-  if e.motto then
-    s = s .. ", and where {they} picked up the saying " .. quote(e.motto)
+  local out = { say("earned", { deed = e.deed, name = name, nick = quote(e.nick) }, e.key) }
+  if e.motto then out[#out + 1] = say("saying", { motto = quote(e.motto) }, e.key) end
+  local others = {}
+  for _, o in ipairs(Compose.EarnedAll()) do
+    if o.key ~= e.key and #others < 2 then others[#others + 1] = quote(o.nick) end
   end
-  return s, e.key
+  if #others > 0 then out[#out + 1] = say("othernames", { list = U.Join(others) }, others[1]) end
+  return out, e.key
+end
+
+-- Names earned since last time (called every tick). The first time, and when a source comes
+-- back with several at once or with deeds a day old, they're taken in quietly: only a name
+-- earned just now is news. Returns the new entries.
+function Compose.NoticeNames()
+  if not ns.char or not ns.cache or not ns.cache.read then return {} end
+  if not ns.cache.rpgd and not ns.cache.chronicle then return {} end
+  local all = Compose.EarnedAll()
+  local first = ns.char.names == nil
+  ns.char.names = ns.char.names or {}
+  local known, fresh = ns.char.names, {}
+  for _, e in ipairs(all) do
+    if not known[e.key] then fresh[#fresh + 1] = e end
+  end
+  local now = U.Now()
+  local quiet = first or #fresh > 2
+  local out = {}
+  for _, e in ipairs(fresh) do
+    local old = e.t > 0 and now - e.t > 86400
+    if quiet or old then
+      known[e.key] = e.t > 0 and e.t or 1
+    else
+      known[e.key] = now
+      out[#out + 1] = e
+    end
+  end
+  return out
+end
+
+-- The newest name, if it was earned in the last two days: { entry, t } or nil.
+function Compose.NewName()
+  local known = ns.char and ns.char.names
+  if not known then return nil end
+  local best, bt
+  for _, e in ipairs(Compose.EarnedAll()) do
+    local t = known[e.key]
+    if t and within(t, 2 * 86400) and (not bt or t > bt) then best, bt = e, t end
+  end
+  return best, bt
 end
 
 ---------------------------------------------------------------------------
