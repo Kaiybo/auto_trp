@@ -735,7 +735,7 @@ W.RACE_TELLS = {
     weary = { "Ears drooping, eyes dimmer than usual." },
     uneasy = { "Ears flicking at every sound, silver eyes narrowed at the dark." },
     ease = { "Still as a moonlit pool. Centuries of patience in one quiet breath." },
-    downcast = { "Ears low, eyes distant, carrying a grief older than most kingdoms." },
+    downcast = { "Ears low, eyes distant." },
   },
   Orc = {
     angry = { "Tusks bared, knuckles cracking. The bloodlust is close to the surface today." },
@@ -753,7 +753,7 @@ W.RACE_TELLS = {
     weary = { "Great head bowed, hooves dragging. Even the Earth Mother's children need rest." },
     ease = { "Ears twitching lazily, breathing slow and deep like the plains at evening." },
     uneasy = { "Nostrils flared, ears pinned back. Doesn't like the smell of this place." },
-    downcast = { "Massive shoulders slumped. Grief sits heavy on one so large." },
+    downcast = { "Massive shoulders slumped, head low." },
   },
   Scourge = {
     weary = { "Joints creaking louder than usual. Even the dead wear down." },
@@ -1121,7 +1121,7 @@ moreClass("WARRIOR", {
   shaken = { "Leaning on {their} {mainhand} more than usual." },
   elated = { "Loud and laughing, chest out." },
   downcast = { "Says nothing, and doesn't want to be asked." },
-  ease = { "Stretching out sore shoulders, at ease for once." },
+  ease = { "Shoulders loose, at ease for once." },
 })
 moreClass("PALADIN", {
   shaken = { "Praying hard, hands clasped tight." },

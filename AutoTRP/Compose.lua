@@ -138,7 +138,7 @@ function Compose.LatelyGlance()
   if cdeath and (not death or cdeath.t > death.t) then death = cdeath end
   if death and within(death.t, 2 * 86400) then
     local tx = "Was badly hurt" .. (death.killer and (" by " .. death.killer) or "") .. (death.zone and (" in " .. death.zone) or "")
-      .. (within(death.t, 3 * 3600) and " within the last few hours" or " in the last day or two")
+      .. (within(death.t, 3 * 3600) and ", within the last few hours" or ", a day or two ago")
     add(death.t, 3, { TI = "Hurt", TX = tx .. ".", IC = "Spell_Holy_Resurrection" })
   end
   local boss = chron and chron.bosses[1]
@@ -842,7 +842,7 @@ function Compose.Physical()
   if #cl > 0 then dress[#dress + 1] = U.Pick(cl, seed("classlook")) end
   dress[#dress + 1] = kit(world, false, itemName)
   local finest = world.gear and world.gear.finest
-  if finest and finest.name and (finest.quality or 0) >= 3 then
+  if finest and finest.name and (finest.quality or 0) >= 4 then
     dress[#dress + 1] = "The finest piece is " .. itemName(finest.name, finest.quality)
   end
   local bag = {}
