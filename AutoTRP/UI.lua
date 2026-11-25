@@ -670,9 +670,35 @@ local HELP = {
   "|cffffd100/atrp days|r: the mood journal, the last week of feelings and places",
   "|cffffd100/atrp names|r: every name you've earned, and what for",
   "|cffffd100/atrp spells|r: the spells and abilities you cast most",
+  "|cffffd100/atrp places|r: the lands you've been to, and where your time goes",
   "|cffffd100/atrp name <number|auto>|r: wear one of your earned names (|cffffd100auto|r: the greatest deed's)",
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, haunt, books)",
 }
+
+-- The travel record: how many lands, the first and the latest, and where the time goes.
+function UI.ListPlaces()
+  local T = ns.Sources.Travels
+  T.Count()
+  ns.Compose.SourcesChanged()
+  local c = ns.Compose.Refresh()
+  local lands = ns.Compose.Lands(c)
+  if #lands == 0 then
+    ns.Print("No lands noted yet. Every land you set foot in from now on is noted, with the time you spend there.")
+    return
+  end
+  local first, last = lands[1], lands[#lands]
+  ns.Print(("%d %s so far, starting with %s%s."):format(#lands, #lands == 1 and "land" or "lands", first.name,
+    (#lands > 1 and (", the latest " .. last.name) or "")))
+  local tr = c.travels
+  local parts = {}
+  for i = 1, math.min(5, tr and #tr.haunts or 0) do
+    local h = tr.haunts[i]
+    parts[i] = h.name .. " " .. T.Span(h.secs, true)
+  end
+  if #parts > 0 then
+    ns.Print("Time spent" .. (tr.since and date and (" since " .. date("%d %b %Y", tr.since)) or "") .. ": " .. table.concat(parts, ", ") .. ".")
+  end
+end
 
 -- Earned names: list them, or choose which to wear.
 function UI.ListNames()
@@ -860,6 +886,8 @@ SlashCmdList.AUTOTRP = function(msg)
       local since = ns.char.casts and ns.char.casts.since
       ns.Print("Cast most" .. (since and date and (" since " .. date("%d %b %Y", since)) or "") .. ": " .. table.concat(parts, ", ") .. ".")
     end
+  elseif cmd == "places" or cmd == "lands" then
+    UI.ListPlaces()
   elseif cmd == "name" then
     UI.ChooseName(arg)
   else

@@ -2241,6 +2241,11 @@ W.SAY = {
   setout = { "{name} has only just set out, and hasn't been far from home yet",
     "{name} is new to the road, and hasn't been far from home yet" },
   home = { "Calls {inn} home", "Has made {inn} {their} home" },
+  -- Where most of their time goes (Auto TRP's own count of time spent in each land).
+  haunt = { "Keeps coming back to {where}", "Spends more time in {where} than anywhere else",
+    "Is most often found in {where}" },
+  haunt_most = { "Spends most of {their} days in {where}", "Most of {their} time is spent in {where}",
+    "Has spent more time in {where} than everywhere else put together" },
   lastplace = { "The last new place {they} reached was {place}", "Most recently reached {place}" },
   -- Earned names: where the name came from, the saying that came with it, the others that
   -- stuck, and a name earned only lately (Lately).

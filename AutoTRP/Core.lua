@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.20.0"
+ns.VERSION = "0.21.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -140,7 +140,7 @@ ns.DEFAULTS = {
     stats = true,       -- Statistics in Additional information (each one has its own switch too)
     stat_deaths = true, stat_lands = true, stat_road = true, stat_dungeons = true, stat_foes = true,
     stat_rares = true, stat_slain = true, stat_jobs = true, stat_wealth = true, stat_crafts = true,
-    stat_standing = true, stat_names = true, stat_spell = true, stat_met = true, stat_books = true, stat_letters = true,
+    stat_standing = true, stat_names = true, stat_spell = true, stat_haunt = true, stat_met = true, stat_books = true, stat_letters = true,
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },
@@ -167,6 +167,7 @@ ns.CHAR_DEFAULTS = {
   -- chosenName = nil, -- the earned name to wear (/atrp name), else the best one
   -- casts = nil,    -- { since, n = { [spell name] = times cast } }, for the most cast spell
   -- deeds = nil,    -- Auto TRP's own record of quests turned in and masters felled (Sources/Deeds.lua)
+  -- travels = nil,  -- Auto TRP's own record of lands visited and time spent in each (Sources/Travels.lua)
 }
 
 local function fill(db, defaults)

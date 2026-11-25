@@ -1219,6 +1219,72 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- The travel record: lands set foot in and time spent in each, without RPG Dialogue;
+-- instances aren't lands, time away from the keyboard doesn't count.
+do
+  local C, T = ns.Compose, ns.Sources.Travels
+  local rpgd = RPGDialogueCharDB
+  RPGDialogueCharDB = nil
+  ns.char.travels = nil
+  ns.char.seen.zones = { ["Elwynn Forest"] = NOW - 20 * 86400, ["The Deadmines"] = NOW - 15 * 86400 }
+  local oldTime, oldInst, oldAFK = GetServerTime, IsInInstance, UnitIsAFK
+  local now = NOW
+  GetServerTime = function() return now end
+  local afk = false
+  UnitIsAFK = function() return afk end
+  local function go(zone, secs, inst)
+    state.zone = zone
+    IsInInstance = function() if inst then return true, inst end return false, "none" end
+    event("ZONE_CHANGED_NEW_AREA")
+    local left = secs
+    while left > 0 do local step = math.min(T.TICK, left); now = now + step; left = left - step; T.Count() end
+  end
+  state.zone = "Elwynn Forest"
+  T.Count()
+  check(ns.char.travels.zones["Elwynn Forest"] and ns.char.travels.zones["Elwynn Forest"].t == NOW - 20 * 86400,
+    "lands seen before the record began are taken in with their time")
+  go("Westfall", 3 * 3600)
+  go("The Deadmines", 2 * 3600, "party")
+  go("Duskwood", 9 * 3600)
+  go("Redridge Mountains", 600)
+  afk = true; go("Duskwood", 5 * 3600); afk = false
+  local tr = ns.char.travels.zones
+  check(math.abs(tr["Duskwood"].secs - 9 * 3600) <= T.TICK, "time spent counts, but not away from the keyboard: " .. tr["Duskwood"].secs)
+  now = now + 4 * 3600; T.Count()
+  check(math.abs(tr["Duskwood"].secs - 9 * 3600 - T.GAP) <= T.TICK, "a long gap counts only a little")
+  C.SourcesChanged(); C.Refresh()
+  local names = {}
+  for _, l in ipairs(C.Lands()) do names[#names + 1] = l.name end
+  check(table.concat(names, ",") == "Elwynn Forest,Westfall,Duskwood,Redridge Mountains", "lands in order, no dungeons: " .. table.concat(names, ","))
+  local st = C.Stats()
+  check(st.lands == "4", "Lands explored without RPG Dialogue: " .. tostring(st.lands))
+  check(st.road == "20", "Days on the road from the first land: " .. tostring(st.road))
+  check(st.haunt == "Duskwood, 9 hours", "the favourite haunt is a statistic: " .. tostring(st.haunt))
+  local h = C.History()
+  check(h:find("From Elwynn Forest", 1, true) and h:find("four lands", 1, true), "History's road without RPG Dialogue")
+  check(h:find("Duskwood", 1, true) and (h:find("most of", 1, true) or h:find("Most of", 1, true) or h:find("everywhere else", 1, true)),
+    "and where the time goes: " .. (h:match("[^.\n]*Duskwood[^.\n]*") or "?"))
+  ns.cache.world.level = 22
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end
+  SlashCmdList.AUTOTRP("places")
+  DEFAULT_CHAT_FRAME.AddMessage = oldChat
+  local out = table.concat(said, " ")
+  check(out:find("4 lands so far, starting with Elwynn Forest, the latest Redridge Mountains", 1, true) and out:find("Duskwood 9 hours", 1, true),
+    "/atrp places lists them: " .. out)
+  -- A short spell somewhere isn't a haunt.
+  for _, z in pairs(ns.char.travels.zones) do z.secs = math.min(z.secs, 3000) end
+  C.SourcesChanged(); C.Refresh()
+  check(C.Stats().haunt == nil, "no haunt until it's clear")
+  check(ns.TRP.FIELDS.stat_haunt ~= nil, "the haunt has its own switch")
+  RPGDialogueCharDB = rpgd
+  GetServerTime, IsInInstance, UnitIsAFK = oldTime, oldInst, oldAFK
+  state.zone = "Elwynn Forest"
+  ns.char.travels = nil
+  C.SourcesChanged(); C.Refresh()
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
