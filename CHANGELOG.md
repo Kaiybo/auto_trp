@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.21.0 (2026-11-25): All Kinds of Weather
+
+Far more of the game now reaches your profile: two dozen more game events (and the dozens of messages, emotes and spells they listen for), four new moods, and roughly twice the words.
+
+- **Drink**: the game's own "You feel tipsy / drunk / completely smashed" makes you merry and shows in *Currently* (*"swaying on his feet in Goldshire"*) until you sober up.
+- **The auction house**: an auction sold makes you flush, one won thrills, being outbid or an auction expiring frustrates.
+- **Other people**: emotes aimed at you move your mood (a wave or a greeting, a cheer, a kiss, a slap, being laughed at, a comforting pat), at most once every few minutes per person. So do a whisper, an invitation to a group, and the group breaking up. A guild joined or left is noticed.
+- **A hand up from death**: being brought back by another player leaves you **grateful** (a new mood), and *Currently* says you're only just back on your feet.
+- **Battle**: an honourable kill makes you fierce, a battleground won is a triumph and one lost a frustration, a rare beast in your sights thrills, a world boss makes you tense, and an elite brought down makes you proud.
+- **Deep water**: running out of breath or swimming out into fatigue.
+- **The world's services**: a repair (and *"had his gear mended"* when the bill is paid), the stable master, the innkeeper, a battlemaster, a guild charter, a quest-giver handing over a reward, new mail waiting, a fishing catch, a recipe learned, talent points spent, a job taken on, full bags.
+- **Getting about**: a flight landing (*"just off a flight into Booty Bay"*), a summons, a mage's teleport, levitating, walking on water, a campfire's warmth, First Aid, the Eye of Kilrogg and Far Sight, a dwarf's treasure hunt.
+- **More spells with meaning**: taming a beast, reviving a pet, Divine Intervention, Lay on Hands, Reincarnation, Enslave Demon, the group blessings and more.
+- **Weather**: the snows of Winterspring, Dun Morogh and Alterac leave you **chilled** (more at night), the deserts and jungles from Tanaris to Stranglethorn **sweltering** (most at midday). Only out of doors, and race matters: a troll feels the cold, a Forsaken barely does.
+- **Going back**: a character of thirty or more back in the land where they started is **wistful** (a new mood), and coming back after three days or more away makes you determined (*"back on the road after five days away"*).
+- **New seasons**: the Harvest Festival, Children's Week and the Day of the Dead.
+- **More words everywhere**: every mood has four or so new tells and two new ways to say it (429 tells, up from 240), the calm temperaments two more each, every zone two more ways to describe it (232 lines, up from 152), twice the activities, more travel and time-of-day phrases, more dungeon and city lines (and nine new city districts), sixty more emotes of your own that count, about seventy new places that matter to a race or class, new racial hours, and new tells for every race and class, including for the new moods.
+
 ## 0.20.0 (2026-11-25): In Good Order
 
 - **Fixed: some characters' profiles stopped being written.** 0.14.0 lost the class rank ladders every race shares, so a character whose race and class have no ladder of their own (a human warlock, a dwarf rogue) hit an error on every update: *Currently* and the glances kept going, but the title, About, History, statistics, nickname and the rest were never written. The ladders are back (a human warlock rises from Initiate to Summoner and on), and a new test builds the whole profile for every race and class.
