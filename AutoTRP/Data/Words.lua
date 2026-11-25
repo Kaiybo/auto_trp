@@ -1704,6 +1704,8 @@ W.WEEK_TONE = {
 
 -- Class reagents and tools in the bags (item id, name if the game can't say). What a class
 -- carries is told only when it's really in the bags.
+-- Reagents named without a count ("Arcane Powder", not "twenty Arcane Powders").
+W.MASS_NOUN = { powder = true, berries = true, poison = true, thornroot = true }
 W.CLASS_REAGENTS = {
   PALADIN = { { 21177, "Symbol of Kings" }, { 17033, "Symbol of Divinity" } },
   PRIEST = { { 17029, "Sacred Candle" }, { 17028, "Holy Candle" } },

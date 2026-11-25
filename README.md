@@ -72,7 +72,7 @@ A profile is public, so the character isn't made out to be widely known. Standin
 - It never writes to Total RP 3's default profile (Total RP 3 doesn't allow it).
 - **Switched off means taken down.** Turn off a statistic and Auto TRP removes what it wrote there; turn off a glance and it's hidden (Total RP 3 keeps the text). Other fields simply stop updating. Anything you've edited is left as it is.
 - **It never writes over your own words.** If a field already has text it didn't write, or you edit something it wrote, that field becomes yours and it stops touching it. `/atrp claim <field>` hands one back.
-- Nothing is written in combat. *Currently* and the glances update at most every 90 seconds; the rest every five minutes or after something that matters.
+- Nothing is written in combat. *Currently* and the glances update at most every 15 seconds; the rest within half a minute of something that matters, and every five minutes regardless.
 - **Backup**: before its first write to a profile, Auto TRP keeps a copy of everything it might touch. `/atrp restore` puts the profile back exactly and hands every field back to you.
 - Profile text is public, so it never gives your exact position, never reads Chronicle notes, and only names other players you've marked as friends in Social Diary (switch that off in settings).
 - Optional: pause *Currently* and the glances while you're out of character.

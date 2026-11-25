@@ -187,6 +187,7 @@ function Mood.Scores(world)
     end
     if friends > 0 then add("elated", 15 + 10 * friends, "with friends") end
   end
+  if world.grouped then st.lastSocial = now end
   local lastSocial = st.lastSocial or now
   if not world.grouped and now - lastSocial > 2 * 3600 then
     add("lonely", U.Clamp((now - lastSocial) / 3600 - 2, 0, 1) * 22, "alone a long while")
@@ -326,7 +327,7 @@ function Mood.Current(world)
   local second = ranked[2]
   if second and second.v >= ranked[1].v * 0.6 then
     local d2 = def(second.name, world)
-    out.also = (pick(d2.adj, seed .. second.name, world) or ""):lower()
+    out.also = U.LowerFirst(pick(d2.adj, seed .. second.name, world) or "")
     if out.also == "" then out.also = nil end
     out.alsoKey = second.name
   end
@@ -435,8 +436,10 @@ ns.On("PLAYER_REGEN_ENABLED", function()
   ns.char.lastFight = { foe = foe, t = U.Now(), close = lowest < 0.25, long = fightStart and U.Now() - fightStart > 45 }
   lowest, fightStart, foe = 1, nil, nil
 end)
+-- Company: any change to the group (leaving it included) counts as being with people, so
+-- the loneliness clock starts when the group breaks up, not when it formed.
 ns.On("GROUP_ROSTER_UPDATE", function()
-  if ns.char and (U.Call(IsInGroup) or U.Call(IsInRaid)) then state().lastSocial = U.Now() end
+  if ns.char then state().lastSocial = U.Now() end
 end)
 
 -- Loot: a rare find thrills, an epic one more so.
@@ -695,7 +698,8 @@ end
 ns.Listen("LOGIN", function()
   local st = state()
   st.t = st.t and st.t > 0 and st.t or U.Now()
-  st.lastSocial = st.lastSocial or U.Now()
+  -- Time logged out isn't time spent alone.
+  st.lastSocial = U.Now()
   lastMoney = U.Call(GetMoney)
 end)
 
@@ -766,5 +770,5 @@ function Mood.Note(current)
   lastNoteKey, lastNoteAt = current.key, now
   if first then return end   -- not on login
   local why = current.reasons and current.reasons[1]
-  ns.Print("|cffd0d0ffYou feel " .. current.title:lower() .. (why and (": " .. why) or "") .. ".|r")
+  ns.Print("|cffd0d0ffYou feel " .. U.LowerFirst(current.adj or current.title) .. (why and (": " .. why) or "") .. ".|r")
 end

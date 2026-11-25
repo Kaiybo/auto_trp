@@ -153,6 +153,19 @@ local function seasoned(level, key)
   end
 end
 
+-- Who did the killing, as a sentence names them: "Hogger", but "a Defias Pillager" when it
+-- was one of many (the character has killed more than one of them, or the fight said so).
+function Compose.Killer(name)
+  local rpgd = ns.cache.rpgd
+  local fight = ns.char and ns.char.lastFight
+  if type(fight) == "table" and type(fight.foe) == "table" and fight.foe.name == name then
+    return fight.foe.named and name or article(name)
+  end
+  local n = rpgd and tonumber(rpgd.killsByName[name])
+  if n and n >= 2 then return article(name) end
+  return name
+end
+
 local function deathCount(c)
   return math.max(c.rpgd and c.rpgd.deathCount or 0, c.chronicle and c.chronicle.deathCount or 0)
 end
@@ -228,8 +241,8 @@ function Compose.LatelyGlance()
   local cdeath = chron and chron.deaths[1]
   if cdeath and (not death or cdeath.t > death.t) then death = cdeath end
   if death and within(death.t, 2 * 86400) then
-    local tx = "Was badly hurt" .. (death.killer and (" by " .. death.killer) or "") .. (death.zone and (" in " .. death.zone) or "")
-      .. (within(death.t, 3 * 3600) and ", within the last few hours" or ", a day or two ago")
+    local tx = "Was badly hurt" .. (death.killer and (" by " .. Compose.Killer(death.killer)) or "") .. (death.zone and (" in " .. U.Mid(death.zone)) or "")
+      .. (within(death.t, 3 * 3600) and ", within the last few hours" or within(death.t, 86400) and ", earlier today" or ", a day or two ago")
     add(death.t, 3, { TI = "Hurt", TX = tx .. ".", IC = "Spell_Holy_Resurrection" })
   end
   local boss = Compose.Bosses(c)[1]
@@ -329,7 +342,7 @@ function Compose.CompanyGlance()
     local f = sd.friends[1]
     local tx
     if f.relationship then
-      tx = "Often seen with " .. f.name .. ", " .. U.Pron("{their} ") .. f.relationship:lower() .. "."
+      tx = "Often seen with " .. f.name .. ", " .. U.Pron("{their} ") .. U.LowerFirst(f.relationship) .. "."
     else
       local names = {}
       for i = 1, math.min(2, #sd.friends) do names[i] = sd.friends[i].name end
@@ -340,7 +353,7 @@ function Compose.CompanyGlance()
   local town = rpgd and rpgd.towns[1]
   local friend = rpgd and rpgd.friends[1]
   if town and town.value >= 10 then
-    local tx = U.Cap((ns.Sources.RPGD.Tier(town.value).phrase:gsub("{town}", town.name)))
+    local tx = U.Cap((ns.Sources.RPGD.Tier(town.value).phrase:gsub("{town}", U.Mid(town.name))))
     if friend then tx = tx .. ", and gets on well with " .. friend.name end
     return { TI = "Local Ties", IC = "INV_Misc_Bag_11", TX = tx .. "." }
   end
@@ -473,7 +486,8 @@ function Compose.MarksGlance()
   local g = world.gear or {}
   local wear = Compose.Wear(world)
   if wear and wear.band.glance then mark(5, wear.band.glance, U.Cap(wear.text) .. ".", "INV_Hammer_20") end
-  local finest = g.finest or (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
+  -- Only what's worn now; Chronicle's snapshot only when the game can't say what is.
+  local finest = g.finest or ((g.items or 0) == 0 and c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
   if finest and finest.name and finest.quality >= 4 then
     mark(4, "Remarkable Gear", say("remarkable", { item = finest.name }, finest.name), "INV_Misc_Gem_Pearl_04")
   end
@@ -683,11 +697,14 @@ function Compose.Bearing()
   local hooks = Compose.Hooks()
   local stories = #hooks > 0 and paragraph({ say("stories", { list = U.Join(hooks) }) }) or nil
 
-  return pages({ paragraph(first), #views > 0 and paragraph({ name .. " " .. views[1], views[2] }) or nil, paragraph(more), stories })
+  return pages({ paragraph(first), #views > 0 and paragraph(#ops > 0 and { name .. " " .. views[1], views[2] } or views) or nil, paragraph(more), stories })
 end
 
 -- "Kobold Miner" -> "Kobold Miners", "Wolf" -> "Wolves", "Harpy" -> "Harpies"
 function Compose.Plural(name)
+  -- "Symbol of Kings" -> "Symbols of Kings", "Rune of Portals" -> "Runes of Portals"
+  local before, after = name:match("^(.-)( of .+)$")
+  if before and before ~= "" then return Compose.Plural(before) .. after end
   local last = name:match("(%S+)$") or name
   local head = name:sub(1, #name - #last)
   local p
@@ -880,7 +897,7 @@ function Compose.History()
   if sd and ns.db.nameFriends and #sd.friends > 0 then
     local f = sd.friends[1]
     if f.relationship then
-      partner = f.name .. ", {their} " .. f.relationship:lower() .. (sd.friends[2] and (", and " .. sd.friends[2].name) or "")
+      partner = f.name .. ", {their} " .. U.LowerFirst(f.relationship) .. (sd.friends[2] and (", and " .. sd.friends[2].name) or "")
     else
       local names = {}
       for k = 1, math.min(3, #sd.friends) do names[k] = sd.friends[k].name end
@@ -899,10 +916,10 @@ function Compose.History()
   if rpgd then
     local good, bad = {}, nil
     for _, t in ipairs(rpgd.towns) do
-      if t.value >= 10 and #good < 2 then good[#good + 1] = (ns.Sources.RPGD.Tier(t.value).phrase:gsub("{town}", t.name)) end
+      if t.value >= 10 and #good < 2 then good[#good + 1] = (ns.Sources.RPGD.Tier(t.value).phrase:gsub("{town}", U.Mid(t.name))) end
     end
     local worst = rpgd.towns[#rpgd.towns]
-    if worst and worst.value <= -20 then bad = (ns.Sources.RPGD.Tier(worst.value).phrase:gsub("{town}", worst.name)) end
+    if worst and worst.value <= -20 then bad = (ns.Sources.RPGD.Tier(worst.value).phrase:gsub("{town}", U.Mid(worst.name))) end
     if #good > 0 then
       people[#people + 1] = U.Cap(U.Join(good)) .. (bad and (", though " .. bad) or "")
     elseif bad then
@@ -996,7 +1013,11 @@ function Compose.Physical()
   local bag = {}
   for i, r in ipairs(world.reagents or {}) do
     if i > 3 then break end
-    bag[#bag + 1] = r.count > 1 and (U.Number(r.count) .. " " .. Compose.Plural(r.name)) or r.name
+    -- Powders, berries and poison are counted out by the pinch, not by number.
+    local last = (r.name:match("(%S+)$") or ""):lower()
+    if W.MASS_NOUN[last] then bag[#bag + 1] = r.name
+    elseif r.count > 1 then bag[#bag + 1] = U.Number(r.count) .. " " .. Compose.Plural(r.name)
+    else bag[#bag + 1] = article(r.name) end
   end
   if #bag > 0 then dress[#dress + 1] = "Keeps " .. U.Join(bag) .. " in {their} bags" end
   local band = Compose.WealthBand(world)
@@ -1050,7 +1071,8 @@ end
 local function money(copper)
   local g, sv = math.floor(copper / 10000), math.floor(copper / 100) % 100
   if g > 0 then return (g >= 100 and U.Number(g) or tostring(g)) .. " gold" .. (sv > 0 and (", " .. sv .. " silver") or "") end
-  return sv .. " silver"
+  if sv > 0 then return sv .. " silver" end
+  return math.floor(copper % 100) .. " copper"
 end
 
 local function roadDays(c)
@@ -1070,7 +1092,7 @@ function Compose.Stats()
   local deaths = deathCount(c)
   if deaths > 0 then
     local first = rpgd and rpgd.deaths[1] or (chron and chron.deaths[#chron.deaths])
-    out.deaths = figure(deaths) .. (first and first.killer and (", the first to " .. first.killer) or "")
+    out.deaths = figure(deaths) .. (first and first.killer and (", the first to " .. Compose.Killer(first.killer)) or "")
   end
   local landCount = math.max(#Compose.Lands(c), chron and chron.zones or 0)
   if landCount > 0 then out.lands = figure(landCount) end
@@ -1140,7 +1162,7 @@ function Compose.FullTitle()
   local best = rpgd and rpgd.towns[1]
   if best then
     local tpl = W.FULLTITLE_TIER[ns.Sources.RPGD.Tier(best.value).name]
-    standing = tpl and (tpl:gsub("{town}", best.name))
+    standing = tpl and (tpl:gsub("{town}", U.Mid(best.name)))
   end
   if align and standing then return align .. ", " .. standing end
   if standing then return standing end

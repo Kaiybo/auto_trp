@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.21.0 (2026-11-25): Roads of Their Own
+
+- **Auto TRP keeps its own travel record**: every land your character sets foot in (and when), and how long they spend in each. Dungeons, raids and battlegrounds aren't lands, and time away from the keyboard doesn't count. Lands first seen before this version are taken in with their dates.
+- **The road works without RPG Dialogue.** History's road ("From Elwynn Forest their road has led through four lands..."), *Lands explored*, *Days on the road* and *Lately*'s "New in Town" now come from this record as well as RPG Dialogue's, whichever saw a land first.
+- **A favourite haunt that moves on when you do.** Where your time goes *these days*: time spent fades by half for every 12 hours played elsewhere, and time away from the game changes nothing. So a land you've left behind slips down the list, and History tells of the move ("Has left Westfall behind for Duskwood, where she spends most of her time now."). A new statistic, *Favourite haunt* ("Duskwood, 14 hours"), with its own switch. Nothing shows until one land clearly stands out.
+- `/atrp places` lists how many lands you've been to, the first and the latest, where the hours have gone, and where they go these days.
+- **Fixed: "about the streets of Scarlet Raven Tavern".** Inside some buildings the game gives the building as the zone. Auto TRP now takes the land from the map, so *Currently* stays at the inn ("staying at the Scarlet Raven Tavern, Duskwood") and the tavern isn't recorded as a land.
+- **`/atrp slot` never hides your own words.** Taking a glance you wrote off its slot no longer hides it. Auto TRP's own glance taken off is hidden and the change is sent to other players. A swap carries over what Auto TRP knows about both slots, so neither glance gets stuck. `/atrp restore` puts a glance back in the slot it came from.
+- **Crafting isn't a spell.** Crafting lasts as long as the crafting window is open, so a long "Create All" no longer counts towards *Most cast spell*, and spells cast after closing it count again.
+- **Reagents are counted as they're used.** Use your last Soul Shard and it's gone from Physical at once, not five minutes later. They read right too: "twenty Symbols of Kings, a Symbol of Divinity and Arcane Powder" (not "Symbol of Kingses").
+- **The full title names your strongest leaning.** It always used to pick *Lightsworn* first, even for a character far more lawful than good.
+- **Social Diary:** someone you only wrote down as a rival, a debtor or an ex is never named as a friend. An ex-wife, a late husband, a midwife or a glover no longer makes you married or taken.
+- **Not lonely after a long group.** Time logged out, or a three-hour dungeon run, no longer counts as time spent alone.
+- Wording: "The Crossroads" reads "the Crossroads" mid-sentence (and in *Friend of the Crossroads*). An ordinary creature gets its article ("Was badly hurt by a Defias Pillager"). A death a few hours old is "earlier today", not "a day or two ago". Festivals keep their capitals ("full of Winter Veil cheer"), as does a relationship ("her wife from Lakeshire"). Personality no longer reads "Aldric Used to...". Very little money reads in copper.
+- *Remarkable Gear* only names what you're wearing now. Chronicle's snapshot is used only when the game can't say.
+- Pausing while out of character holds the *Ambition* glance too. The first-time setup prompt waits out combat instead of being lost. *Write it now* says why when no profile is being written. `/atrp on` and `off` update the mood badge straight away. Another emote ends sitting, sleeping or dancing. The reputation list skips header rows again.
+
 ## 0.20.0 (2026-11-25): In Good Order
 
 - **Fixed: some characters' profiles stopped being written.** 0.14.0 lost the class rank ladders every race shares, so a character whose race and class have no ladder of their own (a human warlock, a dwarf rogue) hit an error on every update: *Currently* and the glances kept going, but the title, About, History, statistics, nickname and the rest were never written. The ladders are back (a human warlock rises from Initiate to Summoner and on), and a new test builds the whole profile for every race and class.

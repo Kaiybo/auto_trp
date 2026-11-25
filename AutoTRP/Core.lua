@@ -255,6 +255,13 @@ function U.Join(list)
   return table.concat(list, ", ", 1, n - 1) .. " and " .. list[n]
 end
 
+-- "Full of Winter Veil cheer" -> "full of Winter Veil cheer": only the first letter, so
+-- names further on keep their capitals.
+function U.LowerFirst(s)
+  if type(s) ~= "string" then return s end
+  return (s:gsub("^%u", string.lower))
+end
+
 function U.Cap(s)
   if type(s) ~= "string" then return s end
   return (s:gsub("^%l", string.upper))

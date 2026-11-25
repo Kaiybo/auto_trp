@@ -38,6 +38,31 @@ local function hasTag(entry, tag)
   return false
 end
 
+
+-- A relationship written down for someone who isn't a friend ("Rival", "Owes me money",
+-- "Ex-wife"): they're never named as one.
+local UNFRIENDLY = { "rival", "enemy", "nemesis", "foe", "owes", "debt", "grudge", "traitor", "ex", "former", "estranged",
+  "hate", "hates", "distrust", "avoid", "creditor", "debtor" }
+local function word(r, w) return r:find("%f[%a]" .. w .. "%f[%A]") ~= nil end
+function SD.Unfriendly(relationship)
+  local r = type(relationship) == "string" and relationship:lower() or ""
+  for _, w in ipairs(UNFRIENDLY) do if word(r, w) then return true end end
+  return false
+end
+
+-- TRP3's relationship status for a partner (3 married, 2 taken), or nil. Whole words only
+-- ("midwife" isn't a wife), and never a former one ("ex-wife", "late husband", "unmarried").
+function SD.PartnerStatus(relationship)
+  local r = type(relationship) == "string" and relationship:lower() or ""
+  if r == "" or SD.Unfriendly(r) or word(r, "late") or word(r, "widow") or word(r, "widower") then return nil end
+  for _, w in ipairs({ "wife", "husband", "spouse", "married" }) do if word(r, w) then return 3 end end
+  if r:find("%f[%a]fianc") then return 2 end   -- fiance, fiancee, fiancée
+  for _, w in ipairs({ "betrothed", "lover", "sweetheart", "girlfriend", "boyfriend", "beloved" }) do
+    if word(r, w) then return 2 end
+  end
+  return nil
+end
+
 function SD.Read()
   if not SD.Loaded() then return nil end
   local d = diary()
@@ -54,7 +79,7 @@ function SD.Read()
         local p = { name = name, relationship = relationship, lastSeen = type(rec) == "table" and tonumber(rec.lastSeen) or 0 }
         if hasTag(entry, "foe") or hasTag(entry, "avoid") then
           out.foes[#out.foes + 1] = p
-        elseif relationship or hasTag(entry, "friend") then
+        elseif hasTag(entry, "friend") or (relationship and not SD.Unfriendly(relationship)) then
           out.friends[#out.friends + 1] = p
         end
       end
@@ -63,15 +88,8 @@ function SD.Read()
   table.sort(out.friends, function(a, b) return a.lastSeen > b.lastSeen end)
   -- A partner, if a relationship says so: TRP3's status 3 (married) or 2 (taken).
   for _, f in ipairs(out.friends) do
-    local r = f.relationship and f.relationship:lower() or ""
-    for _, w in ipairs({ "wife", "husband", "spouse", "married" }) do
-      if r:find(w) then out.partner = { name = f.name, status = 3 }; break end
-    end
-    if out.partner then break end
-    for _, w in ipairs({ "betrothed", "fianc", "lover", "sweetheart", "girlfriend", "boyfriend", "beloved" }) do
-      if r:find(w) then out.partner = { name = f.name, status = 2 }; break end
-    end
-    if out.partner then break end
+    local status = SD.PartnerStatus(f.relationship)
+    if status then out.partner = { name = f.name, status = status }; break end
   end
   table.sort(out.foes, function(a, b) return a.lastSeen > b.lastSeen end)
 

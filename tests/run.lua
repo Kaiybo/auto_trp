@@ -1349,6 +1349,33 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- Wording fixes from review.
+do
+  local C, R, SD = ns.Compose, ns.Sources.RPGD, ns.Sources.SocialDiary
+  local function title(a) local t = R.AlignTitle(a, "Alliance"); return t end
+  check(title({ light = 55, order = 95, honor = 0 }) ~= title({ light = 95, order = 55, honor = 0 }), "the strongest leaning names the alignment title")
+  check(SD.PartnerStatus("Wife") == 3 and SD.PartnerStatus("Fiancée") == 2, "a wife or fiancée is a partner")
+  check(not SD.PartnerStatus("Ex-wife") and not SD.PartnerStatus("late husband") and not SD.PartnerStatus("unmarried")
+    and not SD.PartnerStatus("midwife") and not SD.PartnerStatus("glover"), "a former partner, a midwife or a glover isn't")
+  check(SD.Unfriendly("Rival") and SD.Unfriendly("Owes me money") and not SD.Unfriendly("Sworn sister"), "a rival isn't named as a friend")
+  check(C.Plural("Symbol of Kings") == "Symbols of Kings" and C.Plural("Rune of Portals") == "Runes of Portals", "plurals before 'of'")
+  ns.cache.rpgd = ns.cache.rpgd or { killsByName = {} }
+  local kb = ns.cache.rpgd.killsByName
+  local old = kb["Defias Pillager"]
+  kb["Defias Pillager"] = 12
+  local lf = ns.char.lastFight
+  ns.char.lastFight = nil
+  check(C.Killer("Defias Pillager") == "a Defias Pillager" and C.Killer("Hogger") == "Hogger", "a killer that was one of many gets an article")
+  kb["Defias Pillager"], ns.char.lastFight = old, lf
+  check(ns.U.LowerFirst("Full of Winter Veil cheer") == "full of Winter Veil cheer", "lowercasing keeps names")
+  C.Refresh()
+  local keep = ns.cache.world.reagents
+  ns.cache.world.reagents = { { name = "Symbol of Kings", count = 20 }, { name = "Symbol of Divinity", count = 1 }, { name = "Arcane Powder", count = 40 } }
+  local ph = C.Physical()
+  check(ph:find("twenty Symbols of Kings, a Symbol of Divinity and Arcane Powder", 1, true) ~= nil, "reagents read right: " .. (ph:match("Keeps[^.]*") or "?"))
+  ns.cache.world.reagents = keep
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
