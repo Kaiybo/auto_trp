@@ -630,23 +630,28 @@ function Compose.History()
   local rpgd, chron, sd, world = c.rpgd, c.chronicle, c.sd, c.world
   local name = firstName()
   local paras = {}
+  local race = W.RACE_NOUN[world.race or ""]
+  local noun = W.CLASS_NOUN[world.class or ""]
+  local what = race and noun and (article(race) .. " " .. noun) or nil
 
   -- 1. Where it began
   local roots = {}
   if rpgd and rpgd.origin and rpgd.origin.name then
-    roots[#roots + 1] = rpgd.origin.name
+    local o = rpgd.origin.name
+    local first = o:match("^(%a+)")
+    -- "Farmhand from the Westbrook fields" -> "started out as a farmhand from the Westbrook fields"
+    local as = (first and not LOWER_OK[first] and not o:find("^%u%l+%s+%u")) and article(o:gsub("^%u", string.lower)) or lowerFirst(o)
+    roots[#roots + 1] = name .. (what and (", " .. what .. ",") or "") .. " started out as " .. as
     if rpgd.origin.blurb then roots[#roots + 1] = quote(rpgd.origin.blurb) end
   else
-    local race = W.RACE_NOUN[world.race or ""]
     local home = W.RACE_HOME[world.race or ""]
-    local noun = W.CLASS_NOUN[world.class or ""]
-    if race and noun then
-      roots[#roots + 1] = name .. " is " .. article(race) .. " " .. noun .. (home and (" who started out in " .. home) or "")
+    if what then
+      roots[#roots + 1] = name .. " is " .. what .. (home and (" who started out in " .. home) or "")
     end
   end
   paras[#paras + 1] = paragraph(roots)
 
-  -- 2. The road so far, and what it has made of them
+  -- 2. The road so far
   local road = {}
   local zones = rpgd and rpgd.zones or {}
   local zoneCount = math.max(#zones, chron and chron.zones or 0)
@@ -655,41 +660,106 @@ function Compose.History()
     local weeks = since < math.huge and math.floor((U.Now() - since) / 604800) or 0
     local ago = weeks >= 9 and (U.Number(math.floor(weeks / 4.3)) .. " months ago")
       or weeks >= 2 and (U.Number(weeks) .. " weeks ago") or nil
-    local dungeons = chron and chron.dungeons or 0
-    road[#road + 1] = name .. " left " .. zones[1].name .. (ago and (" " .. ago) or "") .. " and has seen "
-      .. U.Number(zoneCount) .. " lands since" .. (dungeons >= 2 and (", and the inside of " .. U.Number(dungeons) .. " dungeons") or "")
     local last = zones[#zones]
-    if last and last.name ~= zones[1].name then road[#road + 1] = "The last new place {they} reached was " .. placeName(last.name) end
+    local latest = (last and last.name ~= zones[1].name) and (", " .. placeName(last.name) .. " the latest of them") or ""
+    road[#road + 1] = "From " .. placeName(zones[1].name) .. (ago and (", " .. ago .. ",") or "") .. " {their} road has led through "
+      .. U.Number(zoneCount) .. " lands" .. latest
+    local dungeons = chron and chron.dungeons or 0
+    if dungeons >= 2 then road[#road + 1] = "Along the way {they've} been inside " .. U.Number(dungeons) .. " dungeons" end
   elseif (world.level or 1) < 10 then
     road[#road + 1] = name .. " has only just set out, and hasn't been far from home yet"
-  end
-  if rpgd and rpgd.homeInn then
-    local s = "Calls " .. placeName(rpgd.homeInn) .. " home"
-    if rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and within(rpgd.homeSince, 14 * 86400) then
-      s = s .. " now, having moved from " .. placeName(rpgd.homePrev)
-    end
-    road[#road + 1] = s
   end
   local ms = ns.char and ns.char.milestones or {}
   if #ms > 0 then
     local steps = {}
-    for i = math.max(1, #ms - 1), #ms do
-      local m = ms[i]
+    for k = math.max(1, #ms - 1), #ms do
+      local m = ms[k]
       steps[#steps + 1] = m.rank .. (m.zone and (" in " .. U.Mid(m.zone)) or "")
     end
     road[#road + 1] = "Was made " .. U.Join(steps)
   end
+  if rpgd and rpgd.homeInn then
+    local s = "Home these days is " .. placeName(rpgd.homeInn)
+    if rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and within(rpgd.homeSince, 14 * 86400) then
+      s = s .. ", lately moved from " .. placeName(rpgd.homePrev)
+    end
+    road[#road + 1] = s
+  end
   paras[#paras + 1] = paragraph(road)
 
-  -- 3. The people, friends and otherwise. (Deaths and kills are counted in the
+  -- 3. What they've done, and the name it earned them. (Deaths and kills are counted in the
   -- Statistics, not told here.)
-  local people = {}
+  local deeds = {}
+  local earned, earnedKey = Compose.EarnedStory(name)
+  local told = 0
   if rpgd then
-    local friends = {}
-    for i = 1, math.min(2, #rpgd.friends) do friends[i] = rpgd.friends[i].name end
-    if #friends > 0 then
-      people[#people + 1] = name .. " counts " .. U.Join(friends) .. " among {their} friends"
+    for _, t in ipairs(rpgd.threads) do
+      if earnedKey ~= "thread:" .. t.id and told < 2 then
+        if t.state == "resolved" then deeds[#deeds + 1] = "Saw " .. lowerFirst(t.title) .. " through to the end"; told = told + 1
+        elseif t.state == "soured" then deeds[#deeds + 1] = "Watched " .. lowerFirst(t.title) .. " go sour"; told = told + 1 end
+      end
     end
+  end
+  if earned then deeds[#deeds + 1] = earned end
+  if rpgd then
+    local places = {}
+    for k = 1, math.min(3, #rpgd.cleared) do places[k] = U.Mid(rpgd.cleared[k].name) end
+    if #places > 0 then deeds[#deeds + 1] = "Has gone down into " .. U.Join(places) .. " and come back up" end
+  end
+  if chron then
+    local latest = chron.bosses[1]
+    local named = earnedKey and latest and earnedKey == "boss:" .. latest.name
+    if #chron.bosses >= 3 then deeds[#deeds + 1] = "Has helped bring down " .. U.Number(#chron.bosses) .. " named foes, the latest " .. latest.name
+    elseif latest and not named then deeds[#deeds + 1] = "Was there when " .. latest.name .. " fell" end
+    if chron.rares >= 5 then deeds[#deeds + 1] = "Has tracked down " .. U.Number(chron.rares) .. " rare beasts" end
+    if chron.questsDone >= 25 then deeds[#deeds + 1] = "Has seen " .. U.Roughly(chron.questsDone) .. " jobs through for the people who asked" end
+  end
+  local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
+  local crafts = {}
+  for k = 1, math.min(2, #profs) do
+    local pr = profs[k]
+    local pn = W.PROF_NOUN[pr.name:lower()]
+    if pr.rank >= 50 and pn then crafts[#crafts + 1] = profWord(pr.rank) .. " " .. pn end
+  end
+  if #crafts > 0 then deeds[#deeds + 1] = "Between roads {they're} " .. U.Join(crafts) end
+  local finds = ns.char and ns.char.finds or {}
+  if #finds > 0 then
+    local items = {}
+    for k = #finds, math.max(1, #finds - 1), -1 do
+      local f = finds[k]
+      items[#items + 1] = itemName(f.item, f.quality) .. (f.zone and (" from " .. U.Mid(f.zone)) or "")
+    end
+    deeds[#deeds + 1] = "Found " .. U.Join(items)
+  end
+  paras[#paras + 1] = paragraph(deeds)
+
+  -- 4. The people, friends and otherwise
+  local people = {}
+  local friends = {}
+  if rpgd then
+    for k = 1, math.min(2, #rpgd.friends) do friends[k] = rpgd.friends[k].name end
+  end
+  local partner
+  if sd and ns.db.nameFriends and #sd.friends > 0 then
+    local f = sd.friends[1]
+    if f.relationship then
+      partner = f.name .. ", {their} " .. f.relationship:lower() .. (sd.friends[2] and (", and " .. sd.friends[2].name) or "")
+    else
+      local names = {}
+      for k = 1, math.min(3, #sd.friends) do names[k] = sd.friends[k].name end
+      partner = U.Join(names)
+    end
+  end
+  if #friends > 0 then
+    people[#people + 1] = name .. " counts " .. U.Join(friends) .. " among {their} friends"
+      .. (partner and (", and travels with " .. partner) or "")
+  elseif partner then
+    people[#people + 1] = name .. " travels with " .. partner
+  end
+  if sd and sd.recentPeople >= 4 then
+    people[#people + 1] = "Has fought beside " .. U.Number(sd.recentPeople) .. " others this past week"
+  end
+  if rpgd then
     local good, bad = {}, nil
     for _, t in ipairs(rpgd.towns) do
       if t.value >= 10 and #good < 2 then good[#good + 1] = (ns.Sources.RPGD.Tier(t.value).phrase:gsub("{town}", t.name)) end
@@ -701,20 +771,6 @@ function Compose.History()
     elseif bad then
       people[#people + 1] = U.Cap(bad)
     end
-  end
-  if sd and ns.db.nameFriends and #sd.friends > 0 then
-    local f = sd.friends[1]
-    if f.relationship then
-      people[#people + 1] = "Travels with " .. f.name .. ", {their} " .. f.relationship:lower()
-        .. (sd.friends[2] and (", and with " .. sd.friends[2].name) or "")
-    else
-      local names = {}
-      for i = 1, math.min(3, #sd.friends) do names[i] = sd.friends[i].name end
-      people[#people + 1] = "Has fallen in with " .. U.Join(names)
-    end
-  end
-  if sd and sd.recentPeople >= 4 then
-    people[#people + 1] = "Has fought beside " .. U.Number(sd.recentPeople) .. " others this past week"
   end
   if world.guild then
     local g = world.guild:find("^The ") and U.Mid(world.guild) or world.guild
@@ -733,63 +789,18 @@ function Compose.History()
     for _, f in ipairs(byWord[w] or {}) do if #served < 3 then served[#served + 1] = f end end
   end
   if #served > 0 then people[#people + 1] = "Has done good work for " .. U.Join(served) end
+  local hon = ns.char and ns.char.honours or {}
+  local h = hon[#hon]
+  if h and within(h.t, 14 * 86400) then
+    people[#people + 1] = "Only recently earned " .. h.standing:lower() .. " standing with " .. W.FactionName(h.faction)
+  end
   if rpgd and rpgd.rivals[1] then
     people[#people + 1] = "There is no love lost between {them} and " .. rpgd.rivals[1].name
   end
   if sd and #sd.foes > 0 then
     people[#people + 1] = "Has made " .. (#sd.foes == 1 and "an enemy" or (U.Number(#sd.foes) .. " enemies")) .. " on the road"
   end
-  local hon = ns.char and ns.char.honours or {}
-  local h = hon[#hon]
-  if h and within(h.t, 14 * 86400) then
-    people[#people + 1] = "Only recently earned " .. h.standing:lower() .. " standing with " .. W.FactionName(h.faction)
-  end
   paras[#paras + 1] = paragraph(people)
-
-  -- 4. Work and deeds
-  local deeds = {}
-  if rpgd then
-    for _, t in ipairs(rpgd.threads) do
-      if t.state == "resolved" then deeds[#deeds + 1] = "Saw " .. lowerFirst(t.title) .. " through to the end"
-      elseif t.state == "soured" then deeds[#deeds + 1] = "Watched " .. lowerFirst(t.title) .. " go sour" end
-      if #deeds >= 2 then break end
-    end
-    local places = {}
-    for i = 1, math.min(3, #rpgd.cleared) do places[i] = U.Mid(rpgd.cleared[i].name) end
-    if #places > 0 then deeds[#deeds + 1] = "Has gone down into " .. U.Join(places) .. " and come back up" end
-  end
-  if chron then
-    if #chron.bosses >= 3 then deeds[#deeds + 1] = "Has helped bring down " .. U.Number(#chron.bosses) .. " named foes, the latest " .. chron.bosses[1].name
-    elseif chron.bosses[1] then deeds[#deeds + 1] = "Was there when " .. chron.bosses[1].name .. " fell" end
-    if chron.rares >= 5 then deeds[#deeds + 1] = "Has tracked down " .. U.Number(chron.rares) .. " rare beasts" end
-    if chron.questsDone >= 25 then deeds[#deeds + 1] = "Has seen " .. U.Roughly(chron.questsDone) .. " jobs through for the people who asked" end
-  end
-  local kills = rpgd and rpgd.kills or 0
-  local grudge = rpgd and rpgd.grudge and rpgd.grudge.n >= 40 and rpgd.grudge
-  if kills >= 200 then
-    deeds[#deeds + 1] = "Has put down " .. U.Roughly(kills) .. " creatures"
-      .. (grudge and (", " .. U.Number(grudge.n) .. " of them " .. Compose.Plural(grudge.name)) or "")
-  elseif grudge then
-    deeds[#deeds + 1] = "Has killed " .. U.Number(grudge.n) .. " " .. Compose.Plural(grudge.name)
-  end
-  local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
-  local crafts = {}
-  for i = 1, math.min(2, #profs) do
-    local p = profs[i]
-    local noun = W.PROF_NOUN[p.name:lower()]
-    if p.rank >= 50 and noun then crafts[#crafts + 1] = profWord(p.rank) .. " " .. noun end
-  end
-  if #crafts > 0 then deeds[#deeds + 1] = "Is " .. U.Join(crafts) end
-  local finds = ns.char and ns.char.finds or {}
-  if #finds > 0 then
-    local items = {}
-    for i = #finds, math.max(1, #finds - 1), -1 do
-      local f = finds[i]
-      items[#items + 1] = itemName(f.item, f.quality) .. (f.zone and (" from " .. U.Mid(f.zone)) or "")
-    end
-    deeds[#deeds + 1] = "Found " .. U.Join(items)
-  end
-  paras[#paras + 1] = paragraph(deeds)
 
   -- 5. How things stand now
   local now = {}
@@ -802,8 +813,8 @@ function Compose.History()
   end
   now[#now + 1] = Compose.WeekTone()
   if #bits >= 2 then now[#now + 1] = "Felt " .. U.Join(bits) end
-  local band = Compose.WealthBand(world)
-  if band then now[#now + 1] = band.flair end
+  local wb = Compose.WealthBand(world)
+  if wb then now[#now + 1] = wb.flair end
   if rpgd and ns.db.diaryExcerpt and rpgd.lastEntry and rpgd.lastEntry.text then
     now[#now + 1] = "{their} latest journal entry reads " .. quote(U.Truncate(rpgd.lastEntry.text, 280))
   end
@@ -1016,32 +1027,85 @@ function Compose.Birthplace()
   return W.RACE_HOME[ns.cache.world.race or ""]
 end
 
-function Compose.Motto()
-  local rpgd = ns.cache.rpgd
-  local key = rpgd and rpgd.dominant[1] or "default"
-  local list = {}
-  if key ~= "default" then for _, m in ipairs(W.MOTTOS[key] or {}) do list[#list + 1] = m end end
-  for _, m in ipairs(W.RACE_MOTTOS[ns.cache.world.race or ""] or {}) do list[#list + 1] = m end
-  if #list == 0 then list = W.MOTTOS.default end
-  return U.Pick(list, seed("motto:" .. key))
-end
-
--- An epithet, earned by doing something a lot. The most remarkable one wins.
-function Compose.Nickname()
+-- What the character has earned a name for: a story finished in RPG Dialogue first, then a
+-- quest chain, then the hardest dungeon master brought down, then a bounty collected. A
+-- nickname sticks, so within each kind the first one earned stands. Each comes with the
+-- History sentence that says where the name came from.
+-- Returns { nick, motto, icon, deed, key } or nil; key matches the story or deed it names.
+function Compose.Earned()
   local c = ns.cache
   local rpgd, chron = c.rpgd, c.chronicle
-  local cands = {
-    { "Delver of the Deep", math.max(rpgd and #rpgd.cleared or 0, chron and #chron.bosses / 2 or 0) / 5 },
-    { "Grave-Cheater", deathCount(c) / 25 },
-    { "the Far-Walker", math.max(rpgd and #rpgd.zones or 0, chron and chron.zones or 0) / 20 },
-    { "the Relentless", (rpgd and rpgd.kills or 0) / 2500 },
-    { "the Unquiet", (rpgd and rpgd.insanity or 0) / 50 },
-    { "the Bookish", (rpgd and #rpgd.books or 0) / 8 },
-    { "Rare-Hunter", (chron and chron.rares or 0) / 15 },
-  }
-  table.sort(cands, function(a, b) return a[2] > b[2] end)
-  if cands[1][2] >= 1 then return cands[1][1] end
-  return nil
+  local best
+  local function offer(rank, t, e)
+    if not best or rank > best.rank or (rank == best.rank and t < best.t) then
+      e.rank, e.t = rank, t
+      best = e
+    end
+  end
+  for _, th in ipairs(rpgd and rpgd.threads or {}) do
+    local e = th.state == "resolved" and W.EARNED_STORY[th.id]
+    if e then
+      offer(4, th.t, { nick = e.nick, motto = e.motto, icon = e.icon, key = "thread:" .. th.id,
+        deed = "Saw " .. lowerFirst(th.title) .. " through to the end" })
+    end
+  end
+  local finished = chron and chron.finished or {}
+  for title, q in pairs(finished) do
+    local e = W.EARNED_QUEST[title]
+    if e then offer(3, q.t, { nick = e.nick, motto = e.motto, icon = e.icon, deed = e.deed, key = "quest:" .. title }) end
+  end
+  if chron and #chron.bosses > 0 then
+    local felled = {}
+    for _, b in ipairs(chron.bosses) do felled[b.name] = b end
+    for i = #W.EARNED_BOSS, 1, -1 do
+      local e = W.EARNED_BOSS[i]
+      local b = felled[e.name]
+      if b then
+        offer(2, 0, { nick = e.short .. "'s Bane", icon = W.EARNED_BOSS_ICON, key = "boss:" .. e.name,
+          deed = "Was there when " .. e.name .. " fell" .. (b.where and (" in " .. U.Mid(b.where)) or "") })
+        break
+      end
+    end
+  end
+  for title, q in pairs(finished) do
+    local target = title:match("^[Ww][Aa][Nn][Tt][Ee][Dd]:%s*(.-)[!%.]*$")
+    local short = target and target:match("([%a'%-]+)$")
+    if short and #short > 2 then
+      offer(1, q.t, { nick = short .. "'s Bane", icon = W.EARNED_BOUNTY_ICON, key = "quest:" .. title,
+        deed = "Collected the bounty on " .. target .. (q.zone and (" in " .. U.Mid(q.zone)) or "") })
+    end
+  end
+  return best
+end
+
+-- The saying they took from what they went through, or nothing yet.
+function Compose.Motto()
+  local e = Compose.Earned()
+  return e and e.motto or nil
+end
+
+-- What people call them, for something they saw through.
+function Compose.Nickname()
+  local e = Compose.Earned()
+  return e and e.nick or nil
+end
+
+-- The profile icon: the earned nickname's, else the class crest.
+function Compose.Icon()
+  local e = Compose.Earned()
+  return (e and e.icon) or W.CLASS_ICON[ns.cache.world.class or ""]
+end
+
+-- The History sentences for the deed behind the name (the deed itself, then where the name
+-- and the saying came from).
+function Compose.EarnedStory(name)
+  local e = Compose.Earned()
+  if not e then return nil end
+  local s = e.deed .. ". That's how " .. name .. " came to be called \"" .. e.nick .. "\""
+  if e.motto then
+    s = s .. ", and where {they} picked up the saying " .. quote(e.motto)
+  end
+  return s, e.key
 end
 
 ---------------------------------------------------------------------------
@@ -1051,7 +1115,7 @@ end
 -- mood: already worked out by the caller. only: the fields wanted (the story fields are
 -- skipped when none of them is).
 local STORY = { "traits", "bearing", "history", "physical", "title", "fulltitle", "residence", "birthplace",
-  "motto", "nickname", "relationship", "ooc", "glance_ambition" }
+  "motto", "nickname", "icon", "relationship", "ooc", "glance_ambition" }
 for _, st in ipairs(Compose.STATS) do STORY[#STORY + 1] = "stat_" .. st.key end
 function Compose.Sheet(fresh, mood, only)
   if not fresh then Compose.Refresh() end
@@ -1088,6 +1152,7 @@ function Compose.Sheet(fresh, mood, only)
     birthplace = Compose.Birthplace(),
     motto = Compose.Motto(),
     nickname = Compose.Nickname(),
+    icon = Compose.Icon(),
     stats = Compose.Stats(),
   }
 end

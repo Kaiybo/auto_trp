@@ -63,9 +63,15 @@ function CH.Read()
   table.sort(out.professions, function(a, b) return a.rank > b.rank end)
 
   out.questsDone = 0
+  out.finished = {}   -- completed quest title -> { t, zone } (the first time it was done)
   for _, q in ipairs(type(c.quests) == "table" and c.quests or {}) do
     if type(q) == "table" and q.status == "completed" then
       out.questsDone = out.questsDone + 1
+      local title = U.Plain(q.title)
+      local t = tonumber(q.time) or 0
+      if title and (not out.finished[title] or t < out.finished[title].t) then
+        out.finished[title] = { t = t, zone = U.Plain(q.zone) }
+      end
       if not out.lastQuest and U.Plain(q.title) then
         out.lastQuest = { title = U.Plain(q.title), t = tonumber(q.time) or 0, zone = U.Plain(q.zone) }
       end

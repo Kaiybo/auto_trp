@@ -402,23 +402,106 @@ W.AXIS_PROSE = {
 }
 
 ---------------------------------------------------------------------------
--- Mottos by dominant trait (one is picked and kept).
+-- Earned names. A nickname, a motto and an icon come from something the character saw
+-- through: a story finished in RPG Dialogue, a quest chain finished (Chronicle), a bounty
+-- collected or a dungeon's master brought down. History says where each came from.
+-- nick: what people call them. motto: the saying they took from it (optional). icon: the
+-- profile icon while that nickname stands.
 ---------------------------------------------------------------------------
-W.MOTTOS = {
-  kind = { "Leave every place a little better than you found it.", "No one walks alone if I can help it." },
-  cruel = { "Mercy is a debt the strong never collect.", "Fear keeps longer than gratitude." },
-  brave = { "Forward, and let the dark do its worst.", "If it bleeds, it can be beaten." },
-  cautious = { "Count the exits before you count the coin.", "The patient blade cuts deepest." },
-  generous = { "What's mine is the road's.", "A full purse is a lonely thing." },
-  greedy = { "Everything has a price. Most people ask too little.", "Gold remembers what people forget." },
-  pious = { "The Light sees the road ahead even when I can't.", "Faith first. The rest follows." },
-  skeptical = { "Trust, but count your fingers after.", "Show me, and then I'll believe it." },
-  witty = { "If it can't be fixed, it can at least be laughed at.", "Life's too short to be dull." },
-  stern = { "Duty before comfort.", "Say less. Mean all of it." },
-  curious = { "Every road leads somewhere worth seeing.", "There's always one more question." },
-  charming = { "A kind word opens more doors than a crowbar.", "Make friends first. Ask favours later." },
-  reserved = { "Listen twice, speak once.", "Still water runs deep." },
-  default = { "One road at a time.", "Keep moving." },
+W.EARNED_STORY = {
+  arugal_wolves = { nick = "Wolf-Hunter", motto = "Bar the door when the moon is up.", icon = "Ability_Hunter_Pet_Wolf" },
+  ashenvale_axes = { nick = "Axe-Breaker", motto = "Count the cost before the first blow.", icon = "INV_Axe_02" },
+  blackrock_down = { nick = "Mountain-Watcher", motto = "Watch the passes.", icon = "Ability_Warrior_DefensiveStance" },
+  blood_god = { nick = "Priest-Breaker", motto = "No god is owed blood.", icon = "Spell_Shadow_SoulLeech_2" },
+  bloodsail_eye = { nick = "Dock-Watcher", motto = "Watch the ships, not the sailors.", icon = "INV_Misc_Spyglass_02" },
+  both_shores = { nick = "Rot-Finder", motto = "Sickness doesn't care which shore it's on.", icon = "Spell_Shadow_AbominationExplosion" },
+  burning_blade = { nick = "Blade-Breaker", motto = "Cut the root, not the branch.", icon = "Ability_Warrior_Rampage" },
+  darkspear_isles = { nick = "Hex-Breaker", motto = "A curse is only words until you believe it.", icon = "Spell_Shadow_ShadowWordPain" },
+  dawn_letters = { nick = "the Dawn's Courier", motto = "Deliver the letter, whatever it says.", icon = "INV_Letter_15" },
+  desolace_clans = { nick = "Clan-Talker", motto = "Hear every side before you pick one.", icon = "INV_BannerPVP_02" },
+  dru_alliance = { nick = "Bear-Friend", motto = "Some choose the wild. Let them.", icon = "Ability_Druid_Maul" },
+  dru_circle = { nick = "Fire-Sharer", motto = "There's room at the fire for two.", icon = "Spell_Nature_Tranquility" },
+  dru_horde = { nick = "Fang-Friend", motto = "Watch what you turn into.", icon = "Ability_Druid_Maul" },
+  dwarf_haldin = { nick = "Gorge-Walker", motto = "Kin is kin, even in the Gorge.", icon = "INV_Hammer_20" },
+  dwarves_and_dark_iron = { nick = "Span-Mender", motto = "A broken bridge can still be crossed.", icon = "INV_Hammer_20" },
+  eldre_thalas = { nick = "Ruin-Walker", motto = "Old stones keep old secrets.", icon = "INV_Misc_Rune_01" },
+  elf_saelra = { nick = "the Watcher", motto = "Someone has to keep watch.", icon = "Spell_Holy_MindVision" },
+  elwynn_gold = { nick = "Mine-Warden", motto = "Gold isn't worth a life.", icon = "INV_Misc_Coin_02" },
+  farholde_lost = { nick = "Fern's Friend", motto = "Nobody is lost while someone's looking.", icon = "Spell_Holy_Renew" },
+  felwood_rot = { nick = "Rot-Cleanser", motto = "Sick land can heal.", icon = "Spell_Nature_Tranquility" },
+  gadgetzan_water = { nick = "Water-Bringer", motto = "Water first. Then talk.", icon = "INV_Drink_04" },
+  gnomeregan_lost = { nick = "Gnomeregan's Friend", motto = "Find out who's to blame before you blame them.", icon = "Trade_Engineering" },
+  grimtotem = { nick = "Totem-Breaker", motto = "Keep an eye on the hills.", icon = "INV_BannerPVP_02" },
+  hinterlands_trolls = { nick = "Hill-Climber", motto = "Go up and look for yourself.", icon = "INV_Misc_Spyglass_02" },
+  hun_alliance = { nick = "Bear-Tracker", motto = "Read the tracks before you draw.", icon = "Ability_Hunter_BeastCall" },
+  hun_horde = { nick = "Herd-Keeper", motto = "Take only what the herd can spare.", icon = "Ability_Hunter_BeastCall" },
+  hun_rhokdelar = { nick = "Stranger's Friend", motto = "Be kind to strangers.", icon = "Ability_Hunter_BeastCall" },
+  kolkar_war = { nick = "Well-Keeper", motto = "Whoever holds the water holds the land.", icon = "INV_Drink_04" },
+  lock_summit = { nick = "the Climber", motto = "There's always a higher step.", icon = "Spell_Shadow_ShadowBolt" },
+  lock_surena = { nick = "Gakin's Student", motto = "Learn from the master, then surpass him.", icon = "Spell_Shadow_ShadowBolt" },
+  lock_zelk = { nick = "Zelk's Heir", motto = "Every road has a toll.", icon = "Spell_Shadow_Teleport" },
+  mage_alliance = { nick = "Bread-Bringer", motto = "Magic should feed people.", icon = "INV_Misc_Food_15" },
+  mage_dalaran = { nick = "Dome-Watcher", motto = "Ask what's behind the door.", icon = "Spell_Holy_SealOfWisdom" },
+  mage_horde = { nick = "Frost-Friend", motto = "Choose your own path, even if it's cold.", icon = "Spell_Nature_Cyclone" },
+  missing_diplomat = { nick = "Diplomat-Finder", motto = "Find the missing man and you find the plot.", icon = "INV_Letter_03" },
+  new_plague = { nick = "Plague-Finder", motto = "Burn it before it spreads.", icon = "Spell_Shadow_AbominationExplosion" },
+  plague_cauldrons = { nick = "Cauldron-Breaker", motto = "Break the pot, stop the poison.", icon = "Spell_Shadow_AbominationExplosion" },
+  plague_light = { nick = "Plaguelands Lantern", motto = "Light a candle in the dark places.", icon = "Spell_Holy_HolyBolt" },
+  portal_watch = { nick = "Portal-Watcher", motto = "Somebody has to watch the gate.", icon = "Spell_Shadow_GatherShadows" },
+  scarlet_path = { nick = "Crimson-Walker", motto = "Zeal is not the same as right.", icon = "Spell_Holy_SealOfRighteousness" },
+  silithus_stirring = { nick = "Sand-Listener", motto = "Listen to the ground.", icon = "INV_Misc_Spyglass_02" },
+  solomons_letters = { nick = "Solomon's Runner", motto = "A plea for help deserves an answer.", icon = "INV_Letter_15" },
+  stalvan = { nick = "Stalvan's Witness", motto = "The truth comes out in the end.", icon = "INV_Misc_Book_08" },
+  the_circle = { nick = "Keeper's Hand", motto = "Do the work the land asks of you.", icon = "Spell_Nature_Tranquility" },
+  venture_mulgore = { nick = "Venture-Breaker", motto = "Not everything is for sale.", icon = "Trade_Engineering" },
+  war_garvak = { nick = "Fever-Breaker", motto = "Keep the blood cool.", icon = "Ability_Warrior_Rampage" },
+  war_harlan = { nick = "the Unbeaten", motto = "Get back up.", icon = "Ability_Warrior_BattleShout" },
+  war_willem = { nick = "Harry's Hand", motto = "Finish the list.", icon = "INV_Misc_Note_01" },
+  westfall_left = { nick = "Westfall's Friend", motto = "Nobody should have to fend for themselves.", icon = "Spell_Holy_PrayerOfHealing" },
+  winterfall_firewater = { nick = "Firewater-Breaker", motto = "Pour it out.", icon = "INV_Drink_05" },
+}
+
+-- Quest chains, by the title of the quest that ends them (Chronicle keeps titles in the
+-- game's language, so these are matched on English clients only). deed: how History tells it.
+W.EARNED_QUEST = {
+  ["The Defias Brotherhood"] = { nick = "Defias-Breaker", motto = "Pay what's owed, or someone will collect.",
+    icon = "INV_Misc_Mask_01", deed = "Followed the trail of the Defias Brotherhood to its end" },
+  ["Princess Must Die!"] = { nick = "Pig-Sticker", icon = "INV_Misc_Food_15", deed = "Put an end to Princess at the Brackwell Pumpkin Patch" },
+  ["The Legend of Stalvan"] = { nick = "Stalvan's Witness", motto = "The truth comes out in the end.",
+    icon = "INV_Misc_Book_08", deed = "Uncovered the story of Stalvan Mistmantle" },
+  ["The Missing Diplomat"] = { nick = "Diplomat-Finder", motto = "Find the missing man and you find the plot.",
+    icon = "INV_Letter_03", deed = "Saw the business of the missing diplomat through" },
+}
+
+-- Dungeon masters brought down (Chronicle's boss list), easiest first: the hardest one
+-- felled names them. short: the name the nickname uses.
+W.EARNED_BOSS = {
+  { name = "Edwin VanCleef", short = "VanCleef" },
+  { name = "Mutanus the Devourer", short = "Mutanus" },
+  { name = "Archmage Arugal", short = "Arugal" },
+  { name = "Bazil Thredd", short = "Thredd" },
+  { name = "Aku'mai", short = "Aku'mai" },
+  { name = "Mekgineer Thermaplugg", short = "Thermaplugg" },
+  { name = "Charlga Razorflank", short = "Razorflank" },
+  { name = "High Inquisitor Whitemane", short = "Whitemane" },
+  { name = "Amnennar the Coldbringer", short = "Amnennar" },
+  { name = "Archaedas", short = "Archaedas" },
+  { name = "Princess Theradras", short = "Theradras" },
+  { name = "Shade of Eranikus", short = "Eranikus" },
+  { name = "Emperor Dagran Thaurissan", short = "Thaurissan" },
+  { name = "King Gordok", short = "Gordok" },
+  { name = "Darkmaster Gandling", short = "Gandling" },
+  { name = "Baron Rivendare", short = "Rivendare" },
+  { name = "General Drakkisath", short = "Drakkisath" },
+}
+W.EARNED_BOSS_ICON = "INV_Misc_Head_Dragon_01"
+W.EARNED_BOUNTY_ICON = "INV_Misc_Note_06"
+
+-- The profile icon before any nickname is earned: the class crest.
+W.CLASS_ICON = {
+  WARRIOR = "ClassIcon_Warrior", PALADIN = "ClassIcon_Paladin", HUNTER = "ClassIcon_Hunter", ROGUE = "ClassIcon_Rogue",
+  PRIEST = "ClassIcon_Priest", SHAMAN = "ClassIcon_Shaman", MAGE = "ClassIcon_Mage", WARLOCK = "ClassIcon_Warlock",
+  DRUID = "ClassIcon_Druid",
 }
 
 ---------------------------------------------------------------------------
@@ -872,17 +955,6 @@ W.CLASS_TELLS = {
 }
 
 
--- Mottos by race (mixed with the temperament ones).
-W.RACE_MOTTOS = {
-  Human = { "For the Alliance, and for home.", "Stand fast." },
-  Dwarf = { "Stone and steel and stubbornness.", "Never trust a beardless wizard." },
-  Gnome = { "If it's not broken, improve it.", "Gnomeregan forever!" },
-  NightElf = { "Elune guides my path.", "The forest remembers." },
-  Orc = { "Lok'tar ogar!", "Strength and honour." },
-  Troll = { "Stay away from da voodoo.", "Da loa are watchin'." },
-  Tauren = { "Walk with the Earth Mother.", "The winds guide us." },
-  Scourge = { "Victory for the Forsaken.", "What joy is there in this curse?" },
-}
 
 ---------------------------------------------------------------------------
 -- Places that mean something to a race or class. Keyed by zone or subzone:
@@ -1293,11 +1365,11 @@ W.CLASS_REAGENTS = {
 
 -- How well off they are, against what's usual at their level (money in copper / level^2).
 W.WEALTH = {
-  { max = 20, word = "Living hand to mouth", flair = "Lives hand to mouth, with almost nothing put by.", pouch = "{their} {pouch} is close to empty" },
-  { max = 100, word = "Getting by", flair = "Gets by, with little to spare.", pouch = "{their} {pouch} is light" },
-  { max = 400, word = "Comfortable", flair = "Comfortable, with enough coin put by not to worry about it.", pouch = "{their} {pouch} clinks when {they} walk" },
-  { max = 1500, word = "Well off", flair = "Well off, and it's been a while since money was a worry.", pouch = "{their} {pouch} sits heavy" },
-  { max = math.huge, word = "Wealthy", flair = "Wealthy, with more gold than {they} could easily spend.", pouch = "{their} {pouch} is fat with gold" },
+  { max = 20, word = "Living hand to mouth", flair = "These days {they're} living hand to mouth, with almost nothing put by.", pouch = "{their} {pouch} is close to empty" },
+  { max = 100, word = "Getting by", flair = "These days {they're} getting by, with little to spare.", pouch = "{their} {pouch} is light" },
+  { max = 400, word = "Comfortable", flair = "These days {they're} comfortable, with enough coin put by not to worry about it.", pouch = "{their} {pouch} clinks when {they} walk" },
+  { max = 1500, word = "Well off", flair = "These days {they're} well off, and money hasn't been a worry for a while.", pouch = "{their} {pouch} sits heavy" },
+  { max = math.huge, word = "Wealthy", flair = "These days {they're} wealthy, with more gold than {they} could easily spend.", pouch = "{their} {pouch} is fat with gold" },
 }
 
 -- How kept their gear is, by the worst piece's durability in the game. {item} is that piece.

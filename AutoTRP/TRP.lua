@@ -308,6 +308,16 @@ TRP.FIELDS = {
   birthplace = textField("characteristics", "BP"),
   motto = miscField(MISC_MOTTO, "Motto", "INV_Scroll_01"),
   nickname = miscField(MISC_NICKNAME, "Nickname", "INV_Misc_Note_04"),
+  -- The profile's own icon. Total RP 3 may store it as a name or a file ID, so it's compared
+  -- as Total RP 3 would store it.
+  icon = {
+    section = "characteristics",
+    read = function(p) local v = sub(p, "characteristics").IC; return v ~= nil and tostring(v) or "" end,
+    write = function(p, v) sub(p, "characteristics").IC = icon(v) end,
+    sig = function(v) return v and tostring(icon(v)) or "" end,
+    raw = function(p) return sub(p, "characteristics").IC end,
+    setRaw = function(p, v) sub(p, "characteristics").IC = v end,
+  },
   bearing = aboutField("PS"),
   history = aboutField("HI"),
   physical = aboutField("PH"),
@@ -353,7 +363,7 @@ for _, st in ipairs(ns.Compose.STATS) do TRP.FIELDS["stat_" .. st.key] = statFie
 
 TRP.LABELS = {
   currently = "Currently", title = "Title", fulltitle = "Full title", residence = "Residence",
-  birthplace = "Birthplace", motto = "Motto", nickname = "Nickname", bearing = "About: Personality",
+  birthplace = "Birthplace", motto = "Motto", nickname = "Nickname", icon = "Icon", bearing = "About: Personality",
   history = "About: History", physical = "About: Physical", traits = "Personality traits",
   glance_mood = "Glance: mood", glance_lately = "Glance: lately", glance_company = "Glance: company",
   glance_ambition = "Glance: ambition", glance_marks = "Glance: marks",
