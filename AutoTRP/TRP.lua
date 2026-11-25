@@ -307,7 +307,9 @@ local function glanceField(slotKey)
     end,
     sig = function(v) return v and ((U.Plain(v.TI) or "") .. "\n" .. (U.Plain(v.TX) or "")) or "" end,
     raw = function(p) local misc = sub(p, "misc"); return copy(type(misc.PE) == "table" and misc.PE[slot()] or nil) end,
-    setRaw = function(p, v) local misc = sub(p, "misc"); if type(misc.PE) ~= "table" then misc.PE = {} end; misc.PE[slot()] = v end,
+    -- at: the slot the backup was taken from (the glance may have moved since).
+    setRaw = function(p, v, at) local misc = sub(p, "misc"); if type(misc.PE) ~= "table" then misc.PE = {} end; misc.PE[at and tostring(at) or slot()] = v end,
+    slot = function() return TRP.GlanceSlot(slotKey) end,
   }
 end
 
@@ -506,7 +508,7 @@ function TRP.Restore()
   for key, saved in pairs(b.fields) do
     local def = TRP.FIELDS[key]
     if def and def.setRaw then
-      def.setRaw(profile, copy(saved.raw))
+      def.setRaw(profile, copy(saved.raw), saved.slot)
       sections[def.section] = true
     end
   end
@@ -516,6 +518,60 @@ function TRP.Restore()
   ns.db.backup[id] = nil
   fire(id, sections)
   return true
+end
+
+-- Moves a glance to another slot (0: none). Whatever was in the target slot swaps into the
+-- old one, and everything Auto TRP knows about each slot's text (what it wrote, what it
+-- wrote before that, whether it's the player's) goes with the text, so the player's words
+-- are never taken for Auto TRP's or the other way round. A glance moved to an empty slot
+-- (or to none) leaves its old slot: hidden if Auto TRP's text was there, left alone if it
+-- was the player's. Returns the glance that swapped in, if any.
+function TRP.MoveGlance(which, n)
+  local slots = ns.char.glanceSlots
+  local from = slots[which]
+  if from == nil or from == n then return nil end
+  local other
+  for k, v in pairs(slots) do if n > 0 and v == n and k ~= which then other = k end end
+  local id = ns.char.profileID
+  local key = "glance_" .. which
+  if id then
+    local books = { owned(id), released(id), previous(id) }
+    if other then
+      local okey = "glance_" .. other
+      for _, b in ipairs(books) do b[key], b[okey] = b[okey], b[key] end
+    else
+      local profile = TRP.Managed()
+      local mine, theirs, prev = books[1], books[2], books[3]
+      local hidden = ns.char.glanceHidden or {}
+      ns.char.glanceHidden = hidden
+      if profile and from > 0 and mine[key] ~= nil and not theirs[key] and not U.Call(InCombatLockdown) then
+        local def = TRP.FIELDS[key]
+        local have = def.read(profile)
+        if have ~= "" and (mine[key] == CLAIM or have == mine[key] or have == prev[key]) then
+          local bk = TRP.BackupFor(id)
+          if not bk.fields[key] then bk.fields[key] = { raw = copy(def.raw(profile)), slot = from } end
+          prev[key] = have
+          def.write(profile, nil)
+          mine[key] = def.read(profile)
+          bump(sub(profile, "misc"))
+          fire(id, { misc = true })
+        end
+      end
+      if n == 0 then
+        -- Taken off: what Auto TRP knows about the old slot is kept, for when it comes back.
+        hidden[which] = from
+      elseif from == 0 and hidden[which] == n then
+        hidden[which] = nil   -- back where it was
+      else
+        -- Somewhere new: it starts afresh there (the player's words found there stay theirs).
+        for _, b in ipairs(books) do b[key] = nil end
+        hidden[which] = nil
+      end
+    end
+  end
+  if other then slots[other] = from end
+  slots[which] = n
+  return other
 end
 
 -- Auto TRP's own statistics, kept together and in order. Earlier versions added them in no
@@ -568,7 +624,7 @@ function TRP.Apply(values, only)
         if mine[key] ~= have and prev[key] ~= have then
           TRP.Release(key, id); left[#left + 1] = key
         else
-          if not bk.fields[key] and def.raw then bk.fields[key] = { raw = copy(def.raw(profile)) } end
+          if not bk.fields[key] and def.raw then bk.fields[key] = { raw = copy(def.raw(profile)), slot = def.slot and def.slot() } end
           prev[key] = have
           def.write(profile, nil)
           mine[key] = def.read(profile)
@@ -601,7 +657,7 @@ function TRP.Apply(values, only)
         elseif def.ready and not def.ready(profile, id) then
           TRP.Release(key, id); left[#left + 1] = key   -- About uses another layout, with text
         else
-          if not bk.fields[key] and def.raw then bk.fields[key] = { raw = copy(def.raw(profile)) } end
+          if not bk.fields[key] and def.raw then bk.fields[key] = { raw = copy(def.raw(profile)), slot = def.slot and def.slot() } end
           prev[key] = have
           def.write(profile, value)
           mine[key] = def.read(profile)

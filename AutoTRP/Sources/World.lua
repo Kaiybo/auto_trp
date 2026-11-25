@@ -245,11 +245,31 @@ end
 ---------------------------------------------------------------------------
 -- The moment
 ---------------------------------------------------------------------------
+-- The land and the spot within it, as the game shows them. Inside some buildings the game
+-- gives the building as the zone ("Scarlet Raven Tavern", not Duskwood): then the building
+-- is the spot, and the land comes from the map.
+function World.Zone()
+  local zone = U.Plain(call("GetRealZoneText")) or U.Plain(call("GetZoneText"))
+  local sub = U.Plain(call("GetSubZoneText"))
+  if zone and World.IsInn(zone) and not W.INSTANCE_FLAVOR[zone] then
+    local mapID = C_Map and C_Map.GetBestMapForUnit and World.Safe(U.Call(C_Map.GetBestMapForUnit, "player"))
+    local info = type(mapID) == "number" and C_Map.GetMapInfo and World.Safe(U.Call(C_Map.GetMapInfo, mapID))
+    local land = type(info) == "table" and U.Plain(info.name)
+    if land and land ~= zone then
+      sub = (sub and sub ~= land) and sub or zone
+      zone = land
+    elseif not sub or sub == zone then
+      -- No land to be had: the building is all there is, and it isn't a land.
+      sub, zone = zone, nil
+    end
+  end
+  if sub == zone then sub = nil end
+  return zone, sub
+end
+
 function World.Snapshot()
   local s = {}
-  s.zone = U.Plain(call("GetRealZoneText")) or U.Plain(call("GetZoneText"))
-  s.subzone = U.Plain(call("GetSubZoneText"))
-  if s.subzone == s.zone then s.subzone = nil end
+  s.zone, s.subzone = World.Zone()
   -- zoneKey: the zone's English name for the lookup tables, from its map ID when there is one
   -- (so non-English clients get the same touches); zone stays as the game shows it.
   -- English clients already have the English name; others look it up by map ID.
@@ -311,11 +331,12 @@ function World.Snapshot()
   -- Reputations, skills and gear change rarely: read again only when the game says so.
   local slow = World.slow
   if not slow or slow.dirty or U.Now() - slow.t > 300 then
-    slow = { t = U.Now(), factions = World.Factions(), professions = World.Professions(), gear = World.Gear(),
-      reagents = World.Reagents(s.class) }
+    slow = { t = U.Now(), factions = World.Factions(), professions = World.Professions(), gear = World.Gear() }
     World.slow = slow
   end
-  s.factions, s.professions, s.gear, s.reagents = slow.factions, slow.professions, slow.gear, slow.reagents or {}
+  s.factions, s.professions, s.gear = slow.factions, slow.professions, slow.gear
+  -- Reagents are counted every time (cheap): one used up is gone from the profile at once.
+  s.reagents = World.Reagents(s.class)
   s.form = World.Form(s.auras)
   local guild, guildRank = call("GetGuildInfo", "player")
   s.guild, s.guildRank = U.Plain(World.Safe(guild)), U.Plain(World.Safe(guildRank))
@@ -336,7 +357,7 @@ end
 -- when the last one was waiting on a name.
 ns.On("GET_ITEM_INFO_RECEIVED", function()
   local slow = World.slow
-  if slow and ((slow.gear and slow.gear.incomplete) or (slow.reagents and slow.reagents.incomplete)) then World.Invalidate() end
+  if slow and slow.gear and slow.gear.incomplete then World.Invalidate() end
 end)
 
 ---------------------------------------------------------------------------
@@ -353,7 +374,12 @@ function World.SetContext(kind, detail)
   context = { kind = kind, detail = detail, t = U.Now() }
 end
 
+-- Whether a crafting window is open: crafting lasts as long as it is (a long "Create All"
+-- included), and ends when it closes.
+local craftOpen = false
+
 function World.Context()
+  if context and context.kind == "craft" and craftOpen then return context end
   if context and U.Now() - context.t <= (CONTEXT_LENGTH[context.kind] or World.CONTEXT_SECONDS) then return context end
   return nil
 end
@@ -382,7 +408,10 @@ ns.On("CHAT_MSG_TEXT_EMOTE", function(_, msg)
   local l = msg:lower()
   if l:find("^you sit") then World.SetContext("sitting")
   elseif l:find("^you lie down") or l:find("^you go to sleep") or l:find("^you sleep") then World.SetContext("sleeping")
-  elseif l:find("^you dance") or l:find("^you burst into dance") then World.SetContext("dancing") end
+  elseif l:find("^you dance") or l:find("^you burst into dance") then World.SetContext("dancing")
+  elseif context and (context.kind == "sitting" or context.kind == "sleeping" or context.kind == "dancing") then
+    context = nil
+  end
 end)
 ns.On("BANKFRAME_OPENED", function() World.SetContext("bank") end)
 ns.On("AUCTION_HOUSE_SHOW", function() World.SetContext("auction") end)
@@ -390,11 +419,18 @@ ns.On("MERCHANT_SHOW", function() World.SetContext("merchant") end)
 ns.On("TRAINER_SHOW", function() World.SetContext("trainer") end)
 ns.On("TAXIMAP_OPENED", function() World.SetContext("flightmaster") end)
 local function craft()
+  craftOpen = true
   local name = U.Plain((call("GetTradeSkillLine"))) or U.Plain((call("GetCraftDisplaySkillLine")))
-  if name and W.CRAFT[name] then World.SetContext("craft", name) end
+  World.SetContext("craft", name)
+end
+local function craftDone()
+  craftOpen = false
+  if context and context.kind == "craft" then context = nil end
 end
 ns.On("TRADE_SKILL_SHOW", craft)
 ns.On("CRAFT_SHOW", craft)
+ns.On("TRADE_SKILL_CLOSE", craftDone)
+ns.On("CRAFT_CLOSE", craftDone)
 ns.OnUnit("UNIT_SPELLCAST_CHANNEL_START", "player", function(_, unit, _, spellID)
   local name = World.Safe(call("UnitChannelInfo", "player"))
   if name == "Fishing" or spellID == 7620 or spellID == 7731 or spellID == 7732 or spellID == 18248 then
@@ -415,7 +451,7 @@ function World.CountCast(name, spellID)
   if not ns.char or type(name) ~= "string" then return false end
   if W.CAST_IGNORE[name] or W.CAST_IGNORE_ID[spellID or 0] then return false end
   local ctx = World.Context()
-  if ctx and ctx.kind == "craft" then return false end
+  if craftOpen or (ctx and ctx.kind == "craft") then return false end
   if type(_G.IsPlayerSpell) == "function" and type(spellID) == "number" then
     local own = U.Call(_G.IsPlayerSpell, spellID)
     if own == false then return false end
@@ -492,7 +528,7 @@ function World.Activity(s, seed, terse)
     return (U.Pick(W.TRAVEL.taxi, seed .. "taxi"):gsub("{beast}", beast):gsub("{where}", function() return where end))
   end
   local ctx = s.context
-  if ctx and ctx.kind == "craft" then
+  if ctx and ctx.kind == "craft" and W.CRAFT[ctx.detail or ""] then
     text = U.Pick(W.CRAFT[ctx.detail], seed .. "craft") .. " in " .. (U.Mid(sub) or where)
   elseif s.away then
     text = U.Pick(W.ACTIVITY.away, seed .. "away"):gsub("{place}", function() return U.Mid(sub) or where end)

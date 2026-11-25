@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.20.0"
+ns.VERSION = "0.21.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -140,7 +140,7 @@ ns.DEFAULTS = {
     stats = true,       -- Statistics in Additional information (each one has its own switch too)
     stat_deaths = true, stat_lands = true, stat_road = true, stat_dungeons = true, stat_foes = true,
     stat_rares = true, stat_slain = true, stat_jobs = true, stat_wealth = true, stat_crafts = true,
-    stat_standing = true, stat_names = true, stat_spell = true, stat_met = true, stat_books = true, stat_letters = true,
+    stat_standing = true, stat_names = true, stat_spell = true, stat_haunt = true, stat_met = true, stat_books = true, stat_letters = true,
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },
@@ -167,6 +167,7 @@ ns.CHAR_DEFAULTS = {
   -- chosenName = nil, -- the earned name to wear (/atrp name), else the best one
   -- casts = nil,    -- { since, n = { [spell name] = times cast } }, for the most cast spell
   -- deeds = nil,    -- Auto TRP's own record of quests turned in and masters felled (Sources/Deeds.lua)
+  -- travels = nil,  -- Auto TRP's own record of lands visited and time spent in each (Sources/Travels.lua)
 }
 
 local function fill(db, defaults)
@@ -254,6 +255,13 @@ function U.Join(list)
   return table.concat(list, ", ", 1, n - 1) .. " and " .. list[n]
 end
 
+-- "Full of Winter Veil cheer" -> "full of Winter Veil cheer": only the first letter, so
+-- names further on keep their capitals.
+function U.LowerFirst(s)
+  if type(s) ~= "string" then return s end
+  return (s:gsub("^%u", string.lower))
+end
+
 function U.Cap(s)
   if type(s) ~= "string" then return s end
   return (s:gsub("^%l", string.upper))
@@ -329,9 +337,10 @@ U.Unsecret = unsecret
 -- Every game API read goes through here, so no secret value ever reaches add-on logic.
 function U.Call(fn, ...)
   if type(fn) ~= "function" then return nil end
-  local ok, a, b, c, d = pcall(fn, ...)
-  if ok then return U.Unsecret(a), U.Unsecret(b), U.Unsecret(c), U.Unsecret(d) end
-  return nil
+  return (function(ok, ...)
+    if ok then return scrub(...) end
+    return nil
+  end)(pcall(fn, ...))
 end
 
 -- The player's pronouns for prose. Total RP 3's own pronoun field wins when it is set;

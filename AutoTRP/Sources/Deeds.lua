@@ -21,7 +21,7 @@ local function store()
   return d
 end
 
-local function zone() return U.Plain(U.Call(GetRealZoneText)) end
+local function zone() return (ns.World.Zone()) end
 
 -- A quest turned in. title: as the game shows it. Only the first time counts.
 function D.Quest(title, questID, where, t)

@@ -1704,6 +1704,8 @@ W.WEEK_TONE = {
 
 -- Class reagents and tools in the bags (item id, name if the game can't say). What a class
 -- carries is told only when it's really in the bags.
+-- Reagents named without a count ("Arcane Powder", not "twenty Arcane Powders").
+W.MASS_NOUN = { powder = true, berries = true, poison = true, thornroot = true }
 W.CLASS_REAGENTS = {
   PALADIN = { { 21177, "Symbol of Kings" }, { 17033, "Symbol of Divinity" } },
   PRIEST = { { 17029, "Sacred Candle" }, { 17028, "Holy Candle" } },
@@ -2241,6 +2243,14 @@ W.SAY = {
   setout = { "{name} has only just set out, and hasn't been far from home yet",
     "{name} is new to the road, and hasn't been far from home yet" },
   home = { "Calls {inn} home", "Has made {inn} {their} home" },
+  -- Where most of their time goes (Auto TRP's own count of time spent in each land).
+  haunt = { "Keeps coming back to {where}", "Spends more time in {where} than anywhere else",
+    "Is most often found in {where}" },
+  haunt_most = { "Spends most of {their} days in {where}", "Most of {their} time is spent in {where}",
+    "Has spent more time in {where} than everywhere else put together" },
+  haunt_moved = { "Used to spend most of {their} days in {was}, but these days it's {where}",
+    "{was} saw the most of {them} once; these days it's {where}",
+    "Has left {was} behind for {where}, where {they} spend{s} most of {their} time now" },
   lastplace = { "The last new place {they} reached was {place}", "Most recently reached {place}" },
   -- Earned names: where the name came from, the saying that came with it, the others that
   -- stuck, and a name earned only lately (Lately).

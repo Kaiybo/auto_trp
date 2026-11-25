@@ -60,6 +60,47 @@ function Compose.QuestsDone(c) return mergedFor(c or ns.cache).questsDone end
 -- The latest quest turned in, from either record: { title, t, zone } or nil.
 function Compose.LastQuest(c) return mergedFor(c or ns.cache).lastQuest end
 
+-- Every land set foot in, first seen first: RPG Dialogue's record and Auto TRP's own
+-- (Sources/Travels.lua) together, whichever saw it first has the time. { { name, t }, ... }
+local lands = {}
+function Compose.Lands(c)
+  c = c or ns.cache
+  if lands.rpgd == c.rpgd and lands.travels == c.travels and lands.list then return lands.list end
+  local first, list = {}, {}
+  for _, src in ipairs({ c.rpgd and c.rpgd.zones or {}, c.travels and c.travels.lands or {} }) do
+    for _, z in ipairs(src) do
+      local t = (z.t or 0) > 0 and z.t or nil
+      if first[z.name] == nil then first[z.name] = t or false
+      elseif t and (not first[z.name] or t < first[z.name]) then first[z.name] = t end
+    end
+  end
+  for name, t in pairs(first) do list[#list + 1] = { name = name, t = t or 0 } end
+  table.sort(list, function(a, b) if a.t ~= b.t then return a.t < b.t end return a.name < b.name end)
+  lands = { rpgd = c.rpgd, travels = c.travels, list = list }
+  return list
+end
+
+-- Where the character spends most of their time these days, once it's clear: { name, secs
+-- (all the time there), share (of recent time), was = { name, secs } (where most of their
+-- time used to go, if that has since been left behind) } or nil. Recent time fades as
+-- they play elsewhere (Sources/Travels.lua), so the haunt moves on when they do: at least
+-- two hours there, recently, and at least a quarter of their recent time.
+function Compose.Haunt(c)
+  c = c or ns.cache
+  local tr = c.travels
+  local top = tr and tr.recent[1]
+  if not top or top.recent < 7200 or tr.recentSecs <= 0 or top.recent / tr.recentSecs < 0.25 then return nil end
+  local out = { name = top.name, secs = top.secs, share = top.recent / tr.recentSecs }
+  -- The land they spent the most time in otherwise, over their whole life, if they've since
+  -- left it behind.
+  local old = tr.haunts[1]
+  if old and old.name == top.name then old = tr.haunts[2] end
+  if old and old.secs >= 5 * 3600 and old.secs >= top.secs / 5 and old.recent / tr.recentSecs < 0.1 then
+    out.was = { name = old.name, secs = old.secs }
+  end
+  return out
+end
+
 function Compose.Refresh()
   local S = ns.Sources
   local c = ns.cache
@@ -70,6 +111,7 @@ function Compose.Refresh()
     c.sd = S.SocialDiary.Read()
     c.chronicle = S.Chronicle.Read()
     c.deeds = S.Deeds.Read()
+    c.travels = S.Travels.Read()
     sourcesAt, c.read = now, true
   end
   c.t = now
@@ -109,6 +151,19 @@ local function seasoned(level, key)
   for _, b in ipairs(W.SEASONED) do
     if (level or 1) <= b.max then return U.Pick(b.words, seed(key)) end
   end
+end
+
+-- Who did the killing, as a sentence names them: "Hogger", but "a Defias Pillager" when it
+-- was one of many (the character has killed more than one of them, or the fight said so).
+function Compose.Killer(name)
+  local rpgd = ns.cache.rpgd
+  local fight = ns.char and ns.char.lastFight
+  if type(fight) == "table" and type(fight.foe) == "table" and fight.foe.name == name then
+    return fight.foe.named and name or article(name)
+  end
+  local n = rpgd and tonumber(rpgd.killsByName[name])
+  if n and n >= 2 then return article(name) end
+  return name
 end
 
 local function deathCount(c)
@@ -186,8 +241,8 @@ function Compose.LatelyGlance()
   local cdeath = chron and chron.deaths[1]
   if cdeath and (not death or cdeath.t > death.t) then death = cdeath end
   if death and within(death.t, 2 * 86400) then
-    local tx = "Was badly hurt" .. (death.killer and (" by " .. death.killer) or "") .. (death.zone and (" in " .. death.zone) or "")
-      .. (within(death.t, 3 * 3600) and ", within the last few hours" or ", a day or two ago")
+    local tx = "Was badly hurt" .. (death.killer and (" by " .. Compose.Killer(death.killer)) or "") .. (death.zone and (" in " .. U.Mid(death.zone)) or "")
+      .. (within(death.t, 3 * 3600) and ", within the last few hours" or within(death.t, 86400) and ", earlier today" or ", a day or two ago")
     add(death.t, 3, { TI = "Hurt", TX = tx .. ".", IC = "Spell_Holy_Resurrection" })
   end
   local boss = Compose.Bosses(c)[1]
@@ -239,8 +294,9 @@ function Compose.LatelyGlance()
     add(find.t, 2, { TI = "A New Prize", IC = "INV_Misc_Gem_Pearl_04",
       TX = say("find", { item = find.item, where = find.zone and (" in " .. U.Mid(find.zone)) or "" }, find.t) })
   end
-  local zone = rpgd and rpgd.zones[#rpgd.zones]
-  if zone and within(zone.t, 86400) and #rpgd.zones > 2 then
+  local landList = Compose.Lands(c)
+  local zone = landList[#landList]
+  if zone and within(zone.t, 86400) and #landList > 2 then
     add(zone.t, 0, { TI = "New in Town", IC = "INV_Misc_Map_01",
       TX = say("newzone", { zone = U.Mid(zone.name) }, zone.t) })
   end
@@ -286,7 +342,7 @@ function Compose.CompanyGlance()
     local f = sd.friends[1]
     local tx
     if f.relationship then
-      tx = "Often seen with " .. f.name .. ", " .. U.Pron("{their} ") .. f.relationship:lower() .. "."
+      tx = "Often seen with " .. f.name .. ", " .. U.Pron("{their} ") .. U.LowerFirst(f.relationship) .. "."
     else
       local names = {}
       for i = 1, math.min(2, #sd.friends) do names[i] = sd.friends[i].name end
@@ -297,7 +353,7 @@ function Compose.CompanyGlance()
   local town = rpgd and rpgd.towns[1]
   local friend = rpgd and rpgd.friends[1]
   if town and town.value >= 10 then
-    local tx = U.Cap((ns.Sources.RPGD.Tier(town.value).phrase:gsub("{town}", town.name)))
+    local tx = U.Cap((ns.Sources.RPGD.Tier(town.value).phrase:gsub("{town}", U.Mid(town.name))))
     if friend then tx = tx .. ", and gets on well with " .. friend.name end
     return { TI = "Local Ties", IC = "INV_Misc_Bag_11", TX = tx .. "." }
   end
@@ -430,7 +486,8 @@ function Compose.MarksGlance()
   local g = world.gear or {}
   local wear = Compose.Wear(world)
   if wear and wear.band.glance then mark(5, wear.band.glance, U.Cap(wear.text) .. ".", "INV_Hammer_20") end
-  local finest = g.finest or (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
+  -- Only what's worn now; Chronicle's snapshot only when the game can't say what is.
+  local finest = g.finest or ((g.items or 0) == 0 and c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
   if finest and finest.name and finest.quality >= 4 then
     mark(4, "Remarkable Gear", say("remarkable", { item = finest.name }, finest.name), "INV_Misc_Gem_Pearl_04")
   end
@@ -640,11 +697,14 @@ function Compose.Bearing()
   local hooks = Compose.Hooks()
   local stories = #hooks > 0 and paragraph({ say("stories", { list = U.Join(hooks) }) }) or nil
 
-  return pages({ paragraph(first), #views > 0 and paragraph({ name .. " " .. views[1], views[2] }) or nil, paragraph(more), stories })
+  return pages({ paragraph(first), #views > 0 and paragraph(#ops > 0 and { name .. " " .. views[1], views[2] } or views) or nil, paragraph(more), stories })
 end
 
 -- "Kobold Miner" -> "Kobold Miners", "Wolf" -> "Wolves", "Harpy" -> "Harpies"
 function Compose.Plural(name)
+  -- "Symbol of Kings" -> "Symbols of Kings", "Rune of Portals" -> "Runes of Portals"
+  local before, after = name:match("^(.-)( of .+)$")
+  if before and before ~= "" then return Compose.Plural(before) .. after end
   local last = name:match("(%S+)$") or name
   local head = name:sub(1, #name - #last)
   local p
@@ -735,10 +795,10 @@ function Compose.History()
 
   -- 2. The road so far
   local road = {}
-  local zones = rpgd and rpgd.zones or {}
+  local zones = Compose.Lands(c)
   local zoneCount = math.max(#zones, chron and chron.zones or 0)
   if zoneCount >= 3 and zones[1] then
-    local since = math.min(zones[1].t or math.huge, chron and chron.created or math.huge)
+    local since = math.min(zones[1].t > 0 and zones[1].t or math.huge, chron and chron.created or math.huge)
     local weeks = since < math.huge and math.floor((U.Now() - since) / 604800) or 0
     local ago = weeks >= 9 and (U.Number(math.floor(weeks / 4.3)) .. " months ago")
       or weeks >= 2 and (U.Number(weeks) .. " weeks ago") or nil
@@ -750,6 +810,14 @@ function Compose.History()
     if dungeons >= 2 then road[#road + 1] = "Along the way {they've} been inside " .. U.Number(dungeons) .. " dungeons" end
   elseif (world.level or 1) < 10 then
     road[#road + 1] = say("setout", { name = name })
+  end
+  local haunt = Compose.Haunt(c)
+  if haunt and zoneCount >= 2 then
+    if haunt.was then
+      road[#road + 1] = say("haunt_moved", { where = placeName(haunt.name), was = placeName(haunt.was.name) }, haunt.name)
+    else
+      road[#road + 1] = say(haunt.share >= 0.5 and "haunt_most" or "haunt", { where = placeName(haunt.name) }, haunt.name)
+    end
   end
   local ms = ns.char and ns.char.milestones or {}
   if #ms > 0 then
@@ -829,7 +897,7 @@ function Compose.History()
   if sd and ns.db.nameFriends and #sd.friends > 0 then
     local f = sd.friends[1]
     if f.relationship then
-      partner = f.name .. ", {their} " .. f.relationship:lower() .. (sd.friends[2] and (", and " .. sd.friends[2].name) or "")
+      partner = f.name .. ", {their} " .. U.LowerFirst(f.relationship) .. (sd.friends[2] and (", and " .. sd.friends[2].name) or "")
     else
       local names = {}
       for k = 1, math.min(3, #sd.friends) do names[k] = sd.friends[k].name end
@@ -848,10 +916,10 @@ function Compose.History()
   if rpgd then
     local good, bad = {}, nil
     for _, t in ipairs(rpgd.towns) do
-      if t.value >= 10 and #good < 2 then good[#good + 1] = (ns.Sources.RPGD.Tier(t.value).phrase:gsub("{town}", t.name)) end
+      if t.value >= 10 and #good < 2 then good[#good + 1] = (ns.Sources.RPGD.Tier(t.value).phrase:gsub("{town}", U.Mid(t.name))) end
     end
     local worst = rpgd.towns[#rpgd.towns]
-    if worst and worst.value <= -20 then bad = (ns.Sources.RPGD.Tier(worst.value).phrase:gsub("{town}", worst.name)) end
+    if worst and worst.value <= -20 then bad = (ns.Sources.RPGD.Tier(worst.value).phrase:gsub("{town}", U.Mid(worst.name))) end
     if #good > 0 then
       people[#people + 1] = U.Cap(U.Join(good)) .. (bad and (", though " .. bad) or "")
     elseif bad then
@@ -945,7 +1013,11 @@ function Compose.Physical()
   local bag = {}
   for i, r in ipairs(world.reagents or {}) do
     if i > 3 then break end
-    bag[#bag + 1] = r.count > 1 and (U.Number(r.count) .. " " .. Compose.Plural(r.name)) or r.name
+    -- Powders, berries and poison are counted out by the pinch, not by number.
+    local last = (r.name:match("(%S+)$") or ""):lower()
+    if W.MASS_NOUN[last] then bag[#bag + 1] = r.name
+    elseif r.count > 1 then bag[#bag + 1] = U.Number(r.count) .. " " .. Compose.Plural(r.name)
+    else bag[#bag + 1] = article(r.name) end
   end
   if #bag > 0 then dress[#dress + 1] = "Keeps " .. U.Join(bag) .. " in {their} bags" end
   local band = Compose.WealthBand(world)
@@ -981,6 +1053,7 @@ Compose.STATS = {
   { key = "standing", label = "Best standing", icon = "INV_BannerPVP_02" },
   { key = "names", label = "Names earned", icon = "INV_Misc_Note_04" },
   { key = "spell", label = "Most cast spell", icon = "Spell_Holy_MagicalSentry" },
+  { key = "haunt", label = "Favourite haunt", icon = "INV_Misc_Map02" },
   -- Retired: they meant little to anyone reading the profile. Kept so that what an
   -- earlier version wrote is taken off again (they never have a value now).
   { key = "met", label = "People met", icon = "Spell_Holy_PrayerOfSpirit", retired = true },
@@ -998,11 +1071,13 @@ end
 local function money(copper)
   local g, sv = math.floor(copper / 10000), math.floor(copper / 100) % 100
   if g > 0 then return (g >= 100 and U.Number(g) or tostring(g)) .. " gold" .. (sv > 0 and (", " .. sv .. " silver") or "") end
-  return sv .. " silver"
+  if sv > 0 then return sv .. " silver" end
+  return math.floor(copper % 100) .. " copper"
 end
 
 local function roadDays(c)
-  local first = c.rpgd and c.rpgd.zones[1] and c.rpgd.zones[1].t
+  local first = Compose.Lands(c)[1]
+  first = first and first.t > 0 and first.t or nil
   local since = math.min(first or math.huge, c.chronicle and c.chronicle.created or math.huge)
   if since == math.huge then return nil end
   return math.floor((U.Now() - since) / 86400)
@@ -1017,10 +1092,10 @@ function Compose.Stats()
   local deaths = deathCount(c)
   if deaths > 0 then
     local first = rpgd and rpgd.deaths[1] or (chron and chron.deaths[#chron.deaths])
-    out.deaths = figure(deaths) .. (first and first.killer and (", the first to " .. first.killer) or "")
+    out.deaths = figure(deaths) .. (first and first.killer and (", the first to " .. Compose.Killer(first.killer)) or "")
   end
-  local lands = math.max(rpgd and #rpgd.zones or 0, chron and chron.zones or 0)
-  if lands > 0 then out.lands = figure(lands) end
+  local landCount = math.max(#Compose.Lands(c), chron and chron.zones or 0)
+  if landCount > 0 then out.lands = figure(landCount) end
   local days = roadDays(c)
   if days and days > 0 then out.road = figure(days) end
   local dungeons = math.max(chron and chron.dungeons or 0, rpgd and #rpgd.cleared or 0)
@@ -1056,6 +1131,9 @@ function Compose.Stats()
   -- The most cast spell, with how many times ("Flash Heal, 1,240 times").
   local top = Compose.TopSpells(1)[1]
   if top and top.n >= 10 then out.spell = top.name .. ", " .. figure(top.n) .. " times" end
+  -- Where most of their time goes ("Duskwood, 14 hours").
+  local haunt = Compose.Haunt(c)
+  if haunt then out.haunt = haunt.name .. ", " .. ns.Sources.Travels.Span(haunt.secs, true) end
   return out
 end
 
@@ -1084,7 +1162,7 @@ function Compose.FullTitle()
   local best = rpgd and rpgd.towns[1]
   if best then
     local tpl = W.FULLTITLE_TIER[ns.Sources.RPGD.Tier(best.value).name]
-    standing = tpl and (tpl:gsub("{town}", best.name))
+    standing = tpl and (tpl:gsub("{town}", U.Mid(best.name)))
   end
   if align and standing then return align .. ", " .. standing end
   if standing then return standing end

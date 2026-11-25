@@ -304,6 +304,36 @@ SlashCmdList.AUTOTRP("slot marks 4")
 check(p.misc.PE["4"].TI ~= "Ambition" and p.misc.PE["5"].TI == "Ambition", "glances swap slots")
 check(ns.TRP.Status("glance_marks") == "auto" and ns.TRP.Status("glance_ambition") == "auto", "and neither is given up")
 SlashCmdList.AUTOTRP("slot marks 5")
+-- A glance taken off leaves the player's words alone, and hides only Auto TRP's own.
+do
+  local PE = p.misc.PE
+  PE["5"] = { AC = true, TI = "Scar", TX = "A long scar across one hand." }
+  ns.UI.Update(true)
+  check(ns.TRP.Status("glance_marks") == "yours", "a glance the player wrote is theirs")
+  SlashCmdList.AUTOTRP("slot marks 0")
+  check(PE["5"].AC == true and PE["5"].TX == "A long scar across one hand.", "taking it off doesn't hide the player's words")
+  SlashCmdList.AUTOTRP("slot marks 5")
+  check(PE["5"].TX == "A long scar across one hand." and PE["5"].AC == true, "and putting it back doesn't overwrite them")
+  ns.TRP.Claim("glance_marks"); ns.UI.Update(true)
+  local v, n = p.misc.v, #fired
+  SlashCmdList.AUTOTRP("slot company 0")
+  check(PE["3"].AC == false, "Auto TRP's own glance taken off is hidden")
+  check(p.misc.v ~= v and #fired > n, "and the change is sent out")
+  SlashCmdList.AUTOTRP("slot company 3")
+  check(PE["3"].AC == true and ns.TRP.Status("glance_company") == "auto", "and it comes back")
+  -- Swapping onto the player's glance: their words stay where they are, and the glance
+  -- that moves into Auto TRP's old slot keeps being written.
+  PE["2"] = { AC = true, TI = "Rumour", TX = "Owes money in Booty Bay." }
+  ns.UI.Update(true)
+  check(ns.TRP.Status("glance_lately") == "yours", "the player wrote Lately")
+  SlashCmdList.AUTOTRP("slot mood 2")
+  ns.UI.Update(true)
+  check(PE["2"].TX == "Owes money in Booty Bay.", "their words stay in slot 2")
+  check(ns.TRP.Status("glance_lately") == "auto" and PE["1"].TX == ns.Compose.LatelyGlance().TX,
+    "and slot 1 is written for the glance now in it: " .. tostring(PE["1"].TX))
+  SlashCmdList.AUTOTRP("slot mood 1")
+  ns.TRP.Claim("glance_lately"); ns.TRP.Claim("glance_mood"); ns.UI.Update(true)
+end
 
 -- Buffs lift the mood
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
@@ -1219,6 +1249,133 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- The travel record: lands set foot in and time spent in each, without RPG Dialogue;
+-- instances aren't lands, time away from the keyboard doesn't count.
+do
+  local C, T = ns.Compose, ns.Sources.Travels
+  local rpgd = RPGDialogueCharDB
+  RPGDialogueCharDB = nil
+  ns.char.travels = nil
+  ns.char.seen.zones = { ["Elwynn Forest"] = NOW - 20 * 86400, ["The Deadmines"] = NOW - 15 * 86400 }
+  local oldTime, oldInst, oldAFK = GetServerTime, IsInInstance, UnitIsAFK
+  local now = NOW
+  GetServerTime = function() return now end
+  local afk = false
+  UnitIsAFK = function() return afk end
+  local function go(zone, secs, inst)
+    state.zone = zone
+    IsInInstance = function() if inst then return true, inst end return false, "none" end
+    event("ZONE_CHANGED_NEW_AREA")
+    local left = secs
+    while left > 0 do local step = math.min(T.TICK, left); now = now + step; left = left - step; T.Count() end
+  end
+  state.zone = "Elwynn Forest"
+  T.Count()
+  check(ns.char.travels.zones["Elwynn Forest"] and ns.char.travels.zones["Elwynn Forest"].t == NOW - 20 * 86400,
+    "lands seen before the record began are taken in with their time")
+  go("Westfall", 3 * 3600)
+  go("The Deadmines", 2 * 3600, "party")
+  go("Duskwood", 9 * 3600)
+  go("Redridge Mountains", 600)
+  afk = true; go("Duskwood", 5 * 3600); afk = false
+  local tr = ns.char.travels.zones
+  check(math.abs(tr["Duskwood"].secs - 9 * 3600) <= T.TICK, "time spent counts, but not away from the keyboard: " .. tr["Duskwood"].secs)
+  now = now + 4 * 3600; T.Count()
+  check(math.abs(tr["Duskwood"].secs - 9 * 3600 - T.GAP) <= T.TICK, "a long gap counts only a little")
+  C.SourcesChanged(); C.Refresh()
+  local names = {}
+  for _, l in ipairs(C.Lands()) do names[#names + 1] = l.name end
+  check(table.concat(names, ",") == "Elwynn Forest,Westfall,Duskwood,Redridge Mountains", "lands in order, no dungeons: " .. table.concat(names, ","))
+  local st = C.Stats()
+  check(st.lands == "4", "Lands explored without RPG Dialogue: " .. tostring(st.lands))
+  check(st.road == "20", "Days on the road from the first land: " .. tostring(st.road))
+  check(st.haunt == "Duskwood, 9 hours", "the favourite haunt is a statistic: " .. tostring(st.haunt))
+  local h = C.History()
+  check(h:find("From Elwynn Forest", 1, true) and h:find("four lands", 1, true), "History's road without RPG Dialogue")
+  check(h:find("Duskwood", 1, true) and (h:find("most of", 1, true) or h:find("Most of", 1, true) or h:find("everywhere else", 1, true)),
+    "and where the time goes: " .. (h:match("[^.\n]*Duskwood[^.\n]*") or "?"))
+  ns.cache.world.level = 22
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end
+  SlashCmdList.AUTOTRP("places")
+  DEFAULT_CHAT_FRAME.AddMessage = oldChat
+  local out = table.concat(said, " ")
+  check(out:find("4 lands so far, starting with Elwynn Forest, the latest Redridge Mountains", 1, true) and out:find("Duskwood 9 hours", 1, true),
+    "/atrp places lists them: " .. out)
+  -- A short spell somewhere isn't a haunt.
+  for _, z in pairs(ns.char.travels.zones) do z.secs = math.min(z.secs, 3000); z.recent = math.min(z.recent or 0, 3000) end
+  C.SourcesChanged(); C.Refresh()
+  check(C.Stats().haunt == nil, "no haunt until it's clear")
+  check(ns.TRP.FIELDS.stat_haunt ~= nil, "the haunt has its own switch")
+  -- The haunt moves on when the character does: recent time counts, the old haunt fades.
+  ns.char.travels = nil
+  ns.char.seen.zones = {}
+  state.zone = "Westfall"
+  T.Count()
+  go("Westfall", 10 * 3600)
+  go("Duskwood", 5 * 3600)
+  C.SourcesChanged(); C.Refresh()
+  check(C.Haunt().name == "Westfall", "a few hours elsewhere don't move the haunt")
+  now = now + 30 * 86400; T.Count()   -- a month away from the game changes nothing
+  C.SourcesChanged(); C.Refresh()
+  check(C.Haunt().name == "Westfall", "nor does time away from the game")
+  go("Duskwood", 35 * 3600)
+  C.SourcesChanged(); C.Refresh()
+  local hn = C.Haunt()
+  check(hn.name == "Duskwood" and hn.was and hn.was.name == "Westfall", "weeks spent elsewhere do, and the old haunt is remembered")
+  check(C.Stats().haunt == "Duskwood, 40 hours", "the statistic follows: " .. tostring(C.Stats().haunt))
+  h = C.History()
+  check(h:find("Westfall", 1, true) and h:find("these days it's Duskwood", 1, true) or h:find("Westfall behind for Duskwood", 1, true),
+    "History tells of the move: " .. (h:match("[^.\n]*Westfall[^.\n]*") or "?"))
+  ns.char.travels = nil
+  -- Inside some buildings the game gives the building as the zone: the land comes from the map.
+  state.zone, state.sub = "Scarlet Raven Tavern", "Scarlet Raven Tavern"
+  C_Map = { GetBestMapForUnit = function() return 1431 end, GetMapInfo = function() return { name = "Duskwood" } end }
+  local z, sub = ns.World.Zone()
+  check(z == "Duskwood" and sub == "Scarlet Raven Tavern", "a tavern given as the zone is a spot in its land: " .. tostring(z) .. " / " .. tostring(sub))
+  local cu = C.Currently(ns.Mood.Current and ns.Mood.Current() or nil) or ""
+  local snap = ns.World.Snapshot()
+  local act = ns.World.Activity(snap, "x")
+  check(not act:find("streets of", 1, true) and act:find("the Scarlet Raven Tavern, Duskwood", 1, true), "and Currently stays at the inn: " .. act)
+  C_Map = nil
+  z, sub = ns.World.Zone()
+  check(z == nil and sub == "Scarlet Raven Tavern", "without a map, the tavern still isn't a land")
+  state.sub = "Lion's Pride Inn"
+  RPGDialogueCharDB = rpgd
+  GetServerTime, IsInInstance, UnitIsAFK = oldTime, oldInst, oldAFK
+  state.zone = "Elwynn Forest"
+  ns.char.travels = nil
+  C.SourcesChanged(); C.Refresh()
+end
+
+-- Wording fixes from review.
+do
+  local C, R, SD = ns.Compose, ns.Sources.RPGD, ns.Sources.SocialDiary
+  local function title(a) local t = R.AlignTitle(a, "Alliance"); return t end
+  check(title({ light = 55, order = 95, honor = 0 }) ~= title({ light = 95, order = 55, honor = 0 }), "the strongest leaning names the alignment title")
+  check(SD.PartnerStatus("Wife") == 3 and SD.PartnerStatus("Fiancée") == 2, "a wife or fiancée is a partner")
+  check(not SD.PartnerStatus("Ex-wife") and not SD.PartnerStatus("late husband") and not SD.PartnerStatus("unmarried")
+    and not SD.PartnerStatus("midwife") and not SD.PartnerStatus("glover"), "a former partner, a midwife or a glover isn't")
+  check(SD.Unfriendly("Rival") and SD.Unfriendly("Owes me money") and not SD.Unfriendly("Sworn sister"), "a rival isn't named as a friend")
+  check(C.Plural("Symbol of Kings") == "Symbols of Kings" and C.Plural("Rune of Portals") == "Runes of Portals", "plurals before 'of'")
+  ns.cache.rpgd = ns.cache.rpgd or { killsByName = {} }
+  local kb = ns.cache.rpgd.killsByName
+  local old = kb["Defias Pillager"]
+  kb["Defias Pillager"] = 12
+  local lf = ns.char.lastFight
+  ns.char.lastFight = nil
+  check(C.Killer("Defias Pillager") == "a Defias Pillager" and C.Killer("Hogger") == "Hogger", "a killer that was one of many gets an article")
+  kb["Defias Pillager"], ns.char.lastFight = old, lf
+  check(ns.U.LowerFirst("Full of Winter Veil cheer") == "full of Winter Veil cheer", "lowercasing keeps names")
+  C.Refresh()
+  local keep = ns.cache.world.reagents
+  ns.cache.world.reagents = { { name = "Symbol of Kings", count = 20 }, { name = "Symbol of Divinity", count = 1 }, { name = "Arcane Powder", count = 40 } }
+  local ph = C.Physical()
+  check(ph:find("twenty Symbols of Kings, a Symbol of Divinity and Arcane Powder", 1, true) ~= nil, "reagents read right: " .. (ph:match("Keeps[^.]*") or "?"))
+  ns.cache.world.reagents = keep
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
@@ -1266,7 +1423,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", was = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then

@@ -174,8 +174,8 @@ function R.AlignTitle(align, faction)
   for _, t in ipairs(W.ALIGN_TITLES) do
     local v = (align[t.axis] or 0) * t.sign
     if v >= 50 then
-      local m = math.max(math.abs(align.light), math.abs(align.order), math.abs(align.honor))
-      if not best or m > mag then best, mag = t, m end
+      -- The strongest leaning wins (the first listed only between equals).
+      if not best or v > mag then best, mag = t, v end
     end
   end
   if not best then return nil end
