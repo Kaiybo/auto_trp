@@ -82,7 +82,7 @@ local function itemInfo(link)
 end
 
 function World.Gear()
-  local g = { qualitySum = 0, items = 0 }
+  local g = { qualitySum = 0, items = 0, names = {}, q = {} }
   local function slot(id)
     local link = call("GetInventoryItemLink", "player", id)
     if not link then return nil end
@@ -107,6 +107,11 @@ function World.Gear()
       g.finest = { name = U.Plain(name), quality = q, slot = id }
     end
   end
+  for _, id in ipairs({ 1, 3, 5, 15, 16, 17, 18, 19 }) do
+    local name, q = slot(id)
+    if name then g.names[id] = U.Plain(name); g.q[id] = q end
+  end
+  g.offType = off
   g.tabard = U.Plain((slot(19)))
   g.cloak = U.Plain((slot(15)))
   -- Durability: the worst-kept piece
@@ -125,6 +130,19 @@ end
 ---------------------------------------------------------------------------
 -- Bags
 ---------------------------------------------------------------------------
+-- The class's reagents and tools actually in the bags: { { name =, count = } }.
+function World.Reagents(class)
+  local out = {}
+  local count = (C_Item and C_Item.GetItemCount) or _G.GetItemCount
+  for _, r in ipairs(W.CLASS_REAGENTS[class or ""] or {}) do
+    local n = type(count) == "function" and select(2, pcall(count, r[1])) or 0
+    if type(n) == "number" and n > 0 then
+      local name = itemInfo("item:" .. r[1])
+      out[#out + 1] = { name = U.Plain(name) or r[2], count = n }
+    end
+  end
+  return out
+end
 function World.FreeBagSlots()
   local free = 0
   local get = (C_Container and C_Container.GetContainerNumFreeSlots) or _G.GetContainerNumFreeSlots
@@ -295,10 +313,11 @@ function World.Snapshot()
   -- Reputations, skills and gear change rarely: read again only when the game says so.
   local slow = World.slow
   if not slow or slow.dirty or U.Now() - slow.t > 300 then
-    slow = { t = U.Now(), factions = World.Factions(), professions = World.Professions(), gear = World.Gear() }
+    slow = { t = U.Now(), factions = World.Factions(), professions = World.Professions(), gear = World.Gear(),
+      reagents = World.Reagents(s.class) }
     World.slow = slow
   end
-  s.factions, s.professions, s.gear = slow.factions, slow.professions, slow.gear
+  s.factions, s.professions, s.gear, s.reagents = slow.factions, slow.professions, slow.gear, slow.reagents or {}
   s.form = World.Form(s.auras)
   local guild, guildRank = call("GetGuildInfo", "player")
   s.guild, s.guildRank = U.Plain(World.Safe(guild)), U.Plain(World.Safe(guildRank))

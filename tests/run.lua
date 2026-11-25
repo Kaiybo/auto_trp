@@ -607,7 +607,7 @@ RPGDialogueCharDB.letters = { l1 = { arrived = NOW }, l2 = { arrived = NOW }, l3
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Bearing():find("Used to feel differently about the night elves"), "Personality: changed tune")
 check(ns.Compose.Bearing():find("caught in a lie"), "History: a lie found out")
-check(ns.Compose.Physical():find("bundle of letters"), "Physical: a bundle of letters")
+check(ns.Compose.History():find("letters find %a+ on the road"), "History: letters received")
 RPGDialogueCharDB.opinions.night_elves = nil
 
 -- Restore puts everything back
@@ -649,6 +649,69 @@ do
     if b.max == 0 and written:find(b.phrase, 1, true) then bad[#bad + 1] = b.phrase .. " (in the profile)" end
   end
   check(#bad == 0, "no banned phrases: " .. table.concat(bad, ", "))
+end
+
+-- Nothing in the looks and moods names gear, kit or a feature the game can't back up.
+do
+  local W = ns.Words
+  local nouns = {}
+  for line in io.lines("tests/unbacked_nouns.txt") do
+    if not line:match("^%s*#") and line:match("%S") then nouns[#nouns + 1] = line:gsub("%s+$", ""):lower() end
+  end
+  local lists = {}
+  local function add(t) if type(t) == "table" then lists[#lists + 1] = t end end
+  for _, m in pairs(W.MOODS) do add(m.tells) end
+  for _, m in pairs(W.CALM) do add(m.tells) end
+  for _, f in pairs(W.FESTIVALS) do add(f.tells) end
+  for _, t in pairs(W.RACE_TELLS) do for _, l in pairs(t) do add(l) end end
+  for _, t in pairs(W.CLASS_TELLS) do for _, l in pairs(t) do add(l) end end
+  for _, l in pairs(W.RACE_LOOK) do add(l) end
+  for _, l in pairs(W.CLASS_LOOK) do add(l) end
+  for _, l in pairs(W.PHYSIQUE) do add(l) end
+  local bad = {}
+  for _, list in ipairs(lists) do
+    for _, line in ipairs(list) do
+      local plain = " " .. line:gsub("{%l+}", ""):lower():gsub("[^%a' ]", " ") .. " "
+      for _, n in ipairs(nouns) do
+        if plain:find(" " .. n .. "s? ") then bad[#bad + 1] = n .. ": " .. line end
+      end
+    end
+  end
+  check(#bad == 0, "looks and moods only name what the game backs up: " .. table.concat(bad, " | "))
+
+  -- Gear tags: a line naming a hat is used only when there is a hat, by its real name.
+  local world = { gear = { names = { [16] = "Staff of Westfall" } } }
+  check(ns.U.Backed("Polishing {their} {head} in silence.", world) == nil, "no helm, no line about a helm")
+  check(ns.U.Backed("Leaning on {their} {mainhand}.", world) == "Leaning on {their} Staff of Westfall.", "a weapon by its own name")
+  world.gear.names[1] = "Crown of the Lost"
+  check(ns.U.Backed("Polishing {their} {head} in silence.", world) == "Polishing {their} Crown of the Lost in silence.", "a helm by its own name")
+  check(ns.U.Backed("Brushing out {pet}'s coat.", world) == nil, "no pet, no line about one")
+end
+
+-- Reagents are told only when they're in the bags.
+do
+  local oldClass, oldCount = UnitClass, GetItemCount
+  UnitClass = function() return "Warlock", "WARLOCK" end
+  GetItemCount = function() return 0 end
+  ns.World.Invalidate(); ns.Compose.Refresh()
+  check(not ns.Compose.Physical():find("Soul Shard"), "no shards in the bags, none in the profile")
+  GetItemCount = function(id) return id == 6265 and 12 or 0 end
+  ns.World.Invalidate(); ns.Compose.Refresh()
+  check(ns.Compose.Physical():find("Keeps twelve Soul Shards in %a+ bags"), "shards in the bags: " .. ns.Compose.Physical())
+  UnitClass, GetItemCount = oldClass, oldCount
+  ns.World.Invalidate(); ns.Compose.Refresh()
+end
+
+-- Statistics: each has its own switch, and wealth is told by the purse.
+do
+  local sh = ns.Compose.Sheet()
+  check(sh.stats.wealth and sh.stats.wealth:find("gold"), "wealth statistic: " .. tostring(sh.stats.wealth))
+  check(sh.history:find(ns.Compose.WealthBand(ns.cache.world).flair:sub(1, 12), 1, true), "wealth flair in History")
+  ns.db.fields.stat_wealth = false
+  check(not ns.TRP.Enabled("stat_wealth") and ns.TRP.Enabled("stat_lands"), "one statistic switched off, the rest on")
+  ns.db.fields.stats = false
+  check(not ns.TRP.Enabled("stat_lands"), "the master switch turns all statistics off")
+  ns.db.fields.stats, ns.db.fields.stat_wealth = true, true
 end
 
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.

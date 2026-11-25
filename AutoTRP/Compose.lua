@@ -139,7 +139,7 @@ function Compose.LatelyGlance()
   if death and within(death.t, 2 * 86400) then
     local tx = "Badly hurt" .. (death.killer and (" by " .. death.killer) or "") .. (death.zone and (" in " .. death.zone) or "")
       .. " a short while ago, and still pale from it"
-    add(death.t, 3, { TI = "Fresh Scars", TX = tx .. ".", IC = "Spell_Holy_Resurrection" })
+    add(death.t, 3, { TI = "Hurt", TX = tx .. ".", IC = "Spell_Holy_Resurrection" })
   end
   local boss = chron and chron.bosses[1]
   if boss and within(boss.t, 2 * 86400) then
@@ -311,19 +311,37 @@ function Compose.AmbitionGlance()
   return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = U.Pron(U.Pick(list, seed("ambition"))) }
 end
 
--- What's visible on them: the most telling marks, else what they wear and carry.
-local function kit(world, short)
+-- Lines that don't name gear (for beside the kit line, which names it all already).
+local function noGear(list)
+  local out = {}
+  for _, t in ipairs(list or {}) do
+    if not (t:find("{head}") or t:find("{shoulders}") or t:find("{chest}") or t:find("{cloak}") or t:find("{tabard}")
+      or t:find("{mainhand}") or t:find("{offhand}") or t:find("{ranged}") or t:find("{shield}")) then out[#out + 1] = t end
+  end
+  return out
+end
+
+-- What they wear and carry, by the items' own names: nothing that isn't equipped.
+-- fmt colours a name (the About page); short is for a glance.
+local function kit(world, short, fmt)
   local g = world.gear or {}
-  local parts = {}
-  local dress = g.armor and ((W.WEAR_QUALITY[g.quality or 1] or "serviceable") .. " " .. g.armor)
-  if dress then parts[#parts + 1] = "Wears " .. dress .. (g.tabard and (" under the " .. g.tabard) or "") end
+  local n, q = g.names or {}, g.q or {}
+  local function it(slot) return n[slot] and (fmt and fmt(n[slot], q[slot]) or n[slot]) end
+  local wear = {}
+  for _, slot in ipairs(short and { 5 } or { 1, 3, 5, 15 }) do wear[#wear + 1] = it(slot) end
   local arms = {}
-  if g.main then arms[#arms + 1] = g.main end
-  if g.off and g.off ~= g.main then arms[#arms + 1] = g.off end
-  if g.ranged and not short then arms[#arms + 1] = g.ranged end
-  if #arms > 0 then parts[#parts + 1] = (#parts > 0 and "keeps " or "Keeps ") .. U.Join(arms) .. " close" end
+  arms[#arms + 1] = it(16)
+  if n[17] and n[17] ~= n[16] then arms[#arms + 1] = it(17) end
+  if not short then arms[#arms + 1] = it(18) end
+  local parts = {}
+  if #wear > 0 then
+    parts[#parts + 1] = "Wears " .. U.Join(wear) .. ((not short and n[19]) and (", with " .. it(19) .. " over the top") or "")
+  elseif not short and n[19] then
+    parts[#parts + 1] = "Wears " .. it(19)
+  end
+  if #arms > 0 then parts[#parts + 1] = "Carries " .. U.Join(arms) end
   if #parts == 0 then return nil end
-  return table.concat(parts, " and ") .. "."
+  return table.concat(parts, ". ") .. "."
 end
 
 function Compose.MarksGlance()
@@ -332,7 +350,7 @@ function Compose.MarksGlance()
   local marks = {}
   local function mark(prio, title, text, icon) marks[#marks + 1] = { prio = prio, TI = title, TX = U.Pron(text), IC = icon } end
   if world.health and world.health < 0.5 and not world.combat and not world.dead then
-    mark(9, "Bloodied", "Fresh bandages, and a limp {they} {are} trying to hide.", "Ability_Rogue_FeignDeath")
+    mark(9, "Bloodied", "Wounded, and trying not to show how badly.", "Ability_Rogue_FeignDeath")
   end
   if rpgd and (rpgd.drunk or 0) > 0 and U.Now() - (rpgd.drunkAt or 0) < 1800 then
     mark(8, "Smells of Ale", "Unsteady on {their} feet, and smelling strongly of the tavern.", "INV_Drink_05")
@@ -345,15 +363,11 @@ function Compose.MarksGlance()
   end
   local g = world.gear or {}
   if g.durability and g.durability < 0.25 then
-    mark(5, "Battered Kit", "Armour dented and split at the seams, held together with twine.", "INV_Hammer_20")
+    mark(5, "Battered Kit", "Gear in a sorry state, close to breaking.", "INV_Hammer_20")
   end
   local finest = g.finest or (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
   if finest and finest.name and finest.quality >= 4 then
     mark(4, "Remarkable Gear", "People tend to notice {their} " .. finest.name .. " first.", "INV_Misc_Gem_Pearl_04")
-  end
-  local deaths = deathCount(c)
-  if deaths >= 10 then
-    mark(3, "Old Scars", "Scarred all over, the old marks crossed by newer ones.", "Ability_Warrior_BloodFrenzy")
   end
   table.sort(marks, function(a, b) return a.prio > b.prio end)
   if marks[1] then
@@ -361,12 +375,12 @@ function Compose.MarksGlance()
     return { TI = m.TI, TX = m.TX, IC = m.IC }
   end
   local k = kit(world, true)
-  local cl = W.CLASS_LOOK[world.class or ""]
-  local classMark = cl and U.Pron(U.Pick(cl, seed("classmark")))
+  local cl = U.BackedList(noGear(W.CLASS_LOOK[world.class or ""]), world)
+  local classMark = #cl > 0 and U.Pron(U.Pick(cl, seed("classmark"))) or nil
   if k and classMark then return { TI = "Kit", IC = "INV_Chest_Chain_05", TX = k .. " " .. classMark } end
   if k then return { TI = "Kit", IC = "INV_Chest_Chain_05", TX = k } end
   if classMark then return { TI = "At a Glance", IC = "INV_Chest_Chain_05", TX = classMark } end
-  return { TI = "Plainly Dressed", IC = "INV_Shirt_05", TX = U.Pron("Plain clothes that give nothing away about {them}.") }
+  return { TI = "At a Glance", IC = "INV_Shirt_05", TX = U.Pron("Gives little away at first glance.") }
 end
 
 ---------------------------------------------------------------------------
@@ -742,6 +756,9 @@ function Compose.History()
     if #reps >= 2 then break end
   end
   if #reps > 0 then people[#people + 1] = U.Cap(U.Join(reps)) end
+  if rpgd and rpgd.met >= 20 then
+    people[#people + 1] = "Has met " .. U.Roughly(rpgd.met) .. " people along the road"
+  end
   if rpgd and rpgd.rivals[1] then
     people[#people + 1] = "There is no love lost between {them} and " .. rpgd.rivals[1].name
   end
@@ -773,6 +790,14 @@ function Compose.History()
     if chron.rares >= 5 then deeds[#deeds + 1] = "Has tracked down " .. U.Number(chron.rares) .. " rare beasts that most hunters only hear about" end
     if chron.questsDone >= 25 then deeds[#deeds + 1] = "Has taken " .. U.Roughly(chron.questsDone) .. " jobs from people who needed help and couldn't do it themselves" end
   end
+  local kills = rpgd and rpgd.kills or 0
+  local grudge = rpgd and rpgd.grudge and rpgd.grudge.n >= 40 and rpgd.grudge
+  if kills >= 200 then
+    deeds[#deeds + 1] = "Has put down " .. U.Roughly(kills) .. " creatures"
+      .. (grudge and (", " .. U.Number(grudge.n) .. " of them " .. Compose.Plural(grudge.name)) or "")
+  elseif grudge then
+    deeds[#deeds + 1] = "Has killed " .. U.Number(grudge.n) .. " " .. Compose.Plural(grudge.name) .. " and is not done yet"
+  end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
   local crafts = {}
   for i = 1, math.min(2, #profs) do
@@ -803,6 +828,10 @@ function Compose.History()
   end
   now[#now + 1] = Compose.WeekTone()
   if #bits >= 2 then now[#now + 1] = "Felt " .. U.Join(bits) end
+  local band = Compose.WealthBand(world)
+  if band then now[#now + 1] = band.flair end
+  local letters = rpgd and rpgd.lettersArrived or 0
+  if letters >= 2 then now[#now + 1] = "Has had " .. U.Number(letters) .. " letters find {them} on the road" end
   if rpgd and ns.db.diaryExcerpt and rpgd.lastEntry and rpgd.lastEntry.text then
     now[#now + 1] = "{their} latest journal entry reads " .. quote(U.Truncate(rpgd.lastEntry.text, 280))
   end
@@ -828,36 +857,37 @@ function Compose.Physical()
   local world = c.world
   local noun = W.CLASS_NOUN[world.class or ""] or "wanderer"
 
-  -- The body
+  -- The body: only what every one of their race shares, and their build from their stats
   local body = {}
-  local rl = W.RACE_LOOK[world.race or ""]
-  if rl then body[#body + 1] = U.Pick(rl, seed("racelook")) end
+  local rl = U.BackedList(W.RACE_LOOK[world.race or ""], world)
+  if #rl > 0 then body[#body + 1] = U.Pick(rl, seed("racelook")) end
   local build = physique(c)
   body[#body + 1] = article(seasoned(world.level, "seasoned")) .. " " .. noun .. (build and (", " .. build) or "")
 
-  -- What they wear and carry
+  -- What they wear and carry, by name, and what their class keeps in the bags
   local dress = {}
-  local cl = W.CLASS_LOOK[world.class or ""]
-  if cl then dress[#dress + 1] = U.Pick(cl, seed("classlook")) end
-  dress[#dress + 1] = kit(world, false)
-  local app = c.chronicle and c.chronicle.appearance
-  local finest = (world.gear and world.gear.finest) or (app and app.finest)
-  if finest and finest.name then
-    dress[#dress + 1] = U.Pick({ "People tend to notice {their} %s first", "It's {their} %s that people remember" }, seed("finest"))
-      :format(itemName(finest.name, finest.quality))
+  local cl = U.BackedList(noGear(W.CLASS_LOOK[world.class or ""]), world)
+  if #cl > 0 then dress[#dress + 1] = U.Pick(cl, seed("classlook")) end
+  dress[#dress + 1] = kit(world, false, itemName)
+  local finest = world.gear and world.gear.finest
+  local where = finest and W.SLOT_NOUN[finest.slot]
+  if where then
+    dress[#dress + 1] = U.Pick({ "It's {their} %s that people notice first", "Eyes go first to {their} %s" }, seed("finest"))
+      :format(where)
   end
-  if c.rpgd and (c.rpgd.lettersArrived or 0) >= 3 then
-    dress[#dress + 1] = "Carries a bundle of letters in an inside pocket, worn soft from rereading"
+  local bag = {}
+  for i, r in ipairs(world.reagents or {}) do
+    if i > 3 then break end
+    bag[#bag + 1] = r.count > 1 and (U.Number(r.count) .. " " .. Compose.Plural(r.name)) or r.name
   end
+  if #bag > 0 then dress[#dress + 1] = "Keeps " .. U.Join(bag) .. " in {their} bags" end
 
-  -- What life has left on them
+  -- How they are right now
   local marks = {}
-  local deaths = deathCount(c)
-  if deaths >= 10 then marks[#marks + 1] = "Scarred all over, the old marks crossed by newer ones"
-  elseif deaths >= 3 then marks[#marks + 1] = "Has a few scars, and a story for each" end
+  if world.health and world.health < 0.5 and not world.dead then marks[#marks + 1] = "Wounded, and trying not to show how badly" end
   if c.rpgd and (c.rpgd.insanity or 0) >= 30 then marks[#marks + 1] = "{their} eyes never settle anywhere for long" end
-  if c.rpgd and (c.rpgd.align.taint or 0) >= 30 then marks[#marks + 1] = "Dogs growl when {they} pass" end
-  if world.gear and world.gear.durability and world.gear.durability < 0.25 then marks[#marks + 1] = "{their} armour badly needs a smith" end
+  if c.rpgd and (c.rpgd.align.taint or 0) >= 30 then marks[#marks + 1] = "Something about {them} feels wrong to those who can sense such things" end
+  if world.gear and world.gear.durability and world.gear.durability < 0.25 then marks[#marks + 1] = "{their} gear is battered and close to breaking" end
 
   return pages({ paragraph(body), paragraph(dress), paragraph(marks) })
 end
@@ -865,10 +895,49 @@ end
 ---------------------------------------------------------------------------
 -- Statistics: plain counts for Total RP 3's Additional information, kept out of the prose.
 ---------------------------------------------------------------------------
+-- Each one is a custom Additional information entry with its own switch (fields.stat_<key>).
+Compose.STATS = {
+  { key = "deaths", label = "Deaths", icon = "Ability_Rogue_FeignDeath" },
+  { key = "lands", label = "Lands explored", icon = "INV_Misc_Map_01" },
+  { key = "road", label = "Days on the road", icon = "INV_Misc_PocketWatch_01" },
+  { key = "dungeons", label = "Dungeons", icon = "INV_Misc_Key_14" },
+  { key = "foes", label = "Named foes felled", icon = "INV_Misc_Head_Dragon_01" },
+  { key = "rares", label = "Rare beasts", icon = "Ability_Hunter_BeastCall" },
+  { key = "slain", label = "Creatures slain", icon = "Ability_DualWield" },
+  { key = "jobs", label = "Jobs done", icon = "INV_Misc_Note_06" },
+  { key = "wealth", label = "Wealth", icon = "INV_Misc_Coin_02" },
+  { key = "crafts", label = "Crafts", icon = "Trade_Engineering" },
+  { key = "standing", label = "Best standing", icon = "INV_BannerPVP_02" },
+  { key = "met", label = "People met", icon = "Spell_Holy_PrayerOfSpirit" },
+  { key = "books", label = "Books read", icon = "INV_Misc_Book_09" },
+  { key = "letters", label = "Letters received", icon = "INV_Letter_15" },
+}
+
+-- How well off, against what's usual at their level.
+function Compose.WealthBand(world)
+  if type(world.money) ~= "number" or not world.level then return nil end
+  local r = world.money / math.max(1, world.level ^ 2)
+  for _, b in ipairs(W.WEALTH) do if r < b.max then return b end end
+end
+
+local function money(copper)
+  local g, sv = math.floor(copper / 10000), math.floor(copper / 100) % 100
+  if g > 0 then return (g >= 100 and U.Number(g) or tostring(g)) .. " gold" .. (sv > 0 and (", " .. sv .. " silver") or "") end
+  return sv .. " silver"
+end
+
+local function roadDays(c)
+  local first = c.rpgd and c.rpgd.zones[1] and c.rpgd.zones[1].t
+  local since = math.min(first or math.huge, c.chronicle and c.chronicle.created or math.huge)
+  if since == math.huge then return nil end
+  return math.floor((U.Now() - since) / 86400)
+end
+
+-- Plain counts, as figures ("1,240", "39"), only for what the game or the addons record.
 function Compose.Stats()
   local c = ns.cache
-  local rpgd, chron = c.rpgd, c.chronicle
-  local function figure(n) return n >= 100 and U.Number(n) or tostring(n) end   -- "1,240", "39"
+  local rpgd, chron, world = c.rpgd, c.chronicle, c.world
+  local function figure(n) return n >= 100 and U.Number(n) or tostring(n) end
   local out = {}
   local deaths = deathCount(c)
   if deaths > 0 then
@@ -877,8 +946,12 @@ function Compose.Stats()
   end
   local lands = math.max(rpgd and #rpgd.zones or 0, chron and chron.zones or 0)
   if lands > 0 then out.lands = figure(lands) end
+  local days = roadDays(c)
+  if days and days > 0 then out.road = figure(days) end
   local dungeons = math.max(chron and chron.dungeons or 0, rpgd and #rpgd.cleared or 0)
   if dungeons > 0 then out.dungeons = figure(dungeons) end
+  if chron and #chron.bosses > 0 then out.foes = figure(#chron.bosses) end
+  if chron and chron.rares > 0 then out.rares = figure(chron.rares) end
   local kills = rpgd and rpgd.kills or 0
   if kills > 0 then
     out.slain = figure(kills)
@@ -886,6 +959,18 @@ function Compose.Stats()
       out.slain = out.slain .. ", " .. figure(rpgd.grudge.n) .. " of them " .. Compose.Plural(rpgd.grudge.name)
     end
   end
+  if chron and chron.questsDone > 0 then out.jobs = figure(chron.questsDone) end
+  local band = Compose.WealthBand(world)
+  if band then out.wealth = band.word .. " (" .. money(world.money) .. ")" end
+  local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
+  local crafts = {}
+  for i = 1, math.min(3, #profs) do crafts[i] = profs[i].name .. " " .. profs[i].rank end
+  if #crafts > 0 then out.crafts = table.concat(crafts, ", ") end
+  local top = world.factions and world.factions[1]
+  if top and top.word then out.standing = top.word .. " with " .. W.FactionName(top.name) end
+  if rpgd and rpgd.met > 0 then out.met = figure(rpgd.met) end
+  if rpgd and #rpgd.books > 0 then out.books = figure(#rpgd.books) end
+  if rpgd and (rpgd.lettersArrived or 0) > 0 then out.letters = figure(rpgd.lettersArrived) end
   return out
 end
 
@@ -991,7 +1076,8 @@ end
 -- mood: already worked out by the caller. only: the fields wanted (the story fields are
 -- skipped when none of them is).
 local STORY = { "traits", "bearing", "history", "physical", "title", "fulltitle", "residence", "birthplace",
-  "motto", "nickname", "relationship", "ooc", "glance_ambition", "stat_deaths", "stat_lands", "stat_dungeons", "stat_slain" }
+  "motto", "nickname", "relationship", "ooc", "glance_ambition" }
+for _, st in ipairs(Compose.STATS) do STORY[#STORY + 1] = "stat_" .. st.key end
 function Compose.Sheet(fresh, mood, only)
   if not fresh then Compose.Refresh() end
   mood = mood or ns.Mood.Current(ns.cache.world)

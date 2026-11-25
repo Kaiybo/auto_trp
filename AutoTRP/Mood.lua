@@ -261,8 +261,11 @@ function Mood.Scores(world)
   return s, why
 end
 
-local function pick(list, seed)
-  return U.Pron(U.Pick(list, seed))
+-- A line from a list, among only those the game backs up (see U.Backed).
+local function pick(list, seed, world)
+  local ok = U.BackedList(list, world)
+  if #ok == 0 then return nil end
+  return U.Pron(U.Pick(ok, seed))
 end
 
 local function def(name, world)
@@ -299,14 +302,17 @@ function Mood.Current(world)
     key = "calm:" .. key
   end
   -- A tell from the general list, this race's, or this class's: one of the three.
-  local pools = { d.tells }
+  -- Only pools with a line the game backs up (no naming a weapon they aren't carrying).
+  local pools = {}
+  local function pool(list) if #U.BackedList(list, world) > 0 then pools[#pools + 1] = list end end
+  pool(d.tells)
   local rt = W.RACE_TELLS[world.race or ""]
-  if rt and rt[key] then pools[#pools + 1] = rt[key] end
+  if rt and rt[key] then pool(rt[key]) end
   local ct = W.CLASS_TELLS[world.class or ""]
-  if ct and ct[key] then pools[#pools + 1] = ct[key] end
-  local pool = pools[(U.Hash(seed .. key .. "pool") % #pools) + 1]
-  local tell = pick(pool, seed .. key .. "t")
-  local adj = pick(d.adj, seed .. key)
+  if ct and ct[key] then pool(ct[key]) end
+  local tell = #pools > 0 and pick(pools[(U.Hash(seed .. key .. "pool") % #pools) + 1], seed .. key .. "t", world)
+    or pick(W.CALM.default.tells, seed .. "t", world)
+  local adj = pick(d.adj, seed .. key, world)
   -- A feeling from something that happened, mostly worn off now: say it's fading.
   if ranked[1] and st.emo[key] and st.emo[key] >= 0.6 * ranked[1].v and ranked[1].v < 30
     and not adj:find("^Still") and not adj:find("^Not") then
@@ -320,7 +326,8 @@ function Mood.Current(world)
   local second = ranked[2]
   if second and second.v >= ranked[1].v * 0.6 then
     local d2 = def(second.name, world)
-    out.also = pick(d2.adj, seed .. second.name):lower()
+    out.also = (pick(d2.adj, seed .. second.name, world) or ""):lower()
+    if out.also == "" then out.also = nil end
     out.alsoKey = second.name
   end
   return out

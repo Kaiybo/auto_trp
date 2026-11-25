@@ -116,7 +116,10 @@ ns.DEFAULTS = {
     relationship = true, -- relationship status, from a partner you named in Social Diary
     ooc = false,        -- an out-of-character note that the profile updates itself
     walkup = false,     -- "open to walk-ups" follows your mood (off by default)
-    stats = true,       -- Statistics in Additional information: deaths, lands, dungeons, creatures slain
+    stats = true,       -- Statistics in Additional information (each one has its own switch too)
+    stat_deaths = true, stat_lands = true, stat_road = true, stat_dungeons = true, stat_foes = true,
+    stat_rares = true, stat_slain = true, stat_jobs = true, stat_wealth = true, stat_crafts = true,
+    stat_standing = true, stat_met = true, stat_books = true, stat_letters = true,
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },
@@ -313,6 +316,39 @@ function U.Pronouns()
     if l:find("^he") then return { sub = "he", obj = "him", pos = "his", be = "is", has = "has", does = "does", s = "s" } end
   end
   return { sub = "they", obj = "them", pos = "their", be = "are", has = "have", does = "do", s = "" }
+end
+
+-- Gear and companions a line may name: {head} {shoulders} {chest} {cloak} {tabard}
+-- {mainhand} {offhand} {ranged} {shield} {pet}. They are filled with the real item's or
+-- pet's name, and a line that names something the character doesn't have returns nil, so
+-- the profile never mentions a hat that isn't on their head.
+local GEAR_TAGS = { head = 1, shoulders = 3, chest = 5, cloak = 15, tabard = 19, mainhand = 16, offhand = 17, ranged = 18 }
+function U.Backed(text, world)
+  if type(text) ~= "string" or not text:find("{%l+}") then return text end
+  local g = world and world.gear or {}
+  local names = g.names or {}
+  local missing = false
+  local out = text:gsub("{(%l+)}", function(k)
+    local v
+    if GEAR_TAGS[k] then v = names[GEAR_TAGS[k]]
+    elseif k == "shield" then v = g.offType == "Shields" and names[17] or nil
+    elseif k == "pet" then v = world and world.pet
+    else return nil end
+    if not v then missing = true; return "" end
+    return v
+  end)
+  if missing then return nil end
+  return out
+end
+
+-- Only the lines in a list that the game backs up, filled in.
+function U.BackedList(list, world)
+  local out = {}
+  for _, t in ipairs(type(list) == "table" and list or {}) do
+    local b = U.Backed(t, world)
+    if b then out[#out + 1] = b end
+  end
+  return out
 end
 
 -- Fills {they} {them} {their} {themselves} {they've} {they're} in word lists.

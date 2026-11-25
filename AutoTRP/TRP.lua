@@ -348,11 +348,8 @@ TRP.FIELDS = {
   glance_company = glanceField("company"),
   glance_ambition = glanceField("ambition"),
   glance_marks = glanceField("marks"),
-  stat_deaths = statField("Deaths", "Ability_Rogue_FeignDeath"),
-  stat_lands = statField("Lands explored", "INV_Misc_Map_01"),
-  stat_dungeons = statField("Dungeons", "INV_Misc_Key_14"),
-  stat_slain = statField("Creatures slain", "Ability_DualWield"),
 }
+for _, st in ipairs(ns.Compose.STATS) do TRP.FIELDS["stat_" .. st.key] = statField(st.label, st.icon) end
 
 TRP.LABELS = {
   currently = "Currently", title = "Title", fulltitle = "Full title", residence = "Residence",
@@ -361,9 +358,8 @@ TRP.LABELS = {
   glance_mood = "Glance: mood", glance_lately = "Glance: lately", glance_company = "Glance: company",
   glance_ambition = "Glance: ambition", glance_marks = "Glance: marks",
   ooc = "OOC note", relationship = "Relationship status", walkup = "Open to walk-ups",
-  stat_deaths = "Stats: deaths", stat_lands = "Stats: lands explored", stat_dungeons = "Stats: dungeons",
-  stat_slain = "Stats: creatures slain",
 }
+for _, st in ipairs(ns.Compose.STATS) do TRP.LABELS["stat_" .. st.key] = "Stats: " .. st.label:lower() end
 
 -- Which setting switches a field on.
 local function enabled(key)
