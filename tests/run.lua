@@ -197,6 +197,7 @@ check(p.characteristics.FT == "Lightsworn, Friend of Goldshire", "full title: " 
 check(p.characteristics.PS[1].LT == "Good" and p.characteristics.PS[1].RT == "Evil", "plain good/evil bar")
 for i = 1, 5 do check(p.misc.PE[tostring(i)] and p.misc.PE[tostring(i)].AC and p.misc.PE[tostring(i)].TX ~= nil, "glance " .. i .. " filled") end
 check(p.about.T3.PH.TX and p.about.T3.PH.TX:find("Crown of the Lost"), "physical mentions the finest gear")
+check(p.characteristics.IC == "INV_Misc_Coin_02", "the profile icon follows the earned nickname: " .. tostring(p.characteristics.IC))
 check(p.about.TE == 3 and p.about.T3.HI.TX and p.about.T3.HI.TX:find("Lion's Pride"), "history written in template 3")
 check(not p.about.T3.HI.TX:find("died"), "deaths stay out of the History prose")
 local statDeaths
@@ -736,12 +737,45 @@ end
 do
   local sh = ns.Compose.Sheet()
   check(sh.stats.wealth and sh.stats.wealth:find("gold"), "wealth statistic: " .. tostring(sh.stats.wealth))
-  check(sh.history:find(ns.Compose.WealthBand(ns.cache.world).flair:sub(1, 12), 1, true), "wealth flair in History")
+  check(sh.history:find(ns.U.Pron(ns.Compose.WealthBand(ns.cache.world).flair):sub(1, 20), 1, true), "wealth flair in History")
   ns.db.fields.stat_wealth = false
   check(not ns.TRP.Enabled("stat_wealth") and ns.TRP.Enabled("stat_lands"), "one statistic switched off, the rest on")
   ns.db.fields.stats = false
   check(not ns.TRP.Enabled("stat_lands"), "the master switch turns all statistics off")
   ns.db.fields.stats, ns.db.fields.stat_wealth = true, true
+end
+
+-- Nickname, motto and icon are earned by something the character saw through, and History
+-- says where they came from.
+do
+  local sh = ns.Compose.Sheet()
+  check(sh.nickname == "Mine-Warden" and sh.motto == "Gold isn't worth a life.", "a finished story earns a nickname and motto: " .. tostring(sh.nickname))
+  check(sh.icon == "INV_Misc_Coin_02", "the icon follows the nickname: " .. tostring(sh.icon))
+  check(sh.history:find("That's how Aldric came to be called \"Mine%-Warden\"") and sh.history:find("Gold isn't worth a life", 1, true),
+    "History explains the nickname and motto")
+  local threads = RPGDialogueCharDB.threads
+  RPGDialogueCharDB.threads = {}
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+  sh = ns.Compose.Sheet(true)
+  check(sh.nickname == "VanCleef's Bane" and sh.motto == nil, "no story: the hardest dungeon master felled names them: " .. tostring(sh.nickname))
+  check(sh.history:find("Was there when Edwin VanCleef fell in the Deadmines. That's how Aldric came to be called", 1, true), "and History says so")
+  ChronicleCharDB.quests = { { time = NOW - 500, title = "The Defias Brotherhood", status = "completed", zone = "Westfall" },
+    { time = NOW - 900, title = "Wanted: Hogger", status = "completed", zone = "Elwynn Forest" } }
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+  sh = ns.Compose.Sheet(true)
+  check(sh.nickname == "Defias-Breaker" and sh.motto, "a quest chain outranks a boss: " .. tostring(sh.nickname))
+  ChronicleCharDB.quests = { { time = NOW - 900, title = "Wanted: Hogger", status = "completed", zone = "Elwynn Forest" } }
+  ChronicleCharDB.bosses = {}
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+  sh = ns.Compose.Sheet(true)
+  check(sh.nickname == "Hogger's Bane" and sh.history:find("Collected the bounty on Hogger", 1, true), "a bounty collected: " .. tostring(sh.nickname))
+  ChronicleCharDB.quests = {}
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+  sh = ns.Compose.Sheet(true)
+  check(sh.nickname == nil and sh.motto == nil and sh.icon == "ClassIcon_Priest", "nothing earned: no nickname or motto, the class crest")
+  ChronicleCharDB.bosses = { ["1"] = { name = "Edwin VanCleef", kills = 1, lastSuccess = NOW - 7000, instanceName = "The Deadmines" } }
+  RPGDialogueCharDB.threads = threads
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 end
 
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
@@ -758,7 +792,7 @@ if os.getenv("SAMPLES") then
     print(("\n=== %s %s: %s / %s ==="):format(c[1], c[2], sh.title, sh.fulltitle))
     print("CU: " .. sh.currently)
     print("Mood: " .. sh.glances.mood.TX)
-    print("Ambition: " .. sh.glances.ambition.TX .. " | Motto: " .. sh.motto)
+    print("Ambition: " .. sh.glances.ambition.TX .. " | Motto: " .. tostring(sh.motto))
     print("\n-- Personality --\n" .. sh.bearing)
     print("\n-- History --\n" .. sh.history)
     print("\n-- Physical --\n" .. sh.physical)

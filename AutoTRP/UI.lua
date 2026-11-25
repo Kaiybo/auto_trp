@@ -16,7 +16,7 @@ local function values(sheet)
   local v = {
     currently = sheet.currently, title = sheet.title, fulltitle = sheet.fulltitle,
     residence = sheet.residence, birthplace = sheet.birthplace, motto = sheet.motto,
-    nickname = sheet.nickname, bearing = sheet.bearing, history = sheet.history,
+    nickname = sheet.nickname, icon = sheet.icon, bearing = sheet.bearing, history = sheet.history,
     physical = sheet.physical, traits = sheet.traits, relationship = sheet.relationship, ooc = sheet.ooc,
     walkup = sheet.walkup,
     glance_mood = sheet.glances.mood, glance_lately = sheet.glances.lately,
@@ -273,9 +273,9 @@ end
 function UI.PreviewText()
   local s = ns.Compose.Sheet()
   local out = {}
-  local function add(key, text)
+  local function add(key, text, until_)
     out[#out + 1] = "|cffc8a165" .. (TRP.LABELS[key] or key) .. "|r  " .. STATUS_WORDS[TRP.Status(key)]
-    out[#out + 1] = (text and text ~= "") and text or "|cff808080(nothing to say yet)|r"
+    out[#out + 1] = (text and text ~= "") and text or ("|cff808080(nothing yet" .. (until_ and (": " .. until_) or "") .. ")|r")
     out[#out + 1] = ""
   end
   local traits
@@ -295,8 +295,11 @@ function UI.PreviewText()
   add("glance_marks", s.glances.marks and glanceText(s.glances.marks))
   add("title", s.title)
   add("fulltitle", s.fulltitle)
-  add("nickname", s.nickname)
-  add("motto", s.motto)
+  local e = ns.Compose.Earned()
+  local from = e and ("  |cff808080(" .. e.deed:gsub("^%u", string.lower) .. ")|r") or ""
+  add("nickname", s.nickname and (s.nickname .. from), "earned by finishing a story or quest chain")
+  add("motto", s.motto and (s.motto .. from), "comes with the story behind the nickname")
+  add("icon", s.icon)
   add("residence", s.residence)
   add("birthplace", s.birthplace)
   add("relationship", s.relationship and ({ [2] = "Taken", [3] = "Married" })[s.relationship])
@@ -379,8 +382,9 @@ local OPTIONS = {
   { path = { "fields", "physical" }, label = "About: Physical (build, gear, scars)" },
   { path = { "fields", "title" }, label = "Title: your rank by experience (\"Initiate\")" },
   { path = { "fields", "fulltitle" }, label = "Full title: alignment and standing (\"Lightsworn, Friend of Goldshire\")" },
-  { path = { "fields", "nickname" }, label = "Nickname: an epithet you've earned" },
-  { path = { "fields", "motto" }, label = "Motto, in keeping with your temperament" },
+  { path = { "fields", "nickname" }, label = "Nickname: earned by a story, quest chain or foe you saw through" },
+  { path = { "fields", "motto" }, label = "Motto: the saying that story left you with" },
+  { path = { "fields", "icon" }, label = "Icon: your nickname's, else your class crest" },
   { path = { "fields", "residence" }, label = "Residence: where your hearthstone is" },
   { path = { "fields", "birthplace" }, label = "Birthplace" },
   { path = { "fields", "relationship" }, label = "Relationship status, from a partner in Social Diary" },
@@ -655,7 +659,7 @@ local HELP = {
   "|cffffd100/atrp slot <glance> <1-5|0>|r: move a glance (mood, lately, company, ambition, marks) to another slot, or 0 to drop it",
   "|cffffd100/atrp badge|r: show or hide the mood badge",
   "|cffffd100/atrp days|r: the mood journal, the last week of feelings and places",
-  "Fields: currently, title, fulltitle, nickname, motto, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, books)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, books)",
 }
 
 local function eachField(arg, fn)

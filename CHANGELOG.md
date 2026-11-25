@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.0 (2026-11-25): Earned Names
+
+- Nickname and motto are earned by something the character saw through, not by counts: a story finished in RPG Dialogue (each of its fifty stories gives its own nickname and saying, like *Mine-Warden* and "Gold isn't worth a life." for *The gold of Elwynn's mines*), then a quest chain finished in Chronicle (*Defias-Breaker*), then the hardest dungeon master brought down (*VanCleef's Bane*), then a bounty collected (*Hogger's Bane*). The first one earned of the highest kind sticks. Gone: *Grave-Cheater*, *the Bookish*, *the Far-Walker* and the rest, and the temperament and race mottos ("Stay away from da voodoo", "Lok'tar ogar!", including the ones 0.15.0 added). With nothing earned yet, the nickname and motto stay empty.
+- History says where they came from: "Saw the gold of Elwynn's mines through to the end. That's how Aldric came to be called "Mine-Warden", and where they picked up the saying "Gold isn't worth a life."" The preview shows the deed beside both.
+- The profile icon: the earned nickname's icon (a coin for the Mine-Warden, a dragon's head for a boss's bane), else the class crest. New switch: "Icon". It follows the same rules as every other field: your own icon is left alone.
+- History reworked: the origin reads as a sentence ("Aldric, a human priest, started out as a farmhand from the Westbrook fields."), the road reads as one ("From Elwynn Forest their road has led through four lands, Duskwood the latest of them."), deeds come before people, friends and travelling companions share a sentence, crafts and wealth read as part of the story ("Between roads they're a journeyman herbalist.", "These days they're well off..."). The creature kill count leaves the prose (it's still a statistic).
+
 ## 0.15.0 (2026-11-25): Many More Words
 
 - Far more writing to show up. Most moods now have five or more ways to put it in Currently and as many things a stranger notices (up to eight), and the calm temperaments four or five each. Every race and class has its own lines for many more moods (a dwarf planted like a boulder, a night elf utterly still with ears turned to every sound, a warrior who moves like someone who has held a line all day). Still faces, voices and postures only, never an invented action or prop.
