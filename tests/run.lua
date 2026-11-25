@@ -1274,10 +1274,44 @@ do
   check(out:find("4 lands so far, starting with Elwynn Forest, the latest Redridge Mountains", 1, true) and out:find("Duskwood 9 hours", 1, true),
     "/atrp places lists them: " .. out)
   -- A short spell somewhere isn't a haunt.
-  for _, z in pairs(ns.char.travels.zones) do z.secs = math.min(z.secs, 3000) end
+  for _, z in pairs(ns.char.travels.zones) do z.secs = math.min(z.secs, 3000); z.recent = math.min(z.recent or 0, 3000) end
   C.SourcesChanged(); C.Refresh()
   check(C.Stats().haunt == nil, "no haunt until it's clear")
   check(ns.TRP.FIELDS.stat_haunt ~= nil, "the haunt has its own switch")
+  -- The haunt moves on when the character does: recent time counts, the old haunt fades.
+  ns.char.travels = nil
+  ns.char.seen.zones = {}
+  state.zone = "Westfall"
+  T.Count()
+  go("Westfall", 10 * 3600)
+  go("Duskwood", 5 * 3600)
+  C.SourcesChanged(); C.Refresh()
+  check(C.Haunt().name == "Westfall", "a few hours elsewhere don't move the haunt")
+  now = now + 30 * 86400; T.Count()   -- a month away from the game changes nothing
+  C.SourcesChanged(); C.Refresh()
+  check(C.Haunt().name == "Westfall", "nor does time away from the game")
+  go("Duskwood", 35 * 3600)
+  C.SourcesChanged(); C.Refresh()
+  local hn = C.Haunt()
+  check(hn.name == "Duskwood" and hn.was and hn.was.name == "Westfall", "weeks spent elsewhere do, and the old haunt is remembered")
+  check(C.Stats().haunt == "Duskwood, 40 hours", "the statistic follows: " .. tostring(C.Stats().haunt))
+  h = C.History()
+  check(h:find("Westfall", 1, true) and h:find("these days it's Duskwood", 1, true) or h:find("Westfall behind for Duskwood", 1, true),
+    "History tells of the move: " .. (h:match("[^.\n]*Westfall[^.\n]*") or "?"))
+  ns.char.travels = nil
+  -- Inside some buildings the game gives the building as the zone: the land comes from the map.
+  state.zone, state.sub = "Scarlet Raven Tavern", "Scarlet Raven Tavern"
+  C_Map = { GetBestMapForUnit = function() return 1431 end, GetMapInfo = function() return { name = "Duskwood" } end }
+  local z, sub = ns.World.Zone()
+  check(z == "Duskwood" and sub == "Scarlet Raven Tavern", "a tavern given as the zone is a spot in its land: " .. tostring(z) .. " / " .. tostring(sub))
+  local cu = C.Currently(ns.Mood.Current and ns.Mood.Current() or nil) or ""
+  local snap = ns.World.Snapshot()
+  local act = ns.World.Activity(snap, "x")
+  check(not act:find("streets of", 1, true) and act:find("the Scarlet Raven Tavern, Duskwood", 1, true), "and Currently stays at the inn: " .. act)
+  C_Map = nil
+  z, sub = ns.World.Zone()
+  check(z == nil and sub == "Scarlet Raven Tavern", "without a map, the tavern still isn't a land")
+  state.sub = "Lion's Pride Inn"
   RPGDialogueCharDB = rpgd
   GetServerTime, IsInInstance, UnitIsAFK = oldTime, oldInst, oldAFK
   state.zone = "Elwynn Forest"
@@ -1332,7 +1366,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", was = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then

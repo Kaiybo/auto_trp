@@ -2246,6 +2246,9 @@ W.SAY = {
     "Is most often found in {where}" },
   haunt_most = { "Spends most of {their} days in {where}", "Most of {their} time is spent in {where}",
     "Has spent more time in {where} than everywhere else put together" },
+  haunt_moved = { "Used to spend most of {their} days in {was}, but these days it's {where}",
+    "{was} saw the most of {them} once; these days it's {where}",
+    "Has left {was} behind for {where}, where {they} spend{s} most of {their} time now" },
   lastplace = { "The last new place {they} reached was {place}", "Most recently reached {place}" },
   -- Earned names: where the name came from, the saying that came with it, the others that
   -- stuck, and a name earned only lately (Lately).

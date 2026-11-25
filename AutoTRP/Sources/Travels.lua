@@ -13,12 +13,17 @@ ns.Sources.Travels = T
 
 T.TICK = 30        -- seconds between counts of time spent
 T.GAP = 90         -- a longer gap than this (a loading screen, a freeze) counts only this much
+-- Where the character spends their time now, not over a whole life: time spent fades by
+-- half for every T.HALF seconds played anywhere, so a land left behind slips down the list
+-- as new ones take its place. Time away from the game changes nothing.
+T.HALF = 12 * 3600
 
 local function store()
   if not ns.char then return nil end
   local d = ns.char.travels
   if type(d) ~= "table" then d = {}; ns.char.travels = d end
   if type(d.zones) ~= "table" then d.zones = {} end
+  d.clock = tonumber(d.clock) or 0   -- seconds played and counted, anywhere
   if not tonumber(d.since) then
     d.since = U.Now()
     -- Lands first seen before this record began (the mood's "first time in ..." notes) are
@@ -43,7 +48,7 @@ end
 T.IsInstance = isInstance
 
 local function where()
-  local zone = U.Plain(U.Call(GetRealZoneText)) or U.Plain(U.Call(GetZoneText))
+  local zone = ns.World.Zone()
   local inInstance, kind = U.Call(IsInInstance)
   return zone, (inInstance and kind and kind ~= "none") and kind or nil
 end
@@ -60,7 +65,13 @@ function T.Count(now)
   if here and lastAt and now > lastAt then
     local z = d.zones[here]
     local away = ns.World and ns.World.Safe and ns.World.Safe(U.Call(UnitIsAFK, "player"))
-    if z and away ~= true then z.secs = (tonumber(z.secs) or 0) + math.min(now - lastAt, T.GAP) end
+    if z and away ~= true then
+      local add = math.min(now - lastAt, T.GAP)
+      z.secs = (tonumber(z.secs) or 0) + add
+      d.clock = d.clock + add
+      z.recent = T.Faded(z, d.clock) + add
+      z.rc = d.clock
+    end
   end
   local zone, kind = where()
   lastAt = now
@@ -75,25 +86,38 @@ function T.Count(now)
   here = zone
 end
 
--- { lands = { { name, t }, ... } first seen first (no instances), haunts = { { name, secs },
---   ... } most time first (no instances), secs = all the time counted there, since }.
+-- A land's recent time, faded to the clock.
+function T.Faded(z, clock)
+  local r = tonumber(z.recent) or 0
+  if r <= 0 then return 0 end
+  return r * 0.5 ^ (math.max(0, clock - (tonumber(z.rc) or clock)) / T.HALF)
+end
+
+-- { lands = { { name, t }, ... } first seen first, haunts = { { name, secs, recent }, ... }
+--   most time first, recent = { same, most recent time first }, secs and recentSecs = the
+--   totals, since }. No instances. A fresh table each time, so what's built from it notices
+--   a change.
 -- A fresh table each time, so what's built from it notices a change.
 function T.Read()
   local d = store()
   if not d then return nil end
-  local out = { lands = {}, haunts = {}, secs = 0, since = d.since }
+  local out = { lands = {}, haunts = {}, recent = {}, secs = 0, recentSecs = 0, since = d.since }
   for name, z in pairs(d.zones) do
     if type(z) == "table" and not isInstance(name, z) then
       out.lands[#out.lands + 1] = { name = name, t = tonumber(z.t) or 0 }
       local s = tonumber(z.secs) or 0
       if s > 0 then
-        out.haunts[#out.haunts + 1] = { name = name, secs = s }
+        local h = { name = name, secs = s, recent = T.Faded(z, d.clock) }
+        out.haunts[#out.haunts + 1] = h
+        out.recent[#out.recent + 1] = h
         out.secs = out.secs + s
+        out.recentSecs = out.recentSecs + h.recent
       end
     end
   end
   table.sort(out.lands, function(a, b) if a.t ~= b.t then return a.t < b.t end return a.name < b.name end)
   table.sort(out.haunts, function(a, b) if a.secs ~= b.secs then return a.secs > b.secs end return a.name < b.name end)
+  table.sort(out.recent, function(a, b) if a.recent ~= b.recent then return a.recent > b.recent end return a.name < b.name end)
   return out
 end
 

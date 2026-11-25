@@ -80,14 +80,25 @@ function Compose.Lands(c)
   return list
 end
 
--- Where the character spends most of their time, once it's clear: { name, secs, share } or nil.
--- At least two hours there, and at least a quarter of all the time counted.
+-- Where the character spends most of their time these days, once it's clear: { name, secs
+-- (all the time there), share (of recent time), was = { name, secs } (where most of their
+-- time used to go, if that has since been left behind) } or nil. Recent time fades as
+-- they play elsewhere (Sources/Travels.lua), so the haunt moves on when they do: at least
+-- two hours there, recently, and at least a quarter of their recent time.
 function Compose.Haunt(c)
   c = c or ns.cache
   local tr = c.travels
-  local top = tr and tr.haunts[1]
-  if not top or top.secs < 7200 or tr.secs <= 0 or top.secs / tr.secs < 0.25 then return nil end
-  return { name = top.name, secs = top.secs, share = top.secs / tr.secs }
+  local top = tr and tr.recent[1]
+  if not top or top.recent < 7200 or tr.recentSecs <= 0 or top.recent / tr.recentSecs < 0.25 then return nil end
+  local out = { name = top.name, secs = top.secs, share = top.recent / tr.recentSecs }
+  -- The land they spent the most time in otherwise, over their whole life, if they've since
+  -- left it behind.
+  local old = tr.haunts[1]
+  if old and old.name == top.name then old = tr.haunts[2] end
+  if old and old.secs >= 5 * 3600 and old.secs >= top.secs / 5 and old.recent / tr.recentSecs < 0.1 then
+    out.was = { name = old.name, secs = old.secs }
+  end
+  return out
 end
 
 function Compose.Refresh()
@@ -785,7 +796,11 @@ function Compose.History()
   end
   local haunt = Compose.Haunt(c)
   if haunt and zoneCount >= 2 then
-    road[#road + 1] = say(haunt.share >= 0.5 and "haunt_most" or "haunt", { where = placeName(haunt.name) }, haunt.name)
+    if haunt.was then
+      road[#road + 1] = say("haunt_moved", { where = placeName(haunt.name), was = placeName(haunt.was.name) }, haunt.name)
+    else
+      road[#road + 1] = say(haunt.share >= 0.5 and "haunt_most" or "haunt", { where = placeName(haunt.name) }, haunt.name)
+    end
   end
   local ms = ns.char and ns.char.milestones or {}
   if #ms > 0 then

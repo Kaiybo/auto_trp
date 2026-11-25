@@ -245,11 +245,31 @@ end
 ---------------------------------------------------------------------------
 -- The moment
 ---------------------------------------------------------------------------
+-- The land and the spot within it, as the game shows them. Inside some buildings the game
+-- gives the building as the zone ("Scarlet Raven Tavern", not Duskwood): then the building
+-- is the spot, and the land comes from the map.
+function World.Zone()
+  local zone = U.Plain(call("GetRealZoneText")) or U.Plain(call("GetZoneText"))
+  local sub = U.Plain(call("GetSubZoneText"))
+  if zone and World.IsInn(zone) and not W.INSTANCE_FLAVOR[zone] then
+    local mapID = C_Map and C_Map.GetBestMapForUnit and World.Safe(U.Call(C_Map.GetBestMapForUnit, "player"))
+    local info = type(mapID) == "number" and C_Map.GetMapInfo and World.Safe(U.Call(C_Map.GetMapInfo, mapID))
+    local land = type(info) == "table" and U.Plain(info.name)
+    if land and land ~= zone then
+      sub = (sub and sub ~= land) and sub or zone
+      zone = land
+    elseif not sub or sub == zone then
+      -- No land to be had: the building is all there is, and it isn't a land.
+      sub, zone = zone, nil
+    end
+  end
+  if sub == zone then sub = nil end
+  return zone, sub
+end
+
 function World.Snapshot()
   local s = {}
-  s.zone = U.Plain(call("GetRealZoneText")) or U.Plain(call("GetZoneText"))
-  s.subzone = U.Plain(call("GetSubZoneText"))
-  if s.subzone == s.zone then s.subzone = nil end
+  s.zone, s.subzone = World.Zone()
   -- zoneKey: the zone's English name for the lookup tables, from its map ID when there is one
   -- (so non-English clients get the same touches); zone stays as the game shows it.
   -- English clients already have the English name; others look it up by map ID.

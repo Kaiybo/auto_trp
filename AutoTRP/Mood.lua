@@ -353,7 +353,7 @@ local function prune(list, seconds)
 end
 
 ns.On("PLAYER_DEAD", function()
-  local zone = U.Plain(U.Call(GetRealZoneText))
+  local zone = (ns.World.Zone())
   Mood.Push("shaken", 70, zone and ("died in " .. zone) or "died")
 end)
 ns.On("PLAYER_LEVEL_UP", function(_, level)
@@ -369,7 +369,7 @@ ns.On("PLAYER_LEVEL_UP", function(_, level)
   ns.char.milestones = ns.char.milestones or {}
   local current = Mood.Current()
   table.insert(ns.char.milestones, {
-    level = level, rank = ranks[band], zone = U.Plain(U.Call(GetRealZoneText)), t = U.Now(),
+    level = level, rank = ranks[band], zone = (ns.World.Zone()), t = U.Now(),
     mood = current and not current.key:find("^calm:") and current.title or nil,
   })
 end)
@@ -450,7 +450,7 @@ ns.On("CHAT_MSG_LOOT", function(_, msg)
   if q and q >= 4 and item and ns.char then
     -- Remember the great finds (the last five).
     ns.char.finds = ns.char.finds or {}
-    table.insert(ns.char.finds, { item = item, quality = q, zone = U.Plain(U.Call(GetRealZoneText)), t = U.Now() })
+    table.insert(ns.char.finds, { item = item, quality = q, zone = (ns.World.Zone()), t = U.Now() })
     while #ns.char.finds > 5 do table.remove(ns.char.finds, 1) end
   end
   if q and q >= 4 then Mood.Push("thrilled", 60, item and ("found " .. item) or "a rare find")
@@ -490,7 +490,7 @@ local function standing(msg)
   if not word or not STANDINGS[word] or not ns.char then return false end
   Mood.Push("proud", word == "Exalted" and 50 or 30, word:lower() .. " with " .. faction)
   ns.char.honours = ns.char.honours or {}
-  table.insert(ns.char.honours, { standing = word, faction = faction, t = U.Now(), zone = U.Plain(U.Call(GetRealZoneText)) })
+  table.insert(ns.char.honours, { standing = word, faction = faction, t = U.Now(), zone = (ns.World.Zone()) })
   while #ns.char.honours > 6 do table.remove(ns.char.honours, 1) end
   return true
 end
@@ -549,7 +549,7 @@ end)
 
 ns.On("ZONE_CHANGED_NEW_AREA", function()
   if not ns.char then return end
-  local zone = U.Plain(U.Call(GetRealZoneText))
+  local zone = (ns.World.Zone())
   if not zone then return end
   local seen = ns.char.seen
   seen.zones = seen.zones or {}

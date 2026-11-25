@@ -697,6 +697,13 @@ function UI.ListPlaces()
   end
   if #parts > 0 then
     ns.Print("Time spent" .. (tr.since and date and (" since " .. date("%d %b %Y", tr.since)) or "") .. ": " .. table.concat(parts, ", ") .. ".")
+    local lately = {}
+    for i = 1, math.min(3, #tr.recent) do
+      if tr.recentSecs > 0 and tr.recent[i].recent / tr.recentSecs >= 0.05 then lately[#lately + 1] = tr.recent[i].name end
+    end
+    local haunt = ns.Compose.Haunt(c)
+    ns.Print("These days: " .. U.Join(lately) .. "." .. (haunt and (" Your profile calls " .. haunt.name .. " your haunt.")
+      or " No one place stands out yet."))
   end
 end
 
