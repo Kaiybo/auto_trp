@@ -434,7 +434,7 @@ local function petPhrase(s, seed)
   local list = W.PET[s.class or ""]
   if not list then return nil end
   local p = U.Pick(list, seed .. "pet")
-  return (p:gsub("{pet}", function() return s.pet end):gsub("{kind}", function() return (s.petKind or "companion"):lower() end))
+  return U.Pron((p:gsub("{pet}", function() return s.pet end):gsub("{kind}", function() return (s.petKind or "companion"):lower() end)))
 end
 
 -- "resting at the Lion's Pride Inn in Goldshire" etc. Never the exact spot in the open
@@ -446,18 +446,25 @@ function World.Activity(s, seed, terse)
   local place = sub and (U.Mid(sub) .. ", " .. (s.zone or "")) or s.zone or "the road"
   local where = U.Mid(s.zone) or "the wilds"
   local text
+  -- A travel phrase with the place filled in ({where} the zone, {place} the spot,
+  -- {around} "around <spot>" or "in <zone>").
+  local function fill(list, around)
+    return (U.Pick(list, seed .. (list[1] or "")):gsub("{(%a+)}", function(k)
+      if k == "where" then return where elseif k == "place" then return place elseif k == "around" then return around end
+    end))
+  end
   if s.ghost or s.dead then
-    return U.Pick({ "a restless spirit drifting near " .. where, "somewhere between this world and the next, near " .. where }, seed)
+    return (U.Pick(W.TRAVEL.ghost, seed .. "ghost"):gsub("{where}", function() return where end))
   end
   if s.taxi then
     local beast
     if s.faction == "Horde" then beast = W.BAT_ZONES[s.zoneKey or ""] and "a bat" or "a wind rider"
     else beast = W.KALIMDOR[s.zoneKey or ""] and "a hippogryph" or "a gryphon" end
-    return U.Pick({ "on the back of " .. beast .. " over " .. where, "flying " .. beast .. " over " .. where }, seed)
+    return (U.Pick(W.TRAVEL.taxi, seed .. "taxi"):gsub("{beast}", beast):gsub("{where}", function() return where end))
   end
   local ctx = s.context
   if ctx and ctx.kind == "craft" then
-    text = W.CRAFT[ctx.detail] .. " in " .. (U.Mid(sub) or where)
+    text = U.Pick(W.CRAFT[ctx.detail], seed .. "craft") .. " in " .. (U.Mid(sub) or where)
   elseif s.away then
     text = U.Pick(W.ACTIVITY.away, seed .. "away"):gsub("{place}", function() return U.Mid(sub) or where end)
   elseif ctx and W.ACTIVITY[ctx.kind] then
@@ -468,23 +475,24 @@ function World.Activity(s, seed, terse)
     local list = s.auras.eating and W.ACTIVITY.eating or W.ACTIVITY.drinking
     text = U.Pick(list, seed .. "meal"):gsub("{place}", function() return U.Mid(sub) or where end)
   elseif s.instance == "party" or s.instance == "raid" then
-    text = W.INSTANCE_FLAVOR[s.zone or ""] or U.Pick({ "deep inside " .. where, "delving into " .. where }, seed)
+    local inst = W.INSTANCE_FLAVOR[s.zone or ""]
+    text = inst and U.Pick(inst, seed .. "inst") or fill(W.TRAVEL.dungeon)
   elseif s.instance == "pvp" then
-    text = "fighting for the banner in " .. where
+    text = fill(W.TRAVEL.battleground)
   elseif s.resting and World.IsInn(s.subzone) then
-    text = U.Pick({ "resting at " .. place, "staying at " .. place }, seed)
+    text = fill(W.TRAVEL.inn)
   elseif s.subzone and W.CITY_FLAVOR[s.subzone] then
-    text = W.CITY_FLAVOR[s.subzone]
+    text = U.Pick(W.CITY_FLAVOR[s.subzone], seed .. "city")
   elseif s.resting then
-    text = U.Pick({ "about the streets of " .. place, "passing through " .. place }, seed)
+    text = fill(W.TRAVEL.town)
   elseif s.stealthed then
-    text = "keeping to the shadows " .. (s.subzone and ("around " .. place) or ("in " .. where))
+    text = fill(W.TRAVEL.stealth, s.subzone and ("around " .. place) or ("in " .. where))
   elseif s.swimming then
-    text = "wading through the waters of " .. where
+    text = fill(W.TRAVEL.swimming)
   elseif s.flying then
-    text = "flying over " .. where
+    text = fill(W.TRAVEL.flying)
   elseif s.mounted then
-    text = World.Mount(s) .. " through " .. where
+    text = fill(W.TRAVEL.mounted):gsub("{mount}", function() return World.Mount(s) end)
   else
     -- Out in the open: where they are, and nothing they aren't doing.
     local flavor = W.ZONE_FLAVOR[s.zoneKey or ""]
@@ -492,9 +500,10 @@ function World.Activity(s, seed, terse)
       text = U.Pick(flavor, seed .. "fl")
     else
       local around = s.subzone and ("around " .. place) or ("in " .. where)
-      text = U.Pick({ "on the road " .. around, "out " .. around, "travelling " .. around }, seed)
+      text = fill(W.TRAVEL.road, around)
     end
   end
+  text = U.Pron(text)
   if terse then return text end
   if s.form and not s.taxi then text = text .. ", " .. s.form end
   local pet = petPhrase(s, seed)
@@ -502,10 +511,9 @@ function World.Activity(s, seed, terse)
   return text
 end
 
-function World.TimeOfDay(s)
+function World.TimeOfDay(s, seed)
   if s.indoors or s.instance then return nil end
-  if s.night then return "under the stars" end
-  if s.dawn then return "at first light" end
-  if s.dusk then return "as the light goes" end
-  return nil
+  local key = s.night and "night" or s.dawn and "dawn" or s.dusk and "dusk"
+  if not key then return nil end
+  return U.Pick(W.TIME_OF_DAY[key], (seed or "") .. "tod" .. key)
 end

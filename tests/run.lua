@@ -260,12 +260,12 @@ check(ns.Compose.Currently(ns.Mood.Current()):find("with Innkeeper Farley in the
 ns.World.SetContext("none")
 UnitIsAFK = function() return true end
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
-check(ns.Compose.Currently(ns.Mood.Current()):find("lost in thought") or ns.Compose.Currently(ns.Mood.Current()):find("middle distance"), "AFK reads as lost in thought")
+check(ns.Compose.Currently(ns.Mood.Current()):find("lost in thought") or ns.Compose.Currently(ns.Mood.Current()):find("middle distance") or ns.Compose.Currently(ns.Mood.Current()):find("miles away") or ns.Compose.Currently(ns.Mood.Current()):find("daydreaming"), "AFK reads as lost in thought")
 UnitIsAFK = function() return false end
 state.resting = false
 IsMounted = function() return true end
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
-check(ns.Compose.Currently(ns.Mood.Current()):find("on horseback through"), "a human rides a horse")
+check(ns.Compose.Currently(ns.Mood.Current()):find("on horseback"), "a human rides a horse")
 state.buffs[#state.buffs + 1] = "Summon Felsteed"
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("fel%-fire steed"), "a felsteed by its name")
@@ -294,7 +294,7 @@ local hist = ns.Compose.History()
 check(hist:find("Wears the colours of the Silver Lanterns and holds the rank of lamplighter there"), "history: guild")
 check(hist:find("Has done good work for Stormwind and the Argent Dawn"), "history: reputations")
 check(hist:find("Felt downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
-check(ns.Compose.Bearing():find("Has stories about the gold of Elwynn's mines"), "personality: conversation hooks")
+check(ns.Compose.Bearing():find("about the gold of Elwynn's mines"), "personality: conversation hooks")
 state.buffs[#state.buffs + 1] = "Shadowform"
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("wreathed in shadow"), "shapeshift form in Currently")
@@ -397,7 +397,7 @@ event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", 2006)
 check((ns.char.mood.emo.righteous or 0) > 20, "resurrecting someone feels righteous")
 event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", 10059)
 ns.Compose.Refresh()
-check(ns.Compose.Currently(ns.Mood.Current()):find("opening a portal to Stormwind"), "a mage's portal shows in Currently: " .. ns.Compose.Currently(ns.Mood.Current()))
+check(ns.Compose.Currently(ns.Mood.Current()):find("portal to Stormwind") or ns.Compose.Currently(ns.Mood.Current()):find("way to Stormwind"), "a mage's portal shows in Currently: " .. ns.Compose.Currently(ns.Mood.Current()))
 ns.World.SetContext("none")
 C_Spell = nil
 
@@ -430,7 +430,7 @@ RPGDialogueCharDB.deaths[1].t = savedDeath
 IsInInstance = function() return true, "party" end
 state.zone, state.sub = "The Deadmines", nil
 ns.Compose.Refresh()
-check(ns.Compose.Currently(ns.Mood.Current()):find("dripping tunnels of the Deadmines"), "dungeon atmosphere")
+check(ns.Compose.Currently(ns.Mood.Current()):find("Deadmines") or ns.Compose.Currently(ns.Mood.Current()):find("Moonbrook"), "dungeon atmosphere")
 IsInInstance = function() return false, "none" end
 state.zone, state.sub = "Duskwood", "Raven Hill"
 UnitIsPlayer = function() return true end
@@ -443,7 +443,7 @@ UnitName = function() return "Aldric" end
 -- City districts; reputation; enemies
 state.zone, state.sub, state.resting = "Ironforge", "The Great Forge", true
 ns.Compose.Refresh()
-check(ns.Compose.Currently(ns.Mood.Current()):find("heat and clangour of the Great Forge"), "city district in Currently")
+check(ns.Compose.Currently(ns.Mood.Current()):find("Great Forge") or ns.Compose.Currently(ns.Mood.Current()):find("great anvil"), "city district in Currently")
 state.zone, state.sub, state.resting = "Duskwood", "Raven Hill", false
 event("CHAT_MSG_SYSTEM", "You are now Revered with Argent Dawn.")
 check(ns.char.honours and ns.char.honours[1].standing == "Revered", "a new standing is remembered")
@@ -473,13 +473,13 @@ event("PLAYER_REGEN_DISABLED")
 UnitName = function() return "Aldric" end
 event("PLAYER_REGEN_ENABLED")
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
-check(ns.Compose.LatelyGlance().TX == "Fresh from a fight with a Defias Pillager.", "Lately: a fight just now: " .. ns.Compose.LatelyGlance().TX)
+check(ns.Compose.LatelyGlance().TX:find("a Defias Pillager%.$"), "Lately: a fight just now: " .. ns.Compose.LatelyGlance().TX)
 UnitClassification = function() return "worldboss" end
 UnitName = function(u) if u == "target" then return "Hogger" end return "Aldric" end
 event("PLAYER_REGEN_DISABLED")
 UnitName = function() return "Aldric" end
 event("PLAYER_REGEN_ENABLED")
-check(ns.Compose.LatelyGlance().TX == "Fresh from a fight with Hogger.", "a named foe takes no article")
+check(ns.Compose.LatelyGlance().TX:find(" Hogger%.$") and not ns.Compose.LatelyGlance().TX:find("a Hogger"), "a named foe takes no article")
 ns.char.lastFight = nil
 ChronicleCharDB.quests = { { time = NOW - 30, title = "The Collector", status = "completed", zone = "Elwynn Forest" } }
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
@@ -517,7 +517,7 @@ UnitClass = function(u)
 end
 GetNumGroupMembers = function() return 4 end
 ns.Compose.Refresh()
-check(ns.Compose.CompanyGlance().TX == "Travelling with a priest and two warriors.", "party by class: " .. ns.Compose.CompanyGlance().TX)
+check(ns.Compose.CompanyGlance().TX:find("with a priest and two warriors%.$") or ns.Compose.CompanyGlance().TX:find("of a priest and two warriors%.$"), "party by class: " .. ns.Compose.CompanyGlance().TX)
 IsInRaid = function() return true end
 GetNumGroupMembers = function() return 20 end
 ns.Compose.Refresh()
@@ -589,7 +589,7 @@ UnitRace = function() return "Human", "Human" end
 C_Spell = { GetSpellName = function(id) return ({ [2575] = "Mining" })[id] end }
 event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", 2575)
 ns.Compose.Refresh()
-check(ns.Compose.Currently(ns.Mood.Current()):find("mineral vein") or ns.Compose.Currently(ns.Mood.Current()):find("chipping ore"), "mining shows in Currently")
+check(ns.Compose.Currently(ns.Mood.Current()):find("mineral vein") or ns.Compose.Currently(ns.Mood.Current()):find("chipping ore") or ns.Compose.Currently(ns.Mood.Current()):find("mining ore"), "mining shows in Currently")
 ns.World.SetContext("none")
 C_Spell = nil
 state.zone, state.sub = "Duskwood", "Raven Hill"
@@ -598,7 +598,9 @@ state.zone, state.sub = "Duskwood", "Raven Hill"
 ns.char.days = {}
 for i = 0, 4 do ns.char.days[os.date("%Y-%m-%d", NOW - i * 86400)] = { moods = { downcast = 5 }, zones = { Duskwood = 5 } } end
 local wt = ns.Compose.WeekTone()
-check(wt == ns.Words.WEEK_TONE.hard[1] or wt == ns.Words.WEEK_TONE.hard[2], "a run of bad days is noticed: " .. tostring(wt))
+local isHard = false
+for _, l in ipairs(ns.Words.WEEK_TONE.hard) do if wt == l then isHard = true end end
+check(isHard, "a run of bad days is noticed: " .. tostring(wt))
 ns.char.days = {}
 
 -- Changing your tune; lies found out; letters
@@ -812,6 +814,54 @@ do
   event("AUTOTRP_TEST_SECRET", SECRET, "plain")
   check(type(got) == "table" and got[1] == nil and got[2] == "plain", "event payloads scrub secret values")
   UnitIsAFK, issecretvalue = oldAFK, nil
+end
+
+-- Every line reads cleanly whoever the character is: no tag left unfilled with she/her or
+-- they/them pronouns and full gear, and every mood has lines enough to vary.
+do
+  local W, U = ns.Words, ns.U
+  local oldPron = ns.TRP.CustomPronouns
+  local world = { money = 100, pet = "Fang", gear = { offType = "Shields",
+    names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
+  local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
+    party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
+    mount = "x", around = "x", kind = "x" }
+  local bad, seen = {}, {}
+  local function scan(v, path)
+    if type(v) == "string" then
+      if seen[v] then return end
+      seen[v] = true
+      local line = U.Backed(v, world) or v
+      line = line:gsub("{(%a+)}", function(k) return fillers[k] end)
+      line = U.Pron(line)
+      if line:find("{") then bad[#bad + 1] = path .. ": " .. line end
+    elseif type(v) == "table" then
+      for k, x in pairs(v) do scan(x, path .. "." .. tostring(k)) end
+    end
+  end
+  for _, pron in ipairs({ "she/her", "they/them", "he/him" }) do
+    ns.TRP.CustomPronouns = function() return pron end
+    seen = {}
+    for _, key in ipairs({ "MOODS", "CALM", "RACE_TELLS", "CLASS_TELLS", "FESTIVALS", "SAY", "TRAVEL", "ACTIVITY", "PET",
+      "AMBITIONS", "RACE_LOOK", "CLASS_LOOK", "PHYSIQUE", "WEEK_TONE", "WEALTH", "DURABILITY" }) do
+      scan(W[key], key)
+    end
+  end
+  ns.TRP.CustomPronouns = oldPron
+  check(#bad == 0, "every line fills its tags: " .. table.concat(bad, " | "))
+  local thin = {}
+  for k, m in pairs(W.MOODS) do
+    if #m.adj < 3 or #m.tells < 3 then thin[#thin + 1] = k end
+  end
+  for k, m in pairs(W.CALM) do
+    if #m.adj < 3 or #m.tells < 3 then thin[#thin + 1] = "calm:" .. k end
+  end
+  check(#thin == 0, "every mood has at least three ways to say it: " .. table.concat(thin, ", "))
+  ns.TRP.CustomPronouns = function() return "she/her" end
+  check(U.Pron("{they} walk{s}, {they} watch{es}, {they} carr{ies}") == "she walks, she watches, she carries", "verb endings follow she")
+  ns.TRP.CustomPronouns = function() return "they/them" end
+  check(U.Pron("{they} walk{s}, {they} watch{es}, {they} carr{ies}") == "they walk, they watch, they carry", "verb endings follow they")
+  ns.TRP.CustomPronouns = oldPron
 end
 
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))
