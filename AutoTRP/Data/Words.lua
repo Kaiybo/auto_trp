@@ -810,6 +810,22 @@ W.BOUNTY_NOT_A_NAME = { personnel = true, ones = true, raiders = true, bandits =
   deserters = true, cultists = true, smugglers = true, trolls = true, ogres = true, kobolds = true, centaurs = true }
 W.EARNED_BOUNTY_ICON = "INV_Misc_Note_06"
 
+---------------------------------------------------------------------------
+-- The most cast spell. Not counted: swings and shots, the hearthstone, gathering and the
+-- crafts (by name, and by spell ID for the few that matter on any language).
+---------------------------------------------------------------------------
+W.CAST_IGNORE = {
+  ["Attack"] = true, ["Auto Shot"] = true, ["Shoot"] = true, ["Throw"] = true, ["Hearthstone"] = true,
+  ["Opening"] = true, ["Mining"] = true, ["Herb Gathering"] = true, ["Skinning"] = true, ["Fishing"] = true,
+  ["Disenchant"] = true, ["Smelting"] = true, ["Cooking"] = true, ["First Aid"] = true, ["Alchemy"] = true,
+  ["Blacksmithing"] = true, ["Leatherworking"] = true, ["Tailoring"] = true, ["Engineering"] = true,
+  ["Enchanting"] = true, ["Basic Campfire"] = true, ["Find Herbs"] = true, ["Find Minerals"] = true,
+  ["Find Treasure"] = true, ["Food"] = true, ["Drink"] = true, ["Refreshment"] = true,
+}
+W.CAST_IGNORE_ID = { [6603] = true, [75] = true, [5019] = true, [2764] = true, [8690] = true, [3365] = true }
+-- What the most cast one is called, by class (a warrior or rogue has abilities, not spells).
+W.CAST_NOUN = { WARRIOR = "ability", ROGUE = "ability" }
+
 -- The profile icon before any nickname is earned: the class crest.
 W.CLASS_ICON = {
   WARRIOR = "ClassIcon_Warrior", PALADIN = "ClassIcon_Paladin", HUNTER = "ClassIcon_Hunter", ROGUE = "ClassIcon_Rogue",
@@ -2217,6 +2233,8 @@ W.SAY = {
   saying = { "It's where {they} picked up the saying {motto}", "{they} came away from it with a saying: {motto}",
     "{they} took a saying from it: {motto}" },
   othernames = { "Has been called {list} as well", "Also answers to {list}", "Other names have stuck too: {list}" },
+  favspell = { "Reaches for {spell} more than any other {noun}", "{spell} is the {noun} {they} use{s} most",
+    "Uses {spell} more often than any other {noun}" },
   newname = { "Has lately come to be called {nick}.", "Some have started calling {them} {nick}.",
     "Answers to {nick} now, a name earned only lately." },
 }

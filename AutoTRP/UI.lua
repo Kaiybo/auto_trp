@@ -669,8 +669,9 @@ local HELP = {
   "|cffffd100/atrp badge|r: show or hide the mood badge",
   "|cffffd100/atrp days|r: the mood journal, the last week of feelings and places",
   "|cffffd100/atrp names|r: every name you've earned, and what for",
+  "|cffffd100/atrp spells|r: the spells and abilities you cast most",
   "|cffffd100/atrp name <number|auto>|r: wear one of your earned names (|cffffd100auto|r: the greatest deed's)",
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, books)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books)",
 }
 
 -- Earned names: list them, or choose which to wear.
@@ -833,6 +834,16 @@ SlashCmdList.AUTOTRP = function(msg)
     ns.Print(UI.StatusLine())
   elseif cmd == "names" then
     UI.ListNames()
+  elseif cmd == "spells" then
+    local top = ns.Compose.TopSpells(5)
+    if #top == 0 then
+      ns.Print("No spells counted yet. Every spell and ability you cast from now on is counted (not swings, the hearthstone, gathering or crafting).")
+    else
+      local parts = {}
+      for i, s in ipairs(top) do parts[i] = ("%s %d"):format(s.name, s.n) end
+      local since = ns.char.casts and ns.char.casts.since
+      ns.Print("Cast most" .. (since and date and (" since " .. date("%d %b %Y", since)) or "") .. ": " .. table.concat(parts, ", ") .. ".")
+    end
   elseif cmd == "name" then
     UI.ChooseName(arg)
   else

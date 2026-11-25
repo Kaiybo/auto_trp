@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.19.0 (2026-11-25): Old Habits
+
+- The most cast spell. Every spell and ability your character casts is counted (not swings or shots, the hearthstone, gathering, crafting, or items like potions, food and bandages).
+- A new statistic, *Most cast spell*: "Flash Heal, 1,240 times". It has its own switch and appears once something has been cast ten times.
+- Personality says it once it's a real habit (fifty casts): "Reaches for Flash Heal more than any other spell." A warrior's or rogue's is an *ability*. Without RPG Dialogue, Personality now has this line rather than nothing.
+- `/atrp spells` lists the five you cast most, and since when they've been counted.
+
 ## 0.18.0 (2026-11-25): Deeds of Their Own
 
 - Auto TRP keeps its own record of what your character sees through: every quest turned in (its title, where and when) and every dungeon or raid master brought down (where, the first time and how many times). Quest chains, masters and bounties now earn their names **without Chronicle**, and nothing is missed while Chronicle is switched off. With both, the earlier time stands and nothing counts twice.
