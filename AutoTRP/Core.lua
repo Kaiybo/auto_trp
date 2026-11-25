@@ -4,13 +4,33 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.13.0"
+ns.VERSION = "0.14.1"
 
 ---------------------------------------------------------------------------
 -- Events
 ---------------------------------------------------------------------------
 local frame = CreateFrame("Frame")
 local handlers = {}
+
+-- Event payloads can carry Midnight-era "secret" values (combat, chat, units): testing or
+-- comparing one taints the add-on, so handlers only ever see them as nil.
+local function unsecret(v)
+  local fn = _G.issecretvalue
+  if v ~= nil and type(fn) == "function" then
+    local ok, secret = pcall(fn, v)
+    if not ok or secret then return nil end
+  end
+  return v
+end
+ns.Unsecret = unsecret
+
+local function scrub(...)
+  local n = select("#", ...)
+  if n == 0 then return end
+  local t = { ... }
+  for i = 1, n do t[i] = unsecret(t[i]) end
+  return unpack(t, 1, n)
+end
 
 function ns.On(event, fn)
   local list = handlers[event]
@@ -27,7 +47,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
   local list = handlers[event]
   if not list then return end
   for i = 1, #list do
-    local ok, err = pcall(list[i], event, ...)
+    local ok, err = pcall(list[i], event, scrub(...))
     if not ok then ns.Error(event, err) end
   end
 end)
@@ -36,10 +56,10 @@ end)
 function ns.OnUnit(event, unit, fn)
   local f = CreateFrame("Frame")
   if not pcall(f.RegisterUnitEvent, f, event, unit) then
-    return ns.On(event, function(_, u, ...) if u == unit then fn(event, u, ...) end end)
+    return ns.On(event, function(_, u, ...) if u == unit then fn(event, u, ...) end end) -- already scrubbed
   end
   f:SetScript("OnEvent", function(_, e, ...)
-    local ok, err = pcall(fn, e, ...)
+    local ok, err = pcall(fn, e, scrub(...))
     if not ok then ns.Error(e, err) end
   end)
   return true
@@ -299,10 +319,13 @@ function U.Roughly(n)
   return U.Number(n)
 end
 
+U.Unsecret = unsecret
+
+-- Every game API read goes through here, so no secret value ever reaches add-on logic.
 function U.Call(fn, ...)
   if type(fn) ~= "function" then return nil end
   local ok, a, b, c, d = pcall(fn, ...)
-  if ok then return a, b, c, d end
+  if ok then return U.Unsecret(a), U.Unsecret(b), U.Unsecret(c), U.Unsecret(d) end
   return nil
 end
 

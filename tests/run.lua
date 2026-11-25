@@ -763,5 +763,22 @@ if os.getenv("SAMPLES") then
   end
 end
 
+-- Secret values (Midnight-era clients): testing one taints the add-on, so they must read as unknown.
+do
+  local SECRET = newproxy()
+  issecretvalue = function(v) return v == SECRET end
+  local oldAFK = UnitIsAFK
+  UnitIsAFK = function() return SECRET end
+  local ok, snap = pcall(ns.World.Snapshot)
+  check(ok and snap.away == false, "a secret AFK flag reads as unknown, not as away")
+  check(ns.U.Call(function() return SECRET, 7 end) == nil and select(2, ns.U.Call(function() return SECRET, 7 end)) == 7,
+    "U.Call scrubs secret returns and keeps the rest")
+  local got = "untouched"
+  ns.On("AUTOTRP_TEST_SECRET", function(_, a, b) got = { a, b } end)
+  event("AUTOTRP_TEST_SECRET", SECRET, "plain")
+  check(type(got) == "table" and got[1] == nil and got[2] == "plain", "event payloads scrub secret values")
+  UnitIsAFK, issecretvalue = oldAFK, nil
+end
+
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))
 os.exit(fails == 0 and 0 or 1)
