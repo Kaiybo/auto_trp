@@ -1,13 +1,22 @@
 name: release
 
 # Builds AutoTRP-<version>.zip and publishes a GitHub release (tag v<version>) with that
-# version's changelog section as the notes. Runs when a v* tag is pushed, or by hand from
-# the Actions tab ("Run workflow"), which releases the version in AutoTRP.toc.
+# version's changelog section as the notes, for the version in AutoTRP.toc. Runs on every
+# push to main (a merged pull request), and does nothing when that version is already
+# released, so bumping the version in a pull request is all a release takes. Also runs when
+# a v* tag is pushed, or by hand from the Actions tab ("Run workflow").
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
+
+# One release at a time, so a merge and a hand-run can't both publish the same version.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -17,21 +26,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Lua 5.1
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lua5.1
-      - name: Check
-        run: |
-          for f in $(find AutoTRP -name '*.lua'); do luac5.1 -p "$f"; done
-          lua5.1 tests/run.lua
-      - name: Build zip
-        id: build
-        run: echo "zip=$(python3 tools/build_zip.py)" >> "$GITHUB_OUTPUT"
       - name: Version
         run: |
           version=$(grep -m1 '^## Version:' AutoTRP/AutoTRP.toc | awk '{print $3}')
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "TAG=v$version" >> "$GITHUB_ENV"
+      - name: Already released?
+        id: released
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "$TAG is already released; nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install Lua 5.1
+        if: steps.released.outputs.skip != 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lua5.1
+      - name: Check
+        if: steps.released.outputs.skip != 'true'
+        run: |
+          for f in $(find AutoTRP -name '*.lua'); do luac5.1 -p "$f"; done
+          lua5.1 tests/run.lua
+      - name: Build zip
+        if: steps.released.outputs.skip != 'true'
+        id: build
+        run: echo "zip=$(python3 tools/build_zip.py)" >> "$GITHUB_OUTPUT"
       - name: Release notes from the changelog
+        if: steps.released.outputs.skip != 'true'
         run: |
           version="$VERSION"
           awk -v v="$version" '
@@ -41,6 +63,7 @@ jobs:
           title=$(grep -m1 "^## $version " CHANGELOG.md | sed -E 's/^## [^:]*: //')
           echo "TITLE=Auto TRP $version: $title" >> "$GITHUB_ENV"
       - name: Publish
+        if: steps.released.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$TAG" "${{ steps.build.outputs.zip }}" --target "$GITHUB_SHA" --title "$TITLE" --notes-file notes.md
