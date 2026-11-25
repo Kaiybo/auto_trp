@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.17.0"
+ns.VERSION = "0.18.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -165,6 +165,7 @@ ns.CHAR_DEFAULTS = {
   seen = {},         -- snapshots of the sources, to notice what changed
   -- names = nil,    -- earned name key -> when it was earned (nil until first looked at)
   -- chosenName = nil, -- the earned name to wear (/atrp name), else the best one
+  -- deeds = nil,    -- Auto TRP's own record of quests turned in and masters felled (Sources/Deeds.lua)
 }
 
 local function fill(db, defaults)
