@@ -13,14 +13,7 @@ local function call(name, ...)
 end
 
 -- Midnight-era "secret" values can be shown but not compared: treat them as unknown.
-function World.Safe(v)
-  local fn = _G.issecretvalue
-  if type(fn) == "function" then
-    local ok, secret = pcall(fn, v)
-    if ok and secret then return nil end
-  end
-  return v
-end
+function World.Safe(v) return U.Unsecret(v) end
 
 ---------------------------------------------------------------------------
 -- Auras: buffs and debuffs, through whichever API this client has.
@@ -34,7 +27,8 @@ local function aura(unit, i, filter)
   local fn = filter == "HARMFUL" and _G.UnitDebuff or _G.UnitBuff
   if type(fn) ~= "function" then return nil end
   local ok, name, _, _, kind, _, _, _, _, _, spellId = pcall(fn, unit, i)
-  if ok and name then return World.Safe(name), World.Safe(kind), World.Safe(spellId) end
+  name = ok and World.Safe(name) or nil
+  if name then return name, World.Safe(kind), World.Safe(spellId) end
   return nil
 end
 
@@ -78,7 +72,7 @@ local function itemInfo(link)
   local fn = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
   if type(fn) ~= "function" or not link then return nil end
   local ok, name, _, quality, _, _, _, subType = pcall(fn, link)
-  if ok then return name, quality, subType end
+  if ok then return World.Safe(name), World.Safe(quality), World.Safe(subType) end
 end
 
 function World.Gear()
@@ -136,7 +130,7 @@ function World.Reagents(class)
   local out = {}
   local count = (C_Item and C_Item.GetItemCount) or _G.GetItemCount
   for _, r in ipairs(W.CLASS_REAGENTS[class or ""] or {}) do
-    local n = type(count) == "function" and select(2, pcall(count, r[1])) or 0
+    local n = U.Call(count, r[1])
     if type(n) == "number" and n > 0 then
       local name = itemInfo("item:" .. r[1])
       out[#out + 1] = { name = U.Plain(name) or r[2], count = n }
@@ -149,8 +143,8 @@ function World.FreeBagSlots()
   local get = (C_Container and C_Container.GetContainerNumFreeSlots) or _G.GetContainerNumFreeSlots
   if type(get) ~= "function" then return nil end
   for bag = 0, 4 do
-    local ok, n = pcall(get, bag)
-    if ok and type(n) == "number" then free = free + n end
+    local n = U.Call(get, bag)
+    if type(n) == "number" then free = free + n end
   end
   return free
 end

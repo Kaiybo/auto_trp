@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.1 (2026-11-25): Secret Values
+
+- Fixed "attempt to perform boolean test on a secret boolean value" (World.lua, away-from-keyboard check) on clients that hide some game values. Every game API read and every event payload now treats a secret value as unknown, instead of patching one call at a time.
+
 ## 0.14.0 (2026-11-25): Nothing Made Up
 
 - Nothing invented. Auto TRP still draws conclusions from what the game records, but no longer makes up actions, props or backstory:
