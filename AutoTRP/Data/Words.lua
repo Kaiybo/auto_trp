@@ -23,16 +23,16 @@ W.MOODS = {
     title = "Rattled", icon = "Ability_Rogue_FeignDeath",
     adj = { "A little rattled", "Breathing hard", "Bruised and rattled" },
     tells = {
-      "Fresh bruises, a torn sleeve, and eyes that keep checking the treeline.",
-      "Patched up in a hurry. Bandages still spotting through.",
+      "Breathing hard, eyes still checking the treeline.",
+      "Patched up in a hurry, and still hurting.",
     },
   },
   elated = {
     title = "In High Spirits", icon = "Spell_Holy_SurgeOfLight",
     adj = { "In high spirits", "Flushed with success", "Grinning to {themselves}" },
     tells = {
-      "Walks a little taller today, as if something long worked for finally came good.",
-      "Can't quite keep the smile off {their} face.",
+      "Walks taller today. Something long worked for has come good.",
+      "Keeps smiling at nothing in particular.",
     },
   },
   triumphant = {
@@ -48,7 +48,7 @@ W.MOODS = {
     adj = { "Quietly satisfied", "Content with a day's work" },
     tells = {
       "Has the easy shoulders of someone who kept {their} word today.",
-      "A coin purse a little heavier than this morning.",
+      "{their} {pouch} is heavier than it was this morning.",
     },
   },
   weary = {
@@ -57,22 +57,22 @@ W.MOODS = {
     tells = {
       "Dust to the knees, and the slow walk of someone who's been on the road too long.",
       "Dark circles under the eyes. Could sleep standing up.",
-      "Boots worn through at the heel; a pack that's clearly been carried a long way.",
+      "Road-weary, moving like every mile is still in {their} legs.",
     },
   },
   ease = {
     title = "At Ease", icon = "INV_Drink_04",
     adj = { "At ease", "Warm and unhurried", "Rested" },
     tells = {
-      "Boots off, shoulders down. For once, nothing seems to be chasing {them}.",
-      "Clean, fed and rested, and it shows.",
+      "Shoulders down. Nothing is chasing {them} today.",
+      "Clean, fed and rested.",
     },
   },
   merry = {
     title = "Merry", icon = "INV_Drink_05",
     adj = { "Merry", "Several cups in", "Cheerfully unsteady" },
     tells = {
-      "Smells of ale and laughs a little too loudly.",
+      "Smells of ale and laughs too loudly.",
       "Swaying slightly, and very fond of everyone right now.",
     },
   },
@@ -103,7 +103,7 @@ W.MOODS = {
     title = "On Guard", icon = "Ability_Warrior_DefensiveStance",
     adj = { "On guard", "Wound tight", "Watchful" },
     tells = {
-      "Weapon never far from hand. Listens before every corner.",
+      "Keeps {their} {mainhand} close and listens before every corner.",
       "Moves like someone who expects the floor to give way.",
     },
   },
@@ -111,7 +111,7 @@ W.MOODS = {
     title = "Uneasy", icon = "Spell_Shadow_Twilight",
     adj = { "Uneasy", "Jumpy", "Keeping to the light" },
     tells = {
-      "Keeps the lantern close and the back to a wall.",
+      "Keeps {their} back to a wall.",
       "Doesn't like this place, and doesn't pretend to.",
     },
   },
@@ -127,7 +127,7 @@ W.MOODS = {
     title = "Intrigued", icon = "INV_Misc_Book_06",
     adj = { "Turning something over", "Intrigued", "Preoccupied" },
     tells = {
-      "Has heard something they can't let go of. It shows in the frown.",
+      "Frowning over some news {they} can't let go of.",
       "Lost in thought, piecing something together.",
     },
   },
@@ -142,7 +142,7 @@ W.MOODS = {
     title = "In Good Company", icon = "Spell_Holy_PrayerOfSpirit",
     adj = { "In good company", "Among friends" },
     tells = {
-      "Travelling with others, and easier for it.",
+      "Travelling with others for once.",
     },
   },
   sorrowful = {
@@ -157,7 +157,7 @@ W.MOODS = {
     title = "Short-Tempered", icon = "Ability_Warrior_Rampage",
     adj = { "Fuming", "Short-tempered", "Spoiling for a fight" },
     tells = {
-      "Jaw set, knuckles white. Best not to jostle {them} right now.",
+      "Jaw set, knuckles white. People give {them} room.",
       "Something has {their} blood up, and it isn't cooling.",
     },
   },
@@ -180,7 +180,7 @@ W.MOODS = {
   fed = {
     title = "Well-Fed", icon = "INV_Misc_Food_15",
     adj = { "Well-fed", "Pleasantly full" },
-    tells = { "Crumbs on the collar and the contented air of a good meal." },
+    tells = { "Has the contented air of someone who just ate well." },
   },
   downcast = {
     title = "Downcast", icon = "Spell_Shadow_GatherShadows",
@@ -195,7 +195,7 @@ W.MOODS = {
     title = "Frustrated", icon = "Ability_Warrior_Revenge",
     adj = { "Thoroughly fed up", "Frustrated", "At the end of {their} rope" },
     tells = {
-      "Muttering curses at no one in particular. It has clearly been one of those days.",
+      "Muttering curses at no one in particular.",
       "Has fallen more than once today and is taking it personally.",
     },
   },
@@ -204,14 +204,14 @@ W.MOODS = {
     adj = { "In fine fettle", "Brimming with vigour", "Feeling unstoppable" },
     tells = {
       "Fairly crackling with borrowed blessings. Stands like nothing could knock {them} down.",
-      "Glowing faintly with wards and blessings, and enjoying it.",
+      "Wrapped in wards and blessings that glow at the edges.",
     },
   },
   glorious = {
     title = "Glorious", icon = "INV_Misc_Head_Dragon_01",
     adj = { "Riding high on a city's cheer", "Glorious", "Blazing with borrowed glory" },
     tells = {
-      "Carries the blessing of a whole city's victory. It shows in every step.",
+      "Carries the blessing of a whole city's victory and walks like it.",
       "Positively radiant. Someone, somewhere, is singing about this.",
     },
   },
@@ -234,7 +234,7 @@ W.MOODS = {
     title = "Wounded", icon = "Ability_Rogue_FeignDeath",
     adj = { "Nursing fresh wounds", "Bloodied", "Limping" },
     tells = {
-      "Bandages wrapped tight and still spotting red.",
+      "Hurt, and moving carefully around it.",
       "Favouring one leg and wincing when {they} think no one's looking.",
     },
   },
@@ -247,14 +247,14 @@ W.MOODS = {
     adj = { "Blood up", "Battle-hungry", "Spoiling for the next fight" },
     tells = {
       "Still breathing hard from the last fight and already looking for the next.",
-      "Fresh blood on the blade, none of it {their} own.",
+      "Fresh blood on {their} {mainhand}, none of it {their} own.",
     },
   },
   worried = {
     title = "Worried", icon = "INV_Misc_Coin_04",
     adj = { "Worried about money", "Counting copper", "Down to {their} last coins" },
     tells = {
-      "Purse hangs light and flat. Checks prices twice before buying anything.",
+      "{their} {pouch} hangs light. Checks prices twice before buying anything.",
       "Mending {their} own gear because the smith costs too much.",
     },
   },
@@ -262,8 +262,8 @@ W.MOODS = {
     title = "Flush", icon = "INV_Misc_Coin_01",
     adj = { "Flush with coin", "Feeling wealthy", "Jingling as {they} walk" },
     tells = {
-      "A heavy purse and a generous mood. Someone's buying the next round.",
-      "Recently came into money, and it shows in the swagger.",
+      "Flush with coin and in a generous mood. Someone's buying the next round.",
+      "Recently came into money and has started to swagger.",
     },
   },
   thrilled = {
@@ -285,7 +285,7 @@ W.MOODS = {
   righteous = {
     title = "Righteous", icon = "Spell_Holy_SealOfRighteousness",
     adj = { "Quietly righteous", "At peace with {their} choices" },
-    tells = { "Stands a little straighter, like someone who just did the right thing." },
+    tells = { "Stands straighter, like someone who just did the right thing." },
   },
   proud = {
     title = "Proud", icon = "INV_Misc_Ribbon_01",
@@ -305,12 +305,12 @@ W.MOODS = {
   burdened = {
     title = "Overloaded", icon = "INV_Misc_Bag_08",
     adj = { "Weighed down", "Overloaded" },
-    tells = { "Packs stuffed to bursting, clanking with every step." },
+    tells = { "Bags stuffed to bursting, clanking with every step." },
   },
   newsy = {
     title = "Full of News", icon = "INV_Letter_03",
     adj = { "Full of news", "Mulling over a letter" },
-    tells = { "Has a letter tucked in {their} coat and keeps rereading it." },
+    tells = { "Has had news, and keeps going back to it in {their} head." },
   },
   accomplished = {
     title = "Accomplished", icon = "INV_Misc_Note_06",
@@ -329,7 +329,7 @@ W.MOODS = {
 -- Baseline when nothing stands out, tinted by temperament (the top RPG Dialogue trait).
 W.CALM = {
   default = { title = "Steady", icon = "Spell_Nature_Tranquility", adj = { "Steady", "Calm", "Even-tempered" },
-    tells = { "Unremarkable at a glance, which may be the point.", "Calm, watchful, and in no hurry." } },
+    tells = { "Unremarkable at a glance.", "Calm, watchful, and in no hurry." } },
   kind = { title = "Warm", icon = "Spell_Holy_Renew", adj = { "In good spirits", "Warm" },
     tells = { "Quick with a smile and a nod for strangers." } },
   stern = { title = "Composed", icon = "Ability_Warrior_CommandingShout", adj = { "Composed", "Stern-faced" },
@@ -342,10 +342,10 @@ W.CALM = {
     tells = { "Lips move now and then in a quiet prayer." } },
   skeptical = { title = "Doubtful", icon = "INV_Misc_QuestionMark", adj = { "Doubtful", "Unconvinced" },
     tells = { "An eyebrow that's permanently halfway raised." } },
-  greedy = { title = "Calculating", icon = "INV_Misc_Coin_02", adj = { "Calculating", "Counting coin" },
+  greedy = { title = "Calculating", icon = "INV_Misc_Coin_02", adj = { "Calculating", "Thinking about money" },
     tells = { "Eyes that price everything they land on." } },
   generous = { title = "Open-Handed", icon = "INV_Misc_Bag_10", adj = { "Open-handed", "Generous" },
-    tells = { "Always seems to have a spare coin or a spare loaf for someone." } },
+    tells = { "Quick to share with anyone who needs it." } },
   curious = { title = "Inquisitive", icon = "INV_Misc_Book_09", adj = { "Inquisitive", "Curious" },
     tells = { "Asks one question too many, and listens to every answer." } },
   brave = { title = "Bold", icon = "Ability_Warrior_BattleShout", adj = { "Bold", "Unafraid" },
@@ -396,9 +396,9 @@ W.ALIGN_TITLES = {
 
 -- How a lean shows in a sentence ("walks in the Light").
 W.AXIS_PROSE = {
-  light = { [1] = "keeps to the Light", [-1] = "is no stranger to shadow" },
-  order = { [1] = "believes in law and keeping one's place", [-1] = "answers to no one's rules but {their} own" },
-  honor = { [1] = "keeps {their} word", [-1] = "can lie with a straight face" },
+  light = { [1] = "keeps to the Light", [-1] = "walks closer to the shadow than most would like" },
+  order = { [1] = "believes in law and keeping one's place", [-1] = "answers to no rules but {their} own" },
+  honor = { [1] = "keeps {their} word", [-1] = "lies easily and well" },
 }
 
 ---------------------------------------------------------------------------
@@ -434,7 +434,17 @@ W.TOPICS = {
   stormwind = "Stormwind", westfall = "Westfall", ashenvale = "the war in Ashenvale",
   alterac = "Alterac", stromgarde = "Stromgarde", dwarves = "dwarves", gnomes = "gnomes",
   trolls = "trolls", tauren = "tauren", undead = "the undead", magic = "magic", druids = "druids",
+  cenarion_circle = "the Cenarion Circle", teldrassil = "Teldrassil", teldrassil_tree = "Teldrassil",
+  argent_dawn = "the Argent Dawn", kirin_tor = "the Kirin Tor", thrall = "Thrall", cairne = "Cairne",
+  dark_iron = "the Dark Irons", blackrock = "the Blackrock clan", burning_blade = "the Burning Blade",
+  syndicate = "the Syndicate", sentinels = "the Sentinels", earthen_ring = "the Earthen Ring",
+  bronzebeard = "the Bronzebeards", magram = "the Magram", gelkis = "the Gelkis",
 }
+
+-- Topic ids RPG Dialogue may add later read with "the" when they name a group.
+W.GROUP_WORDS = { circle = true, crusade = true, company = true, league = true, dawn = true, hammer = true,
+  brotherhood = true, council = true, order = true, army = true, guard = true, legion = true, cult = true,
+  clan = true, tribe = true, syndicate = true, alliance = true, horde = true, scourge = true, sentinels = true }
 
 -- {t} is the topic. Stances not listed here are left out rather than guessed at.
 W.STANCES = {
@@ -459,17 +469,17 @@ W.PEACE = {
 -- Standing (RPG Dialogue town tiers).
 ---------------------------------------------------------------------------
 W.TIERS = {
-  { name = "Reviled", max = -60, phrase = "reviled in {town}" },
-  { name = "Distrusted", max = -20, phrase = "distrusted in {town}" },
+  { name = "Reviled", max = -60, phrase = "isn't welcome in {town}" },
+  { name = "Distrusted", max = -20, phrase = "isn't trusted in {town}" },
   { name = "Stranger", max = 9 },
-  { name = "Known", max = 29, phrase = "known in {town}" },
-  { name = "Liked", max = 54, phrase = "well-liked in {town}" },
-  { name = "Respected", max = 79, phrase = "respected in {town}" },
-  { name = "Hero", max = 100, phrase = "a hero to {town}" },
+  { name = "Known", max = 29, phrase = "has been seen around {town}" },
+  { name = "Liked", max = 54, phrase = "is liked in {town}" },
+  { name = "Respected", max = 79, phrase = "is trusted in {town}" },
+  { name = "Hero", max = 100, phrase = "is well thought of in {town}" },
 }
 
 W.FULLTITLE_TIER = {
-  Known = "Known in {town}", Liked = "Friend of {town}", Respected = "Respected in {town}", Hero = "Hero of {town}",
+  Liked = "Friend of {town}", Respected = "Friend of {town}", Hero = "Friend of {town}",
 }
 
 ---------------------------------------------------------------------------
@@ -498,7 +508,7 @@ W.SEASONED = {
   { max = 24, words = { "promising", "road-tested" } },
   { max = 44, words = { "seasoned", "capable" } },
   { max = 59, words = { "hardened", "veteran" } },
-  { max = 99, words = { "legendary", "battle-scarred" } },
+  { max = 99, words = { "long-travelled", "weathered" } },
 }
 
 ---------------------------------------------------------------------------
@@ -640,19 +650,19 @@ W.PET = {
 -- The festive mood takes the season's colours.
 W.FESTIVALS = {
   winterveil = { title = "Merry Winter Veil", adj = { "Full of Winter Veil cheer", "Festive" },
-    tells = { "Smells of pine and gingerbread, and has a gift-wrapped something under one arm." } },
+    tells = { "Full of the season's cheer, humming carols under {their} breath." } },
   hallowsend = { title = "Spooky", adj = { "In a spooky mood", "Grinning like a carved gourd" },
-    tells = { "There are candle drippings on {their} sleeves and a mischievous glint in {their} eye." } },
+    tells = { "A mischievous glint in {their} eye, as if planning a prank." } },
   love = { title = "Lovestruck", adj = { "Feeling romantic", "Lovestruck" },
-    tells = { "Has a pink ribbon tucked somewhere and a soft look about {them}." } },
+    tells = { "A soft look about {them}, and a mind somewhere else." } },
   midsummer = { title = "Sun-Warmed", adj = { "Sun-warmed and cheerful", "Full of summer" },
-    tells = { "Smells of bonfire smoke and summer flowers." } },
+    tells = { "Sun-warmed and slow to stop smiling." } },
   brewfest = { title = "Brewfest Spirit", adj = { "In the Brewfest spirit", "Ale-happy" },
-    tells = { "Wears a slightly crooked festival hat and a foam moustache." } },
+    tells = { "Wears {their} {head} at a festive angle and smiles at everyone.", "In the mood for a drink and a song." } },
   lunar = { title = "Honouring Elders", adj = { "Thoughtful, as the old year turns" },
-    tells = { "Carries a lantern and a quiet thought for those who came before." } },
+    tells = { "Quiet, with a thought for those who came before." } },
   noblegarden = { title = "Springtime", adj = { "Full of spring" },
-    tells = { "Has a painted egg in one pocket and grass stains on {their} knees." } },
+    tells = { "Bright-eyed with the spring, and in a playful mood." } },
 }
 
 -- What a character wants, when nothing else says (by class). Kept broad and lore-safe.
@@ -674,7 +684,7 @@ W.PHYSIQUE = {
   strength = { "broad-shouldered and strong", "heavy with muscle" },
   agility = { "lean and quick on {their} feet", "wiry and light-footed" },
   stamina = { "sturdy and hard to knock down", "thick-set and solid" },
-  intellect = { "sharp-eyed, with a scholar's stoop", "ink-stained and thoughtful" },
+  intellect = { "sharp-eyed, with a scholar's stoop", "thoughtful, with a scholar's patience" },
   spirit = { "calm, with an unhurried air", "serene, with steady eyes" },
 }
 
@@ -686,16 +696,16 @@ W.SLOT_NOUN = { [1] = "helm", [3] = "shoulders", [5] = "chest", [7] = "legs", [1
 -- 1-9, 10-19, 20-29, 30-39, 40-49, 50-59, 60.
 ---------------------------------------------------------------------------
 W.RANKS = {
-  WARRIOR = { "Recruit", "Militia", "Soldier", "Sergeant", "Veteran", "Champion", "Warmaster" },
-  PALADIN = { "Initiate", "Squire", "Knight", "Templar", "Crusader", "Justicar", "Grand Templar" },
+  WARRIOR = { "Recruit", "Militia", "Soldier", "Sergeant", "Veteran", "Battle-Hardened", "Hardened Veteran" },
+  PALADIN = { "Initiate", "Squire", "Knight", "Templar", "Crusader", "Justicar", "Elder Templar" },
   HUNTER = { "Novice", "Tracker", "Ranger", "Pathfinder", "Stalker", "Huntmaster", "Master Hunter" },
   ROGUE = { "Cutpurse", "Footpad", "Thief", "Shadow", "Blade", "Nightblade", "Master Assassin" },
   PRIEST = { "Acolyte", "Initiate", "Deacon", "Priest", "Confessor", "High Cleric", "Elder Cleric" },
   SHAMAN = { "Initiate", "Seer", "Spirit-Speaker", "Stormcaller", "Farseer", "Elder Farseer", "Elder Shaman" },
   MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Sorcerer", "Arcanist", "Master Arcanist" },
   WARLOCK = { "Initiate", "Occultist", "Summoner", "Shadowcaster", "Diabolist", "Dreadcaller", "Master Diabolist" },
-  DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder Druid", "Elder of the Circle" },
-  default = { "Initiate", "Apprentice", "Journeyman", "Adept", "Expert", "Master", "Grandmaster" },
+  DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder Druid", "Wildkeeper" },
+  default = { "Initiate", "Apprentice", "Journeyman", "Adept", "Expert", "Master", "Old Hand" },
 }
 
 -- Professions by skill, for History.
@@ -722,23 +732,23 @@ W.RACE_TELLS = {
   Human = {
     weary = { "Rubs the back of {their} neck and stifles a yawn every few steps." },
     merry = { "Humming an Elwynn drinking song, slightly off key." },
-    uneasy = { "Keeps a hand near the hilt and glances over a shoulder at every sound." },
+    uneasy = { "Keeps a hand near {their} {mainhand} and glances over a shoulder at every sound." },
   },
   Dwarf = {
-    weary = { "Beard tangled with road dust; even a dwarf's legs have limits." },
-    merry = { "Booming laugh, foam in the beard, and a tankard that never seems empty." },
-    angry = { "Beard bristling, jaw working. Something has offended {their} clan honour." },
-    ease = { "Pipe lit, boots up, beard combed. Content as a dwarf by a forge." },
+    weary = { "Legs heavy as anvils, but still marching." },
+    merry = { "A booming laugh, and another drink never far away." },
+    angry = { "Face red, jaw working. Something has offended {their} clan honour." },
+    ease = { "Feet up and content as a dwarf by a forge." },
   },
   Gnome = {
     weary = { "Goggles pushed up and eyes red-rimmed. Hasn't stopped tinkering in hours." },
     elated = { "Bouncing on {their} toes and talking a mile a minute about something technical." },
     uneasy = { "Fiddling nervously with a gadget that whirs every time something moves." },
-    wonder = { "Taking notes on everything, with diagrams." },
+    wonder = { "Asking how everything works, and remembering every answer." },
   },
   NightElf = {
-    weary = { "Even the long-lived tire. Ears droop a little, eyes dimmer than usual." },
-    uneasy = { "Ears flick at every sound; silver eyes narrowed at the dark." },
+    weary = { "Ears drooping, eyes dimmer than usual." },
+    uneasy = { "Ears flicking at every sound, silver eyes narrowed at the dark." },
     ease = { "Still as a moonlit pool. Centuries of patience in one quiet breath." },
     downcast = { "Ears low, eyes distant, carrying a grief older than most kingdoms." },
   },
@@ -750,7 +760,7 @@ W.RACE_TELLS = {
   },
   Troll = {
     ease = { "Lounging loose-limbed, tusks catching the light, in no hurry at all, mon." },
-    uneasy = { "Muttering to the loa under {their} breath and touching a charm at {their} neck." },
+    uneasy = { "Muttering to the loa under {their} breath." },
     merry = { "Grinning wide around the tusks and swaying to a rhythm only {they} can hear." },
     angry = { "Hunched low, tusks forward. The look of a Darkspear about to settle a score." },
   },
@@ -776,47 +786,47 @@ W.RACE_TELLS = {
 -- Rank ladders that differ by faction (shared bands as W.RANKS).
 W.RANKS_FACTION = {
   Horde = {
-    WARRIOR = { "Recruit", "Grunt", "Raider", "Sergeant", "Veteran", "Champion", "Warlord" },
+    WARRIOR = { "Recruit", "Grunt", "Raider", "Sergeant", "Veteran", "Battle-Hardened", "Blooded Veteran" },
     ROGUE = { "Cutthroat", "Footpad", "Thief", "Shadow", "Blade", "Nightblade", "Master Assassin" },
   },
   Alliance = {
-    WARRIOR = { "Recruit", "Foot Soldier", "Soldier", "Sergeant", "Veteran", "Knight-Champion", "Warmaster" },
+    WARRIOR = { "Recruit", "Foot Soldier", "Soldier", "Sergeant", "Veteran", "Battle-Hardened", "Hardened Veteran" },
   },
 }
 
 -- Ladders specific to a race and class: these win over the class and faction ones.
 W.RANKS_RACE = {
   Scourge = {
-    ROGUE = { "Newly Risen", "Footpad", "Deathstalker Initiate", "Deathstalker", "Deathstalker Captain", "Dark Ranger's Blade", "Master Deathstalker" },
-    PRIEST = { "Acolyte", "Initiate", "Dark Acolyte", "Dark Cleric", "Shadow Priest", "Deathspeaker", "High Deathspeaker" },
+    ROGUE = { "Newly Risen", "Footpad", "Deathstalker Initiate", "Deathstalker", "Senior Deathstalker", "Shadow Blade", "Master Deathstalker" },
+    PRIEST = { "Acolyte", "Initiate", "Dark Acolyte", "Dark Cleric", "Shadow Priest", "Deathspeaker", "Elder Deathspeaker" },
     MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Dark Sorcerer", "Arcanist", "Master Arcanist" },
     WARLOCK = { "Initiate", "Occultist", "Summoner", "Necrolyte", "Diabolist", "Dreadcaller", "Master Diabolist" },
-    WARRIOR = { "Risen", "Grunt", "Deathguard Recruit", "Deathguard", "Deathguard Sergeant", "Executor", "High Executor" },
+    WARRIOR = { "Risen", "Grunt", "Deathguard Recruit", "Deathguard", "Deathguard Sergeant", "Deathguard Veteran", "Deathguard Elder" },
   },
   Dwarf = {
-    HUNTER = { "Novice", "Mountaineer", "Mountaineer Scout", "Sharpshooter", "Senior Mountaineer", "Mountain King's Hunter", "Master Mountaineer" },
-    WARRIOR = { "Recruit", "Shieldbearer", "Guard", "Ironforge Sergeant", "Thane's Guard", "Champion of the Hold", "Mountain Thane" },
-    PRIEST = { "Acolyte", "Initiate", "Cleric of the Light", "Priest", "Confessor", "High Cleric", "Elder of the Mystic Ward" },
-    PALADIN = { "Initiate", "Squire", "Knight of Ironforge", "Templar", "Crusader", "Justicar", "Hammer of the Light" },
+    HUNTER = { "Novice", "Mountaineer", "Mountaineer Scout", "Sharpshooter", "Senior Mountaineer", "Mountain Ranger", "Master Mountaineer" },
+    WARRIOR = { "Recruit", "Shieldbearer", "Guard", "Ironforge Sergeant", "Hold Guard", "Ironforge Veteran", "Hold Veteran" },
+    PRIEST = { "Acolyte", "Initiate", "Cleric of the Light", "Priest", "Confessor", "High Cleric", "Elder Cleric" },
+    PALADIN = { "Initiate", "Squire", "Knight of Ironforge", "Templar", "Crusader", "Justicar", "Elder Templar" },
   },
   Gnome = {
     MAGE = { "Apprentice", "Tinker-Mage", "Adept", "Magus", "Arcanotech", "Arcanist", "Grand Arcanotech" },
     ROGUE = { "Pickpocket", "Saboteur", "Thief", "Shadow", "Infiltrator", "Nightblade", "Master Saboteur" },
-    WARRIOR = { "Recruit", "Foot Soldier", "Gnomeregan Guard", "Sergeant", "Veteran", "Champion of Gnomeregan", "Warmaster" },
+    WARRIOR = { "Recruit", "Foot Soldier", "Gnomeregan Guard", "Sergeant", "Veteran", "Gnomeregan Veteran", "Hardened Veteran" },
     WARLOCK = { "Initiate", "Occultist", "Summoner", "Shadowcaster", "Diabolist", "Dreadcaller", "Master Diabolist" },
   },
   NightElf = {
     HUNTER = { "Novice", "Tracker", "Ranger", "Pathfinder", "Moonstalker", "Huntmaster", "Master of the Wilds" },
-    PRIEST = { "Novice of Elune", "Initiate of Elune", "Acolyte of Elune", "Priest of the Moon", "Moon Priest", "High Priest of the Moon", "Voice of Elune" },
-    DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder Druid", "Elder of the Cenarion Circle" },
-    WARRIOR = { "Recruit", "Sentinel Recruit", "Sentinel", "Sentinel Sergeant", "Sentinel Captain", "Champion of the Kaldorei", "Warden" },
+    PRIEST = { "Novice of Elune", "Initiate of Elune", "Acolyte of Elune", "Priest of the Moon", "Moon Priest", "Senior Moon Priest", "Elder of the Moon" },
+    DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder Druid", "Wildkeeper" },
+    WARRIOR = { "Recruit", "Sentinel Recruit", "Sentinel", "Sentinel Sergeant", "Senior Sentinel", "Sentinel Veteran", "Elder Sentinel" },
     ROGUE = { "Cutpurse", "Shadow-Walker", "Thief", "Shadow", "Blade", "Nightblade", "Master of Shadows" },
   },
   Human = {
-    ROGUE = { "Cutpurse", "Footpad", "Thief", "Informant", "SI:7 Operative", "SI:7 Agent", "Master Assassin" },
-    PALADIN = { "Initiate", "Squire", "Knight", "Knight of the Silver Hand", "Crusader", "Justicar", "Exemplar of the Silver Hand" },
-    PRIEST = { "Acolyte", "Initiate", "Cleric of the Light", "Priest", "Confessor", "Bishop", "Archbishop's Chosen" },
-    MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Sorcerer", "Arcanist", "Magister" },
+    ROGUE = { "Cutpurse", "Footpad", "Thief", "Informant", "Operative", "Agent", "Master Assassin" },
+    PALADIN = { "Initiate", "Squire", "Knight", "Knight of the Light", "Crusader", "Justicar", "Elder Knight" },
+    PRIEST = { "Acolyte", "Initiate", "Cleric of the Light", "Priest", "Confessor", "Senior Cleric", "Elder Cleric" },
+    MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Sorcerer", "Arcanist", "Master Arcanist" },
   },
   Orc = {
     SHAMAN = { "Initiate", "Seer", "Spirit-Speaker", "Stormcaller", "Farseer", "Elder Farseer", "Elder Shaman" },
@@ -825,15 +835,15 @@ W.RANKS_RACE = {
   },
   Troll = {
     HUNTER = { "Novice", "Tracker", "Headhunter", "Pathfinder", "Shadow Stalker", "Huntmaster", "Master Headhunter" },
-    SHAMAN = { "Initiate", "Seer", "Loa-Speaker", "Witch Doctor", "Hexer", "Elder Witch Doctor", "Voice of the Loa" },
-    PRIEST = { "Acolyte", "Initiate", "Loa-Speaker", "Priest", "Shadow Priest", "High Priest", "Voice of the Loa" },
-    ROGUE = { "Cutthroat", "Footpad", "Thief", "Shadow", "Shadow Hunter's Blade", "Nightblade", "Master Assassin" },
+    SHAMAN = { "Initiate", "Seer", "Loa-Speaker", "Witch Doctor", "Hexer", "Elder Witch Doctor", "Master Witch Doctor" },
+    PRIEST = { "Acolyte", "Initiate", "Loa-Speaker", "Priest", "Shadow Priest", "High Priest", "Elder Loa-Speaker" },
+    ROGUE = { "Cutthroat", "Footpad", "Thief", "Shadow", "Shadow Blade", "Nightblade", "Master Assassin" },
     MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Sorcerer", "Arcanist", "Master Arcanist" },
   },
   Tauren = {
-    WARRIOR = { "Young Brave", "Brave", "Plainsrunner", "Warrior", "Veteran Brave", "Champion of the Tribes", "Chieftain's Guard" },
+    WARRIOR = { "Young Brave", "Brave", "Plainsrunner", "Warrior", "Veteran Brave", "Seasoned Brave", "Elder Brave" },
     HUNTER = { "Novice", "Brave", "Plainsrunner", "Pathfinder", "Wind Rider", "Huntmaster", "Hunter of the Earth Mother" },
-    DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder", "Archdruid's Chosen" },
+    DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder", "Elder of the Grove" },
     SHAMAN = { "Initiate", "Seer", "Spirit-Speaker", "Earthcaller", "Farseer", "Elder Seer", "Elder Shaman" },
   },
 }
@@ -841,26 +851,26 @@ W.RANKS_RACE = {
 -- How each race looks to a stranger.
 W.RACE_LOOK = {
   Human = { "Broad, open features weathered by wind and road.", "An ordinary human face that's seen more than its share of trouble." },
-  Dwarf = { "A thick braided beard, broad shoulders and forearms like anvils.", "Stocky and solid as the mountain, beard braided with bands of metal." },
-  Gnome = { "Small, bright-eyed and constantly fidgeting, hair sticking out at odd angles.", "Tiny, quick and covered in soot smudges and little burns." },
-  NightElf = { "Tall and graceful, with long ears and eyes that glow faintly silver.", "Violet skin, sweeping ears and the stillness of someone who has lived a very long time." },
-  Orc = { "Green-skinned and heavy-jawed, tusks jutting from a scarred face.", "Massive shoulders, a heavy brow and the bearing of a born warrior." },
-  Troll = { "Tall and lanky, blue-skinned, with long tusks and a wild crest of hair.", "Loose-limbed and hunched, tusks curving up past a wide grin." },
-  Tauren = { "Enormous and calm, horned and hoofed, with braided mane and gentle eyes.", "A towering bulk of fur and muscle, horns hung with beads and feathers." },
-  Scourge = { "Grey, rotting flesh stretched over bone, with a jaw that doesn't quite close.", "Gaunt and stitched-together, eyes burning a cold yellow in a ruined face." },
+  Dwarf = { "Short, broad and solid as the mountain.", "Stocky, with forearms like anvils." },
+  Gnome = { "Small, bright-eyed and never still.", "Tiny and quick, with the restless energy of a born tinkerer." },
+  NightElf = { "Tall and graceful, with long ears and eyes that glow faintly silver.", "Sweeping ears and the stillness of someone who has lived a very long time." },
+  Orc = { "Green-skinned and heavy-jawed, with jutting tusks.", "Massive shoulders, a heavy brow and the bearing of a born warrior." },
+  Troll = { "Tall and lanky, with long tusks and longer ears.", "Loose-limbed and hunched, tusks curving up past a wide grin." },
+  Tauren = { "Enormous and calm, horned and hoofed, with gentle eyes.", "A towering bulk of fur and muscle, crowned with horns." },
+  Scourge = { "Grey, rotting flesh stretched over bone, with a jaw that doesn't quite close.", "Gaunt, eyes burning a cold yellow in a ruined face." },
 }
 
 -- What a class carries that marks it out.
 W.CLASS_LOOK = {
-  WARRIOR = { "Moves with the heavy confidence of someone used to taking hits.", "Knuckles scarred, shoulders squared; built for the front line." },
-  PALADIN = { "A holy symbol hangs at {their} breast, polished bright.", "Carries {themselves} like a sworn knight, with a prayer book on the belt." },
-  HUNTER = { "Quiver at the hip, tracks and fur stuck to {their} boots.", "A hunter's patience in the eyes; never far from {their} beast." },
-  ROGUE = { "Soft boots, dark clothes, and more blades than are visible.", "Hands never still, always resting near a hidden knife." },
-  PRIEST = { "A worn prayer book and a quiet, attentive manner.", "Smells faintly of incense and clean linen." },
-  SHAMAN = { "Totems hang from {their} belt, carved and painted.", "Bones and feathers knotted into hair and harness; the spirits' mark." },
-  MAGE = { "Ink-stained fingers, a pouch of reagents, the faint smell of ozone.", "A spellbook chained to the belt and frost on the cuffs." },
-  WARLOCK = { "A faint whiff of brimstone; shadows lean a little closer.", "Eyes a shade too knowing; a soul-shard pouch at the hip." },
-  DRUID = { "Leaves tangled in {their} hair and earth under the nails.", "Feathers and antler charms; smells of moss and rain." },
+  WARRIOR = { "Moves with the heavy confidence of someone used to taking hits.", "Carries {their} {mainhand} like it weighs nothing." },
+  PALADIN = { "Carries {themselves} like a sworn knight.", "Stands straight, with the calm of someone sure of {their} cause." },
+  HUNTER = { "{pet} is never far from {their} side.", "Keeps {their} {ranged} where {they} can reach it." },
+  ROGUE = { "Hands never still, and never far from {their} {mainhand}.", "Moves quietly, and stays out of the light." },
+  PRIEST = { "A quiet, attentive manner.", "Would rather listen than speak." },
+  SHAMAN = { "Listens to the wind as if it might answer.", "Steady, with the patience of the earth." },
+  MAGE = { "A scholar's patience and a quick, searching look.", "Keeps {their} {mainhand} close at hand." },
+  WARLOCK = { "{pet} lurks close behind {them}.", "Eyes a shade too knowing." },
+  DRUID = { "Moves with the quiet ease of someone at home in the wild.", "Keeps {their} {mainhand} close at hand." },
 }
 
 -- Where they come from, when RPG Dialogue has no origin chosen. {name} is filled in.
@@ -872,7 +882,7 @@ W.RACE_BACKGROUND = {
   Orc = { "{name} was born in an internment camp after the Second War and freed by the Warchief.", "{name} grew up in the new Durotar, raised on stories of Draenor and the long road to freedom." },
   Troll = { "{name} is Darkspear, of the tribe that followed Thrall to Durotar after the sea witch drove them from the Echo Isles.", "{name} grew up on the Echo Isles, until Zalazane's madness drove the Darkspear to Sen'jin." },
   Tauren = { "{name} grew up on the grasslands of Mulgore, under Cairne Bloodhoof's wise rule.", "{name} is tauren of Mulgore, raised to honour the Earth Mother and walk the plains." },
-  Scourge = { "{name} woke in a crypt in Tirisfal, free of the Lich King's grip, with only fragments of a former life.", "{name} died in the plague and rose again; the Dark Lady gave {them} a will of {their} own." },
+  Scourge = { "{name} woke in a crypt in Tirisfal, free of the Lich King's grip, with only fragments of a former life.", "{name} died in the plague and rose again. The Dark Lady gave {them} a will of {their} own." },
 }
 
 W.CLASS_BACKGROUND = {
@@ -902,15 +912,15 @@ W.CLASS_ACTIVITY = {
 
 -- Class tells for moods (used about a third of the time, when one fits).
 W.CLASS_TELLS = {
-  WARRIOR = { angry = { "Jaw clenched, hand on the hilt, looking for an excuse." }, weary = { "Armour straps loosened; even the strongest arms tire." }, fierce = { "Rolling {their} shoulders and grinning at the next fight." } },
-  PALADIN = { downcast = { "Hand on {their} holy symbol, praying for strength." }, righteous = { "A faint golden warmth seems to follow {them} today." }, conflicted = { "Turning a prayer bead over and over, troubled in conscience." } },
-  HUNTER = { ease = { "Brushing out {their} companion's coat, perfectly content." }, uneasy = { "Reading the ground for tracks, bow half-drawn." }, wonder = { "Studying the local beasts with keen interest." } },
-  ROGUE = { uneasy = { "Eyes on every exit, fingers near a hidden blade." }, flush = { "Suspiciously well off. Nobody's asking where it came from." }, tense = { "Moving silently, never quite in the light." } },
-  PRIEST = { shaken = { "Murmuring a prayer, over and over, until the hands stop shaking." }, devout = { "Kneeling in quiet devotion, lips moving." }, sorrowful = { "Has said the rites over someone recently. It shows." } },
-  SHAMAN = { uneasy = { "The spirits are restless here, and it shows in {their} face." }, ease = { "Humming with the earth, perfectly at home." }, angry = { "The air crackles a little around {them}. Best not to provoke the storm." } },
-  MAGE = { weary = { "Rubbing {their} temples; too many hours over spellbooks." }, intrigued = { "Muttering formulae and scribbling notes in the margins." }, angry = { "Small sparks dance at {their} fingertips." } },
-  WARLOCK = { ease = { "A faint smell of brimstone; the demon at {their} side is, for once, quiet." }, haunted = { "Whispers that aren't {their} own seem to cling to {them}." }, angry = { "The shadows around {them} have grown noticeably darker." } },
-  DRUID = { uneasy = { "Leaves in {their} hair rustle though there's no wind." }, ease = { "Barefoot on the grass, at one with the place." }, angry = { "A low growl in the throat that sounds more bear than person." } },
+  WARRIOR = { angry = { "Jaw clenched, hand on {their} {mainhand}, looking for an excuse." }, weary = { "Arms hanging heavy, the fight gone out of {them} for now." }, fierce = { "Rolling {their} shoulders and grinning at the next fight." } },
+  PALADIN = { downcast = { "Head bowed, praying for strength." }, righteous = { "A faint golden warmth seems to follow {them} today." }, conflicted = { "Troubled in conscience, praying under {their} breath." } },
+  HUNTER = { ease = { "Brushing out {pet}, perfectly content." }, uneasy = { "Reading the ground for tracks, {their} {ranged} in hand." }, wonder = { "Studying the local beasts with keen interest." } },
+  ROGUE = { uneasy = { "Eyes on every exit, fingers near {their} {mainhand}." }, flush = { "Suspiciously well off, and not saying where it came from." }, tense = { "Moving silently, never quite in the light." } },
+  PRIEST = { shaken = { "Murmuring a prayer, over and over, until the hands stop shaking." }, devout = { "Kneeling in quiet devotion, lips moving." }, sorrowful = { "Has said the rites over someone recently, and has not slept well since." } },
+  SHAMAN = { uneasy = { "Frowning at the restless spirits of this place." }, ease = { "Humming with the earth, perfectly at home." }, angry = { "The air crackles around {them}, like a storm about to break." } },
+  MAGE = { weary = { "Rubbing {their} temples after too many hours of study." }, intrigued = { "Muttering formulae under {their} breath." }, angry = { "Small sparks dance at {their} fingertips." } },
+  WARLOCK = { ease = { "The demon at {their} side is quiet today, and so is {their} temper." }, haunted = { "Whispers that aren't {their} own seem to cling to {them}." }, angry = { "The shadows around {them} have grown noticeably darker." } },
+  DRUID = { uneasy = { "Restless, listening to something in the trees." }, ease = { "At one with the place, and in no hurry." }, angry = { "A low growl in the throat that sounds more bear than person." } },
 }
 
 -- Ambitions by race (mixed with the class ones).
@@ -1087,44 +1097,44 @@ W.RACE_TIME = {
 -- More ways a mood shows on each body.
 local function more(race, t) for k, v in pairs(t) do W.RACE_TELLS[race][k] = v end end
 more("Human", {
-  shaken = { "Hands shaking; mutters a prayer to the Light under {their} breath." },
+  shaken = { "Hands shaking, muttering a prayer to the Light." },
   elated = { "Grinning like a farmhand at harvest festival." },
   downcast = { "Shoulders slumped, staring at nothing, like a soldier after a lost battle." },
-  fierce = { "Sword arm loose, eyes hard. A veteran's calm before the charge." },
+  fierce = { "Arms loose, eyes hard. A veteran's calm before the charge." },
 })
 more("Dwarf", {
-  shaken = { "Beard trembling, and for once short of words." },
-  downcast = { "Staring into an empty tankard, beard drooping." },
+  shaken = { "Face pale, and for once short of words." },
+  downcast = { "Staring at nothing, shoulders slumped." },
   elated = { "Slapping backs and bellowing for another round." },
   wonder = { "Peering at the stonework, muttering about Titan craft." },
-  fierce = { "Beard bristling and axe in hand, ready to give a grudge its due." },
+  fierce = { "Face red and {their} {mainhand} in hand, ready to give a grudge its due." },
 })
 more("Gnome", {
-  shaken = { "Ears flat, hair singed, voice an octave higher than usual." },
+  shaken = { "Ears flat, voice an octave higher than usual." },
   downcast = { "Uncharacteristically quiet, fiddling with a broken cog." },
-  angry = { "Red to the tips of {their} ears, waving a wrench." },
+  angry = { "Red to the tips of {their} ears, waving {their} arms." },
   ease = { "Tinkering contentedly with something small and clicking." },
 })
 more("NightElf", {
-  shaken = { "Ears pinned back, eyes glowing a little too bright." },
+  shaken = { "Ears pinned back, eyes glowing too bright." },
   elated = { "Moves with a dancer's lightness, silver eyes shining." },
-  angry = { "Eyes narrowed to burning slits; ten thousand years of patience wearing thin." },
+  angry = { "Eyes narrowed to burning slits. Ten thousand years of patience are wearing thin." },
   wonder = { "Studying the place as if comparing it to a memory centuries old." },
 })
 more("Orc", {
   shaken = { "Breathing hard through the tusks, refusing to look rattled." },
   downcast = { "Hunched and silent, the way an orc grieves: alone." },
-  ease = { "Sitting by the fire, sharpening an axe with long, easy strokes." },
+  ease = { "Sharpening {their} {mainhand} with long, easy strokes." },
   uneasy = { "Sniffing the air, hand on the haft, hackles up." },
 })
 more("Troll", {
-  shaken = { "Muttering a charm to the loa, tusks clacking." },
+  shaken = { "Muttering to the loa, tusks clacking." },
   downcast = { "Long ears drooping, tusks down, quiet as the swamp." },
   elated = { "Cackling and doing a little dance, mon." },
   wonder = { "Head tilted, taking it all in with a wide, tusky grin." },
 })
 more("Tauren", {
-  shaken = { "Massive hands trembling; murmurs to the Earth Mother for calm." },
+  shaken = { "Massive hands trembling, murmuring to the Earth Mother for calm." },
   elated = { "A deep, rumbling laugh that shakes the ground a little." },
   angry = { "Snorting, head lowered, horns forward. Slow to anger, but there now." },
   wonder = { "Taking slow, careful steps, as if listening to the land itself." },
@@ -1132,7 +1142,7 @@ more("Tauren", {
 more("Scourge", {
   shaken = { "A dead thing shouldn't tremble, but this one does." },
   elated = { "Jaw hanging in what might be a grin." },
-  angry = { "Eyes blazing a cold yellow; the Dark Lady's fury in miniature." },
+  angry = { "Eyes blazing a cold yellow." },
   wonder = { "Peering about with empty eyes, as if trying to remember being alive." },
 })
 
@@ -1171,34 +1181,34 @@ W.INSTANCE_FLAVOR = {
 -- More ways each class shows a mood.
 local function moreClass(class, t) for k, v in pairs(t) do W.CLASS_TELLS[class][k] = v end end
 moreClass("WARRIOR", {
-  shaken = { "Leaning on {their} weapon a little more than usual." },
-  elated = { "Banging a fist on {their} shield and laughing." },
-  downcast = { "Polishing a dented helm in silence." },
-  ease = { "Armour off for once, stretching out sore shoulders." },
+  shaken = { "Leaning on {their} {mainhand} more than usual." },
+  elated = { "Banging a fist on {their} {shield} and laughing." },
+  downcast = { "Polishing {their} {head} in silence." },
+  ease = { "Stretching out sore shoulders, at ease for once." },
 })
 moreClass("PALADIN", {
-  shaken = { "Clutching {their} holy symbol a little too tightly." },
+  shaken = { "Praying hard, hands clasped tight." },
   elated = { "Practically glowing, and not only with the Light." },
-  angry = { "A righteous fury in {their} eyes; someone has offended the Light." },
+  angry = { "Righteous fury in {their} eyes. Someone has offended the Light." },
   ease = { "Kneeling in quiet prayer, perfectly calm." },
 })
 moreClass("HUNTER", {
   shaken = { "Kneeling by {their} companion, checking it over for wounds." },
-  elated = { "Ruffling {their} companion's fur and grinning." },
+  elated = { "Ruffling {pet}'s fur and grinning." },
   downcast = { "Sitting close to {their} companion, saying nothing." },
   fierce = { "Bowstring humming, eyes on the next quarry." },
 })
 moreClass("ROGUE", {
-  shaken = { "Fingers drumming on a dagger hilt, eyes darting." },
+  shaken = { "Fingers drumming on {their} {mainhand}, eyes darting." },
   elated = { "A crooked grin and a new spring in {their} step. Something went very right." },
   ease = { "Leaning in a doorway, idly flipping a coin." },
   angry = { "Very still and very quiet. That's usually worse." },
 })
 moreClass("PRIEST", {
   elated = { "Humming a hymn, radiant." },
-  angry = { "Lips pressed thin; even saints have limits." },
+  angry = { "Lips pressed thin, patience gone." },
   ease = { "Reading scripture with a contented sigh." },
-  uneasy = { "Holding a candle a little higher, praying the dark stays back." },
+  uneasy = { "Praying under {their} breath that the dark stays back." },
 })
 moreClass("SHAMAN", {
   shaken = { "Touching the earth with one hand to steady {themselves}." },
@@ -1215,7 +1225,7 @@ moreClass("MAGE", {
 moreClass("WARLOCK", {
   shaken = { "The shadows around {them} flicker nervously." },
   elated = { "A thin, satisfied smile, as if a bargain paid off." },
-  downcast = { "Staring into a soul shard, lost in thought." },
+  downcast = { "Staring into the middle distance, lost in dark thought." },
   fierce = { "Fel fire dances at {their} fingertips, eager." },
 })
 moreClass("DRUID", {
@@ -1321,3 +1331,108 @@ W.ACTIVITY.skinning = { "skinning a fresh kill in {place}" }
 W.ACTIVITY.disenchant = { "breaking down a magic trinket for its essence in {place}" }
 W.ACTIVITY.lockpick = { "quietly picking a lock in {place}" }
 W.ACTIVITY.pickpocket = { "lightening someone's purse in {place}", "light-fingered around {place}" }
+
+---------------------------------------------------------------------------
+-- The character's arc, for About. These read as a life, not a ledger: where they stand on
+-- the road, what it has made of them, what dying taught them. Keyed by level band
+-- (new, finding their feet, established, veteran) and then by the strongest trait.
+---------------------------------------------------------------------------
+W.ARC_STAGE = {
+  new = {
+    default = { "Everything is still new, and {they} haven't yet learned what to be afraid of.", "So far the road has been mostly mud, small jobs and the first real fights." },
+    brave = { "Still young enough on the road to think courage is enough." },
+    cautious = { "Still finding out which risks are worth taking, and taking very few." },
+    curious = { "Still at the stage where every hill hides something worth climbing it for." },
+    kind = { "Still believes most people will do right if given the chance." },
+  },
+  finding = {
+    default = { "The first easy certainties have gone. What's taking their place is harder won.", "No longer new to the road, and starting to be changed by it." },
+    brave = { "Has learned that courage gets people killed as often as it saves them, and kept it anyway." },
+    cautious = { "Has learned to read a room, a road and a stranger before trusting any of them." },
+    kind = { "Has seen enough cruelty by now to know kindness is a choice, and keeps making it." },
+    cruel = { "Has found that fear gets results, and stopped apologising for using it." },
+    curious = { "The questions have got bigger, and some of the answers have been unwelcome." },
+    greedy = { "Has started measuring places by what can be taken out of them." },
+    pious = { "Faith has been tested and has held, though not without cracks." },
+    skeptical = { "Has heard a great many promises by now and believes almost none of them." },
+  },
+  established = {
+    default = { "Sure-footed now, in a way {they} weren't at the start.", "Long past the point of wondering whether {they} belong out here." },
+    brave = { "Steadier in a bad fight than {they} used to be." },
+    cautious = { "Has outlived a good many bolder people by being careful, and knows it." },
+    kind = { "Has buried friends and kept going, softer in some ways and harder in others." },
+    cruel = { "Has grown hard, and does nothing to soften it." },
+    stern = { "The road has made {them} quieter and harder to move." },
+    witty = { "The jokes have got darker, but they haven't stopped." },
+    reserved = { "Says less than ever, and what is said tends to matter." },
+  },
+  veteran = {
+    default = { "Has walked further and seen more than most people ever will, and carries all of it.", "Carries more stories than {they've} ever told." },
+    brave = { "Has stood at the front of more battles than {they} can name, and still stands there." },
+    cautious = { "Old for the road, in the way only the careful get to be." },
+    kind = { "After all of it, still the first to help a stranger up. That may be the hardest-won thing about {them}." },
+    cruel = { "Has grown colder than {they} used to be." },
+    pious = { "Faith that has survived this much isn't easily shaken by anything." },
+  },
+}
+
+W.PROF_NOUN = {
+  herbalism = "herbalist", mining = "miner", skinning = "skinner", alchemy = "alchemist", blacksmithing = "blacksmith",
+  leatherworking = "leatherworker", tailoring = "tailor", engineering = "engineer", enchanting = "enchanter",
+  cooking = "cook", ["first aid"] = "field medic", fishing = "angler", jewelcrafting = "jeweller", inscription = "scribe",
+}
+
+-- How the mood journal reads as part of a life.
+W.WEEK_TONE = {
+  hard = { "The last few days have been hard on {them}.", "It's been a bad stretch." },
+  good = { "The last few days have been good ones.", "Things have been going well lately." },
+}
+
+-- What came back up out of the worst place they've been, by temperament.
+W.TURNING = {
+  default = { "{they} came back steadier, and harder to surprise.", "{they} came back quieter than {they} went in." },
+  brave = { "{they} came back surer of {themselves}, and quicker to step forward." },
+  cautious = { "{they} came back slower to trust a dark doorway, and still check every exit." },
+  kind = { "{they} came back gentler with frightened people, having been one." },
+  cruel = { "{they} came back colder, and less patient with the weak." },
+  pious = { "{they} came back praying more, and differently." },
+  skeptical = { "{they} came back trusting even fewer people than before." },
+  curious = { "{they} came back with more questions than {they} went in with." },
+  greedy = { "{they} came back richer, and wanting more." },
+  witty = { "{they} came back with jokes about it that nobody who was there finds funny." },
+  stern = { "{they} came back with less to say and more resolve." },
+  reserved = { "{they} came back and didn't speak of it for days." },
+  charming = { "{they} came back and told it as a good story, which isn't how it went." },
+}
+
+-- Class reagents and tools in the bags (item id, name if the game can't say). What a class
+-- carries is told only when it's really in the bags.
+W.CLASS_REAGENTS = {
+  PALADIN = { { 21177, "Symbol of Kings" }, { 17033, "Symbol of Divinity" } },
+  PRIEST = { { 17029, "Sacred Candle" }, { 17028, "Holy Candle" } },
+  SHAMAN = { { 5175, "Earth Totem" }, { 5176, "Fire Totem" }, { 5177, "Water Totem" }, { 5178, "Air Totem" }, { 17030, "Ankh" } },
+  MAGE = { { 17020, "Arcane Powder" }, { 17031, "Rune of Teleportation" }, { 17032, "Rune of Portals" } },
+  WARLOCK = { { 6265, "Soul Shard" } },
+  DRUID = { { 17026, "Wild Thornroot" }, { 17021, "Wild Berries" }, { 17034, "Maple Seed" } },
+  ROGUE = { { 5140, "Flash Powder" }, { 5530, "Blinding Powder" }, { 6947, "Instant Poison" } },
+}
+
+-- How well off they are, against what's usual at their level (money in copper / level^2).
+W.WEALTH = {
+  { max = 20, word = "Living hand to mouth", flair = "Lives hand to mouth, and has gone hungry more than once.", pouch = "{their} {pouch} is close to empty" },
+  { max = 100, word = "Getting by", flair = "Gets by, most weeks, with little to spare.", pouch = "{their} {pouch} is light" },
+  { max = 400, word = "Comfortable", flair = "Comfortable, with enough coin put by not to worry about it.", pouch = "{their} {pouch} clinks when {they} walk" },
+  { max = 1500, word = "Well off", flair = "Well off, and it's been a while since money was a worry.", pouch = "{their} {pouch} sits heavy" },
+  { max = math.huge, word = "Wealthy", flair = "Wealthy, with more gold than {they} could easily spend.", pouch = "{their} {pouch} is fat with gold" },
+}
+
+-- How kept their gear is, by the worst piece's durability in the game. {item} is that piece.
+W.DURABILITY = {
+  { max = 0.001, glance = "Broken Gear", text = "{item} is broken outright and needs a smith before it's any use" },
+  { max = 0.2, glance = "Battered Kit", text = "{item} is close to breaking" },
+  { max = 0.4, glance = "Worn Kit", text = "{item} is badly worn and overdue for a smith" },
+  { max = 0.6, text = "{item} shows hard use" },
+  { max = 0.8, text = "{item} is scuffed from the road" },
+  { max = 0.95 },
+  { max = 2, text = "Everything {they} wear is well kept" },
+}

@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.12.0"
+ns.VERSION = "0.13.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -116,10 +116,15 @@ ns.DEFAULTS = {
     relationship = true, -- relationship status, from a partner you named in Social Diary
     ooc = false,        -- an out-of-character note that the profile updates itself
     walkup = false,     -- "open to walk-ups" follows your mood (off by default)
+    stats = true,       -- Statistics in Additional information (each one has its own switch too)
+    stat_deaths = true, stat_lands = true, stat_road = true, stat_dungeons = true, stat_foes = true,
+    stat_rares = true, stat_slain = true, stat_jobs = true, stat_wealth = true, stat_crafts = true,
+    stat_standing = true, stat_met = true, stat_books = true, stat_letters = true,
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },
   diaryExcerpt = true,     -- quote your latest RPG Dialogue diary entry in History
+  richText = true,         -- colour quotes and item names on the About page
   chronicleGoals = true,   -- your open Chronicle goals as an ambition
   nameFriends = true,      -- name players you marked friend (or gave a relationship) in Social Diary
   currentlyEvery = 15,     -- seconds, at least, between rewrites of "Currently" and the glances
@@ -262,12 +267,36 @@ end
 -- Small numbers in words read better in prose.
 local NUMBERS = { "once", "twice", "three times", "four times", "five times" }
 function U.Times(n)
-  return NUMBERS[n] or (n .. " times")
+  return NUMBERS[n] or (U.Number(n) .. " times")
 end
 
-local COUNT_WORDS = { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve" }
+local COUNT_WORDS = { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
+  "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen" }
+local TENS = { [2] = "twenty", [3] = "thirty", [4] = "forty", [5] = "fifty", [6] = "sixty", [7] = "seventy", [8] = "eighty", [9] = "ninety" }
+-- Numbers under a hundred in words ("thirty-nine"); bigger ones as figures ("1,240").
 function U.Number(n)
-  return COUNT_WORDS[n] or tostring(n)
+  if type(n) ~= "number" then return tostring(n) end
+  if COUNT_WORDS[n] then return COUNT_WORDS[n] end
+  if n >= 20 and n < 100 and n % 1 == 0 then
+    local t, o = math.floor(n / 10), n % 10
+    return TENS[t] .. (o > 0 and ("-" .. COUNT_WORDS[o]) or "")
+  end
+  local s = tostring(math.floor(n))
+  while true do
+    local k
+    s, k = s:gsub("^(%d+)(%d%d%d)", "%1,%2")
+    if k == 0 then break end
+  end
+  return s
+end
+
+-- "more than a hundred", "well over a thousand": a count as a person would say it.
+function U.Roughly(n)
+  if n >= 2000 then return "thousands of" end
+  if n >= 1000 then return "well over a thousand" end
+  if n >= 200 then return "hundreds of" end
+  if n >= 100 then return "more than a hundred" end
+  return U.Number(n)
 end
 
 function U.Call(fn, ...)
@@ -287,6 +316,40 @@ function U.Pronouns()
     if l:find("^he") then return { sub = "he", obj = "him", pos = "his", be = "is", has = "has", does = "does", s = "s" } end
   end
   return { sub = "they", obj = "them", pos = "their", be = "are", has = "have", does = "do", s = "" }
+end
+
+-- Gear and companions a line may name: {head} {shoulders} {chest} {cloak} {tabard}
+-- {mainhand} {offhand} {ranged} {shield} {pet}, and {pouch} (a coin pouch, when they carry coin). They are filled with the real item's or
+-- pet's name, and a line that names something the character doesn't have returns nil, so
+-- the profile never mentions a hat that isn't on their head.
+local GEAR_TAGS = { head = 1, shoulders = 3, chest = 5, cloak = 15, tabard = 19, mainhand = 16, offhand = 17, ranged = 18 }
+function U.Backed(text, world)
+  if type(text) ~= "string" or not text:find("{%l+}") then return text end
+  local g = world and world.gear or {}
+  local names = g.names or {}
+  local missing = false
+  local out = text:gsub("{(%l+)}", function(k)
+    local v
+    if GEAR_TAGS[k] then v = names[GEAR_TAGS[k]]
+    elseif k == "shield" then v = g.offType == "Shields" and names[17] or nil
+    elseif k == "pet" then v = world and world.pet
+    elseif k == "pouch" then v = world and type(world.money) == "number" and world.money > 0 and "coin pouch" or nil
+    else return nil end
+    if not v then missing = true; return "" end
+    return v
+  end)
+  if missing then return nil end
+  return out
+end
+
+-- Only the lines in a list that the game backs up, filled in.
+function U.BackedList(list, world)
+  local out = {}
+  for _, t in ipairs(type(list) == "table" and list or {}) do
+    local b = U.Backed(t, world)
+    if b then out[#out + 1] = b end
+  end
+  return out
 end
 
 -- Fills {they} {them} {their} {themselves} {they've} {they're} in word lists.

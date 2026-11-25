@@ -214,6 +214,47 @@ local function miscField(id, label, iconName)
   }
 end
 
+-- A statistic: one of Total RP 3's custom "Additional information" entries (type 1),
+-- told apart from the player's own custom entries by its name.
+local MISC_CUSTOM = 1
+local function statEntry(ch, label)
+  if type(ch.MI) ~= "table" then ch.MI = {} end
+  for i, e in ipairs(ch.MI) do
+    if type(e) == "table" and e.ID == MISC_CUSTOM and e.NA == label then return e, i end
+  end
+end
+
+local function statField(label, iconName)
+  return {
+    section = "characteristics",
+    read = function(p)
+      local e = statEntry(sub(p, "characteristics"), label)
+      return e and (U.Plain(e.VA) or "") or ""
+    end,
+    write = function(p, v)
+      local ch = sub(p, "characteristics")
+      local e, i = statEntry(ch, label)
+      v = clean(v, false)
+      if not v then
+        if i then table.remove(ch.MI, i) end
+        return
+      end
+      if not e then
+        e = { ID = MISC_CUSTOM, NA = label, IC = icon(iconName) }
+        table.insert(ch.MI, e)
+      end
+      e.VA = v
+    end,
+    raw = function(p) local e = statEntry(sub(p, "characteristics"), label); return copy(e) end,
+    setRaw = function(p, v)
+      local ch = sub(p, "characteristics")
+      local _, i = statEntry(ch, label)
+      if i then table.remove(ch.MI, i) end
+      if type(v) == "table" then table.insert(ch.MI, i or (#ch.MI + 1), v) end
+    end,
+  }
+end
+
 -- The slot each glance lives in, for this character.
 function TRP.GlanceSlot(slotKey)
   local slots = ns.char and ns.char.glanceSlots or ns.db.glanceSlots
@@ -308,6 +349,7 @@ TRP.FIELDS = {
   glance_ambition = glanceField("ambition"),
   glance_marks = glanceField("marks"),
 }
+for _, st in ipairs(ns.Compose.STATS) do TRP.FIELDS["stat_" .. st.key] = statField(st.label, st.icon) end
 
 TRP.LABELS = {
   currently = "Currently", title = "Title", fulltitle = "Full title", residence = "Residence",
@@ -317,11 +359,13 @@ TRP.LABELS = {
   glance_ambition = "Glance: ambition", glance_marks = "Glance: marks",
   ooc = "OOC note", relationship = "Relationship status", walkup = "Open to walk-ups",
 }
+for _, st in ipairs(ns.Compose.STATS) do TRP.LABELS["stat_" .. st.key] = "Stats: " .. st.label:lower() end
 
 -- Which setting switches a field on.
 local function enabled(key)
   local f = ns.db.fields
   if key:find("^glance_") then return f.glances and f[key] ~= false and TRP.GlanceSlot(key:sub(8)) > 0 end
+  if key:find("^stat_") then return f.stats and f[key] ~= false end
   return f[key] and true or false
 end
 TRP.Enabled = enabled

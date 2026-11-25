@@ -13,7 +13,7 @@ ns.UI = UI
 local FAST = { walkup = true, currently = true, glance_mood = true, glance_lately = true, glance_company = true, glance_marks = true }
 
 local function values(sheet)
-  return {
+  local v = {
     currently = sheet.currently, title = sheet.title, fulltitle = sheet.fulltitle,
     residence = sheet.residence, birthplace = sheet.birthplace, motto = sheet.motto,
     nickname = sheet.nickname, bearing = sheet.bearing, history = sheet.history,
@@ -23,6 +23,8 @@ local function values(sheet)
     glance_company = sheet.glances.company, glance_ambition = sheet.glances.ambition,
     glance_marks = sheet.glances.marks,
   }
+  for _, st in ipairs(ns.Compose.STATS) do v["stat_" .. st.key] = sheet.stats and sheet.stats[st.key] end
+  return v
 end
 
 local lastFast, lastSlow, slowDue = 0, 0, true
@@ -304,6 +306,9 @@ function UI.PreviewText()
   add("bearing", s.bearing)
   add("history", s.history)
   add("physical", s.physical)
+  if s.stats then
+    for _, st in ipairs(ns.Compose.STATS) do add("stat_" .. st.key, s.stats[st.key]) end
+  end
   return table.concat(out, "\n")
 end
 
@@ -381,12 +386,15 @@ local OPTIONS = {
   { path = { "fields", "relationship" }, label = "Relationship status, from a partner in Social Diary" },
   { path = { "fields", "ooc" }, label = "OOC note saying the profile updates itself" },
   { path = { "fields", "walkup" }, label = "Open to walk-ups follows your mood" },
+  { head = "Statistics (Additional information on the Characteristics tab)" },
+  { path = { "fields", "stats" }, label = "Write statistics (all of them; the switches below pick which)" },
   { head = "Where it looks" },
   { path = { "sources", "rpgd" }, label = "RPG Dialogue" },
   { path = { "sources", "socialDiary" }, label = "Social Diary" },
   { path = { "sources", "chronicle" }, label = "Chronicle" },
   { head = "Details" },
   { path = { "diaryExcerpt" }, label = "Quote your latest diary entry in History" },
+  { path = { "richText" }, label = "Colour quotes and item names on the About page" },
   { path = { "chronicleGoals" }, label = "Share your open Chronicle goal as an ambition" },
   { path = { "nameFriends" }, label = "Name the players you marked as friends in Social Diary" },
   { path = { "pauseOOC" }, label = "Pause Currently and glances while out of character" },
@@ -618,6 +626,15 @@ BINDING_NAME_AUTOTRP_UPDATE = "Write my profile now"
 ---------------------------------------------------------------------------
 -- Slash commands
 ---------------------------------------------------------------------------
+-- One switch per statistic, under the master switch.
+do
+  local at
+  for i, o in ipairs(OPTIONS) do if o.path and o.path[2] == "stats" then at = i end end
+  for n, st in ipairs(ns.Compose.STATS) do
+    table.insert(OPTIONS, at + n, { path = { "fields", "stat_" .. st.key }, label = "    " .. st.label })
+  end
+end
+
 local HELP = {
   "|cffffd100/atrp|r: settings",
   "|cffffd100/atrp preview|r: see what your profile would say",
@@ -634,7 +651,7 @@ local HELP = {
   "|cffffd100/atrp slot <glance> <1-5|0>|r: move a glance (mood, lately, company, ambition, marks) to another slot, or 0 to drop it",
   "|cffffd100/atrp badge|r: show or hide the mood badge",
   "|cffffd100/atrp days|r: the mood journal, the last week of feelings and places",
-  "Fields: currently, title, fulltitle, nickname, motto, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks",
+  "Fields: currently, title, fulltitle, nickname, motto, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, met, books, letters)",
 }
 
 local function eachField(arg, fn)

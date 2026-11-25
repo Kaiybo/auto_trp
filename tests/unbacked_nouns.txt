@@ -1,0 +1,67 @@
+# Things a character may only be described with when the game says they have them.
+# The look and mood word lists (race and class looks, mood tells, festival tells, build)
+# may not name any of these outright. To mention gear, use a tag that names the real item
+# and drops the line when it isn't equipped: {head} {shoulders} {chest} {cloak} {tabard}
+# {mainhand} {offhand} {ranged} {shield} {pet}. Bag reagents are told from the bags.
+hat
+helm
+hood
+crown
+cloak
+coat
+sleeve
+collar
+boots
+belt
+pocket
+pouch
+purse
+pack
+harness
+sword
+blade
+dagger
+knife
+axe
+hilt
+bow
+quiver
+staff
+wand
+shield
+weapon
+armour
+straps
+holy symbol
+prayer book
+spellbook
+book
+bead
+charm
+totem
+soul shard
+candle
+lantern
+torch
+tankard
+pipe
+wrench
+bandage
+ribbon
+egg
+gift
+letter
+notes
+beard
+braid
+hair
+mane
+scar
+scars
+tattoo
+feathers
+antler
+soot
+ink
+incense
+brimstone

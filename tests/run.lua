@@ -197,7 +197,11 @@ check(p.characteristics.FT == "Lightsworn, Friend of Goldshire", "full title: " 
 check(p.characteristics.PS[1].LT == "Good" and p.characteristics.PS[1].RT == "Evil", "plain good/evil bar")
 for i = 1, 5 do check(p.misc.PE[tostring(i)] and p.misc.PE[tostring(i)].AC and p.misc.PE[tostring(i)].TX ~= nil, "glance " .. i .. " filled") end
 check(p.about.T3.PH.TX and p.about.T3.PH.TX:find("Crown of the Lost"), "physical mentions the finest gear")
-check(p.about.TE == 3 and p.about.T3.HI.TX and p.about.T3.HI.TX:find("Hogger"), "history written in template 3")
+check(p.about.TE == 3 and p.about.T3.HI.TX and p.about.T3.HI.TX:find("Lion's Pride"), "history written in template 3")
+check(not p.about.T3.HI.TX:find("died"), "deaths stay out of the History prose")
+local statDeaths
+for _, e in ipairs(p.characteristics.MI) do if e.ID == 1 and e.NA == "Deaths" then statDeaths = e.VA end end
+check(statDeaths == "3, the first to Hogger", "deaths are a statistic: " .. tostring(statDeaths))
 check(not p.about.T3.HI.TX:find("PRIVATE"), "Chronicle notes are never read")
 check(p.misc.PE["1"] and p.misc.PE["1"].AC, "mood glance written")
 check(#p.characteristics.PS >= 3, "personality bars written")
@@ -286,10 +290,10 @@ ns.char.days = {
 }
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 local hist = ns.Compose.History()
-check(hist:find("wears the colours of the Silver Lanterns, ranked lamplighter"), "history: guild")
-check(hist:find("revered by Stormwind and honored by the Argent Dawn"), "history: reputations")
-check(hist:find("These past days: downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
-check(ns.Compose.Bearing():find("Ask them about the gold of Elwynn's mines"), "personality: conversation hooks")
+check(hist:find("Wears the colours of the Silver Lanterns and holds the rank of lamplighter there"), "history: guild")
+check(hist:find("Has done good work for Stormwind and the Argent Dawn"), "history: reputations")
+check(hist:find("Felt downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
+check(ns.Compose.Bearing():find("Has stories about the gold of Elwynn's mines"), "personality: conversation hooks")
 state.buffs[#state.buffs + 1] = "Shadowform"
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("wreathed in shadow"), "shapeshift form in Currently")
@@ -443,7 +447,7 @@ state.zone, state.sub, state.resting = "Duskwood", "Raven Hill", false
 event("CHAT_MSG_SYSTEM", "You are now Revered with Argent Dawn.")
 check(ns.char.honours and ns.char.honours[1].standing == "Revered", "a new standing is remembered")
 ns.Compose.Refresh()
-check(ns.Compose.History():find("became revered among the Argent Dawn"), "and told in History")
+check(ns.Compose.History():find("earned revered standing with the Argent Dawn"), "and told in History")
 UnitIsPlayer = function() return true end
 UnitFactionGroup = function(u) if u == "target" then return "Horde" end return "Alliance" end
 UnitName = function(u) if u == "target" then return "Grukk" end return "Aldric" end
@@ -512,7 +516,7 @@ UnitClass = function(u)
 end
 GetNumGroupMembers = function() return 4 end
 ns.Compose.Refresh()
-check(ns.Compose.CompanyGlance().TX == "Travelling with a priest and two warriors, and easier for it.", "party by class: " .. ns.Compose.CompanyGlance().TX)
+check(ns.Compose.CompanyGlance().TX == "Travelling with a priest and two warriors.", "party by class: " .. ns.Compose.CompanyGlance().TX)
 IsInRaid = function() return true end
 GetNumGroupMembers = function() return 20 end
 ns.Compose.Refresh()
@@ -592,7 +596,8 @@ state.zone, state.sub = "Duskwood", "Raven Hill"
 -- A hard week
 ns.char.days = {}
 for i = 0, 4 do ns.char.days[os.date("%Y-%m-%d", NOW - i * 86400)] = { moods = { downcast = 5 }, zones = { Duskwood = 5 } } end
-check(ns.Compose.WeekTone() == "It's been a hard few days.", "a run of bad days is noticed")
+local wt = ns.Compose.WeekTone()
+check(wt == ns.Words.WEEK_TONE.hard[1] or wt == ns.Words.WEEK_TONE.hard[2], "a run of bad days is noticed: " .. tostring(wt))
 ns.char.days = {}
 
 -- Changing your tune; lies found out; letters
@@ -600,9 +605,9 @@ RPGDialogueCharDB.opinions.night_elves = { stance = "admire", t = NOW - 10, cont
 RPGDialogueCharDB.claims = { player = { a = {}, b = {} }, exposed = { a = NOW } }
 RPGDialogueCharDB.letters = { l1 = { arrived = NOW }, l2 = { arrived = NOW }, l3 = { arrived = NOW } }
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
-check(ns.Compose.Bearing():find("change %a+ tune about the night elves"), "Personality: changed tune")
-check(ns.Compose.History():find("caught in a lie"), "History: a lie found out")
-check(ns.Compose.Physical():find("bundle of letters"), "Physical: a bundle of letters")
+check(ns.Compose.Bearing():find("Used to feel differently about the night elves"), "Personality: changed tune")
+check(ns.Compose.Bearing():find("caught in a lie"), "History: a lie found out")
+check(ns.Compose.History():find("letters find %a+ on the road"), "History: letters received")
 RPGDialogueCharDB.opinions.night_elves = nil
 
 -- Restore puts everything back
@@ -612,6 +617,129 @@ local kept = false
 for _, e in ipairs(p.characteristics.MI) do if e.ID == 7 then kept = true end end
 check(kept, "restore keeps what you added since")
 check(ns.TRP.Status("history") == "yours", "after restore every field is the player's")
+
+-- Banned phrases (tests/banned_phrases.txt): never in the wording, never in what's written.
+do
+  local banned = {}
+  for line in io.lines("tests/banned_phrases.txt") do
+    if not line:match("^%s*#") and line:match("%S") then
+      local phrase, max = line:match("^(.-)%s*|%s*max%s*(%d+)%s*$")
+      banned[#banned + 1] = { phrase = (phrase or line):gsub("^%s+", ""):gsub("%s+$", ""):lower(), max = tonumber(max) or 0 }
+    end
+  end
+  local source = {}
+  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Compose.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua" }) do
+    for line in io.lines(f) do
+      if not line:match("^%s*%-%-") then source[#source + 1] = (line:gsub("%-%-[^\"]*$", "")):lower() end
+    end
+  end
+  local text = table.concat(source, "\n")
+  local sh = ns.Compose.Sheet()
+  local written = table.concat({ sh.bearing or "", sh.history or "", sh.physical or "", sh.currently or "" }, "\n"):lower()
+  for _, g in pairs(sh.glances) do written = written .. "\n" .. (g.TX or ""):lower() end
+  local bad = {}
+  for _, b in ipairs(banned) do
+    local n, i = 0, 1
+    while true do
+      local s = text:find(b.phrase, i, true)
+      if not s then break end
+      n, i = n + 1, s + 1
+    end
+    if n > b.max then bad[#bad + 1] = b.phrase .. " (" .. n .. ")" end
+    if b.max == 0 and written:find(b.phrase, 1, true) then bad[#bad + 1] = b.phrase .. " (in the profile)" end
+  end
+  check(#bad == 0, "no banned phrases: " .. table.concat(bad, ", "))
+end
+
+-- Nothing in the looks and moods names gear, kit or a feature the game can't back up.
+do
+  local W = ns.Words
+  local nouns = {}
+  for line in io.lines("tests/unbacked_nouns.txt") do
+    if not line:match("^%s*#") and line:match("%S") then nouns[#nouns + 1] = line:gsub("%s+$", ""):lower() end
+  end
+  local lists = {}
+  local function add(t) if type(t) == "table" then lists[#lists + 1] = t end end
+  for _, m in pairs(W.MOODS) do add(m.tells) end
+  for _, m in pairs(W.CALM) do add(m.tells) end
+  for _, f in pairs(W.FESTIVALS) do add(f.tells) end
+  for _, t in pairs(W.RACE_TELLS) do for _, l in pairs(t) do add(l) end end
+  for _, t in pairs(W.CLASS_TELLS) do for _, l in pairs(t) do add(l) end end
+  for _, l in pairs(W.RACE_LOOK) do add(l) end
+  for _, l in pairs(W.CLASS_LOOK) do add(l) end
+  for _, l in pairs(W.PHYSIQUE) do add(l) end
+  local bad = {}
+  for _, list in ipairs(lists) do
+    for _, line in ipairs(list) do
+      local plain = " " .. line:gsub("{%l+}", ""):lower():gsub("[^%a' ]", " ") .. " "
+      for _, n in ipairs(nouns) do
+        if plain:find(" " .. n .. "s? ") then bad[#bad + 1] = n .. ": " .. line end
+      end
+    end
+  end
+  check(#bad == 0, "looks and moods only name what the game backs up: " .. table.concat(bad, " | "))
+
+  -- Gear tags: a line naming a hat is used only when there is a hat, by its real name.
+  local world = { gear = { names = { [16] = "Staff of Westfall" } } }
+  check(ns.U.Backed("Polishing {their} {head} in silence.", world) == nil, "no helm, no line about a helm")
+  check(ns.U.Backed("Leaning on {their} {mainhand}.", world) == "Leaning on {their} Staff of Westfall.", "a weapon by its own name")
+  world.gear.names[1] = "Crown of the Lost"
+  check(ns.U.Backed("Polishing {their} {head} in silence.", world) == "Polishing {their} Crown of the Lost in silence.", "a helm by its own name")
+  check(ns.U.Backed("Brushing out {pet}'s coat.", world) == nil, "no pet, no line about one")
+end
+
+-- Reagents are told only when they're in the bags.
+do
+  local oldClass, oldCount = UnitClass, GetItemCount
+  UnitClass = function() return "Warlock", "WARLOCK" end
+  GetItemCount = function() return 0 end
+  ns.World.Invalidate(); ns.Compose.Refresh()
+  check(not ns.Compose.Physical():find("Soul Shard"), "no shards in the bags, none in the profile")
+  GetItemCount = function(id) return id == 6265 and 12 or 0 end
+  ns.World.Invalidate(); ns.Compose.Refresh()
+  check(ns.Compose.Physical():find("Keeps twelve Soul Shards in %a+ bags"), "shards in the bags: " .. ns.Compose.Physical())
+  UnitClass, GetItemCount = oldClass, oldCount
+  ns.World.Invalidate(); ns.Compose.Refresh()
+end
+
+-- Gear wear follows the game's durability, naming the worst piece.
+do
+  local g = ns.cache.world.gear
+  local d, w = g.durability, g.worstName
+  g.worstName = "Robe of the Moccasin"
+  g.durability = 0
+  check(ns.Compose.Wear(ns.cache.world).text:find("Robe of the Moccasin is broken outright"), "broken gear: " .. ns.Compose.Wear(ns.cache.world).text)
+  g.durability = 0.5
+  check(ns.Compose.Wear(ns.cache.world).text:find("shows hard use"), "half-worn gear")
+  check(ns.Compose.MarksGlance().TI ~= "Battered Kit", "half-worn gear isn't battered")
+  g.durability = 0.9
+  check(ns.Compose.Wear(ns.cache.world) == nil, "nearly whole gear says nothing")
+  g.durability = 1
+  check(ns.Compose.Wear(ns.cache.world).text:find("well kept"), "whole gear is well kept")
+  g.durability, g.worstName = d, w
+end
+
+-- A coin pouch only when they carry coin.
+do
+  local world = ns.cache.world
+  local m = world.money
+  check(ns.U.Backed("{their} {pouch} is light", world) == "{their} coin pouch is light", "a coin pouch when there's coin")
+  world.money = 0
+  check(ns.U.Backed("{their} {pouch} is light", world) == nil, "no coin, no pouch")
+  world.money = m
+end
+
+-- Statistics: each has its own switch, and wealth is told by the purse.
+do
+  local sh = ns.Compose.Sheet()
+  check(sh.stats.wealth and sh.stats.wealth:find("gold"), "wealth statistic: " .. tostring(sh.stats.wealth))
+  check(sh.history:find(ns.Compose.WealthBand(ns.cache.world).flair:sub(1, 12), 1, true), "wealth flair in History")
+  ns.db.fields.stat_wealth = false
+  check(not ns.TRP.Enabled("stat_wealth") and ns.TRP.Enabled("stat_lands"), "one statistic switched off, the rest on")
+  ns.db.fields.stats = false
+  check(not ns.TRP.Enabled("stat_lands"), "the master switch turns all statistics off")
+  ns.db.fields.stats, ns.db.fields.stat_wealth = true, true
+end
 
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
@@ -628,8 +756,9 @@ if os.getenv("SAMPLES") then
     print("CU: " .. sh.currently)
     print("Mood: " .. sh.glances.mood.TX)
     print("Ambition: " .. sh.glances.ambition.TX .. " | Motto: " .. sh.motto)
-    print("Physical: " .. sh.physical:gsub("\n\n", " "))
-    print("History start: " .. (sh.history:match("^[^\n]+")))
+    print("\n-- Personality --\n" .. sh.bearing)
+    print("\n-- History --\n" .. sh.history)
+    print("\n-- Physical --\n" .. sh.physical)
   end
 end
 

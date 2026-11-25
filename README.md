@@ -19,11 +19,12 @@ It reads three addons if you have them (all optional, and it never changes them)
 | **Currently** | Your mood, what you're doing and where, with the zone's atmosphere, your pet and the hour: *"Bone-tired and a little uneasy, beneath the dead trees of Duskwood, with Fang at heel, under the stars."* It notices the mailbox, the bank, the auction house, crafting, fishing and eating. `/atrp intent` adds your plans. |
 | **At first glance**, all five | **1 Mood**: what a stranger notices. **2 Lately**: the freshest news (a death, a victory, a story moving, a new land), else who you were last seen with. **3 Company**: your group, your Social Diary friends, where you're known, or travelling alone. **4 Ambition**: your Chronicle goal, an unfinished story, or what your class strives for. **5 Marks**: wounds, drink, madness, taint, battered or remarkable gear, old scars, else what you wear and carry. |
 | **Personality traits** | Plain words: **Good/Evil**, **Lawful/Chaotic**, **Honest/Deceitful** from your RPG Dialogue alignment, and Kind/Cruel, Brave/Cautious, Generous/Greedy, Religious/Skeptical, Outgoing/Reserved, Playful/Serious from your choices. |
-| **About: Personality** | Temperament, a plain *"By most accounts: good and lawful"*, the opinions you've said out loud, and conversation starters for other players: *"Ask them about the gold of Elwynn's mines, what's down in the Deadmines..."* |
-| **About: History** | Your origin in your own words, how long you've been on the road, the lands and dungeons you've seen, your usual inn (and the one you gave up), friends and rivals, where you're liked or distrusted, who you ride with, your guild, faction reputations and PvP rank, deeds, crafts, the creatures you've thinned out, books you've read, close calls, how the last few days have felt, and a line from your diary. |
-| **About: Physical** | Your race's look (a dwarf's braided beard, a Forsaken's stitched grey flesh, a tauren's beaded horns...), your class's marks (a paladin's holy symbol, a shaman's totems, a warlock's whiff of brimstone...), your build, what you wear and carry, the finest thing on you, and your scars. |
+| **About: Personality** | Temperament and conscience (*"Aldric is kind and brave, and keeps to the Light."*), the opinions you've said out loud and the ones you've changed, lies you were caught in, the books you've read, and what you have stories about: *"Has stories about the gold of Elwynn's mines, what's down in the Deadmines..."* |
+| **About: History** | Told as a life in six short paragraphs: where you came from (in your own words); the road so far, the place that changed you and what the road has made of you so far; your people (friends, rivals, enemies), standing, guild and reputations; your deeds and crafts; and how things stand now, with a line from your diary. What happens is followed by what it did to the character, which depends on your temperament and how far along the road you are. Deaths and kill counts stay out of the prose (see Statistics). |
+| **About: Physical** | Three paragraphs: the body (what every one of your race shares, and your build from your stats), what you wear and carry (each item by its own name in its quality colour, and your class's reagents only if they're in your bags), and how you are right now (wounded, haunted, battered gear). |
 | **Title** | Your rank by experience, specific to your race, class and faction: a Forsaken rogue rises from Newly Risen to Deathstalker, a dwarf hunter from Novice to Mountaineer, a tauren warrior from Young Brave to Plainsrunner, a troll shaman to Loa-Speaker and Witch Doctor, a night elf priest to Acolyte of Elune, an orc warrior from Grunt to Warlord. |
 | **Full title** | Alignment and standing (*Lightsworn, Friend of Goldshire*), else what you are and where from. |
+| **Statistics** | Plain counts in Total RP 3's *Additional information* (Characteristics tab): Deaths (*"39, the first to Hogger"*), Lands explored, Days on the road, Dungeons, Named foes felled, Rare beasts, Creatures slain, Jobs done, Wealth (*"Comfortable (312 gold, 40 silver)"*), Crafts, Best standing, People met, Books read, Letters received. One switch turns them all off, and each has its own. Most have an in-character line in About as well (wealth: *"Comfortable, with enough coin put by not to worry about it."*); deaths don't. Your own custom entries are left alone. |
 | **Relationship status** | Married or Taken, if you've named a wife, husband, betrothed or sweetheart in Social Diary. |
 | **OOC note** | Off by default: a line saying the profile updates itself. |
 | **Nickname, Motto, Residence, Birthplace** | An epithet you've earned (*the Far-Walker*, *Grave-Cheater*, *the Bookish*), a motto that fits your temperament, your inn, your homeland. |
@@ -53,6 +54,14 @@ Dozens of signals feed it, and each feeling remembers why (`/atrp mood` shows th
 **The mood badge**: a small icon on screen shows your current mood. Hover for the reasons and what your profile says, click for the preview, right-click to pause, drag to move (`/atrp badge` hides it). When your mood turns you get a quiet line in your own chat (never sent to anyone).
 
 **The mood journal** keeps each day's main feeling and place for two weeks. History sums up the last few days (*"These past days: downcast in Duskwood today and wide-eyed in Westfall yesterday."*), and `/atrp days` lists the week.
+
+## Only what the game backs up
+
+The profile never describes something your character doesn't have. Gear is named only when it's equipped, and by its own name (*"Wears Crown of the Lost and Robe of the Moccasin"*), never "a hat" or "a holy symbol" from thin air. A mood line that mentions a weapon, helm, shield or pet is used only when you have one, and names the real one (*"Leaning on his Staff of Westfall more than usual"*). Your class's reagents (Soul Shards, totems, Arcane Powder, Sacred Candles...) are mentioned only when they're in your bags, and a coin pouch only when you carry coin (how full it is follows your wealth). How worn your gear looks follows its real durability and names the worst piece (*"Their Robe of the Moccasin shows hard use"*, *"...is broken outright and needs a smith"*). Looks are limited to what every one of your race shares, with nothing you can customise, like beards, hair or skin colour.
+
+## Not too famous
+
+A profile is public, so the character isn't made out to be widely known. Standing is local and modest (*"is liked in Goldshire"*, *"is trusted in Auberdine"*, never "a hero to"), the full title is at most *"Friend of Goldshire"*, reputations read *"Has done good work for Stormwind"*, and rank titles stay clear of offices and patrons (no Thane, Warlord, Magister, SI:7 Agent or Archbishop's Chosen). `tests/banned_phrases.txt` holds the line.
 
 ## Your words stay yours
 
@@ -95,7 +104,7 @@ Copy the `AutoTRP` folder into `World of Warcraft/<your Forever folder>/Interfac
 | `/atrp badge` | show or hide the mood badge |
 | `/atrp on` / `off` | resume or pause |
 
-Fields: `currently`, `title`, `fulltitle`, `nickname`, `motto`, `residence`, `birthplace`, `traits`, `bearing`, `history`, `physical`, `glance_mood`, `glance_lately`, `glance_company`, `glance_ambition`, `glance_marks`, `relationship`, `ooc`.
+Fields: `currently`, `title`, `fulltitle`, `nickname`, `motto`, `residence`, `birthplace`, `traits`, `bearing`, `history`, `physical`, `glance_mood`, `glance_lately`, `glance_company`, `glance_ambition`, `glance_marks`, `relationship`, `ooc`, `stat_deaths`, `stat_lands`, `stat_road`, `stat_dungeons`, `stat_foes`, `stat_rares`, `stat_slain`, `stat_jobs`, `stat_wealth`, `stat_crafts`, `stat_standing`, `stat_met`, `stat_books`, `stat_letters`.
 
 ## Language
 
@@ -106,6 +115,9 @@ Auto TRP writes in English. Zones are recognised by their map ID, so zone touche
 - `lua5.1 tests/run.lua` runs an offline test against a mock of the game, Total RP 3 and sample data from all three addons, and prints the profile it writes.
 - `python3 tools/gen_rpgd_names.py /path/to/rpg-dialogue` regenerates `AutoTRP/Data/RPGDNames.lua` (town and story names; RPG Dialogue keeps those inside its private namespace, and its saved data only holds ids).
 - All wording lives in `AutoTRP/Data/Words.lua`.
+- `tests/unbacked_nouns.txt` lists things (hats, candles, beards, scars...) the look and mood word lists may not name outright. Gear goes through tags (`{head}`, `{mainhand}`, `{shield}`, `{pet}`...) that name the real item and drop the line when it isn't there (`U.Backed`).
+- `tests/banned_phrases.txt` lists phrases Auto TRP must never write (stock AI phrasing and old tics), plus a few allowed only a handful of times. The offline test fails if the wording or a written profile uses one.
+- About text uses Total RP 3's markup for colour (`{col:rrggbb}...{/col}`): quotes in a pale cream, items in their quality colour. The "Colour quotes and item names" setting turns it off.
 - Writing follows Total RP 3's own pattern (`Core/Player.lua`): set the field, bump the section's version, fire `REGISTER_DATA_UPDATED` so other players fetch the new profile.
 
 MIT licensed. World of Warcraft is a trademark of Blizzard Entertainment; this is a fan-made addon.
