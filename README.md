@@ -113,6 +113,7 @@ Auto TRP writes in English. Zones are recognised by their map ID, so zone touche
 ## For developers
 
 - `lua5.1 tests/run.lua` runs an offline test against a mock of the game, Total RP 3 and sample data from all three addons, and prints the profile it writes.
+- Releasing: bump `## Version` in `AutoTRP/AutoTRP.toc` and add a matching `## <version> (date): Title` section to `CHANGELOG.md` in your pull request. When it merges into `main`, the release workflow tests, builds `AutoTRP-<version>.zip` and publishes the release with that changelog section as its notes. A merge that doesn't change the version releases nothing.
 - `python3 tools/gen_rpgd_names.py /path/to/rpg-dialogue` regenerates `AutoTRP/Data/RPGDNames.lua` (town and story names; RPG Dialogue keeps those inside its private namespace, and its saved data only holds ids).
 - All wording lives in `AutoTRP/Data/Words.lua`.
 - `tests/unbacked_nouns.txt` lists things (hats, candles, beards, scars...) the look and mood word lists may not name outright. Gear goes through tags (`{head}`, `{mainhand}`, `{shield}`, `{pet}`...) that name the real item and drop the line when it isn't there (`U.Backed`).
