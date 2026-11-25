@@ -361,8 +361,10 @@ ns.On("PLAYER_LEVEL_UP", function(_, level)
   -- A new rank every ten levels: remember where it happened and how it felt.
   level = tonumber(level)
   if not ns.char or not level or (level % 10 ~= 0 and level ~= 60) then return end
-  local class = select(2, U.Call(UnitClass, "player"))
-  local ranks = W.RANKS[class or ""] or W.RANKS.default
+  -- The same ladder as the Title (race and faction first), so History and Title agree.
+  local who = { class = select(2, U.Call(UnitClass, "player")), race = select(2, U.Call(UnitRace, "player")),
+    faction = U.Call(UnitFactionGroup, "player") }
+  local ranks = (ns.Compose and ns.Compose.Ranks(who)) or W.RANKS[who.class or ""] or W.RANKS.default
   local band = level >= 60 and 7 or (math.floor(level / 10) + 1)
   ns.char.milestones = ns.char.milestones or {}
   local current = Mood.Current()

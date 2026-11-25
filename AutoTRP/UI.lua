@@ -716,6 +716,20 @@ function UI.ChooseName(arg)
   UI.Update(true)
 end
 
+-- The mood journal: the last week, a line a day.
+function UI.ListDays()
+  local days = ns.Mood.RecentDays(7)
+  if #days == 0 then
+    ns.Print("Nothing in the mood journal yet. Each day's main feeling and place are kept for two weeks.")
+    return
+  end
+  ns.Print("The last week:")
+  for _, d in ipairs(days) do
+    local m = d.mood and ns.Words.MOODS[d.mood] and ns.Words.MOODS[d.mood].title or "Steady"
+    ns.Print("  " .. U.Cap(d.label) .. ": " .. m .. (d.zone and (", mostly in " .. d.zone) or ""))
+  end
+end
+
 local function eachField(arg, fn)
   if arg == "all" then
     for key in pairs(TRP.FIELDS) do fn(key) end
@@ -825,6 +839,8 @@ SlashCmdList.AUTOTRP = function(msg)
     end
     ns.Print("Glance '" .. which .. "' is now in slot " .. n .. ".")
     UI.Update(true)
+  elseif cmd == "days" then
+    UI.ListDays()
   elseif cmd == "badge" then
     ns.db.showBadge = not ns.db.showBadge
     UI.UpdateBadge()

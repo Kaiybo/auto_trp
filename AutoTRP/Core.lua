@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.18.0"
+ns.VERSION = "0.19.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -150,12 +150,12 @@ ns.DEFAULTS = {
   nameFriends = true,      -- name players you marked friend (or gave a relationship) in Social Diary
   currentlyEvery = 15,     -- seconds, at least, between rewrites of "Currently" and the glances
   quiet = false,           -- no chat lines when the profile is updated
-  pauseOOC = false,
+  pauseOOC = false,        -- leave "Currently" and the glances alone while you're out of character
   reactPeople = true,      -- friends, foes and enemies you target move your mood
   reactPlaces = true,      -- places and spells that matter to your race and class
   moodNotes = true,        -- a quiet line in your own chat when your mood turns
   showBadge = true,        -- the small mood badge on screen
-  badgePos = nil,        -- leave "Currently" and the glances alone while you're out of character
+  -- badgePos = nil,       -- where the badge was dragged to
 }
 
 ns.CHAR_DEFAULTS = {

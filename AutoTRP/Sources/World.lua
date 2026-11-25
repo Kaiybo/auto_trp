@@ -80,7 +80,9 @@ function World.Gear()
   local function slot(id)
     local link = call("GetInventoryItemLink", "player", id)
     if not link then return nil end
-    return itemInfo(link)
+    local name, q, sub = itemInfo(link)
+    if not name then g.incomplete = true end   -- not cached yet: read again when it arrives
+    return name, q, sub
   end
   for _, id in ipairs(SLOTS) do
     local _, q = slot(id)
@@ -133,6 +135,7 @@ function World.Reagents(class)
     local n = U.Call(count, r[1])
     if type(n) == "number" and n > 0 then
       local name = itemInfo("item:" .. r[1])
+      if not name then out.incomplete = true end
       out[#out + 1] = { name = U.Plain(name) or r[2], count = n }
     end
   end
@@ -326,9 +329,15 @@ end
 
 function World.Invalidate() if World.slow then World.slow.dirty = true end end
 for _, e in ipairs({ "UPDATE_FACTION", "SKILL_LINES_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "UPDATE_INVENTORY_DURABILITY",
-  "PLAYER_GUILD_UPDATE", "GET_ITEM_INFO_RECEIVED" }) do
+  "PLAYER_GUILD_UPDATE" }) do
   ns.On(e, function() World.Invalidate() end)
 end
+-- Item info arrives all the time (tooltips, the auction house, loot): only worth a new read
+-- when the last one was waiting on a name.
+ns.On("GET_ITEM_INFO_RECEIVED", function()
+  local slow = World.slow
+  if slow and ((slow.gear and slow.gear.incomplete) or (slow.reagents and slow.reagents.incomplete)) then World.Invalidate() end
+end)
 
 ---------------------------------------------------------------------------
 -- What you're busy with: set by events, kept for a few minutes.

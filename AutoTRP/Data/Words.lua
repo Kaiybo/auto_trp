@@ -1164,6 +1164,22 @@ W.RACE_TELLS = {
 -- RACE AND CLASS
 ---------------------------------------------------------------------------
 
+-- Rank ladders by class, one rank per ten levels: what every race and faction shares, when
+-- no ladder below is more particular. (Lost in 0.14.0, which left a human warlock or a
+-- dwarf rogue with no ladder at all, and their story fields unwritten.)
+W.RANKS = {
+  WARRIOR = { "Recruit", "Militia", "Soldier", "Sergeant", "Veteran", "Battle-Hardened", "Hardened Veteran" },
+  PALADIN = { "Initiate", "Squire", "Knight", "Templar", "Crusader", "Justicar", "Elder Templar" },
+  HUNTER = { "Novice", "Tracker", "Ranger", "Pathfinder", "Stalker", "Huntmaster", "Master Hunter" },
+  ROGUE = { "Cutpurse", "Footpad", "Thief", "Shadow", "Blade", "Nightblade", "Master Assassin" },
+  PRIEST = { "Acolyte", "Initiate", "Deacon", "Priest", "Confessor", "Senior Cleric", "Elder Cleric" },
+  SHAMAN = { "Initiate", "Seer", "Spirit-Speaker", "Stormcaller", "Farseer", "Elder Farseer", "Elder Shaman" },
+  MAGE = { "Apprentice", "Novice", "Adept", "Magus", "Sorcerer", "Arcanist", "Master Arcanist" },
+  WARLOCK = { "Initiate", "Occultist", "Summoner", "Shadowcaster", "Diabolist", "Dreadcaller", "Master Diabolist" },
+  DRUID = { "Initiate", "Neophyte", "Grove Warden", "Wild Walker", "Shapeshifter", "Elder Druid", "Wildkeeper" },
+  default = { "Initiate", "Apprentice", "Journeyman", "Adept", "Expert", "Master", "Old Hand" },
+}
+
 -- Rank ladders that differ by faction (shared bands as W.RANKS).
 W.RANKS_FACTION = {
   Horde = {
