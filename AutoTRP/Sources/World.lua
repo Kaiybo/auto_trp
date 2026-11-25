@@ -408,9 +408,29 @@ local function spellName(id)
   local n = (C_Spell and C_Spell.GetSpellName and U.Call(C_Spell.GetSpellName, id)) or call("GetSpellInfo", id)
   return World.Safe(n)
 end
+-- Every spell and ability cast, counted by name, for the most cast spell (Personality and
+-- the Statistics). Not counted: auto-attacks, the hearthstone, gathering, crafting, and
+-- anything that isn't the character's own spell (potions, food, mounts from items...).
+function World.CountCast(name, spellID)
+  if not ns.char or type(name) ~= "string" then return false end
+  if W.CAST_IGNORE[name] or W.CAST_IGNORE_ID[spellID or 0] then return false end
+  local ctx = World.Context()
+  if ctx and ctx.kind == "craft" then return false end
+  if type(_G.IsPlayerSpell) == "function" and type(spellID) == "number" then
+    local own = U.Call(_G.IsPlayerSpell, spellID)
+    if own == false then return false end
+  end
+  local casts = ns.char.casts
+  if type(casts) ~= "table" then casts = { since = U.Now(), n = {} }; ns.char.casts = casts end
+  if type(casts.n) ~= "table" then casts.n = {} end
+  casts.n[name] = (casts.n[name] or 0) + 1
+  return true
+end
+
 ns.OnUnit("UNIT_SPELLCAST_SUCCEEDED", "player", function(_, _, _, spellID)
   local name = spellName(spellID)
   if type(name) ~= "string" then return end
+  World.CountCast(name, spellID)
   local dest = name:match("^Portal: (.+)$")
   if dest then World.SetContext("portal", dest); if ns.UI then ns.UI.Poke(false) end return end
   local def = W.SPELLS[name]

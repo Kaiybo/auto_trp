@@ -972,7 +972,7 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
--- 0.19.0 fixes: statistics in order, switched off means taken down, the mood journal command,
+-- 0.20.0 fixes: statistics in order, switched off means taken down, the mood journal command,
 -- ranks on the character's own ladder, goals as written, jobs and victories without Chronicle.
 do
   local C, Deeds = ns.Compose, ns.Sources.Deeds
@@ -1171,6 +1171,54 @@ do
   ns.World.slow = nil
 end
 
+-- The most cast spell: counted from the character's own casts, swings, hearthstone,
+-- gathering, crafting and items left out; a statistic, and a line in Personality.
+do
+  local C = ns.Compose
+  local SPELLS = { [2061] = "Flash Heal", [139] = "Renew", [6603] = "Attack", [8690] = "Hearthstone", [746] = "Linen Bandage",
+    [3908] = "Tailoring", [17] = "Power Word: Shield" }
+  local oldInfo = GetSpellInfo
+  GetSpellInfo = function(id) return SPELLS[id] end
+  IsPlayerSpell = function(id) return id ~= 746 end
+  ns.char.casts = nil
+  check(C.Stats().spell == nil and not (C.Bearing() or ""):find("Flash Heal"), "nothing cast yet: no statistic, no line")
+  local function cast(id, times) for _ = 1, times do event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-guid", id) end end
+  cast(2061, 9); cast(139, 4); cast(6603, 40); cast(8690, 3); cast(746, 20)
+  ns.World.SetContext("craft", "Tailoring"); cast(3908, 30); ns.World.SetContext("none")
+  local n = ns.char.casts.n
+  check(n["Flash Heal"] == 9 and n["Renew"] == 4, "the character's own spells are counted")
+  check(not n["Attack"] and not n["Hearthstone"] and not n["Linen Bandage"] and not n["Tailoring"],
+    "swings, the hearthstone, items and crafting are not")
+  check(C.Stats().spell == nil, "too few casts for a statistic yet")
+  cast(2061, 1)
+  check(C.Stats().spell == "Flash Heal, 10 times", "the most cast spell is a statistic: " .. tostring(C.Stats().spell))
+  check(not C.Bearing():find("Flash Heal"), "but not yet a habit worth a line")
+  cast(17, 60)
+  local top = C.TopSpells(2)
+  check(top[1].name == "Power Word: Shield" and top[2].name == "Flash Heal" and #top == 2, "the most cast comes first")
+  local b = C.Bearing()
+  check(b:find("Power Word: Shield", 1, true) and b:find("spell", 1, true), "Personality names the habit: " .. b:match("[^\n]*Shield[^\n]*"))
+  check(C.Stats().spell == "Power Word: Shield, 60 times", "and the statistic follows: " .. tostring(C.Stats().spell))
+  local rpgd = RPGDialogueCharDB
+  RPGDialogueCharDB = nil
+  C.SourcesChanged(); C.Refresh()
+  check((C.Bearing() or ""):find("Power Word: Shield", 1, true), "without RPG Dialogue, the habit alone: " .. tostring(C.Bearing()))
+  RPGDialogueCharDB = rpgd
+  UnitClass = function() return "Warrior", "WARRIOR" end
+  C.SourcesChanged(); C.Refresh()
+  check(C.Bearing():find("ability", 1, true), "a warrior's is an ability")
+  UnitClass = function() return "Priest", "PRIEST" end
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end
+  SlashCmdList.AUTOTRP("spells")
+  DEFAULT_CHAT_FRAME.AddMessage = oldChat
+  check(table.concat(said):find("Power Word: Shield 60, Flash Heal 10, Renew 4", 1, true), "/atrp spells lists them: " .. table.concat(said))
+  check(ns.TRP.FIELDS.stat_spell ~= nil, "the statistic has its own switch")
+  ns.char.casts, IsPlayerSpell, GetSpellInfo = nil, nil, oldInfo
+  C.SourcesChanged(); C.Refresh()
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
@@ -1218,7 +1266,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then

@@ -561,13 +561,35 @@ function Compose.PlainAlignment(align)
   return words
 end
 
+-- The spells and abilities cast most, by count: { { name, n }, ... } most first.
+function Compose.TopSpells(k)
+  local casts = ns.char and ns.char.casts
+  local list = {}
+  for name, n in pairs(casts and casts.n or {}) do
+    if type(n) == "number" and not W.CAST_IGNORE[name] then list[#list + 1] = { name = name, n = n } end
+  end
+  table.sort(list, function(a, b) if a.n ~= b.n then return a.n > b.n end return a.name < b.name end)
+  for i = #list, (k or #list) + 1, -1 do list[i] = nil end
+  return list
+end
+
+-- The most cast spell, said plainly, once it has been cast often enough to mean something.
+function Compose.FavouriteSpell()
+  local top = Compose.TopSpells(1)[1]
+  if not top or top.n < 50 then return nil end
+  local noun = W.CAST_NOUN[ns.cache.world and ns.cache.world.class or ""] or "spell"
+  return say("favspell", { spell = top.name, noun = noun }, top.name)
+end
+
 function Compose.Bearing()
   local c = ns.cache
   local rpgd, world = c.rpgd, c.world
   local name = firstName()
+  local habit = Compose.FavouriteSpell()
 
-  -- Without RPG Dialogue there are no choices to read a character from, so nothing is said.
-  if not rpgd then return nil end
+  -- Without RPG Dialogue there are no choices to read a character from: only the habit the
+  -- game itself records.
+  if not rpgd then return habit and paragraph({ habit }) or nil end
 
   -- Temperament and conscience
   local adjs = {}
@@ -614,6 +636,7 @@ function Compose.Bearing()
     more[#more + 1] = "Has read " .. U.Join(titles)
       .. (extra > 0 and (", and " .. U.Number(extra) .. " " .. U.Plural(extra, "other book") .. " besides") or "")
   end
+  if habit then more[#more + 1] = habit end
   local hooks = Compose.Hooks()
   local stories = #hooks > 0 and paragraph({ say("stories", { list = U.Join(hooks) }) }) or nil
 
@@ -730,7 +753,7 @@ function Compose.History()
   end
   local ms = ns.char and ns.char.milestones or {}
   if #ms > 0 then
-    -- The rank by the level it came at, on this character's own ladder (before 0.19.0 the
+    -- The rank by the level it came at, on this character's own ladder (before 0.20.0 the
     -- plain class ladder was saved, which could disagree with the Title).
     local ladder = Compose.Ranks(world)
     local steps = {}
@@ -957,6 +980,7 @@ Compose.STATS = {
   { key = "crafts", label = "Crafts", icon = "Trade_Engineering" },
   { key = "standing", label = "Best standing", icon = "INV_BannerPVP_02" },
   { key = "names", label = "Names earned", icon = "INV_Misc_Note_04" },
+  { key = "spell", label = "Most cast spell", icon = "Spell_Holy_MagicalSentry" },
   -- Retired: they meant little to anyone reading the profile. Kept so that what an
   -- earlier version wrote is taken off again (they never have a value now).
   { key = "met", label = "People met", icon = "Spell_Holy_PrayerOfSpirit", retired = true },
@@ -1029,6 +1053,9 @@ function Compose.Stats()
     if e ~= worn and #names < 5 then names[#names + 1] = e.nick end
   end
   if #names > 0 then out.names = U.Join(names) end
+  -- The most cast spell, with how many times ("Flash Heal, 1,240 times").
+  local top = Compose.TopSpells(1)[1]
+  if top and top.n >= 10 then out.spell = top.name .. ", " .. figure(top.n) .. " times" end
   return out
 end
 
