@@ -297,8 +297,9 @@ function UI.PreviewText()
   add("fulltitle", s.fulltitle)
   local e = ns.Compose.Earned()
   local from = e and ("  |cff808080(" .. e.deed:gsub("^%u", string.lower) .. ")|r") or ""
-  local more = #ns.Compose.EarnedAll() - 1
-  local choose = more > 0 and ("  |cff808080" .. more .. " more earned: /atrp names|r") or ""
+  local others = {}
+  for _, o in ipairs(ns.Compose.EarnedAll()) do if o ~= e then others[#others + 1] = o.nick end end
+  local choose = #others > 0 and ("\n    |cff808080also earned: " .. U.Join(others) .. " (/atrp names, /atrp name <n>)|r") or ""
   add("nickname", s.nickname and (s.nickname .. from .. choose), "earned by a story, quest chain, master or bounty you saw through")
   add("motto", s.motto and (s.motto .. from), "comes with the deed behind the nickname")
   add("icon", s.icon)
@@ -568,6 +569,12 @@ function UI.BuildBadge()
       if m.also then GameTooltip:AddLine("and " .. m.also, 0.8, 0.8, 0.8, true) end
       GameTooltip:AddLine(" ")
       GameTooltip:AddLine(m.tell, 1, 1, 1, true)
+      local earned = ns.Compose.Earned()
+      if earned then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Known as \"" .. earned.nick .. "\"", 1, 0.82, 0)
+        GameTooltip:AddLine(earned.deed, 0.8, 0.8, 0.8, true)
+      end
     end
     local cu = TRP.Managed() and TRP.FIELDS.currently.read((TRP.Managed()))
     if cu and cu ~= "" then

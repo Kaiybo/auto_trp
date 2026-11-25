@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.18.0 (2026-11-25): Deeds of Their Own
+
+- Auto TRP keeps its own record of what your character sees through: every quest turned in (its title, where and when) and every dungeon or raid master brought down (where, the first time and how many times). Quest chains, masters and bounties now earn their names **without Chronicle**, and nothing is missed while Chronicle is switched off. With both, the earlier time stands and nothing counts twice.
+- Chains finished before this version: where the game can list every quest a character has completed, the ones that earn a name are taken in once, quietly, a little after login.
+- The record also feeds the statistics (*Named foes felled*, *Jobs done*), History's masters and jobs, the *Lately* glance and the stories in Personality, so they work without Chronicle too.
+- More chains: *Stalvan Mistmantle* (the chain's last step, beside *The Legend of Stalvan*), *Morganth* (*Morganth's Bane*), the Stockade's *The Stockade Riots* (*Riot-Breaker*) and *Crime and Punishment* (*Dextren's Bane*), *Kolkar Leaders* (*Barak's Bane*), and the Horde's *Into The Scarlet Monastery* and *Gnomer-gooooone!*.
+- The mood badge's tooltip shows the name you're known by and what for; the preview lists every other name earned.
+
 ## 0.17.0 (2026-11-25): Names Worth Keeping
 
 - Far more ways to earn a name. Quest chains: from 4 to 35, both factions and every part of the world: *Pig-Sticker* (Princess), *Militia-Hand* (the People's Militia), *Grave-Settler* (Mor'Ladim), *Lamp-Lighter* (Morbent Fel), *Bangalash's Bane*, *Page-Gatherer* (the Green Hills of Stranglethorn), *Mankrik's Friend*, *Kolkar-Breaker*, *Prospector's Guide*, *Linken's Friend*, *Darrowshire's Friend*, *Taelan's Witness*, the dungeon chains (*Scarlet-Breaker*, *Fang-Breaker*, *Gear-Breaker*, *Idol-Quencher*, *Disc-Reader*...), the keys and attunements (*Key-Bearer*, *Spire-Climber*, *the Unmasker*, *Core-Walker*) and two class chains (*the Whirlwind*, *Verigan's Heir*), each with its own saying and icon.

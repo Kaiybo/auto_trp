@@ -16,6 +16,45 @@ ns.cache = {}
 local sourcesAt = 0
 function Compose.SourcesChanged() sourcesAt = 0 end
 
+-- Quests seen through and masters brought down, from Chronicle and from Auto TRP's own
+-- record (Sources/Deeds.lua) together: whichever saw it first has the time.
+local merged = {}
+local function mergedFor(c)
+  if merged.chron == c.chronicle and merged.deeds == c.deeds and merged.finished then return merged end
+  local finished, byName = {}, {}
+  local sources = { c.chronicle or false, c.deeds or false }   -- either can be missing
+  for _, src in ipairs(sources) do
+    for title, q in pairs(src and src.finished or {}) do
+      local have = finished[title]
+      if not have or (q.t or 0) < (have.t or 0) then finished[title] = { t = q.t or 0, zone = q.zone or (have and have.zone) } end
+    end
+    for _, b in ipairs(src and src.bosses or {}) do
+      local have = byName[b.name]
+      local first = b.first or b.t or 0
+      if not have then
+        byName[b.name] = { name = b.name, first = first, t = b.t or 0, where = b.where }
+      else
+        if first > 0 and (have.first == 0 or first < have.first) then have.first = first end
+        if (b.t or 0) > have.t then have.t = b.t end
+        have.where = have.where or b.where
+      end
+    end
+  end
+  local bosses = {}
+  for _, b in pairs(byName) do bosses[#bosses + 1] = b end
+  table.sort(bosses, function(a, b) if a.t ~= b.t then return a.t > b.t end return a.name < b.name end)
+  local count = 0
+  for _ in pairs(finished) do count = count + 1 end
+  merged = { chron = c.chronicle, deeds = c.deeds, finished = finished, bosses = bosses,
+    questsDone = math.max(c.chronicle and c.chronicle.questsDone or 0, count) }
+  return merged
+end
+-- Every quest finished: title -> { t, zone }.
+function Compose.Finished(c) return mergedFor(c or ns.cache).finished end
+-- Every master brought down, the latest first: { name, first, t (latest), where }.
+function Compose.Bosses(c) return mergedFor(c or ns.cache).bosses end
+function Compose.QuestsDone(c) return mergedFor(c or ns.cache).questsDone end
+
 function Compose.Refresh()
   local S = ns.Sources
   local c = ns.cache
@@ -25,6 +64,7 @@ function Compose.Refresh()
     c.rpgd = S.RPGD.Read()
     c.sd = S.SocialDiary.Read()
     c.chronicle = S.Chronicle.Read()
+    c.deeds = S.Deeds.Read()
     sourcesAt, c.read = now, true
   end
   c.t = now
@@ -145,7 +185,7 @@ function Compose.LatelyGlance()
       .. (within(death.t, 3 * 3600) and ", within the last few hours" or ", a day or two ago")
     add(death.t, 3, { TI = "Hurt", TX = tx .. ".", IC = "Spell_Holy_Resurrection" })
   end
-  local boss = chron and chron.bosses[1]
+  local boss = Compose.Bosses(c)[1]
   if boss and within(boss.t, 2 * 86400) then
     add(boss.t, 2, { TI = "Fresh Victory", IC = "INV_Misc_Head_Dragon_01",
       TX = say("boss", { who = boss.name, where = boss.where and (" in " .. U.Mid(boss.where)) or "" }, boss.t) })
@@ -610,7 +650,8 @@ function Compose.Hooks()
   end
   for _, t in ipairs(rpgd and rpgd.threads or {}) do add(lowerFirst(t.title)) end
   if rpgd and rpgd.cleared[1] then add("what's down in " .. U.Mid(rpgd.cleared[1].name)) end
-  if chron and chron.bosses[1] then add("the day " .. chron.bosses[1].name .. " fell") end
+  local lastBoss = Compose.Bosses(c)[1]
+  if lastBoss then add("the day " .. lastBoss.name .. " fell") end
   if rpgd and rpgd.friends[1] then add(rpgd.friends[1].name) end
   if rpgd and rpgd.origin and rpgd.origin.name then add("where {they} grew up") end
   local prof = (chron and chron.professions[1]) or (world.professions and world.professions[1])
@@ -715,14 +756,14 @@ function Compose.History()
     for k = 1, math.min(3, #rpgd.cleared) do places[k] = U.Mid(rpgd.cleared[k].name) end
     if #places > 0 then deeds[#deeds + 1] = say("delved", { list = U.Join(places) }, places[1]) end
   end
-  if chron then
-    local latest = chron.bosses[1]
-    local named = earnedKey and latest and earnedKey == "boss:" .. latest.name
-    if #chron.bosses >= 3 then deeds[#deeds + 1] = say("bosses", { n = U.Number(#chron.bosses), who = latest.name }, latest.name)
-    elseif latest and not named then deeds[#deeds + 1] = say("boss", { who = latest.name, where = "" }, latest.name) end
-    if chron.rares >= 5 then deeds[#deeds + 1] = say("rares", { n = U.Number(chron.rares) }) end
-    if chron.questsDone >= 25 then deeds[#deeds + 1] = say("jobs", { n = U.Roughly(chron.questsDone) }) end
-  end
+  local bosses = Compose.Bosses(c)
+  local latest = bosses[1]
+  local named = earnedKey and latest and earnedKey == "boss:" .. latest.name
+  if #bosses >= 3 then deeds[#deeds + 1] = say("bosses", { n = U.Number(#bosses), who = latest.name }, latest.name)
+  elseif latest and not named then deeds[#deeds + 1] = say("boss", { who = latest.name, where = "" }, latest.name) end
+  if chron and chron.rares >= 5 then deeds[#deeds + 1] = say("rares", { n = U.Number(chron.rares) }) end
+  local questsDone = Compose.QuestsDone(c)
+  if questsDone >= 25 then deeds[#deeds + 1] = say("jobs", { n = U.Roughly(questsDone) }) end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
   local crafts = {}
   for k = 1, math.min(2, #profs) do
@@ -947,7 +988,8 @@ function Compose.Stats()
   if days and days > 0 then out.road = figure(days) end
   local dungeons = math.max(chron and chron.dungeons or 0, rpgd and #rpgd.cleared or 0)
   if dungeons > 0 then out.dungeons = figure(dungeons) end
-  if chron and #chron.bosses > 0 then out.foes = figure(#chron.bosses) end
+  local felled = #Compose.Bosses(c)
+  if felled > 0 then out.foes = figure(felled) end
   if chron and chron.rares > 0 then out.rares = figure(chron.rares) end
   local kills = rpgd and rpgd.kills or 0
   if kills > 0 then
@@ -956,7 +998,8 @@ function Compose.Stats()
       out.slain = out.slain .. ", " .. figure(rpgd.grudge.n) .. " of them " .. Compose.Plural(rpgd.grudge.name)
     end
   end
-  if chron and chron.questsDone > 0 then out.jobs = figure(chron.questsDone) end
+  local questsDone = Compose.QuestsDone(c)
+  if questsDone > 0 then out.jobs = figure(questsDone) end
   local band = Compose.WealthBand(world)
   if band then out.wealth = band.word .. " (" .. money(world.money) .. ")" end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
@@ -1076,7 +1119,8 @@ function Compose.EarnedAll()
   local c = ns.cache
   local rpgd, chron = c.rpgd, c.chronicle
   local class = c.world and c.world.class
-  if earnedCache.rpgd == rpgd and earnedCache.chron == chron and earnedCache.class == class and earnedCache.list then
+  if earnedCache.rpgd == rpgd and earnedCache.chron == chron and earnedCache.deeds == c.deeds and earnedCache.class == class
+    and earnedCache.list then
     return earnedCache.list
   end
   local all = {}
@@ -1088,7 +1132,7 @@ function Compose.EarnedAll()
         deed = "Saw " .. lowerFirst(th.title) .. " through to the end" })
     end
   end
-  local finished = chron and chron.finished or {}
+  local finished = Compose.Finished(c)
   for title, q in pairs(finished) do
     local e = W.EARNED_QUEST[title]
     if e and (not e.class or e.class == class) then
@@ -1096,13 +1140,13 @@ function Compose.EarnedAll()
         key = "quest:" .. title })
     end
   end
-  if chron and #chron.bosses > 0 then
+  do
     local felled = {}
-    for _, b in ipairs(chron.bosses) do felled[b.name] = b end
+    for _, b in ipairs(Compose.Bosses(c)) do felled[b.name] = b end
     for i, e in ipairs(W.EARNED_BOSS) do
       local b = felled[e.name]
       if b then
-        offer({ rank = 2, tier = i, t = b.t or 0, nick = e.nick, motto = e.motto, icon = e.icon, key = "boss:" .. e.name,
+        offer({ rank = 2, tier = i, t = b.first or b.t or 0, nick = e.nick, motto = e.motto, icon = e.icon, key = "boss:" .. e.name,
           deed = "Was there when " .. e.name .. " fell" .. (b.where and (" in " .. U.Mid(b.where)) or "") })
       end
     end
@@ -1120,7 +1164,7 @@ function Compose.EarnedAll()
   for _, e in ipairs(all) do
     if not nicks[e.nick] then nicks[e.nick] = true; list[#list + 1] = e end
   end
-  earnedCache.rpgd, earnedCache.chron, earnedCache.class, earnedCache.list = rpgd, chron, class, list
+  earnedCache.rpgd, earnedCache.chron, earnedCache.deeds, earnedCache.class, earnedCache.list = rpgd, chron, c.deeds, class, list
   return list
 end
 
@@ -1173,7 +1217,7 @@ end
 -- earned just now is news. Returns the new entries.
 function Compose.NoticeNames()
   if not ns.char or not ns.cache or not ns.cache.read then return {} end
-  if not ns.cache.rpgd and not ns.cache.chronicle then return {} end
+  if not ns.cache.rpgd and not ns.cache.chronicle and not ns.cache.deeds then return {} end
   local all = Compose.EarnedAll()
   local first = ns.char.names == nil
   ns.char.names = ns.char.names or {}

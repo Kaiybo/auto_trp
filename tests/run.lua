@@ -894,6 +894,84 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- Auto TRP's own record of deeds: names are earned without Chronicle, and nothing it sees
+-- is lost when Chronicle is off.
+do
+  local C, Deeds = ns.Compose, ns.Sources.Deeds
+  local chron, threads = ChronicleCharDB, RPGDialogueCharDB.threads
+  ChronicleCharDB, RPGDialogueCharDB.threads = nil, {}
+  ns.char.deeds, ns.char.names = nil, nil
+  C.SourcesChanged(); C.Refresh()
+  check(C.Nickname() == nil, "no Chronicle, nothing seen yet: no name")
+  -- Turning a quest in: the title from the quest window...
+  GetTitleText = function() return "The Defias Brotherhood" end
+  GetQuestID = function() return 166 end
+  state.zone = "Westfall"
+  event("QUEST_COMPLETE")
+  event("QUEST_TURNED_IN", 166, 0, 0)
+  check(ns.char.deeds.quests["The Defias Brotherhood"] and ns.char.deeds.quests["The Defias Brotherhood"].zone == "Westfall",
+    "a quest turned in is recorded with where it was")
+  -- ...or from the quest log by its ID.
+  C_QuestLog = { GetTitleForQuestID = function(id) return id == 88 and "Princess Must Die!" or nil end }
+  event("QUEST_TURNED_IN", 88, 0, 0)
+  check(ns.char.deeds.quests["Princess Must Die!"], "or by its ID, without the quest window")
+  C_QuestLog = nil
+  local t1 = ns.char.deeds.quests["The Defias Brotherhood"].t
+  NOW = NOW + 10
+  event("QUEST_COMPLETE"); event("QUEST_TURNED_IN", 166, 0, 0)
+  check(ns.char.deeds.quests["The Defias Brotherhood"].t == t1, "only the first time counts")
+  NOW = NOW - 10
+  C.Refresh()
+  check(C.Nickname() == "Defias-Breaker", "a chain recorded by Auto TRP earns its name without Chronicle: " .. tostring(C.Nickname()))
+  -- A master brought down
+  GetInstanceInfo = function() return "Shadowfang Keep", "party" end
+  event("ENCOUNTER_END", 1, "Archmage Arugal", 1, 5, 0)
+  check(not ns.char.deeds.bosses["Archmage Arugal"], "a failed attempt isn't a kill")
+  event("ENCOUNTER_END", 1, "Archmage Arugal", 1, 5, 1)
+  event("ENCOUNTER_END", 1, "Archmage Arugal", 1, 5, 1)
+  local b = ns.char.deeds.bosses["Archmage Arugal"]
+  check(b and b.where == "Shadowfang Keep" and b.kills == 2, "a master's fall is recorded once, with the place and the count")
+  C.Refresh()
+  local names = {}
+  for _, e in ipairs(C.EarnedAll()) do names[#names + 1] = e.nick end
+  check(table.concat(names, ",") == "Defias-Breaker,Pig-Sticker,Arugal's Bane", "every name from the record: " .. table.concat(names, ","))
+  local st = C.Stats()
+  check(st.foes == "1" and st.jobs == "2", "statistics count the record too: " .. tostring(st.foes) .. "/" .. tostring(st.jobs))
+  -- Chains finished before the record began, where the game can list them.
+  local TITLES = { [101] = "The Green Hills of Stranglethorn", [102] = "Kill Some Boars", [103] = 'Wanted: "Hogger"' }
+  C_QuestLog = { GetAllCompletedQuestIDs = function() return { 101, 102, 103, 104 } end,
+    GetTitleForQuestID = function(id) return TITLES[id] end }
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end
+  C.NoticeNames()
+  check(ns.Sources.Deeds.Backfill() == 2, "the backfill takes in only quests that earn a name")
+  check(ns.char.deeds.quests["The Green Hills of Stranglethorn"] and not ns.char.deeds.quests["Kill Some Boars"], "and leaves the rest")
+  check(ns.Sources.Deeds.Backfill() == 0, "and takes nothing in twice")
+  C.Refresh(); ns.Mood.Watch()
+  DEFAULT_CHAT_FRAME.AddMessage = oldChat
+  check(#said == 0 and C.LatelyGlance().TI ~= "A Name Earned", "names from before are taken in quietly")
+  local hasPages = false
+  for _, e in ipairs(C.EarnedAll()) do if e.nick == "Page-Gatherer" then hasPages = true end end
+  check(hasPages, "and earn their names")
+  C_QuestLog = nil
+  check(ns.Sources.Deeds.Backfill() == 0, "no backfill where the game can't list them")
+  -- With Chronicle back, the earlier of the two times stands and nothing is counted twice.
+  ChronicleCharDB = chron
+  ChronicleCharDB.quests = { { time = NOW - 99999, title = "The Defias Brotherhood", status = "completed", zone = "Westfall" } }
+  ChronicleCharDB.bosses = { ["1"] = { name = "Archmage Arugal", kills = 1, lastSuccess = NOW - 5000, instanceName = "Shadowfang Keep" } }
+  C.SourcesChanged(); C.Refresh()
+  check(C.Finished()["The Defias Brotherhood"].t == NOW - 99999, "the earlier time of the two sources stands")
+  check(#C.Bosses() == 1 and C.Bosses()[1].first == NOW - 5000, "a master in both counts once")
+  check(C.Stats().foes == "1", "and once in the statistics")
+  ChronicleCharDB.quests, ChronicleCharDB.bosses = {}, { ["1"] = { name = "Edwin VanCleef", kills = 1, lastSuccess = NOW - 7000, instanceName = "The Deadmines" } }
+  RPGDialogueCharDB.threads = threads
+  ns.char.deeds, ns.char.names = nil, nil
+  GetTitleText, GetQuestID, GetInstanceInfo = nil, nil, nil
+  state.zone = "Duskwood"
+  C.SourcesChanged(); C.Refresh()
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
