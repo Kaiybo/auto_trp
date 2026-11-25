@@ -224,9 +224,29 @@ local function statEntry(ch, label)
   end
 end
 
+-- Statistic label -> its place in Compose.STATS, so they read in the same order everywhere.
+local STAT_RANK, STAT_KEY = {}, {}
+for i, st in ipairs(ns.Compose.STATS) do STAT_RANK[st.label] = i; STAT_KEY[st.label] = "stat_" .. st.key end
+local function statRank(e)
+  return type(e) == "table" and e.ID == MISC_CUSTOM and STAT_RANK[e.NA] or nil
+end
+
+-- Where a new statistic goes: just after the last one that comes before it, else just before
+-- the first that comes after it, else at the end. The statistics stay together, in order.
+local function statSlot(ch, rank)
+  local after, before
+  for i, e in ipairs(ch.MI) do
+    local r = statRank(e)
+    if r and r < rank then after = i end
+    if r and r > rank and not before then before = i end
+  end
+  if after then return after + 1 end
+  return before or (#ch.MI + 1)
+end
+
 local function statField(label, iconName)
   return {
-    section = "characteristics",
+    section = "characteristics", clearWhenOff = true,
     read = function(p)
       local e = statEntry(sub(p, "characteristics"), label)
       return e and (U.Plain(e.VA) or "") or ""
@@ -241,7 +261,7 @@ local function statField(label, iconName)
       end
       if not e then
         e = { ID = MISC_CUSTOM, NA = label, IC = icon(iconName) }
-        table.insert(ch.MI, e)
+        table.insert(ch.MI, statSlot(ch, STAT_RANK[label] or math.huge), e)
       end
       e.VA = v
     end,
@@ -264,7 +284,9 @@ end
 local function glanceField(slotKey)
   local function slot() return tostring(TRP.GlanceSlot(slotKey)) end
   return {
-    section = "misc",
+    section = "misc", clearWhenOff = true,
+    -- Switched off, Auto TRP's glance is hidden (its text stays, as Total RP 3 keeps it).
+    cleared = function(have) return have == "" or have:find("^off:") ~= nil end,
     -- An inactive slot still holds the player's words; count them.
     read = function(p)
       local misc = sub(p, "misc")
@@ -370,6 +392,21 @@ TRP.LABELS = {
   ooc = "OOC note", relationship = "Relationship status", walkup = "Open to walk-ups",
 }
 for _, st in ipairs(ns.Compose.STATS) do TRP.LABELS["stat_" .. st.key] = "Stats: " .. st.label:lower() end
+
+-- The order fields are written in, so new entries land in Total RP 3 the same way every time
+-- (nickname and motto before the statistics, the statistics in their own order).
+TRP.ORDER = { "currently", "title", "fulltitle", "nickname", "motto", "icon", "residence", "birthplace", "relationship",
+  "traits", "bearing", "history", "physical", "ooc", "walkup",
+  "glance_mood", "glance_lately", "glance_company", "glance_ambition", "glance_marks" }
+for _, st in ipairs(ns.Compose.STATS) do TRP.ORDER[#TRP.ORDER + 1] = "stat_" .. st.key end
+do
+  local listed = {}
+  for _, k in ipairs(TRP.ORDER) do listed[k] = true end
+  local rest = {}
+  for k in pairs(TRP.FIELDS) do if not listed[k] then rest[#rest + 1] = k end end
+  table.sort(rest)
+  for _, k in ipairs(rest) do TRP.ORDER[#TRP.ORDER + 1] = k end
+end
 
 -- Which setting switches a field on.
 local function enabled(key)
@@ -481,6 +518,30 @@ function TRP.Restore()
   return true
 end
 
+-- Auto TRP's own statistics, kept together and in order. Earlier versions added them in no
+-- particular order (and between other entries); when they aren't one ordered run, they're
+-- gathered into one at the end. Only entries Auto TRP owns move; everything else stays put.
+-- Returns true when anything moved.
+local function tidyStats(profile, mine, theirs)
+  local ch = sub(profile, "characteristics")
+  if type(ch.MI) ~= "table" then return false end
+  local ours, at = {}, {}
+  for i, e in ipairs(ch.MI) do
+    local r = statRank(e)
+    local key = r and STAT_KEY[e.NA]
+    if key and mine[key] ~= nil and not theirs[key] then ours[#ours + 1] = { e = e, r = r }; at[#at + 1] = i end
+  end
+  local tidy = true
+  for k = 2, #ours do
+    if at[k] ~= at[k - 1] + 1 or ours[k].r < ours[k - 1].r then tidy = false end
+  end
+  if tidy then return false end
+  for k = #at, 1, -1 do table.remove(ch.MI, at[k]) end
+  table.sort(ours, function(a, b) return a.r < b.r end)
+  for _, o in ipairs(ours) do ch.MI[#ch.MI + 1] = o.e end
+  return true
+end
+
 -- values: field key -> new value (nil clears a field Auto TRP owns).
 -- Returns the list of field keys that changed.
 function TRP.Apply(values, only)
@@ -492,10 +553,32 @@ function TRP.Apply(values, only)
   local editing = TRP.Editing()
   local bk = TRP.BackupFor(id)
 
-  for key, def in pairs(TRP.FIELDS) do
+  for _, key in ipairs(TRP.ORDER) do
+    local def = TRP.FIELDS[key]
     -- keepOnNil: "no opinion right now" leaves the field exactly as it is.
     local keep = def.keepOnNil and values[key] == nil
-    if not keep and (not only or only[key]) and enabled(key) and not theirs[key] and not (editing and EDITED_SECTIONS[def.section]) then
+    local free = (not only or only[key]) and not theirs[key] and not (editing and EDITED_SECTIONS[def.section])
+    -- clearWhenOff: a statistic or glance switched off is taken down, not left to go stale.
+    -- Only what Auto TRP wrote and nobody has touched since; an edit makes it yours instead.
+    if free and def.clearWhenOff and not enabled(key) and mine[key] ~= nil and mine[key] ~= CLAIM then
+      local have = def.read(profile)
+      local clear
+      if def.cleared then clear = def.cleared(have) else clear = have == "" end
+      if not clear then
+        if mine[key] ~= have and prev[key] ~= have then
+          TRP.Release(key, id); left[#left + 1] = key
+        else
+          if not bk.fields[key] and def.raw then bk.fields[key] = { raw = copy(def.raw(profile)) } end
+          prev[key] = have
+          def.write(profile, nil)
+          mine[key] = def.read(profile)
+          bump(sub(profile, def.section))
+          dirty[def.section] = true
+          changed[#changed + 1] = key
+        end
+      end
+    end
+    if not keep and free and enabled(key) then
       local value = values[key]
       if type(value) == "string" then value = clean(value, def.multiLine) end
       local want = def.sig and def.sig(value) or (U.Plain(value) or "")
@@ -528,6 +611,12 @@ function TRP.Apply(values, only)
         end
       end
     end
+  end
+  local statsAsked = not only
+  for _, st in ipairs(ns.Compose.STATS) do if only and only["stat_" .. st.key] then statsAsked = true end end
+  if statsAsked and not (editing and EDITED_SECTIONS.characteristics) and tidyStats(profile, mine, theirs) then
+    if not dirty.characteristics then bump(sub(profile, "characteristics")) end
+    dirty.characteristics = true
   end
   if next(dirty) then fire(id, dirty) end
   if #left > 0 and not ns.db.quiet then

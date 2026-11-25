@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.20.0 (2026-11-25): In Good Order
+
+- **Fixed: some characters' profiles stopped being written.** 0.14.0 lost the class rank ladders every race shares, so a character whose race and class have no ladder of their own (a human warlock, a dwarf rogue) hit an error on every update: *Currently* and the glances kept going, but the title, About, History, statistics, nickname and the rest were never written. The ladders are back (a human warlock rises from Initiate to Summoner and on), and a new test builds the whole profile for every race and class.
+- **Fixed: reaching a new rank** (every ten levels) hit the same error and was never remembered, so History never said "Was made ...". It's remembered again, on the same race and faction ladder as the Title, and a rank saved by an earlier version is read again by its level.
+- **Statistics read in order.** They used to land in Total RP 3's Additional information in no particular order (*Best standing* first, *Deaths* sixth, the nickname and motto wedged between them). Now they come after your other entries, in the order the settings list them, and a statistic that turns up later (your first rare beast) takes its place among the rest instead of going to the end. A profile written by an earlier version is tidied once; only Auto TRP's own entries move, yours stay where they are.
+- **Switched off means taken down.** Turning off a statistic (or all of them) used to leave its last value on the profile, going stale. Now Auto TRP takes down what it wrote there, and puts it back if you switch it on again. A glance switched off is hidden the same way (Total RP 3 keeps its text). Anything you've edited yourself is still left alone.
+- **`/atrp days` works again.** The mood journal command has been in the help and the README all along but was lost in 0.5.0; it lists the last week, a line a day.
+- **Jobs and victories without Chronicle.** The *Lately* glance now hears about a quest just turned in from Auto TRP's own record, as 0.18.0 meant it to, and a master felled again shows as a fresh victory straight away rather than up to a minute later.
+- **Names are never forgotten.** Auto TRP's quest record keeps its newest 1,500 quests; past that it now never forgets one that earned a name, which would have quietly taken the name away.
+- A Chronicle goal that ends in its own "?" or "!" (or is cut short with "...") no longer gets an extra full stop in *Ambition*.
+- Lighter: item information arriving (tooltips, the auction house, loot) no longer makes Auto TRP read your reputations, skills, gear and bags again, unless it was still waiting on one of your items' names.
+
 ## 0.19.0 (2026-11-25): Old Habits
 
 - The most cast spell. Every spell and ability your character casts is counted (not swings or shots, the hearthstone, gathering, crafting, or items like potions, food and bandages).

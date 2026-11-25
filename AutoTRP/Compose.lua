@@ -45,7 +45,10 @@ local function mergedFor(c)
   table.sort(bosses, function(a, b) if a.t ~= b.t then return a.t > b.t end return a.name < b.name end)
   local count = 0
   for _ in pairs(finished) do count = count + 1 end
-  merged = { chron = c.chronicle, deeds = c.deeds, finished = finished, bosses = bosses,
+  local lastQuest = c.chronicle and c.chronicle.lastQuest
+  local own = c.deeds and c.deeds.lastQuest
+  if own and (not lastQuest or (own.t or 0) > (lastQuest.t or 0)) then lastQuest = own end
+  merged = { chron = c.chronicle, deeds = c.deeds, finished = finished, bosses = bosses, lastQuest = lastQuest,
     questsDone = math.max(c.chronicle and c.chronicle.questsDone or 0, count) }
   return merged
 end
@@ -54,6 +57,8 @@ function Compose.Finished(c) return mergedFor(c or ns.cache).finished end
 -- Every master brought down, the latest first: { name, first, t (latest), where }.
 function Compose.Bosses(c) return mergedFor(c or ns.cache).bosses end
 function Compose.QuestsDone(c) return mergedFor(c or ns.cache).questsDone end
+-- The latest quest turned in, from either record: { title, t, zone } or nil.
+function Compose.LastQuest(c) return mergedFor(c or ns.cache).lastQuest end
 
 function Compose.Refresh()
   local S = ns.Sources
@@ -213,8 +218,8 @@ function Compose.LatelyGlance()
     local tx = say(fight.close and "fight_close" or fight.long and "fight_long" or "fight", { who = who }, fight.t)
     add(fight.t, fight.close and 2 or 0, { TI = fight.close and "Close Call" or "Blood Up", IC = "Ability_DualWield", TX = tx })
   end
-  -- A job just finished (Chronicle keeps the quest's name)
-  local q = chron and chron.lastQuest
+  -- A job just finished (Auto TRP's own record or Chronicle's, whichever is newer)
+  local q = Compose.LastQuest(c)
   if q and within(q.t, 1800) then
     add(q.t, 0, { TI = "A Job Done", IC = "INV_Misc_Note_06",
       TX = say("job", { q = "\"" .. q.title .. "\"", where = q.zone and (", in " .. U.Mid(q.zone)) or "" }, q.t) })
@@ -240,9 +245,11 @@ function Compose.LatelyGlance()
       TX = say("newzone", { zone = U.Mid(zone.name) }, zone.t) })
   end
 
+  -- A day-old hurt outranks everything; otherwise the newest, then the weightiest. (A strict
+  -- order: table.sort may compare an entry with itself.)
+  for _, cd in ipairs(cands) do cd.urgent = (cd.prio == 3 and within(cd.t, 86400)) and 1 or 0 end
   table.sort(cands, function(a, b)
-    if a.prio == 3 and within(a.t, 86400) then return true end
-    if b.prio == 3 and within(b.t, 86400) then return false end
+    if a.urgent ~= b.urgent then return a.urgent > b.urgent end
     if a.t ~= b.t then return a.t > b.t end
     return a.prio > b.prio
   end)
@@ -334,8 +341,10 @@ function Compose.AmbitionGlance()
   local c = ns.cache
   local rpgd, chron, world = c.rpgd, c.chronicle, c.world
   if chron and ns.db.chronicleGoals and chron.goals[1] then
-    return { TI = "Ambition", IC = "INV_Misc_Book_11",
-      TX = U.Cap(U.Truncate(chron.goals[1].text, 120)) .. "." }
+    -- The goal as the player wrote it: a full stop only where it has no ending of its own.
+    local goal = U.Cap(U.Truncate(chron.goals[1].text, 120))
+    if not goal:find("[%.!%?]\"?$") then goal = goal .. "." end
+    return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = goal }
   end
   for _, t in ipairs(rpgd and rpgd.threads or {}) do
     if t.state == "unfolding" or t.state == "stirring" then
@@ -744,12 +753,16 @@ function Compose.History()
   end
   local ms = ns.char and ns.char.milestones or {}
   if #ms > 0 then
+    -- The rank by the level it came at, on this character's own ladder (before 0.20.0 the
+    -- plain class ladder was saved, which could disagree with the Title).
+    local ladder = Compose.Ranks(world)
     local steps = {}
     for k = math.max(1, #ms - 1), #ms do
       local m = ms[k]
-      steps[#steps + 1] = m.rank .. (m.zone and (" in " .. U.Mid(m.zone)) or "")
+      local rank = (tonumber(m.level) and ladder[band(m.level)]) or m.rank
+      if rank then steps[#steps + 1] = rank .. (m.zone and (" in " .. U.Mid(m.zone)) or "") end
     end
-    road[#road + 1] = "Was made " .. U.Join(steps)
+    if #steps > 0 then road[#road + 1] = "Was made " .. U.Join(steps) end
   end
   if rpgd and rpgd.homeInn then
     local s = "Home these days is " .. placeName(rpgd.homeInn)
@@ -1054,7 +1067,7 @@ function Compose.Ranks(world)
   local class = world.class or ""
   return (W.RANKS_RACE[world.race or ""] or {})[class]
     or (W.RANKS_FACTION[world.faction or ""] or {})[class]
-    or W.RANKS[class] or W.RANKS.default
+    or W.RANKS[class] or W.RANKS.default or {}
 end
 
 function Compose.Title()

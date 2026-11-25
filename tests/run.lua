@@ -972,6 +972,205 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- 0.20.0 fixes: statistics in order, switched off means taken down, the mood journal command,
+-- ranks on the character's own ladder, goals as written, jobs and victories without Chronicle.
+do
+  local C, Deeds = ns.Compose, ns.Sources.Deeds
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  local function listen() said = {}; DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end end
+  local function stop() DEFAULT_CHAT_FRAME.AddMessage = oldChat end
+  local function labels()
+    local out = {}
+    for _, e in ipairs(p.characteristics.MI) do out[#out + 1] = tostring(e.NA) end
+    return table.concat(out, ",")
+  end
+  local function statIndex(label)
+    for i, e in ipairs(p.characteristics.MI) do if e.ID == 1 and e.NA == label then return i end end
+  end
+
+  -- Statistics are written in their own order, after everything else, and stay that way.
+  listen(); SlashCmdList.AUTOTRP("claim all"); stop()
+  local order, last, inOrder = {}, 0, true
+  for i, st in ipairs(C.STATS) do order[st.label] = i end
+  for _, e in ipairs(p.characteristics.MI) do
+    if e.ID == 1 and order[e.NA] then
+      if order[e.NA] < last then inOrder = false end
+      last = order[e.NA]
+    end
+  end
+  check(inOrder, "statistics are written in their own order: " .. labels())
+  local nickAt
+  for i, e in ipairs(p.characteristics.MI) do if e.ID == 3 then nickAt = i end end
+  check(nickAt and statIndex("Deaths") > nickAt, "and after the nickname")
+  -- A profile from an earlier version, with its statistics in no order and one of the player's
+  -- own entries among them: gathered into one ordered run, the player's entry left where it was.
+  local MI = p.characteristics.MI
+  local mine = {}
+  for i = #MI, 1, -1 do if MI[i].ID == 1 then table.insert(mine, 1, table.remove(MI, i)) end end
+  local scrambled = {}
+  for i = #mine, 1, -1 do scrambled[#scrambled + 1] = mine[i] end
+  table.insert(scrambled, 2, { ID = 1, NA = "Favourite ale", VA = "Thunderbrew" })
+  for _, e in ipairs(scrambled) do MI[#MI + 1] = e end
+  local aleAt = statIndex("Favourite ale")
+  local v0 = p.characteristics.v
+  ns.UI.Update(true)
+  check(statIndex("Favourite ale") < statIndex("Deaths") and statIndex("Deaths") < statIndex("Lands explored")
+    and statIndex("Lands explored") < statIndex("Names earned"), "scattered statistics are tidied into order: " .. labels())
+  check(p.characteristics.v ~= v0, "and the change is sent out")
+  local tidy = labels()
+  ns.UI.Update(true)
+  check(labels() == tidy, "a tidy profile isn't shuffled again")
+  -- A statistic that appears later goes into its place, not at the end.
+  ChronicleCharDB.rares = { a = {}, b = {} }
+  C.SourcesChanged(); ns.UI.Update(true)
+  check(statIndex("Rare beasts") == statIndex("Named foes felled") + 1, "a new statistic takes its place in the order: " .. labels())
+
+  -- Switched off, a statistic is taken off the profile; switched on, it comes back.
+  ns.db.fields.stat_deaths = false
+  ns.UI.Update(true)
+  check(statIndex("Deaths") == nil and ns.TRP.Status("stat_deaths") == "off", "a statistic switched off is taken down")
+  ns.db.fields.stat_deaths = true
+  ns.UI.Update(true)
+  check(statIndex("Deaths") ~= nil, "and comes back when switched on")
+  -- The whole set at once.
+  ns.db.fields.stats = false
+  ns.UI.Update(true)
+  check(statIndex("Wealth") == nil and statIndex("Lands explored") == nil and statIndex("Favourite ale") ~= nil,
+    "the master switch takes them all down, and not the player's own")
+  ns.db.fields.stats = true
+  ns.UI.Update(true)
+  check(statIndex("Wealth") ~= nil, "and puts them back")
+  -- One the player edited is theirs: switching it off leaves their words.
+  p.characteristics.MI[statIndex("Crafts")].VA = "Herbalism, and a bit of everything"
+  ns.db.fields.stat_crafts = false
+  ns.UI.Update(true)
+  check(statIndex("Crafts") and p.characteristics.MI[statIndex("Crafts")].VA == "Herbalism, and a bit of everything"
+    and ns.TRP.Status("stat_crafts") == "off", "an edited statistic isn't taken down")
+  ns.db.fields.stat_crafts = true
+  check(ns.TRP.Status("stat_crafts") == "yours", "it's the player's now")
+  -- A glance switched off is hidden, its text kept; back on, it shows again.
+  local slot = tostring(ns.char.glanceSlots.marks)
+  ns.db.fields.glance_marks = false
+  ns.UI.Update(true)
+  check(p.misc.PE[slot].AC == false and p.misc.PE[slot].TX, "a glance switched off is hidden")
+  local v1 = p.misc.v
+  ns.UI.Update(true)
+  check(p.misc.v == v1, "and isn't hidden over and over")
+  ns.db.fields.glance_marks = true
+  ns.UI.Update(true)
+  check(p.misc.PE[slot].AC == true and ns.TRP.Status("glance_marks") == "auto", "and shows again when switched on")
+  ChronicleCharDB.rares = {}
+
+  -- /atrp days
+  ns.char.days = { [os.date("%Y-%m-%d", NOW)] = { moods = { downcast = 9 }, zones = { Duskwood = 10 } } }
+  listen(); SlashCmdList.AUTOTRP("days"); stop()
+  check(said[2] and said[2]:find("Today: Downcast, mostly in Duskwood"), "/atrp days lists the mood journal: " .. tostring(said[2]))
+  ns.char.days = {}
+  listen(); SlashCmdList.AUTOTRP("days"); stop()
+  check(said[1] and said[1]:find("Nothing in the mood journal yet"), "and says so when it's empty")
+
+  -- Rank milestones use the character's own ladder, as the Title does.
+  UnitRace = function() return "Undead", "Scourge" end
+  UnitClass = function() return "Rogue", "ROGUE" end
+  UnitFactionGroup = function() return "Horde" end
+  ns.char.milestones = nil
+  event("PLAYER_LEVEL_UP", 10)
+  check(ns.char.milestones and ns.char.milestones[1].rank == "Footpad", "a Forsaken rogue is made Footpad at ten: "
+    .. tostring(ns.char.milestones and ns.char.milestones[1].rank))
+  -- One saved by an earlier version from the plain class ladder is told by its level.
+  ns.char.milestones = { { level = 30, rank = "Cutthroat", zone = "Hillsbrad Foothills", t = NOW - 100 } }
+  C.Refresh()
+  check(C.History():find("Was made Deathstalker in Hillsbrad Foothills"), "an old milestone reads on the right ladder")
+  ns.char.milestones = nil
+  UnitRace = function() return "Human", "Human" end
+  UnitClass = function() return "Priest", "PRIEST" end
+  UnitFactionGroup = function() return "Alliance" end
+
+  -- Every race and class has a rank ladder, and the whole sheet can be written for each.
+  local RACES = { Human = "Alliance", Dwarf = "Alliance", NightElf = "Alliance", Gnome = "Alliance",
+    Orc = "Horde", Scourge = "Horde", Tauren = "Horde", Troll = "Horde", Goblin = "Horde" }
+  local CLASSES = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID", "DEATHKNIGHT" }
+  local broken = {}
+  for race, faction in pairs(RACES) do
+    for _, class in ipairs(CLASSES) do
+      UnitRace = function() return race, race end
+      UnitClass = function() return class, class end
+      UnitFactionGroup = function() return faction end
+      ns.World.slow = nil
+      local okSheet, sh = pcall(C.Sheet)
+      local ladder = C.Ranks({ race = race, class = class, faction = faction })
+      if not okSheet or #ladder ~= 7 or not sh.title or not sh.history then
+        broken[#broken + 1] = race .. "/" .. class .. (okSheet and "" or (": " .. tostring(sh)))
+      end
+    end
+  end
+  check(#broken == 0, "every race and class has a ladder and a whole sheet: " .. table.concat(broken, ", "))
+  UnitRace = function() return "Human", "Human" end
+  UnitClass = function() return "Warlock", "WARLOCK" end
+  UnitFactionGroup = function() return "Alliance" end
+  C.Refresh()
+  check(C.Title() == "Summoner", "a human warlock has a title: " .. tostring(C.Title()))
+  UnitClass = function() return "Priest", "PRIEST" end
+  ns.World.slow = nil
+  C.Refresh()
+
+  -- A Chronicle goal keeps its own ending.
+  local goals = ChronicleCharDB.goals
+  ChronicleCharDB.goals = { { text = "Will I ever see Theramore?", done = false, created = NOW } }
+  C.SourcesChanged(); C.Refresh()
+  check(C.AmbitionGlance().TX == "Will I ever see Theramore?", "a goal with its own ending gets no extra full stop: " .. C.AmbitionGlance().TX)
+  ChronicleCharDB.goals = { { text = string.rep("walk the length of the world ", 8), done = false, created = NOW } }
+  C.SourcesChanged(); C.Refresh()
+  check(C.AmbitionGlance().TX:find("%.%.%.$") and not C.AmbitionGlance().TX:find("%.%.%.%.$"), "a long goal ends in '...' only")
+  ChronicleCharDB.goals = goals
+
+  -- Without Chronicle: a job just done, and a master felled again, reach Lately.
+  local chron = ChronicleCharDB
+  ChronicleCharDB = nil
+  ns.char.deeds, ns.char.names, ns.char.finds, ns.char.lastFight = nil, nil, nil, nil
+  RPGDialogueCharDB.npc.farley.last = NOW - 90000
+  GetTitleText = function() return "The Collector" end
+  GetQuestID = function() return 123 end
+  state.zone = "Elwynn Forest"
+  event("QUEST_COMPLETE"); event("QUEST_TURNED_IN", 123, 0, 0)
+  C.Refresh()
+  check(C.LatelyGlance().TX:find('"The Collector", in Elwynn Forest'), "a job done reaches Lately without Chronicle: " .. C.LatelyGlance().TX)
+  ns.char.deeds.quests["The Collector"].t = NOW - 7200
+  ns.char.deeds.bosses["Hogger"] = { t = NOW - 5 * 86400, last = NOW - 5 * 86400, where = "Elwynn Forest", kills = 1 }
+  C.SourcesChanged(); C.Refresh()
+  check(C.LatelyGlance().TI ~= "Fresh Victory", "a master felled days ago isn't news")
+  GetInstanceInfo = function() return "Elwynn Forest", "none" end
+  event("ENCOUNTER_END", 1, "Hogger", 1, 5, 1)
+  C.Refresh()
+  check(C.LatelyGlance().TI == "Fresh Victory", "felled again, it's news at once")
+  -- The record forgets its oldest quests past the limit, but never one that earns a name.
+  local keep = Deeds.KEEP_QUESTS
+  Deeds.KEEP_QUESTS = 3
+  ns.char.deeds = nil
+  Deeds.Quest("The Defias Brotherhood", 166, "Westfall", NOW - 500)
+  Deeds.Quest("Kill Some Boars", 1, "Elwynn Forest", NOW - 400)
+  Deeds.Quest("Bounty on Murlocs", 2, "Elwynn Forest", NOW - 300)
+  Deeds.Quest("A Fishy Peril", 3, "Elwynn Forest", NOW - 200)
+  local q = ns.char.deeds.quests
+  check(q["The Defias Brotherhood"] and not q["Kill Some Boars"], "the oldest quest is forgotten, never a name-earning one")
+  Deeds.KEEP_QUESTS = keep
+  ChronicleCharDB = chron
+  ns.char.deeds, ns.char.names = nil, nil
+  GetTitleText, GetQuestID, GetInstanceInfo = nil, nil, nil
+  state.zone = "Duskwood"
+  C.SourcesChanged(); C.Refresh()
+
+  -- Item info arriving re-reads gear only when the last read was waiting on a name.
+  ns.World.slow = { t = NOW, gear = {}, reagents = {} }
+  event("GET_ITEM_INFO_RECEIVED", 1234, true)
+  check(not ns.World.slow.dirty, "item info for something else costs nothing")
+  ns.World.slow.gear.incomplete = true
+  event("GET_ITEM_INFO_RECEIVED", 1234, true)
+  check(ns.World.slow.dirty, "item info the gear was waiting on reads it again")
+  ns.World.slow = nil
+end
+
 -- The most cast spell: counted from the character's own casts, swings, hearthstone,
 -- gathering, crafting and items left out; a statistic, and a line in Personality.
 do
