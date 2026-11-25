@@ -661,39 +661,139 @@ W.EARNED_STORY = {
 }
 
 -- Quest chains, by the title of the quest that ends them (Chronicle keeps titles in the
--- game's language, so these are matched on English clients only). deed: how History tells it.
+-- game's language, so these are matched on English clients only). deed: how History tells
+-- it. tier: how much it took (1 a local errand seen through, 2 a land's long chain, 3 a
+-- dungeon's chain, 4 the way into a raid); the greatest one done names them, and between
+-- equals the first one done.
 W.EARNED_QUEST = {
-  ["The Defias Brotherhood"] = { nick = "Defias-Breaker", motto = "Pay what's owed, or someone will collect.",
+  -- Eastern Kingdoms
+  ["Princess Must Die!"] = { tier = 1, nick = "Pig-Sticker", motto = "Even a pig can be a menace.",
+    icon = "INV_Misc_Food_15", deed = "Put an end to Princess at the Brackwell Pumpkin Patch" },
+  ["The People's Militia"] = { tier = 2, nick = "Militia-Hand", motto = "Look after your own.",
+    icon = "INV_BannerPVP_02", deed = "Stood with the People's Militia in Westfall" },
+  ["The Defias Brotherhood"] = { tier = 3, nick = "Defias-Breaker", motto = "Pay what's owed, or someone will collect.",
     icon = "INV_Misc_Mask_01", deed = "Followed the trail of the Defias Brotherhood to its end" },
-  ["Princess Must Die!"] = { nick = "Pig-Sticker", icon = "INV_Misc_Food_15", deed = "Put an end to Princess at the Brackwell Pumpkin Patch" },
-  ["The Legend of Stalvan"] = { nick = "Stalvan's Witness", motto = "The truth comes out in the end.",
+  ["The Legend of Stalvan"] = { tier = 2, nick = "Stalvan's Witness", motto = "The truth comes out in the end.",
     icon = "INV_Misc_Book_08", deed = "Uncovered the story of Stalvan Mistmantle" },
-  ["The Missing Diplomat"] = { nick = "Diplomat-Finder", motto = "Find the missing man and you find the plot.",
+  ["Mor'Ladim"] = { tier = 2, nick = "Grave-Settler", motto = "Some debts outlive the debtor.",
+    icon = "Spell_Shadow_RaiseDead", deed = "Put Mor'Ladim to rest in Duskwood" },
+  ["Morbent Fel"] = { tier = 2, nick = "Lamp-Lighter", motto = "Light a lamp and keep it lit.",
+    icon = "Spell_Holy_HolyBolt", deed = "Saw Morbent Fel brought down in Duskwood" },
+  ["Big Game Hunter"] = { tier = 2, nick = "Bangalash's Bane", motto = "Respect what you hunt.",
+    icon = "Ability_Hunter_BeastCall", deed = "Brought King Bangalash's head back to Nesingwary's camp" },
+  ["The Green Hills of Stranglethorn"] = { tier = 1, nick = "Page-Gatherer", motto = "Finish the book.",
+    icon = "INV_Misc_Book_08", deed = "Gathered every page of The Green Hills of Stranglethorn" },
+  ["Rin'ji is Trapped!"] = { tier = 1, nick = "Rin'ji's Friend", motto = "A promise to a stranger is still a promise.",
+    icon = "Spell_Holy_Renew", deed = "Got Rin'ji out of Quel'Danil Lodge in the Hinterlands" },
+  ["Battle of Darrowshire"] = { tier = 2, nick = "Darrowshire's Friend", motto = "A lost battle can still be won.",
+    icon = "INV_BannerPVP_02", deed = "Saw the Battle of Darrowshire through" },
+  ["In Dreams"] = { tier = 3, nick = "Taelan's Witness", motto = "Mercy is braver than a blade.",
+    icon = "Spell_Holy_SealOfRighteousness", deed = "Walked with Taelan Fordring to the end of his road" },
+  ["The Platinum Discs"] = { tier = 3, nick = "Disc-Reader", motto = "Old records tell old truths.",
+    icon = "INV_Misc_Rune_01", deed = "Brought the Platinum Discs out of Uldaman" },
+  ["The Royal Rescue"] = { tier = 3, nick = "Shadowforge-Breaker", motto = "Ask what the rescued want.",
+    icon = "INV_Hammer_20", deed = "Went down into Blackrock Depths after Princess Moira" },
+  ["The Key to Scholomance"] = { tier = 3, nick = "Key-Bearer", motto = "Hold the key, mind the door.",
+    icon = "INV_Misc_Key_14", deed = "Won the key to Scholomance" },
+  ["Seal of Ascension"] = { tier = 4, nick = "Spire-Climber", motto = "Climb anyway.",
+    icon = "INV_Misc_Rune_01", deed = "Forged the Seal of Ascension" },
+  ["Drakefire Amulet"] = { tier = 4, nick = "the Unmasker", motto = "Watch the court as well as the wilds.",
+    icon = "INV_Misc_Head_Dragon_Black", deed = "Earned the Drakefire Amulet" },
+  ["Attunement to the Core"] = { tier = 4, nick = "Core-Walker", motto = "Every fire has a heart.",
+    icon = "Spell_Fire_Incinerate", deed = "Was let into the Molten Core" },
+  -- Kalimdor
+  ["Burning Blade Medallion"] = { tier = 1, nick = "Coven-Breaker", motto = "Hunt the cult in its own cave.",
+    icon = "Spell_Shadow_ShadowBolt", deed = "Took the Burning Blade Medallion from Yarrog Baneshadow" },
+  ["The Absent Minded Prospector"] = { tier = 2, nick = "Prospector's Guide", motto = "Keep an eye on the clever ones.",
+    icon = "INV_Misc_Spyglass_02", deed = "Got Prospector Remtravel out of the Darkshore dig in one piece" },
+  ["The Tower of Althalaxx"] = { tier = 2, nick = "Tower-Breaker", motto = "Shadow is patient. Be more patient.",
+    icon = "Spell_Shadow_GatherShadows", deed = "Saw the business of the Tower of Althalaxx through" },
+  ["Lost in Battle"] = { tier = 1, nick = "Mankrik's Friend", motto = "Somebody is always waiting for news.",
+    icon = "INV_Letter_03", deed = "Found out what became of Mankrik's wife in the Barrens" },
+  ["Counterattack!"] = { tier = 2, nick = "Kolkar-Breaker", motto = "Hold the line.",
+    icon = "Ability_Warrior_DefensiveStance", deed = "Beat back the Kolkar counterattack beside Regthar Deathgate" },
+  ["Leaders of the Fang"] = { tier = 3, nick = "Fang-Breaker", motto = "Even dreams can be poisoned.",
+    icon = "Ability_Hunter_Pet_Wolf", deed = "Brought back the gems of the Fang's leaders from the Wailing Caverns" },
+  ["Willix the Importer"] = { tier = 3, nick = "Willix's Guard", motto = "Get the cargo out.",
+    icon = "INV_Misc_Note_06", deed = "Got Willix the Importer out of Razorfen Kraul" },
+  ["Extinguishing the Idol"] = { tier = 3, nick = "Idol-Quencher", motto = "Put the fire out before it spreads.",
+    icon = "Spell_Frost_FrostNova", deed = "Stood guard while Belnistrasz quenched the idol in Razorfen Downs" },
+  ["Bring the End"] = { tier = 3, nick = "Barrow-Breaker", motto = "The cold passes.",
+    icon = "Spell_Frost_FrostNova", deed = "Brought the end to Amnennar the Coldbringer" },
+  ["The Missing Diplomat"] = { tier = 2, nick = "Diplomat-Finder", motto = "Find the missing man and you find the plot.",
     icon = "INV_Letter_03", deed = "Saw the business of the missing diplomat through" },
+  ["It's Dangerous to Go Alone"] = { tier = 2, nick = "Linken's Friend", motto = "Never set out alone.",
+    icon = "INV_Sword_04", deed = "Helped Linken remember who he was" },
+  ["Corruption of Earth and Seed"] = { tier = 3, nick = "Earth-Healer", motto = "Rot starts at the roots.",
+    icon = "Spell_Nature_Tranquility", deed = "Saw Princess Theradras brought down in Maraudon" },
+  ["Blood of the Black Dragon Champion"] = { tier = 4, nick = "Dragon-Hunter", motto = "Look the dragon in the eye.",
+    icon = "INV_Misc_Head_Dragon_Black", deed = "Finished the hunt for the Black Dragon Champion's blood" },
+  -- Dungeons, from either side
+  ["In the Name of the Light"] = { tier = 3, nick = "Scarlet-Breaker", motto = "The Light doesn't need zealots.",
+    icon = "Spell_Holy_SealOfRighteousness", deed = "Saw the Scarlet Monastery's leaders brought down" },
+  ["Arugal Must Die"] = { tier = 3, nick = "Arugal's Bane", motto = "Not every gift is a blessing.",
+    icon = "Ability_Hunter_Pet_Wolf", deed = "Saw Archmage Arugal's end in Shadowfang Keep" },
+  ["The Grand Betrayal"] = { tier = 3, nick = "Gear-Breaker", motto = "Trust the tinker, check the work.",
+    icon = "Trade_Engineering", deed = "Answered the grand betrayal of Gnomeregan" },
+  -- Class chains
+  ["Whirlwind Weapon"] = { tier = 2, class = "WARRIOR", nick = "the Whirlwind", motto = "Watch every side.",
+    icon = "Ability_Whirlwind", deed = "Earned a whirlwind weapon at the end of a warrior's long trial" },
+  ["Verigan's Fist"] = { tier = 2, class = "PALADIN", nick = "Verigan's Heir", motto = "Strike for those who can't.",
+    icon = "INV_Hammer_02", deed = "Had Verigan's Fist forged" },
 }
 
--- Dungeon masters brought down (Chronicle's boss list), easiest first: the hardest one
--- felled names them. short: the name the nickname uses.
+-- Dungeon and raid masters brought down (Chronicle's boss list), easiest first: the hardest
+-- one felled names them. nick: the name; motto: the saying; icon: the profile icon.
 W.EARNED_BOSS = {
-  { name = "Edwin VanCleef", short = "VanCleef" },
-  { name = "Mutanus the Devourer", short = "Mutanus" },
-  { name = "Archmage Arugal", short = "Arugal" },
-  { name = "Bazil Thredd", short = "Thredd" },
-  { name = "Aku'mai", short = "Aku'mai" },
-  { name = "Mekgineer Thermaplugg", short = "Thermaplugg" },
-  { name = "Charlga Razorflank", short = "Razorflank" },
-  { name = "High Inquisitor Whitemane", short = "Whitemane" },
-  { name = "Amnennar the Coldbringer", short = "Amnennar" },
-  { name = "Archaedas", short = "Archaedas" },
-  { name = "Princess Theradras", short = "Theradras" },
-  { name = "Shade of Eranikus", short = "Eranikus" },
-  { name = "Emperor Dagran Thaurissan", short = "Thaurissan" },
-  { name = "King Gordok", short = "Gordok" },
-  { name = "Darkmaster Gandling", short = "Gandling" },
-  { name = "Baron Rivendare", short = "Rivendare" },
-  { name = "General Drakkisath", short = "Drakkisath" },
+  { name = "Taragaman the Hungerer", nick = "Taragaman's Bane", motto = "Look under your own city first.", icon = "Spell_Fire_FlameBolt" },
+  { name = "Mutanus the Devourer", nick = "Dream-Waker", motto = "Every nightmare ends.", icon = "Spell_Nature_Sleep" },
+  { name = "Edwin VanCleef", nick = "VanCleef's Bane", motto = "Every mask comes off.", icon = "INV_Misc_Mask_01" },
+  { name = "Archmage Arugal", nick = "Arugal's Bane", motto = "Not every gift is a blessing.", icon = "Ability_Hunter_Pet_Wolf" },
+  { name = "Bazil Thredd", nick = "Riot-Breaker", motto = "Locks are only as good as the guards.", icon = "INV_Misc_Key_14" },
+  { name = "Aku'mai", nick = "Aku'mai's Bane", motto = "The deep keeps what it takes.", icon = "INV_Misc_Head_Dragon_01" },
+  { name = "Mekgineer Thermaplugg", nick = "Thermaplugg's Bane", motto = "Trust the tinker, check the work.", icon = "Trade_Engineering" },
+  { name = "Charlga Razorflank", nick = "Thorn-Cutter", motto = "Mind the thorns.", icon = "Spell_Nature_Thorns" },
+  { name = "Bloodmage Thalnos", nick = "Thalnos's Bane", motto = "The dead don't keep their bargains.", icon = "Spell_Shadow_RaiseDead" },
+  { name = "Arcanist Doan", nick = "Doan's Bane", motto = "Some books should stay shut.", icon = "INV_Misc_Book_08" },
+  { name = "Herod", nick = "Herod's Bane", motto = "Loud isn't strong.", icon = "Ability_Whirlwind" },
+  { name = "High Inquisitor Whitemane", nick = "Whitemane's Bane", motto = "Faith without mercy isn't faith.", icon = "Spell_Holy_SealOfRighteousness" },
+  { name = "Amnennar the Coldbringer", nick = "Frost-Breaker", motto = "The cold passes.", icon = "Spell_Frost_FrostNova" },
+  { name = "Archaedas", nick = "Vault-Breaker", motto = "Some doors were shut for a reason.", icon = "INV_Misc_Rune_01" },
+  { name = "Chief Ukorz Sandscalp", nick = "Sandscalp's Bane", motto = "Water is worth more than gold out here.", icon = "INV_Drink_04" },
+  { name = "Princess Theradras", nick = "Theradras's Bane", motto = "The earth remembers.", icon = "Spell_Nature_Earthquake" },
+  { name = "Shade of Eranikus", nick = "Dream-Warden", motto = "Nightmares end at dawn.", icon = "Spell_Nature_Sleep" },
+  { name = "Overlord Wyrmthalak", nick = "Wyrmthalak's Bane", motto = "One floor at a time.", icon = "INV_Misc_Head_Dragon_01" },
+  { name = "Emperor Dagran Thaurissan", nick = "Thaurissan's Bane", motto = "No crown outlasts its forge.", icon = "INV_Hammer_20" },
+  { name = "Alzzin the Wildshaper", nick = "Wildshaper's Bane", motto = "The wild isn't yours to twist.", icon = "Ability_Druid_Maul" },
+  { name = "Prince Tortheldrin", nick = "Tortheldrin's Bane", motto = "Power hoarded is power wasted.", icon = "Spell_Holy_SealOfWisdom" },
+  { name = "King Gordok", nick = "Gordok's Bane", motto = "The bigger they are...", icon = "INV_Hammer_20" },
+  { name = "Darkmaster Gandling", nick = "Gandling's Bane", motto = "Some lessons shouldn't be taught.", icon = "Spell_Shadow_DeathCoil" },
+  { name = "Balnazzar", nick = "Balnazzar's Bane", motto = "Look twice at a friendly face.", icon = "Spell_Shadow_DeathCoil" },
+  { name = "Baron Rivendare", nick = "Rivendare's Bane", motto = "The dead stay dead.", icon = "Spell_Shadow_RaiseDead" },
+  { name = "General Drakkisath", nick = "Drakkisath's Bane", motto = "Dragons bleed like anyone.", icon = "INV_Misc_Head_Dragon_Black" },
+  -- Raids
+  { name = "Onyxia", raid = true, nick = "Onyxia's Bane", motto = "Watch the court as well as the wilds.", icon = "INV_Misc_Head_Dragon_Black" },
+  { name = "Hakkar", raid = true, nick = "Hakkar's Bane", motto = "Blood buys nothing.", icon = "Spell_Shadow_SoulLeech_2" },
+  { name = "Ossirian the Unscarred", raid = true, nick = "Ossirian's Bane", motto = "Nothing is unscarred.", icon = "INV_Misc_Rune_01" },
+  { name = "Ragnaros", raid = true, nick = "Ragnaros's Bane", motto = "Even fire can be put out.", icon = "Spell_Fire_Incinerate" },
+  { name = "Nefarian", raid = true, nick = "Nefarian's Bane", motto = "Every lair has a master.", icon = "INV_Misc_Head_Dragon_Black" },
+  { name = "C'Thun", raid = true, nick = "C'Thun's Bane", motto = "Don't listen to what the dark says.", icon = "Spell_Shadow_ShadowWordPain" },
+  { name = "Kel'Thuzad", raid = true, nick = "Kel'Thuzad's Bane", motto = "Cold hands, colder hearts.", icon = "Spell_Frost_FrostNova" },
 }
-W.EARNED_BOSS_ICON = "INV_Misc_Head_Dragon_01"
+
+-- Bounties: "Wanted: <name>" quests (English titles). A bounty named here has its own
+-- saying; the rest are named after their target with no saying.
+W.EARNED_BOUNTY = {
+  Hogger = { motto = "Even a gnoll can be brought to heel." },
+  ["Gath'Ilzogg"] = { motto = "Every warband has a head." },
+  Fangore = { motto = "Rank doesn't stop a blade." },
+  Murkdeep = { motto = "Wait for the tide." },
+  Longshore = { motto = "Pirates hang like anyone." },
+}
+-- Words that mean a "Wanted:" poster is after a crowd, not a person.
+W.BOUNTY_NOT_A_NAME = { personnel = true, ones = true, raiders = true, bandits = true, pirates = true, poachers = true,
+  thieves = true, gnolls = true, murlocs = true, brutes = true, gang = true, crew = true, outlaws = true, rebels = true,
+  deserters = true, cultists = true, smugglers = true, trolls = true, ogres = true, kobolds = true, centaurs = true }
 W.EARNED_BOUNTY_ICON = "INV_Misc_Note_06"
 
 -- The profile icon before any nickname is earned: the class crest.
@@ -2096,4 +2196,13 @@ W.SAY = {
     "{name} is new to the road, and hasn't been far from home yet" },
   home = { "Calls {inn} home", "Has made {inn} {their} home" },
   lastplace = { "The last new place {they} reached was {place}", "Most recently reached {place}" },
+  -- Earned names: where the name came from, the saying that came with it, the others that
+  -- stuck, and a name earned only lately (Lately).
+  earned = { "{deed}. That's how {name} came to be called {nick}", "{deed}, and some have called {name} {nick} since",
+    "{deed}. The name {nick} has stuck to {name} since", "{deed}. It's why {name} answers to {nick}" },
+  saying = { "It's where {they} picked up the saying {motto}", "{they} came away from it with a saying: {motto}",
+    "{they} took a saying from it: {motto}" },
+  othernames = { "Has been called {list} as well", "Also answers to {list}", "Other names have stuck too: {list}" },
+  newname = { "Has lately come to be called {nick}.", "Some have started calling {them} {nick}.",
+    "Answers to {nick} now, a name earned only lately." },
 }

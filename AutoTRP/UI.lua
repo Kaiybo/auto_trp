@@ -297,8 +297,10 @@ function UI.PreviewText()
   add("fulltitle", s.fulltitle)
   local e = ns.Compose.Earned()
   local from = e and ("  |cff808080(" .. e.deed:gsub("^%u", string.lower) .. ")|r") or ""
-  add("nickname", s.nickname and (s.nickname .. from), "earned by finishing a story or quest chain")
-  add("motto", s.motto and (s.motto .. from), "comes with the story behind the nickname")
+  local more = #ns.Compose.EarnedAll() - 1
+  local choose = more > 0 and ("  |cff808080" .. more .. " more earned: /atrp names|r") or ""
+  add("nickname", s.nickname and (s.nickname .. from .. choose), "earned by a story, quest chain, master or bounty you saw through")
+  add("motto", s.motto and (s.motto .. from), "comes with the deed behind the nickname")
   add("icon", s.icon)
   add("residence", s.residence)
   add("birthplace", s.birthplace)
@@ -382,8 +384,8 @@ local OPTIONS = {
   { path = { "fields", "physical" }, label = "About: Physical (build, gear, scars)" },
   { path = { "fields", "title" }, label = "Title: your rank by experience (\"Initiate\")" },
   { path = { "fields", "fulltitle" }, label = "Full title: alignment and standing (\"Lightsworn, Friend of Goldshire\")" },
-  { path = { "fields", "nickname" }, label = "Nickname: earned by a story, quest chain or foe you saw through" },
-  { path = { "fields", "motto" }, label = "Motto: the saying that story left you with" },
+  { path = { "fields", "nickname" }, label = "Nickname: earned by a story, quest chain, master or bounty you saw through (/atrp names)" },
+  { path = { "fields", "motto" }, label = "Motto: the saying that deed left you with" },
   { path = { "fields", "icon" }, label = "Icon: your nickname's, else your class crest" },
   { path = { "fields", "residence" }, label = "Residence: where your hearthstone is" },
   { path = { "fields", "birthplace" }, label = "Birthplace" },
@@ -659,8 +661,53 @@ local HELP = {
   "|cffffd100/atrp slot <glance> <1-5|0>|r: move a glance (mood, lately, company, ambition, marks) to another slot, or 0 to drop it",
   "|cffffd100/atrp badge|r: show or hide the mood badge",
   "|cffffd100/atrp days|r: the mood journal, the last week of feelings and places",
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, books)",
+  "|cffffd100/atrp names|r: every name you've earned, and what for",
+  "|cffffd100/atrp name <number|auto>|r: wear one of your earned names (|cffffd100auto|r: the greatest deed's)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, books)",
 }
+
+-- Earned names: list them, or choose which to wear.
+function UI.ListNames()
+  ns.Compose.Refresh()
+  local all, worn = ns.Compose.EarnedAll(), ns.Compose.Earned()
+  if #all == 0 then
+    ns.Print("No name earned yet. One comes from finishing a story in RPG Dialogue or a quest chain, bringing down a dungeon's master, or collecting a bounty.")
+    return
+  end
+  ns.Print("Names you've earned:")
+  for i, e in ipairs(all) do
+    local mark = e == worn and " |cff80ff80(worn)|r" or ""
+    ns.Print(("  %d. |cffffd100%s|r: %s%s%s"):format(i, e.nick, e.deed:gsub("^%u", string.lower),
+      e.motto and (". \"" .. e.motto .. "\"") or "", mark))
+  end
+  if #all > 1 then
+    ns.Print((ns.char.chosenName and "You chose this one" or "Auto TRP picks the greatest deed's")
+      .. "; |cffffd100/atrp name <number>|r wears another, |cffffd100/atrp name auto|r lets Auto TRP choose.")
+  end
+end
+
+function UI.ChooseName(arg)
+  ns.Compose.Refresh()
+  local all = ns.Compose.EarnedAll()
+  if arg == "" or arg == "auto" then
+    ns.char.chosenName = nil
+    local e = ns.Compose.Earned()
+    ns.Print(e and ("Going by \"" .. e.nick .. "\", for the greatest deed.") or "No name earned yet.")
+    UI.Update(true)
+    return
+  end
+  local pick = all[tonumber(arg) or 0]
+  if not pick then
+    for _, e in ipairs(all) do if e.nick:lower() == arg then pick = e end end
+  end
+  if not pick then
+    ns.Print("No earned name '" .. arg .. "'. |cffffd100/atrp names|r lists them.")
+    return
+  end
+  ns.char.chosenName = pick.key
+  ns.Print("Going by \"" .. pick.nick .. "\" from now on.")
+  UI.Update(true)
+end
 
 local function eachField(arg, fn)
   if arg == "all" then
@@ -777,6 +824,10 @@ SlashCmdList.AUTOTRP = function(msg)
     ns.Print(ns.db.showBadge and "Mood badge shown." or "Mood badge hidden.")
   elseif cmd == "status" then
     ns.Print(UI.StatusLine())
+  elseif cmd == "names" then
+    UI.ListNames()
+  elseif cmd == "name" then
+    UI.ChooseName(arg)
   else
     for _, l in ipairs(HELP) do ns.Print(l) end
   end

@@ -751,14 +751,23 @@ do
   local sh = ns.Compose.Sheet()
   check(sh.nickname == "Mine-Warden" and sh.motto == "Gold isn't worth a life.", "a finished story earns a nickname and motto: " .. tostring(sh.nickname))
   check(sh.icon == "INV_Misc_Coin_02", "the icon follows the nickname: " .. tostring(sh.icon))
-  check(sh.history:find("That's how Aldric came to be called \"Mine%-Warden\"") and sh.history:find("Gold isn't worth a life", 1, true),
-    "History explains the nickname and motto")
+  check(sh.history:find("Saw the gold of Elwynn's mines through to the end", 1, true) and sh.history:find("\"Mine-Warden\"", 1, true)
+    and sh.history:find("Gold isn't worth a life", 1, true), "History explains the nickname and motto")
+  check(sh.history:find("\"VanCleef's Bane\"", 1, true), "and names the other name that stuck")
+  check(sh.stats.names == "Mine-Warden and VanCleef's Bane", "Names earned statistic, the worn one first: " .. tostring(sh.stats.names))
   local threads = RPGDialogueCharDB.threads
   RPGDialogueCharDB.threads = {}
   ns.Compose.SourcesChanged(); ns.Compose.Refresh()
   sh = ns.Compose.Sheet(true)
-  check(sh.nickname == "VanCleef's Bane" and sh.motto == nil, "no story: the hardest dungeon master felled names them: " .. tostring(sh.nickname))
-  check(sh.history:find("Was there when Edwin VanCleef fell in the Deadmines. That's how Aldric came to be called", 1, true), "and History says so")
+  check(sh.nickname == "VanCleef's Bane" and sh.motto == "Every mask comes off.", "no story: the dungeon master felled names them: " .. tostring(sh.nickname))
+  check(sh.icon == "INV_Misc_Mask_01", "with the master's own icon: " .. tostring(sh.icon))
+  check(sh.history:find("Was there when Edwin VanCleef fell in the Deadmines", 1, true), "and History says so")
+  ChronicleCharDB.bosses["2"] = { name = "Archmage Arugal", kills = 1, lastSuccess = NOW - 90000, instanceName = "Shadowfang Keep" }
+  ChronicleCharDB.bosses["3"] = { name = "Some Random Ogre", kills = 1, lastSuccess = NOW - 100 }
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+  sh = ns.Compose.Sheet(true)
+  check(sh.nickname == "Arugal's Bane", "the hardest master felled, not the latest: " .. tostring(sh.nickname))
+  ChronicleCharDB.bosses["2"], ChronicleCharDB.bosses["3"] = nil, nil
   ChronicleCharDB.quests = { { time = NOW - 500, title = "The Defias Brotherhood", status = "completed", zone = "Westfall" },
     { time = NOW - 900, title = "Wanted: Hogger", status = "completed", zone = "Elwynn Forest" } }
   ns.Compose.SourcesChanged(); ns.Compose.Refresh()
@@ -776,6 +785,113 @@ do
   ChronicleCharDB.bosses = { ["1"] = { name = "Edwin VanCleef", kills = 1, lastSuccess = NOW - 7000, instanceName = "The Deadmines" } }
   RPGDialogueCharDB.threads = threads
   ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+end
+
+-- Earned names, more closely: bounties, how deeds rank, choosing a name, a name earned just
+-- now, and the data itself.
+do
+  local C, W = ns.Compose, ns.Words
+  local function bounty(t) local target, short = C.BountyTarget(t); return tostring(target) .. "|" .. tostring(short) end
+  check(bounty('Wanted: "Hogger"') == "Hogger|Hogger", "a bounty title in quotes: " .. bounty('Wanted: "Hogger"'))
+  check(bounty("WANTED: Murkdeep!") == "Murkdeep|Murkdeep", "a shouted bounty: " .. bounty("WANTED: Murkdeep!"))
+  check(bounty("Wanted - Arnak Grimtotem") == "Arnak Grimtotem|Grimtotem", "a bounty with a dash: " .. bounty("Wanted - Arnak Grimtotem"))
+  check(bounty("Wanted: Lieutenant Fangore") == "Lieutenant Fangore|Fangore", "a bounty with a rank")
+  check(C.BountyTarget("Wanted: Syndicate Personnel") == nil, "a bounty on a crowd earns no name")
+  check(C.BountyTarget("The Wanted Poster") == nil, "only titles that start with Wanted")
+
+  local threads, bosses = RPGDialogueCharDB.threads, ChronicleCharDB.bosses
+  RPGDialogueCharDB.threads, ChronicleCharDB.bosses = {}, {}
+  local function with(quests)
+    ChronicleCharDB.quests = quests
+    C.SourcesChanged(); C.Refresh()
+    return C.Sheet(true)
+  end
+  local sh = with({ { time = NOW - 300, title = "Wanted: Lieutenant Fangore", status = "completed", zone = "Redridge Mountains" } })
+  check(sh.nickname == "Fangore's Bane" and sh.motto == "Rank doesn't stop a blade.", "a known bounty has its own saying: " .. tostring(sh.motto))
+  sh = with({ { time = NOW - 9000, title = "Princess Must Die!", status = "completed", zone = "Elwynn Forest" },
+    { time = NOW - 100, title = "The Defias Brotherhood", status = "completed", zone = "Westfall" } })
+  check(sh.nickname == "Defias-Breaker", "the longer chain names them, even done later: " .. tostring(sh.nickname))
+  sh = with({ { time = NOW - 100, title = "Mor'Ladim", status = "completed", zone = "Duskwood" },
+    { time = NOW - 9000, title = "Morbent Fel", status = "completed", zone = "Duskwood" } })
+  check(sh.nickname == "Lamp-Lighter", "between equal chains the first one done sticks: " .. tostring(sh.nickname))
+  sh = with({ { time = NOW - 100, title = "Whirlwind Weapon", status = "completed" } })
+  check(sh.nickname == nil, "another class's chain earns a priest nothing")
+  RPGDialogueCharDB.threads = { stalvan = { state = "resolved", beats = { a = 1 }, t = NOW - 50 } }
+  sh = with({ { time = NOW - 100, title = "The Legend of Stalvan", status = "completed", zone = "Duskwood" } })
+  check(#C.EarnedAll() == 1 and sh.nickname == "Stalvan's Witness", "the same name from a story and a chain counts once")
+  RPGDialogueCharDB.threads = {}
+
+  -- Choosing which name to wear
+  ChronicleCharDB.bosses = { ["1"] = { name = "Edwin VanCleef", kills = 1, lastSuccess = NOW - 7000, instanceName = "The Deadmines" } }
+  sh = with({ { time = NOW - 900, title = "The Defias Brotherhood", status = "completed", zone = "Westfall" },
+    { time = NOW - 800, title = "Wanted: Hogger", status = "completed", zone = "Elwynn Forest" } })
+  check(#C.EarnedAll() == 3 and sh.nickname == "Defias-Breaker", "three names, the best worn")
+  SlashCmdList.AUTOTRP("names")
+  ns.TRP.Claim("nickname")
+  SlashCmdList.AUTOTRP("name 3")
+  check(C.Nickname() == "Hogger's Bane" and C.Icon() == "INV_Misc_Note_06", "/atrp name wears a lesser one: " .. tostring(C.Nickname()))
+  check(ns.TRP.FIELDS.nickname.read(profiles[ns.char.profileID]) == "Hogger's Bane", "and writes it: " .. tostring(ns.TRP.FIELDS.nickname.read(profiles[ns.char.profileID])))
+  SlashCmdList.AUTOTRP("name vancleef's bane")
+  check(C.Nickname() == "VanCleef's Bane", "/atrp name takes the name itself")
+  SlashCmdList.AUTOTRP("name 9")
+  check(C.Nickname() == "VanCleef's Bane", "a number with no name changes nothing")
+  SlashCmdList.AUTOTRP("name auto")
+  check(ns.char.chosenName == nil and C.Nickname() == "Defias-Breaker", "/atrp name auto goes back to the best")
+  ns.char.chosenName = "quest:Gone Forever"
+  check(C.Nickname() == "Defias-Breaker", "a chosen name no longer earned falls back")
+  ns.char.chosenName = nil
+
+  -- A name earned just now: noticed once, proud, a line in chat, and the Lately glance.
+  ns.char.names = nil
+  check(#C.NoticeNames() == 0 and ns.char.names["quest:The Defias Brotherhood"], "names already earned are taken in quietly")
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end
+  ns.char.mood.emo.proud = nil
+  ChronicleCharDB.quests[#ChronicleCharDB.quests + 1] = { time = NOW - 5, title = "The People's Militia", status = "completed", zone = "Westfall" }
+  ChronicleCharDB.quests[#ChronicleCharDB.quests + 1] = { time = NOW - 200000, title = "Big Game Hunter", status = "completed" }
+  C.SourcesChanged(); C.Refresh()
+  ns.Mood.Watch()
+  DEFAULT_CHAT_FRAME.AddMessage = oldChat
+  local line = table.concat(said, " ")
+  check(line:find("A name has stuck: \"Militia-Hand\"", 1, true) and line:find("Look after your own", 1, true), "a new name is told in chat: " .. line)
+  check(not line:find("Bangalash", 1, true), "a deed days old is taken in quietly")
+  check((ns.char.mood.emo.proud or 0) >= 20, "a new name makes them proud")
+  check(line:find("You still go by \"Defias-Breaker\"", 1, true), "and says which name is still worn")
+  check(#C.NoticeNames() == 0, "and is told only once")
+  local g = C.LatelyGlance()
+  check(g.TI == "A Name Earned" and g.TX:find("Militia-Hand", 1, true), "Lately: a name earned lately: " .. tostring(g.TX))
+  NOW = NOW + 3 * 86400
+  C.SourcesChanged(); C.Refresh()
+  check(C.LatelyGlance().TI ~= "A Name Earned", "and lets it go after a couple of days")
+  NOW = NOW - 3 * 86400
+
+  -- The data: every entry is whole, every story is one RPG Dialogue has, names are unique.
+  local bad, nicks = {}, {}
+  local function whole(where, e)
+    if type(e.nick) ~= "string" or e.nick == "" or type(e.icon) ~= "string" then bad[#bad + 1] = where end
+    if e.motto and not e.motto:find("[%.!%?]$") then bad[#bad + 1] = where .. " motto" end
+  end
+  for id, e in pairs(W.EARNED_STORY) do
+    whole("story " .. id, e)
+    if not ns.RPGDNames.threads[id] then bad[#bad + 1] = "story " .. id .. " not in RPG Dialogue" end
+  end
+  for title, e in pairs(W.EARNED_QUEST) do
+    whole("quest " .. title, e)
+    if type(e.deed) ~= "string" or not e.tier then bad[#bad + 1] = "quest " .. title .. " deed/tier" end
+  end
+  for i, e in ipairs(W.EARNED_BOSS) do
+    whole("boss " .. tostring(e.name), e)
+    if nicks[e.nick] then bad[#bad + 1] = "boss nick twice: " .. e.nick end
+    nicks[e.nick] = true
+  end
+  check(#bad == 0, "earned-name data is whole: " .. table.concat(bad, ", "))
+  check(#W.EARNED_BOSS >= 30, "every dungeon and raid master: " .. #W.EARNED_BOSS)
+
+  ChronicleCharDB.quests = {}
+  RPGDialogueCharDB.threads, ChronicleCharDB.bosses = threads, bosses
+  ns.char.names = nil
+  C.SourcesChanged(); C.Refresh()
 end
 
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
@@ -825,7 +941,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then

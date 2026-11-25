@@ -676,6 +676,18 @@ function Mood.Watch()
     watch(seen, "goalsDone", chron.goalsDone, function(d) if d > 0 then Mood.Push("elated", 40, "reached a goal") end end)
     watch(seen, "rares", chron.rares, function(d) if d > 0 then Mood.Push("thrilled", 25, "spotted a rare beast") end end)
   end
+  -- A name earned: proud, and a quiet line in your own chat (never sent to anyone).
+  if ns.Compose and ns.Compose.NoticeNames then
+    for _, e in ipairs(ns.Compose.NoticeNames()) do
+      Mood.Push("proud", 40, "came to be called " .. e.nick)
+      if not ns.db.quiet then
+        local worn = ns.Compose.Earned()
+        local still = worn and worn.key ~= e.key and (" You still go by \"" .. worn.nick .. "\"; |cffffd100/atrp names|r to choose.") or ""
+        ns.Print("|cffd0d0ffA name has stuck: \"" .. e.nick .. "\" (" .. e.deed:gsub("^%u", string.lower) .. ")."
+          .. (e.motto and (" The saying that came with it: \"" .. e.motto .. "\"") or "") .. "|r" .. still)
+      end
+    end
+  end
 end
 
 ns.Listen("LOGIN", function()
