@@ -35,6 +35,13 @@ local function seed(key)
   return (ns.char and ns.char.seedName or "") .. ":" .. key
 end
 
+-- A way of saying something, from W.SAY: picked per character and per `which` (an event's
+-- time, say), with {placeholders} filled from vars. Pronoun tags are left for U.Pron.
+local function say(key, vars, which)
+  local line = U.Pick(W.SAY[key], seed("say:" .. key .. ":" .. tostring(which or "")))
+  return (line:gsub("{(%a+)}", function(k) if vars and vars[k] ~= nil then return vars[k] end end))
+end
+
 local function firstName()
   return (ns.TRP and ns.TRP.FirstName and ns.TRP.FirstName()) or U.Call(UnitName, "player") or "This one"
 end
@@ -87,10 +94,13 @@ function Compose.Currently(mood)
   local world = ns.cache.world
   local s = seed("act:" .. (world.zone or "") .. (world.subzone or ""))
   local intent = Compose.Intent()
-  local tod = ns.World.TimeOfDay(world)
+  local tod = ns.World.TimeOfDay(world, s)
   local function build(withAlso, terse, withTod)
     local text = mood.adj
-    if withAlso and mood.also then text = text .. " and " .. mood.also end
+    -- "Weary and uneasy", but "In no hurry, hale and hearty" rather than a run of ands.
+    if withAlso and mood.also then
+      text = text .. ((text:find(" and ") or mood.also:find(" and ")) and ", " or " and ") .. mood.also
+    end
     text = text .. ", " .. ns.World.Activity(world, s, terse)
     if withTod and tod then text = text .. " " .. tod end
     text = text .. "."
@@ -111,12 +121,6 @@ function Compose.MoodGlance(mood)
   return { TI = mood.title, TX = mood.tell, IC = mood.icon }
 end
 
-local THREAD_PHRASE = {
-  stirring = { "Has been asking around about %s.", "Has caught wind of %s." },
-  unfolding = { "Is caught up in %s.", "Can't leave %s alone." },
-  resolved = { "Saw %s through to the end.", "Had a hand in settling %s." },
-  soured = { "Watched %s go badly wrong.", "Was there when %s went sour." },
-}
 
 -- "The broken Span" reads "the broken Span" mid-sentence; "Westfall, left to fend for
 -- itself" keeps its capital, because Westfall is a name.
@@ -144,32 +148,30 @@ function Compose.LatelyGlance()
   local boss = chron and chron.bosses[1]
   if boss and within(boss.t, 2 * 86400) then
     add(boss.t, 2, { TI = "Fresh Victory", IC = "INV_Misc_Head_Dragon_01",
-      TX = "Was there when " .. boss.name .. " fell" .. (boss.where and (" in " .. U.Mid(boss.where)) or "") .. "." })
+      TX = say("boss", { who = boss.name, where = boss.where and (" in " .. U.Mid(boss.where)) or "" }, boss.t) })
   end
   local cleared = rpgd and rpgd.cleared[1]
   if cleared and within(cleared.t, 3 * 86400) then
     add(cleared.t, 2, { TI = "Back From the Depths", IC = "INV_Misc_Key_14",
-      TX = "Has just come back up out of " .. U.Mid(cleared.name) .. "." })
+      TX = say("cleared", { place = U.Mid(cleared.name) }, cleared.t) })
   end
   local thread = rpgd and rpgd.threads[1]
-  if thread and within(thread.t, 3 * 86400) and THREAD_PHRASE[thread.state] then
+  if thread and within(thread.t, 3 * 86400) and W.SAY["thread_" .. tostring(thread.state)] then
     add(thread.t, 1, { TI = thread.state == "resolved" and "Loose Ends Tied" or "Caught Up in Something",
-      IC = "INV_Misc_Note_02", TX = U.Pick(THREAD_PHRASE[thread.state], seed(thread.id)):format(lowerFirst(thread.title)) })
+      IC = "INV_Misc_Note_02", TX = say("thread_" .. thread.state, { t = lowerFirst(thread.title) }, thread.id) })
   end
   -- A fight just now
   local fight = ns.char and ns.char.lastFight
   if fight and type(fight.foe) == "table" and within(fight.t, 300) then
     local who = fight.foe.named and fight.foe.name or article(fight.foe.name)
-    local tx = fight.close and ("Barely survived a fight with " .. who)
-      or fight.long and ("Fresh from a long, hard fight with " .. who)
-      or ("Fresh from a fight with " .. who)
-    add(fight.t, fight.close and 2 or 0, { TI = fight.close and "Close Call" or "Blood Up", IC = "Ability_DualWield", TX = tx .. "." })
+    local tx = say(fight.close and "fight_close" or fight.long and "fight_long" or "fight", { who = who }, fight.t)
+    add(fight.t, fight.close and 2 or 0, { TI = fight.close and "Close Call" or "Blood Up", IC = "Ability_DualWield", TX = tx })
   end
   -- A job just finished (Chronicle keeps the quest's name)
   local q = chron and chron.lastQuest
   if q and within(q.t, 1800) then
     add(q.t, 0, { TI = "A Job Done", IC = "INV_Misc_Note_06",
-      TX = "Just saw a job through: \"" .. q.title .. "\"" .. (q.zone and (", in " .. U.Mid(q.zone)) or "") .. "." })
+      TX = say("job", { q = "\"" .. q.title .. "\"", where = q.zone and (", in " .. U.Mid(q.zone)) or "" }, q.t) })
   end
 
   -- A conversation just now in RPG Dialogue
@@ -177,19 +179,19 @@ function Compose.LatelyGlance()
   if talk and within(talk.last, 1800) then
     local how = talk.affinity >= 3 and "warmly" or talk.affinity <= -3 and "coldly" or nil
     add(talk.last, 1, { TI = "Lately", IC = "INV_Letter_15",
-      TX = "Was just " .. (how and ("talking " .. how .. " with ") or "talking with ") .. talk.name
-        .. (talk.zone and (" in " .. U.Mid(talk.zone)) or "") .. "." })
+      TX = say("talk", { how = how and (how .. " ") or "", who = talk.name,
+        where = talk.zone and (" in " .. U.Mid(talk.zone)) or "" }, talk.last) })
   end
   local finds = ns.char and ns.char.finds
   local find = finds and finds[#finds]
   if find and within(find.t, 86400) then
     add(find.t, 2, { TI = "A New Prize", IC = "INV_Misc_Gem_Pearl_04",
-      TX = "Recently found " .. find.item .. (find.zone and (" in " .. U.Mid(find.zone)) or "") .. "." })
+      TX = say("find", { item = find.item, where = find.zone and (" in " .. U.Mid(find.zone)) or "" }, find.t) })
   end
   local zone = rpgd and rpgd.zones[#rpgd.zones]
   if zone and within(zone.t, 86400) and #rpgd.zones > 2 then
     add(zone.t, 0, { TI = "New in Town", IC = "INV_Misc_Map_01",
-      TX = "New to " .. U.Mid(zone.name) .. ", and seeing it for the first time." })
+      TX = say("newzone", { zone = U.Mid(zone.name) }, zone.t) })
   end
 
   table.sort(cands, function(a, b)
@@ -207,11 +209,11 @@ function Compose.LatelyGlance()
       for _, p in ipairs(list) do if not last or p.last > last.last then last = p end end
     end
     if last and within(last.last, 86400) then
-      return { TI = "Lately", IC = "INV_Letter_15", TX = "Was last seen in conversation with " .. last.name .. "." }
+      return { TI = "Lately", IC = "INV_Letter_15", TX = say("lastseen", { who = last.name }, last.last) }
     end
   end
   local where = world.zone and U.Mid(world.zone) or "these parts"
-  return { TI = "Lately", IC = "INV_Misc_Map_01", TX = "Has been around " .. where .. " lately." }
+  return { TI = "Lately", IC = "INV_Misc_Map_01", TX = say("around", { where = where }, world.zone) }
 end
 
 function Compose.CompanyGlance()
@@ -220,12 +222,12 @@ function Compose.CompanyGlance()
   local n = world.groupSize or 0
   if world.grouped and world.raid and n > 5 then
     return { TI = "Part of a Host", IC = "INV_BannerPVP_02",
-      TX = "Marching with a host of " .. U.Number(n) .. "." }
+      TX = say("host", { n = U.Number(n) }, n) }
   end
   if world.grouped and n > 1 then
     local party = Compose.PartyWords()
     return { TI = "In Company", IC = "Spell_Holy_PrayerOfSpirit",
-      TX = "Travelling with " .. (party or (n == 2 and "a companion" or ("a band of " .. U.Number(n)))) .. "." }
+      TX = say("party", { party = party or (n == 2 and "a companion" or ("a band of " .. U.Number(n))) }, party) }
   end
   if sd and ns.db.nameFriends and sd.friends[1] then
     local f = sd.friends[1]
@@ -252,11 +254,12 @@ function Compose.CompanyGlance()
   if world.pet and (world.class == "HUNTER" or world.class == "WARLOCK") then
     local mood = world.petHappy and W.PET_HAPPY[world.petHappy]
     return { TI = "Travels Light", IC = "Ability_Hunter_BeastCall",
-      TX = "Travels with no one but " .. world.pet .. (world.petKind and (" the " .. world.petKind:lower()) or "") .. (mood and (", " .. mood) or "") .. "." }
+      TX = U.Pron(say("pet_only", { pet = world.pet .. (world.petKind and (" the " .. world.petKind:lower()) or ""),
+        mood = mood and (", " .. mood) or "" }, world.pet)) }
   end
   local reserved = rpgd and ((rpgd.traits.reserved or 0) >= 3)
   return { TI = "Travels Alone", IC = "Spell_Shadow_Teleport",
-    TX = reserved and "Travels alone, and keeps conversations short." or "Travels alone." }
+    TX = U.Pron(say(reserved and "alone_reserved" or "alone", nil, world.zone)) }
 end
 
 -- "a priest, a mage and two warriors" from the party's classes.
@@ -291,7 +294,7 @@ function Compose.AmbitionGlance()
   for _, t in ipairs(rpgd and rpgd.threads or {}) do
     if t.state == "unfolding" or t.state == "stirring" then
       return { TI = "Unfinished Business", IC = "INV_Misc_Note_02",
-        TX = "Wants to get to the bottom of " .. lowerFirst(t.title) .. "." }
+        TX = say("unfinished", { t = lowerFirst(t.title) }, t.id) }
     end
   end
   -- Nothing they've set out to do: the next rank on their road, which the game will give them.
@@ -299,7 +302,7 @@ function Compose.AmbitionGlance()
   local ranks = Compose.Ranks(world)
   local now, nextRank = ranks[band(level)], ranks[band(level) + 1]
   if nextRank and nextRank ~= now then
-    return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = "Working toward the rank of " .. nextRank .. "." }
+    return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = U.Pron(say("nextrank", { rank = nextRank }, nextRank)) }
   end
   local list = W.AMBITIONS[world.class or ""] or W.AMBITIONS.default
   return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = U.Pron(U.Pick(list, seed("ambition"))) }
@@ -374,7 +377,7 @@ function Compose.MarksGlance()
   if wear and wear.band.glance then mark(5, wear.band.glance, U.Cap(wear.text) .. ".", "INV_Hammer_20") end
   local finest = g.finest or (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
   if finest and finest.name and finest.quality >= 4 then
-    mark(4, "Remarkable Gear", "{their} " .. finest.name .. " is the first thing people notice.", "INV_Misc_Gem_Pearl_04")
+    mark(4, "Remarkable Gear", say("remarkable", { item = finest.name }, finest.name), "INV_Misc_Gem_Pearl_04")
   end
   table.sort(marks, function(a, b) return a.prio > b.prio end)
   if marks[1] then
@@ -387,7 +390,7 @@ function Compose.MarksGlance()
   if k and classMark then return { TI = "Kit", IC = "INV_Chest_Chain_05", TX = k .. " " .. classMark } end
   if k then return { TI = "Kit", IC = "INV_Chest_Chain_05", TX = k } end
   if classMark then return { TI = "At a Glance", IC = "INV_Chest_Chain_05", TX = classMark } end
-  return { TI = "At a Glance", IC = "INV_Shirt_05", TX = U.Pron("Gives little away at first glance.") }
+  return { TI = "At a Glance", IC = "INV_Shirt_05", TX = U.Pron(say("plain", nil, world.zone)) }
 end
 
 ---------------------------------------------------------------------------
@@ -557,7 +560,7 @@ function Compose.Bearing()
       .. (extra > 0 and (", and " .. U.Number(extra) .. " " .. U.Plural(extra, "other book") .. " besides") or "")
   end
   local hooks = Compose.Hooks()
-  local stories = #hooks > 0 and paragraph({ "Has stories about " .. U.Join(hooks) }) or nil
+  local stories = #hooks > 0 and paragraph({ say("stories", { list = U.Join(hooks) }) }) or nil
 
   return pages({ paragraph(first), #views > 0 and paragraph({ name .. " " .. views[1], views[2] }) or nil, paragraph(more), stories })
 end
@@ -659,12 +662,12 @@ function Compose.History()
     road[#road + 1] = name .. " left " .. zones[1].name .. (ago and (" " .. ago) or "") .. " and has seen "
       .. U.Number(zoneCount) .. " lands since" .. (dungeons >= 2 and (", and the inside of " .. U.Number(dungeons) .. " dungeons") or "")
     local last = zones[#zones]
-    if last and last.name ~= zones[1].name then road[#road + 1] = "The last new place {they} reached was " .. placeName(last.name) end
+    if last and last.name ~= zones[1].name then road[#road + 1] = say("lastplace", { place = placeName(last.name) }, last.name) end
   elseif (world.level or 1) < 10 then
-    road[#road + 1] = name .. " has only just set out, and hasn't been far from home yet"
+    road[#road + 1] = say("setout", { name = name })
   end
   if rpgd and rpgd.homeInn then
-    local s = "Calls " .. placeName(rpgd.homeInn) .. " home"
+    local s = say("home", { inn = placeName(rpgd.homeInn) }, rpgd.homeInn)
     if rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and within(rpgd.homeSince, 14 * 86400) then
       s = s .. " now, having moved from " .. placeName(rpgd.homePrev)
     end
@@ -688,7 +691,7 @@ function Compose.History()
     local friends = {}
     for i = 1, math.min(2, #rpgd.friends) do friends[i] = rpgd.friends[i].name end
     if #friends > 0 then
-      people[#people + 1] = name .. " counts " .. U.Join(friends) .. " among {their} friends"
+      people[#people + 1] = say("friends", { name = name, list = U.Join(friends) }, friends[1])
     end
     local good, bad = {}, nil
     for _, t in ipairs(rpgd.towns) do
@@ -734,7 +737,7 @@ function Compose.History()
   end
   if #served > 0 then people[#people + 1] = "Has done good work for " .. U.Join(served) end
   if rpgd and rpgd.rivals[1] then
-    people[#people + 1] = "There is no love lost between {them} and " .. rpgd.rivals[1].name
+    people[#people + 1] = say("rival", { who = rpgd.rivals[1].name }, rpgd.rivals[1].name)
   end
   if sd and #sd.foes > 0 then
     people[#people + 1] = "Has made " .. (#sd.foes == 1 and "an enemy" or (U.Number(#sd.foes) .. " enemies")) .. " on the road"
@@ -756,13 +759,13 @@ function Compose.History()
     end
     local places = {}
     for i = 1, math.min(3, #rpgd.cleared) do places[i] = U.Mid(rpgd.cleared[i].name) end
-    if #places > 0 then deeds[#deeds + 1] = "Has gone down into " .. U.Join(places) .. " and come back up" end
+    if #places > 0 then deeds[#deeds + 1] = say("delved", { list = U.Join(places) }, places[1]) end
   end
   if chron then
-    if #chron.bosses >= 3 then deeds[#deeds + 1] = "Has helped bring down " .. U.Number(#chron.bosses) .. " named foes, the latest " .. chron.bosses[1].name
-    elseif chron.bosses[1] then deeds[#deeds + 1] = "Was there when " .. chron.bosses[1].name .. " fell" end
-    if chron.rares >= 5 then deeds[#deeds + 1] = "Has tracked down " .. U.Number(chron.rares) .. " rare beasts" end
-    if chron.questsDone >= 25 then deeds[#deeds + 1] = "Has seen " .. U.Roughly(chron.questsDone) .. " jobs through for the people who asked" end
+    if #chron.bosses >= 3 then deeds[#deeds + 1] = say("bosses", { n = U.Number(#chron.bosses), who = chron.bosses[1].name }, chron.bosses[1].name)
+    elseif chron.bosses[1] then deeds[#deeds + 1] = say("boss", { who = chron.bosses[1].name, where = "" }, chron.bosses[1].name) end
+    if chron.rares >= 5 then deeds[#deeds + 1] = say("rares", { n = U.Number(chron.rares) }) end
+    if chron.questsDone >= 25 then deeds[#deeds + 1] = say("jobs", { n = U.Roughly(chron.questsDone) }) end
   end
   local kills = rpgd and rpgd.kills or 0
   local grudge = rpgd and rpgd.grudge and rpgd.grudge.n >= 40 and rpgd.grudge
@@ -779,7 +782,7 @@ function Compose.History()
     local noun = W.PROF_NOUN[p.name:lower()]
     if p.rank >= 50 and noun then crafts[#crafts + 1] = profWord(p.rank) .. " " .. noun end
   end
-  if #crafts > 0 then deeds[#deeds + 1] = "Is " .. U.Join(crafts) end
+  if #crafts > 0 then deeds[#deeds + 1] = say("crafts", { list = U.Join(crafts) }) end
   local finds = ns.char and ns.char.finds or {}
   if #finds > 0 then
     local items = {}
@@ -787,7 +790,7 @@ function Compose.History()
       local f = finds[i]
       items[#items + 1] = itemName(f.item, f.quality) .. (f.zone and (" from " .. U.Mid(f.zone)) or "")
     end
-    deeds[#deeds + 1] = "Found " .. U.Join(items)
+    deeds[#deeds + 1] = say("finds", { list = U.Join(items) }, finds[#finds].item)
   end
   paras[#paras + 1] = paragraph(deeds)
 
