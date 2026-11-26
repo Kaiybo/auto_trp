@@ -5,6 +5,7 @@
 - **Where the days go.** Auto TRP now notes how long your character spends in each land (counted every half minute; not while you're away from the keyboard or on a flight, and a loading screen never counts as more than one tick).
 - A new statistic, *Most time spent*: "Westfall, 14 hours". It has its own switch and appears after an hour in one place.
 - History says it once one land clearly holds the most of your time (at least three hours, a quarter of all of it, and well ahead of the next): "Spends more of her days in Westfall than anywhere else."
+- The *Lately* glance notices when another land takes over (for a couple of days): "Lately he's been seen more in Duskwood than in Westfall." The first land found is taken in quietly.
 - `/atrp places` lists the five lands you've spent the most time in, and since when.
 
 ## 0.20.0 (2026-11-25): In Good Order

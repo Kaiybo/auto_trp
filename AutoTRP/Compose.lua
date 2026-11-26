@@ -176,6 +176,13 @@ local function lowerFirst(s)
   return s
 end
 
+-- "the Scarlet Raven Tavern", "Stormwind City", "the Barrens".
+local function placeName(n)
+  if n:find("^The ") then return U.Mid(n) end
+  if ns.World.IsInn(n) then return "the " .. n end
+  return n
+end
+
 function Compose.LatelyGlance()
   local c = ns.cache
   local rpgd, chron, world = c.rpgd, c.chronicle, c.world
@@ -210,6 +217,12 @@ function Compose.LatelyGlance()
   if fresh then
     add(freshT, 2, { TI = "A Name Earned", IC = fresh.icon or "INV_Misc_Note_04",
       TX = U.Pron(say("newname", { nick = "\"" .. fresh.nick .. "\"" }, fresh.key)) })
+  end
+  -- A new home ground: more of their days in a land than the one before it
+  local hg = Compose.NoteHomeGround()
+  if hg and hg.prev and within(hg.t, 2 * 86400) then
+    add(hg.t, 1, { TI = "New Haunts", IC = "INV_Misc_Map_02",
+      TX = U.Pron(say("newground", { place = placeName(hg.name), was = placeName(hg.prev) }, hg.t)) })
   end
   -- A fight just now
   local fight = ns.char and ns.char.lastFight
@@ -608,6 +621,21 @@ function Compose.HomeGround()
   return first.name
 end
 
+-- The home ground, remembered: { name, t } with when it last changed. The first one found
+-- is taken in quietly (t = 1); one that takes over from another later is news for Lately.
+function Compose.NoteHomeGround()
+  if not ns.char then return nil end
+  local now = Compose.HomeGround()
+  if not now then return ns.char.homeGround end
+  local was = ns.char.homeGround
+  if type(was) ~= "table" or not was.name then
+    ns.char.homeGround = { name = now, t = 1 }
+  elseif was.name ~= now then
+    ns.char.homeGround = { name = now, t = U.Now(), prev = was.name }
+  end
+  return ns.char.homeGround
+end
+
 -- The most cast spell, said plainly, once it has been cast often enough to mean something.
 function Compose.FavouriteSpell()
   local top = Compose.TopSpells(1)[1]
@@ -735,12 +763,6 @@ local function profWord(rank)
   return "an apprentice"
 end
 
--- "the Scarlet Raven Tavern", "Stormwind City", "the Barrens".
-local function placeName(n)
-  if n:find("^The ") then return U.Mid(n) end
-  if ns.World.IsInn(n) then return "the " .. n end
-  return n
-end
 
 function Compose.History()
   local c = ns.cache

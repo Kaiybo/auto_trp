@@ -2254,6 +2254,9 @@ W.SAY = {
   homeground = { "Spends more of {their} days in {place} than anywhere else",
     "Of all the lands {they've} walked, {place} has had the most of {their} time",
     "Keeps coming back to {place}, more than to anywhere else" },
+  newground = { "Has been spending more of {their} days in {place} than in {was} lately.",
+    "Lately {they've} been seen more in {place} than in {was}.",
+    "These days {place} sees more of {them} than {was} does." },
   newname = { "Has lately come to be called {nick}.", "Some have started calling {them} {nick}.",
     "Answers to {nick} now, a name earned only lately." },
 }

@@ -1242,6 +1242,15 @@ do
   check(C.TopPlaces(2)[2].name == "Elwynn Forest" and #C.TopPlaces(2) == 2, "most time first")
   check(C.HomeGround() == "Westfall", "one land holds most of the time")
   check(C.History():find("Westfall", 1, true), "History says where the days go")
+  ns.char.homeGround = nil
+  check(C.NoteHomeGround().name == "Westfall" and not ns.char.homeGround.prev, "the first home ground is taken in quietly")
+  check(not C.LatelyGlance().TX:find("Westfall than", 1, true), "and isn't news")
+  ns.char.haunts.t.Duskwood = 9 * 3600
+  local lately = C.LatelyGlance()
+  check(ns.char.homeGround.name == "Duskwood" and ns.char.homeGround.prev == "Westfall", "a new home ground takes over")
+  check(lately.TI == "New Haunts", "and is news for Lately: " .. tostring(lately.TX))
+  ns.char.haunts.t.Duskwood = 1800
+  ns.char.homeGround = nil
   ns.char.haunts.t["Elwynn Forest"] = 3.9 * 3600
   check(C.HomeGround() == nil, "two lands neck and neck: no line")
   check(C.Duration(59) == "under a minute" and C.Duration(90) == "a minute", "durations read plainly")
@@ -1304,7 +1313,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", was = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then
