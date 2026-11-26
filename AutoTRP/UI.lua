@@ -72,10 +72,7 @@ function UI.Update(force, fresh, mood)
   if only.history then lastSlow, slowDue = now, false end
   if force then
     if #changed > 0 then
-      local names = {}
-      for i, k in ipairs(changed) do names[i] = TRP.LABELS[k] or k end
-      table.sort(names)
-      ns.Print("Updated: " .. table.concat(names, ", ") .. ".")
+      ns.Print("Updated " .. TRP.Describe(changed) .. ".")
     else
       ns.Print("Your profile is already up to date.")
     end

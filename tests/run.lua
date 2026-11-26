@@ -1306,6 +1306,16 @@ do
   check(not (p:find("calm%-faced") and p:find("Calm%-eyed")), "the class look doesn't echo the build")
 end
 
+-- What was written, said the way a person would.
+do
+  local D = ns.TRP.Describe
+  check(D({ "glance_mood", "currently" }) == "Currently and the mood glance", D({ "glance_mood", "currently" }))
+  check(D({ "stat_wealth", "history", "stat_deaths" }) == "About: History and two statistics (deaths and wealth)",
+    D({ "stat_wealth", "history", "stat_deaths" }))
+  check(D({ "glance_mood", "glance_lately", "glance_company", "glance_ambition", "glance_marks" }) == "all five glances", "all five")
+  check(D({ "stat_crafts" }) == "the crafts statistic", D({ "stat_crafts" }))
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },

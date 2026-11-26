@@ -193,8 +193,10 @@ function Compose.LatelyGlance()
   local cdeath = chron and chron.deaths[1]
   if cdeath and (not death or cdeath.t > death.t) then death = cdeath end
   if death and within(death.t, 2 * 86400) then
+    -- Fresh, it's still with them; a day or two on, they're plainly up and about again,
+    -- which is what a reader sees in Currently and the mood.
     local tx = "Was badly hurt" .. (death.killer and (" by " .. death.killer) or "") .. (death.zone and (" in " .. death.zone) or "")
-      .. (within(death.t, 3 * 3600) and ", within the last few hours" or ", a day or two ago")
+      .. (within(death.t, 3 * 3600) and ", within the last few hours" or U.Pron(" a day or two ago, but is back on {their} feet now"))
     add(death.t, 3, { TI = "Hurt", TX = tx .. ".", IC = "Spell_Holy_Resurrection" })
   end
   local boss = Compose.Bosses(c)[1]

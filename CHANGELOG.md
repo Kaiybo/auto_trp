@@ -8,6 +8,8 @@
 - The *Lately* glance notices when another land takes over (for a couple of days): "Lately he's been seen more in Duskwood than in Westfall." The first land found is taken in quietly.
 - A new statistic, *Flights taken*: every flight from a flight master, counted once, with its own switch. It sits after *Days on the road*.
 - `/atrp places` lists the five lands you've spent the most time in, and since when.
+- **Plainer chat lines.** "Updated Currently, About: History and two statistics (deaths and wealth)." instead of "Updated: About: History, Currently, Stats: deaths, Stats: wealth.", in the order the profile reads, with the glances and statistics gathered together. The same for the fields left alone because they're yours.
+- *Lately* no longer leaves a death hanging: a day or two on, it says the character is back on their feet, which matches what Currently and the mood show.
 - **Reads as one piece.** The About pages no longer say the same thing twice or break one event into scraps:
   - Personality leaves out a belief the opening line already gave ("keeps to the Light", then "keeps faith in the Light").
   - History tells a master felled in a dungeon it has just named in the same sentence: "Has been down into the Deadmines and helped bring down Edwin VanCleef there.", not "Has seen the inside of the Deadmines. Helped bring down Edwin VanCleef."
