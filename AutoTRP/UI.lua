@@ -10,7 +10,8 @@ ns.UI = UI
 ---------------------------------------------------------------------------
 -- What goes where
 ---------------------------------------------------------------------------
-local FAST = { walkup = true, currently = true, glance_mood = true, glance_lately = true, glance_company = true, glance_marks = true }
+local FAST = { walkup = true, currently = true, glance_mood = true, glance_lately = true, glance_company = true, glance_marks = true,
+  glance_ambition = true }
 
 local function values(sheet)
   local v = {
@@ -764,6 +765,7 @@ SlashCmdList.AUTOTRP = function(msg)
     if not ns.char.profileID then ns.Print("Choose a profile first: |cffffd100/atrp setup|r or |cffffd100/atrp use|r.") return end
     if eachField(arg, function(k) TRP.Claim(k) end) then ns.Print("Handed to Auto TRP: " .. arg .. "."); UI.Update(true) end
   elseif cmd == "release" then
+    if not ns.char.profileID then ns.Print("Choose a profile first: |cffffd100/atrp setup|r or |cffffd100/atrp use|r.") return end
     if eachField(arg, function(k) TRP.Release(k) end) then ns.Print("Yours again: " .. arg .. ". Auto TRP won't touch it.") end
   elseif cmd == "mood" or cmd == "why" then
     ns.Compose.Refresh()
@@ -825,15 +827,20 @@ SlashCmdList.AUTOTRP = function(msg)
     -- each slot's text goes with it, so neither is mistaken for your own words.
     local other
     for k, v in pairs(slots) do if n > 0 and v == n and k ~= which then other = k end end
+    local wasMine = mine and mine["glance_" .. which] ~= nil
+      and not (id and TRP.ReleasedBook(id)["glance_" .. which])
     if mine then
-      local a, b = mine["glance_" .. which], other and mine["glance_" .. other]
-      if other then mine["glance_" .. which], mine["glance_" .. other] = b, a
-      else mine["glance_" .. which] = nil end
+      -- Who wrote each slot, whether it's yours and what it said last all move together.
+      for _, book in ipairs({ mine, TRP.ReleasedBook(id), TRP.PreviousBook(id) }) do
+        local a, b = book["glance_" .. which], other and book["glance_" .. other]
+        if other then book["glance_" .. which], book["glance_" .. other] = b, a
+        else book["glance_" .. which] = nil end
+      end
     end
     if other then slots[other] = from end
     slots[which] = n
     -- A slot left empty is switched off if Auto TRP's text was in it.
-    if not other and from > 0 and mine and TRP.Managed() then
+    if not other and from > 0 and wasMine and TRP.Managed() then
       local profile = TRP.Managed()
       local pe = profile.player.misc and profile.player.misc.PE
       if type(pe) == "table" and type(pe[tostring(from)]) == "table" then pe[tostring(from)].AC = false end

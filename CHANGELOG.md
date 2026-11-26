@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.21.0 (2026-11-26): Roads of Their Own
+
+- **Lands and deaths without the other add-ons.** Auto TRP's own record now keeps every land your character walks into (the first time) and every death (when and where; never who did it, since the game doesn't say for sure). With neither RPG Dialogue nor Chronicle, History tells the road ("From Elwynn Forest their road has led through three lands, Duskwood the latest of them."), *Lately* hears about a new land and a fall, the statistics count *Lands explored*, *Days on the road* and *Deaths*, and grief lingers after a death instead of fading with the first shock. With the other add-ons too, the records are put together and the same death counts once.
+- **Lands from before.** The lands your mood already remembered start the record, and a little after login the game's own map exploration adds every zone you've uncovered any of. Those count towards *Lands explored* but not the days on the road, and History doesn't guess where a road it never saw began.
+- Fixed: the full title chose the first alignment over 50, not the strongest (light 55 and honesty -90 read *Lightsworn*, now *Silvertongue*).
+- Fixed: leaving a long group made your character lonely at once. Time alone now counts from when the group ends.
+- Fixed: a friend slipping a point of affinity in RPG Dialogue read as "a falling-out". Now it takes a new rival (and a new friend to cheer up).
+- Fixed: a rare error building the mood when no description fitted.
+- Fixed: `/atrp slot` could hide a glance you wrote yourself, and left whether a glance was yours behind in the old slot. `/atrp restore` now puts each glance back in the slot it was taken from.
+- Fixed: *Ambition* kept updating while *Currently* and the glances were paused out of character, and only every five minutes otherwise.
+- `/atrp release` without a profile says so instead of claiming it worked. The README now gives the real update rate (15 seconds).
+
 ## 0.20.0 (2026-11-25): In Good Order
 
 - **Fixed: some characters' profiles stopped being written.** 0.14.0 lost the class rank ladders every race shares, so a character whose race and class have no ladder of their own (a human warlock, a dwarf rogue) hit an error on every update: *Currently* and the glances kept going, but the title, About, History, statistics, nickname and the rest were never written. The ladders are back (a human warlock rises from Initiate to Summoner and on), and a new test builds the whole profile for every race and class.

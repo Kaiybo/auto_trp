@@ -18,6 +18,23 @@ local function store()
   if type(d.quests) ~= "table" then d.quests = {} end
   if type(d.bosses) ~= "table" then d.bosses = {} end
   d.n = tonumber(d.n) or 0
+  if type(d.lands) ~= "table" then
+    -- 0.21.0: the lands the mood already remembered (first time in each) start the record.
+    d.lands = {}
+    local seen = type(ns.char.seen) == "table" and type(ns.char.seen.zones) == "table" and ns.char.seen.zones or {}
+    for zone, t in pairs(seen) do
+      if type(zone) == "string" and type(t) == "number" then d.lands[zone] = { t = t } end
+    end
+  end
+  if type(d.deaths) ~= "table" then d.deaths = {} end
+  d.deathCount = tonumber(d.deathCount) or #d.deaths
+  if not tonumber(d.since) then
+    local since = U.Now()
+    for _, list in ipairs({ d.lands, d.quests }) do
+      for _, x in pairs(list) do if (tonumber(x.t) or 0) > 1 and x.t < since then since = x.t end end
+    end
+    d.since = since
+  end
   return d
 end
 
@@ -68,13 +85,40 @@ function D.Boss(name, where, t)
   return true
 end
 
+D.KEEP_DEATHS = 100    -- the count goes on; only the oldest details are forgotten
+
+-- A land walked into. Only the first time counts.
+function D.Land(name, t)
+  local d = store()
+  name = U.Plain(name)
+  if not d or not name or d.lands[name] then return false end
+  d.lands[name] = { t = t or U.Now() }
+  if ns.Compose then ns.Compose.SourcesChanged() end
+  return true
+end
+
+-- A death: when and where. (Not who did it: the game doesn't say for sure.)
+function D.Death(where, t)
+  local d = store()
+  if not d then return false end
+  d.deathCount = d.deathCount + 1
+  d.deaths[#d.deaths + 1] = { t = t or U.Now(), zone = U.Plain(where) or zone() }
+  while #d.deaths > D.KEEP_DEATHS do table.remove(d.deaths, 1) end
+  if ns.Compose then ns.Compose.SourcesChanged() end
+  return true
+end
+
 -- { finished = { [title] = { t, zone } }, bosses = { { name, first, t (the latest), where }, latest first },
 --   lastQuest = { title, t, zone } (the latest seen turned in, not one taken in by the backfill) }
 -- A fresh table each time, so what's built from it notices a change.
 function D.Read()
   local d = store()
   if not d then return nil end
-  local out = { finished = {}, bosses = {} }
+  local out = { finished = {}, bosses = {}, zones = {}, deaths = {}, deathCount = d.deathCount, since = d.since }
+  -- Lands, the first walked into first (backfilled ones, their time unknown, before any).
+  for name, l in pairs(d.lands) do out.zones[#out.zones + 1] = { name = name, t = tonumber(l.t) or 1, before = l.before } end
+  table.sort(out.zones, function(a, b) if a.t ~= b.t then return a.t < b.t end return a.name < b.name end)
+  for i, x in ipairs(d.deaths) do out.deaths[i] = { t = x.t or 0, zone = x.zone } end
   for title, q in pairs(d.quests) do
     out.finished[title] = { t = q.t or 0, zone = q.zone }
     if not q.before and (q.t or 0) > 1 and (not out.lastQuest or q.t > out.lastQuest.t) then
@@ -109,6 +153,11 @@ ns.On("ENCOUNTER_END", function(_, _, name, _, _, success)
   D.Boss(name, U.Plain(instance))
 end)
 
+ns.On("PLAYER_DEAD", function() D.Death() end)
+local function arrived() D.Land(zone()) end
+ns.On("ZONE_CHANGED_NEW_AREA", arrived)
+ns.On("PLAYER_ENTERING_WORLD", arrived)
+
 -- Chains finished before Auto TRP kept its own record: where the game can list the quests
 -- a character has ever completed and name them, the ones that earn a name are taken in
 -- (their time unknown, so they count as the earliest). Once per session, a little after
@@ -131,4 +180,23 @@ function D.Backfill()
   if added > 0 and ns.Compose then ns.Compose.SourcesChanged() end
   return added
 end
-ns.Listen("LOGIN", function() ns.After(20, D.Backfill) end)
+ns.Listen("LOGIN", function() ns.After(20, function() D.BackfillLands(); D.Backfill() end) end)
+
+-- Lands walked before the record began: a zone whose map has any part uncovered has been
+-- visited (the game's own exploration). Their time is unknown, so they count as earliest.
+function D.BackfillLands()
+  local d = store()
+  local ME, M = _G.C_MapExplorationInfo, _G.C_Map
+  if not d or not ME or type(ME.GetExploredMapTextures) ~= "function" then return 0 end
+  local added = 0
+  for mapID, english in pairs(ns.Words.ZONE_BY_MAP or {}) do
+    local tex = U.Call(ME.GetExploredMapTextures, mapID)
+    if type(tex) == "table" and #tex > 0 then
+      local info = M and M.GetMapInfo and U.Call(M.GetMapInfo, mapID)
+      local name = U.Plain(type(info) == "table" and info.name or nil) or english
+      if name and not d.lands[name] then d.lands[name] = { t = 1, before = true }; added = added + 1 end
+    end
+  end
+  if added > 0 and ns.Compose then ns.Compose.SourcesChanged() end
+  return added
+end

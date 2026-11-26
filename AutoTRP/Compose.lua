@@ -60,6 +60,66 @@ function Compose.QuestsDone(c) return mergedFor(c or ns.cache).questsDone end
 -- The latest quest turned in, from either record: { title, t, zone } or nil.
 function Compose.LastQuest(c) return mergedFor(c or ns.cache).lastQuest end
 
+-- When the road began, as far as any record knows (a real time, never a backfilled one).
+function Compose.RoadSince(c)
+  c = c or ns.cache
+  local since = math.huge
+  local known = { c.rpgd and c.rpgd.zones[1] and c.rpgd.zones[1].t or false, c.chronicle and c.chronicle.created or false,
+    c.deeds and c.deeds.since or false }   -- false, not nil: ipairs stops at a nil
+  for _, t in ipairs(known) do
+    t = tonumber(t)
+    if t and t > 1 and t < since then since = t end
+  end
+  return since < math.huge and since or nil
+end
+
+-- Every land walked, from RPG Dialogue and Auto TRP's own record together, the first
+-- first: { name, t, before } (before: walked before any record began, when unknown).
+local landsMerged = {}
+function Compose.Lands(c)
+  c = c or ns.cache
+  if landsMerged.rpgd == c.rpgd and landsMerged.deeds == c.deeds and landsMerged.list then return landsMerged.list end
+  local byName = {}
+  for _, src in ipairs({ c.rpgd and c.rpgd.zones or {}, c.deeds and c.deeds.zones or {} }) do
+    for _, z in ipairs(src) do
+      local t = tonumber(z.t) or 1
+      if t <= 1 then t = 1 end
+      local have = byName[z.name]
+      if not have then byName[z.name] = { name = z.name, t = t }
+      elseif t < have.t then have.t = t end
+      byName[z.name].before = byName[z.name].t <= 1
+    end
+  end
+  local list = {}
+  for _, z in pairs(byName) do list[#list + 1] = z end
+  table.sort(list, function(a, b) if a.t ~= b.t then return a.t < b.t end return a.name < b.name end)
+  landsMerged = { rpgd = c.rpgd, deeds = c.deeds, list = list }
+  return list
+end
+
+-- How many lands: the merged record, or Chronicle's count if it knows more.
+function Compose.LandCount(c)
+  c = c or ns.cache
+  return math.max(#Compose.Lands(c), c.chronicle and c.chronicle.zones or 0)
+end
+
+-- The latest death any record knows of: { t, zone, killer } or nil.
+function Compose.LastDeath(c)
+  c = c or ns.cache
+  local best
+  local function offer(d) if d and (d.t or 0) > 0 and (not best or d.t > best.t) then best = d end end
+  offer(c.rpgd and c.rpgd.deaths[#c.rpgd.deaths])
+  offer(c.chronicle and c.chronicle.deaths[1])
+  offer(c.deeds and c.deeds.deaths[#c.deeds.deaths])
+  -- The same death in two records: keep the one that names the killer.
+  if best and not best.killer then
+    for _, d in ipairs({ c.rpgd and c.rpgd.deaths[#c.rpgd.deaths] or false, c.chronicle and c.chronicle.deaths[1] or false }) do
+      if d and d.killer and math.abs((d.t or 0) - best.t) < 30 then best = d end
+    end
+  end
+  return best
+end
+
 function Compose.Refresh()
   local S = ns.Sources
   local c = ns.cache
@@ -112,7 +172,8 @@ local function seasoned(level, key)
 end
 
 local function deathCount(c)
-  return math.max(c.rpgd and c.rpgd.deathCount or 0, c.chronicle and c.chronicle.deathCount or 0)
+  return math.max(c.rpgd and c.rpgd.deathCount or 0, c.chronicle and c.chronicle.deathCount or 0,
+    c.deeds and c.deeds.deathCount or 0)
 end
 
 local function sentence(s)
@@ -182,9 +243,7 @@ function Compose.LatelyGlance()
   local cands = {}
   local function add(t, prio, g) cands[#cands + 1] = { t = t or 0, prio = prio, g = g } end
 
-  local death = rpgd and rpgd.deaths[#rpgd.deaths]
-  local cdeath = chron and chron.deaths[1]
-  if cdeath and (not death or cdeath.t > death.t) then death = cdeath end
+  local death = Compose.LastDeath(c)
   if death and within(death.t, 2 * 86400) then
     local tx = "Was badly hurt" .. (death.killer and (" by " .. death.killer) or "") .. (death.zone and (" in " .. death.zone) or "")
       .. (within(death.t, 3 * 3600) and ", within the last few hours" or ", a day or two ago")
@@ -239,8 +298,9 @@ function Compose.LatelyGlance()
     add(find.t, 2, { TI = "A New Prize", IC = "INV_Misc_Gem_Pearl_04",
       TX = say("find", { item = find.item, where = find.zone and (" in " .. U.Mid(find.zone)) or "" }, find.t) })
   end
-  local zone = rpgd and rpgd.zones[#rpgd.zones]
-  if zone and within(zone.t, 86400) and #rpgd.zones > 2 then
+  local lands = Compose.Lands(c)
+  local zone = lands[#lands]
+  if zone and not zone.before and within(zone.t, 86400) and #lands > 2 then
     add(zone.t, 0, { TI = "New in Town", IC = "INV_Misc_Map_01",
       TX = say("newzone", { zone = U.Mid(zone.name) }, zone.t) })
   end
@@ -735,17 +795,22 @@ function Compose.History()
 
   -- 2. The road so far
   local road = {}
-  local zones = rpgd and rpgd.zones or {}
-  local zoneCount = math.max(#zones, chron and chron.zones or 0)
+  local zones = Compose.Lands(c)
+  local zoneCount = Compose.LandCount(c)
   if zoneCount >= 3 and zones[1] then
-    local since = math.min(zones[1].t or math.huge, chron and chron.created or math.huge)
-    local weeks = since < math.huge and math.floor((U.Now() - since) / 604800) or 0
+    local since = Compose.RoadSince(c)
+    local weeks = since and math.floor((U.Now() - since) / 604800) or 0
     local ago = weeks >= 9 and (U.Number(math.floor(weeks / 4.3)) .. " months ago")
       or weeks >= 2 and (U.Number(weeks) .. " weeks ago") or nil
     local last = zones[#zones]
-    local latest = (last and last.name ~= zones[1].name) and (", " .. placeName(last.name) .. " the latest of them") or ""
-    road[#road + 1] = "From " .. placeName(zones[1].name) .. (ago and (", " .. ago .. ",") or "") .. " {their} road has led through "
-      .. U.Number(zoneCount) .. " lands" .. latest
+    local latest = (last and not last.before and last.name ~= zones[1].name) and (", " .. placeName(last.name) .. " the latest of them") or ""
+    if zones[1].before then
+      -- Where it began is from before any record: only how far it has gone.
+      road[#road + 1] = "{their} road has led through " .. U.Number(zoneCount) .. " lands" .. latest
+    else
+      road[#road + 1] = "From " .. placeName(zones[1].name) .. (ago and (", " .. ago .. ",") or "") .. " {their} road has led through "
+        .. U.Number(zoneCount) .. " lands" .. latest
+    end
     local dungeons = chron and chron.dungeons or 0
     if dungeons >= 2 then road[#road + 1] = "Along the way {they've} been inside " .. U.Number(dungeons) .. " dungeons" end
   elseif (world.level or 1) < 10 then
@@ -1002,9 +1067,8 @@ local function money(copper)
 end
 
 local function roadDays(c)
-  local first = c.rpgd and c.rpgd.zones[1] and c.rpgd.zones[1].t
-  local since = math.min(first or math.huge, c.chronicle and c.chronicle.created or math.huge)
-  if since == math.huge then return nil end
+  local since = Compose.RoadSince(c)
+  if not since then return nil end
   return math.floor((U.Now() - since) / 86400)
 end
 
@@ -1019,7 +1083,7 @@ function Compose.Stats()
     local first = rpgd and rpgd.deaths[1] or (chron and chron.deaths[#chron.deaths])
     out.deaths = figure(deaths) .. (first and first.killer and (", the first to " .. first.killer) or "")
   end
-  local lands = math.max(rpgd and #rpgd.zones or 0, chron and chron.zones or 0)
+  local lands = Compose.LandCount(c)
   if lands > 0 then out.lands = figure(lands) end
   local days = roadDays(c)
   if days and days > 0 then out.road = figure(days) end
