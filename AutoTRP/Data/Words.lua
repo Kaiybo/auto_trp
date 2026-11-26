@@ -2221,6 +2221,11 @@ W.SAY = {
   alone_reserved = { "Travels alone, and keeps conversations short.", "Travels alone, and says little." },
   pet_only = { "Travels with no one but {pet}{mood}.", "Has only {pet} for company{mood}." },
   -- Ambition and Marks
+  nearstanding = { "Close to being {next} with {who}.", "Nearly {next} with {who}.", "Not far off {next} standing with {who}." },
+  craftcap = { "Has taken {their} {craft} as far as {their} training allows, and needs a teacher.",
+    "Has learned all {they} can of {craft} on {their} own for now." },
+  firstdungeon = { "Has just been inside {place} for the first time.", "Went down into {place} for the first time lately." },
+  travelled = { "Was on the road with {who} earlier today.", "Travelled with {who} today." },
   nextrank = { "Working toward the rank of {rank}.", "Aims to rise to {rank}.", "Has {their} sights on the rank of {rank}." },
   unfinished = { "Wants to get to the bottom of {t}.", "Means to see {t} through.", "Means to find out the truth of {t}." },
   remarkable = { "{their} {item} is the first thing people notice.", "{their} {item} draws a second look.",

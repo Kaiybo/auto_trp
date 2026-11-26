@@ -1268,7 +1268,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", won = "one", lost = "one" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", won = "one", lost = "one", next = "x", craft = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then
@@ -1440,6 +1440,40 @@ do
   check(st.honour == "120", "honourable kills from the game")
   ns.cache.world.honorKills = nil
   ns.Compose.SourcesChanged()
+end
+
+print("\n--- ambitions and news the game can see ---")
+do
+  local C = ns.Compose
+  local saved = { rpgd = ns.cache.rpgd, chron = ns.cache.chronicle, factions = ns.cache.world.factions,
+    profs = ns.cache.world.professions }
+  ns.cache.rpgd, ns.cache.chronicle, ns.cache.merged = nil, nil, nil
+  ns.cache.world.factions = { near = { name = "Stormwind", next = "Revered", frac = 0.9 } }
+  local a = C.AmbitionGlance()
+  check(a.TX:find("revered") and a.TX:find("Stormwind"), "Ambition: standing nearly at the next step: " .. a.TX)
+  ns.cache.world.factions = {}
+  ns.cache.world.professions = { { name = "Tailoring", rank = 150, max = 150 } }
+  a = C.AmbitionGlance()
+  check(a.TX:find("tailoring"), "Ambition: a craft at the most its training allows: " .. a.TX)
+  ns.cache.world.professions = { { name = "Tailoring", rank = 300, max = 300 } }
+  check(not C.AmbitionGlance().TX:find("tailoring"), "a mastered craft is no ambition")
+  -- A dungeon entered for the first time today, in Lately.
+  ns.cache.deeds = { zones = {}, deaths = {}, bosses = {}, finished = {}, dungeons = 1, rares = 0,
+    latestDungeon = { name = "The Deadmines", t = NOW - 600 } }
+  ns.char.lastFight, ns.char.finds = nil, nil
+  local life = ns.cache.life
+  ns.cache.life = nil
+  local l = C.LatelyGlance()
+  ns.cache.life = life
+  check(l.TX:find("Deadmines"), "Lately: a dungeon seen for the first time: " .. l.TX)
+  ns.cache.rpgd, ns.cache.chronicle = saved.rpgd, saved.chron
+  ns.cache.world.factions, ns.cache.world.professions = saved.factions, saved.profs
+  ns.cache.merged = nil
+  ns.Compose.SourcesChanged()
+  -- Duels move the mood through the same reader.
+  local before = ns.char.mood.emo.proud or 0
+  event("CHAT_MSG_SYSTEM", "Aldric has defeated Brom in a duel")
+  check((ns.char.mood.emo.proud or 0) > before, "a duel won makes them proud")
 end
 
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))

@@ -471,18 +471,12 @@ ns.On("PLAYER_MONEY", function()
   lastMoney = m
 end)
 
--- Duels: "X has defeated Y in a duel"
-ns.On("CHAT_MSG_SYSTEM", function(_, msg)
-  msg = ns.World.Safe(msg)
-  if type(msg) ~= "string" then return end
-  local winner, loser = msg:match("^(.-) has defeated (.-) in a duel")
-  if not winner then return end
-  local me = U.Call(UnitName, "player")
-  me = type(me) == "string" and me:match("^(%S+)") or me
-  winner, loser = winner:match("^(%S+)") or winner, loser:match("^(%S+)") or loser
-  if winner == me then Mood.Push("proud", 35, "won a duel against " .. loser)
-  elseif loser == me then Mood.Push("frustrated", 25, "lost a duel to " .. winner) end
-end)
+-- Duels: read by Sources/Life.lua from the game's own duel lines (in any language).
+function Mood.Duel(won, other)
+  other = other or "someone"
+  if won then Mood.Push("proud", 35, "won a duel against " .. other)
+  else Mood.Push("frustrated", 25, "lost a duel to " .. other) end
+end
 
 -- Reputation: rising, falling, a new standing (remembered for History).
 -- Reputation: a gentle push at most once per faction every half hour (never from the

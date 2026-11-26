@@ -180,14 +180,24 @@ local function duelPattern(fmt, winnerFirst)
 end
 local duelLines
 ns.On("CHAT_MSG_SYSTEM", function(_, msg)
-  if type(msg) ~= "string" or not msg:find("duel") then return end
-  duelLines = duelLines or { duelPattern(_G.DUEL_WINNER_KNOCKOUT), duelPattern(_G.DUEL_WINNER_RETREAT) }
+  if type(msg) ~= "string" then return end
+  if not duelLines or #duelLines == 0 then
+    duelLines = {}
+    for _, fmt in ipairs({ _G.DUEL_WINNER_KNOCKOUT, _G.DUEL_WINNER_RETREAT }) do
+      duelLines[#duelLines + 1] = duelPattern(fmt)
+    end
+  end
   local me = U.Call(UnitName, "player")
   for _, p in ipairs(duelLines) do
     local caps = { msg:match(p.pat) }
     if #caps == 2 then
       local winner, loser = caps[p.order[1] == 1 and 1 or 2], caps[p.order[1] == 1 and 2 or 1]
-      if winner == me then L.Duel(true, loser) elseif loser == me then L.Duel(false, winner) end
+      winner, loser = winner:match("^([^%-]+)") or winner, loser:match("^([^%-]+)") or loser   -- no realm
+      local won = winner == me
+      if won or loser == me then
+        L.Duel(won, won and loser or winner)
+        if ns.Mood and ns.Mood.Duel then ns.Mood.Duel(won, won and loser or winner) end
+      end
       return
     end
   end

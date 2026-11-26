@@ -90,7 +90,11 @@ function D.Read()
   out.zones, out.dungeons, out.rares = {}, 0, 0
   for name, t in pairs(d.zones) do out.zones[#out.zones + 1] = { name = name, t = tonumber(t) or 0 } end
   table.sort(out.zones, function(a, b) if a.t ~= b.t then return a.t < b.t end return a.name < b.name end)
-  for _ in pairs(d.dungeons) do out.dungeons = out.dungeons + 1 end
+  for name, t in pairs(d.dungeons) do
+    out.dungeons = out.dungeons + 1
+    t = tonumber(t) or 0
+    if not out.latestDungeon or t > out.latestDungeon.t then out.latestDungeon = { name = name, t = t } end
+  end
   for _ in pairs(d.rares) do out.rares = out.rares + 1 end
   out.deaths = {}
   for i = #d.deaths, 1, -1 do out.deaths[#out.deaths + 1] = d.deaths[i] end

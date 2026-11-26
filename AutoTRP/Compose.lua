@@ -307,10 +307,17 @@ function Compose.LatelyGlance()
     add(find.t, 2, { TI = "A New Prize", IC = "INV_Misc_Gem_Pearl_04",
       TX = say("find", { item = find.item, where = find.zone and (" in " .. U.Mid(find.zone)) or "" }, find.t) })
   end
-  local zone = rpgd and rpgd.zones[#rpgd.zones]
-  if zone and within(zone.t, 86400) and #rpgd.zones > 2 then
+  -- A new land: RPG Dialogue's record, else Auto TRP's own (the newest is last in both).
+  local lands = (rpgd and #rpgd.zones > 0) and rpgd.zones or (c.deeds and c.deeds.zones) or {}
+  local zone = lands[#lands]
+  if zone and within(zone.t, 86400) and #lands > 2 then
     add(zone.t, 0, { TI = "New in Town", IC = "INV_Misc_Map_01",
       TX = say("newzone", { zone = U.Mid(zone.name) }, zone.t) })
+  end
+  local dungeon = c.deeds and c.deeds.latestDungeon
+  if dungeon and within(dungeon.t, 86400) then
+    add(dungeon.t, 1, { TI = "Gone Below", IC = "INV_Misc_Key_14",
+      TX = say("firstdungeon", { place = U.Mid(dungeon.name) }, dungeon.t) })
   end
 
   -- A day-old hurt outranks everything; otherwise the newest, then the weightiest. (A strict
@@ -332,6 +339,13 @@ function Compose.LatelyGlance()
     if last and within(last.last, 86400) then
       return { TI = "Lately", IC = "INV_Letter_15", TX = say("lastseen", { who = last.name }, last.last) }
     end
+  end
+  -- Else the player last grouped with, from Auto TRP's own record.
+  local comp = ns.db.nameFriends and c.life and c.life.companions or {}
+  local last
+  for _, p in ipairs(comp) do if not last or p.last > last.last then last = p end end
+  if last and within(last.last, 6 * 3600) and not world.grouped then
+    return { TI = "Lately", IC = "Spell_Holy_PrayerOfSpirit", TX = say("travelled", { who = last.name }, last.last) }
   end
   local where = world.zone and U.Mid(world.zone) or "these parts"
   return { TI = "Lately", IC = "INV_Misc_Map_01", TX = say("around", { where = where }, world.zone) }
@@ -426,7 +440,21 @@ function Compose.AmbitionGlance()
         TX = say("unfinished", { t = lowerFirst(t.title) }, t.id) }
     end
   end
-  -- Nothing they've set out to do: the next rank on their road, which the game will give them.
+  -- Nothing they've set out to do: what the game shows is nearly in reach. Standing almost
+  -- at the next step, or a craft at the most their training allows.
+  local near = world.factions and world.factions.near
+  if near then
+    return { TI = "Ambition", IC = "INV_BannerPVP_02",
+      TX = say("nearstanding", { next = near.next:lower(), who = W.FactionName(near.name) }, near.name) }
+  end
+  for _, p in ipairs(world.professions or {}) do
+    local noun = W.PROF_NOUN[p.name:lower()]
+    if p.max and p.max < 300 and p.rank >= p.max and p.rank >= 50 and noun then
+      return { TI = "Ambition", IC = "INV_Misc_Book_11",
+        TX = U.Pron(say("craftcap", { craft = p.name:lower(), noun = noun }, p.name)) }
+    end
+  end
+  -- Else the next rank on their road, which the game will give them.
   local level = world.level or 1
   local ranks = Compose.Ranks(world)
   local now, nextRank = ranks[band(level)], ranks[band(level) + 1]
