@@ -573,6 +573,41 @@ function Compose.TopSpells(k)
   return list
 end
 
+-- The lands the most time has been spent in: { { name, s (seconds) }, ... } most first.
+function Compose.TopPlaces(k)
+  local h = ns.char and ns.char.haunts
+  local list = {}
+  for name, sec in pairs(h and h.t or {}) do
+    if type(sec) == "number" and sec > 0 then list[#list + 1] = { name = name, s = sec } end
+  end
+  table.sort(list, function(a, b) if a.s ~= b.s then return a.s > b.s end return a.name < b.name end)
+  for i = #list, (k or #list) + 1, -1 do list[i] = nil end
+  return list
+end
+
+-- "40 minutes", "an hour", "14 hours", "3 days".
+function Compose.Duration(sec)
+  local m = math.floor(sec / 60)
+  if m < 1 then return "under a minute" end
+  if m < 60 then return (m == 1 and "a minute" or (m .. " minutes")) end
+  local h = math.floor(m / 60)
+  if h < 48 then return h == 1 and "an hour" or (h .. " hours") end
+  return math.floor(h / 24) .. " days"
+end
+
+-- Where they spend their days, once one land clearly holds more of them than any other:
+-- at least three hours there, and a quarter of all the time counted.
+function Compose.HomeGround()
+  local top = Compose.TopPlaces()
+  local first = top[1]
+  if not first or first.s < 3 * 3600 then return nil end
+  local all = 0
+  for _, p in ipairs(top) do all = all + p.s end
+  if first.s < all / 4 then return nil end
+  if top[2] and top[2].s > first.s * 0.9 then return nil end
+  return first.name
+end
+
 -- The most cast spell, said plainly, once it has been cast often enough to mean something.
 function Compose.FavouriteSpell()
   local top = Compose.TopSpells(1)[1]
@@ -764,6 +799,8 @@ function Compose.History()
     end
     if #steps > 0 then road[#road + 1] = "Was made " .. U.Join(steps) end
   end
+  local ground = Compose.HomeGround()
+  if ground then road[#road + 1] = say("homeground", { place = placeName(ground) }, ground) end
   if rpgd and rpgd.homeInn then
     local s = "Home these days is " .. placeName(rpgd.homeInn)
     if rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and within(rpgd.homeSince, 14 * 86400) then
@@ -981,6 +1018,7 @@ Compose.STATS = {
   { key = "standing", label = "Best standing", icon = "INV_BannerPVP_02" },
   { key = "names", label = "Names earned", icon = "INV_Misc_Note_04" },
   { key = "spell", label = "Most cast spell", icon = "Spell_Holy_MagicalSentry" },
+  { key = "place", label = "Most time spent", icon = "INV_Misc_Map_02" },
   -- Retired: they meant little to anyone reading the profile. Kept so that what an
   -- earlier version wrote is taken off again (they never have a value now).
   { key = "met", label = "People met", icon = "Spell_Holy_PrayerOfSpirit", retired = true },
@@ -1056,6 +1094,9 @@ function Compose.Stats()
   -- The most cast spell, with how many times ("Flash Heal, 1,240 times").
   local top = Compose.TopSpells(1)[1]
   if top and top.n >= 10 then out.spell = top.name .. ", " .. figure(top.n) .. " times" end
+  -- The land most time has been spent in ("Westfall, 14 hours").
+  local place = Compose.TopPlaces(1)[1]
+  if place and place.s >= 3600 then out.place = place.name .. ", " .. Compose.Duration(place.s) end
   return out
 end
 

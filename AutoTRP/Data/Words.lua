@@ -2251,6 +2251,9 @@ W.SAY = {
   othernames = { "Has been called {list} as well", "Also answers to {list}", "Other names have stuck too: {list}" },
   favspell = { "Reaches for {spell} more than any other {noun}", "{spell} is the {noun} {they} use{s} most",
     "Uses {spell} more often than any other {noun}" },
+  homeground = { "Spends more of {their} days in {place} than anywhere else",
+    "Of all the lands {they've} walked, {place} has had the most of {their} time",
+    "Keeps coming back to {place}, more than to anywhere else" },
   newname = { "Has lately come to be called {nick}.", "Some have started calling {them} {nick}.",
     "Answers to {nick} now, a name earned only lately." },
 }

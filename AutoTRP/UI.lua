@@ -240,6 +240,7 @@ ns.Listen("LOGIN", function()
   ns.After(6, function() firstRun(0) end)
   ns.Ticker(ns.Mood.TICK, function()
     ns.Mood.Road(ns.Mood.TICK)
+    ns.World.CountTime(ns.Mood.TICK)
     if U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") then return end
     ns.Compose.Refresh()
     ns.Mood.Watch()
@@ -670,8 +671,9 @@ local HELP = {
   "|cffffd100/atrp days|r: the mood journal, the last week of feelings and places",
   "|cffffd100/atrp names|r: every name you've earned, and what for",
   "|cffffd100/atrp spells|r: the spells and abilities you cast most",
+  "|cffffd100/atrp places|r: the lands you've spent the most time in",
   "|cffffd100/atrp name <number|auto>|r: wear one of your earned names (|cffffd100auto|r: the greatest deed's)",
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, place, books)",
 }
 
 -- Earned names: list them, or choose which to wear.
@@ -859,6 +861,16 @@ SlashCmdList.AUTOTRP = function(msg)
       for i, s in ipairs(top) do parts[i] = ("%s %d"):format(s.name, s.n) end
       local since = ns.char.casts and ns.char.casts.since
       ns.Print("Cast most" .. (since and date and (" since " .. date("%d %b %Y", since)) or "") .. ": " .. table.concat(parts, ", ") .. ".")
+    end
+  elseif cmd == "places" then
+    local top = ns.Compose.TopPlaces(5)
+    if #top == 0 then
+      ns.Print("No time counted yet. From now on Auto TRP notes how long you spend in each land (not while away or on a flight).")
+    else
+      local parts = {}
+      for i, p in ipairs(top) do parts[i] = p.name .. " " .. ns.Compose.Duration(p.s) end
+      local since = ns.char.haunts and ns.char.haunts.since
+      ns.Print("Time spent" .. (since and date and (" since " .. date("%d %b %Y", since)) or "") .. ": " .. table.concat(parts, ", ") .. ".")
     end
   elseif cmd == "name" then
     UI.ChooseName(arg)

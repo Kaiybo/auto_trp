@@ -1219,6 +1219,44 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- Time spent in each land: counted on the tick (not while away or on a flight), a statistic,
+-- a line in History once one land clearly holds most of it, and /atrp places.
+do
+  local C, Wd = ns.Compose, ns.World
+  ns.char.haunts = nil
+  check(C.Stats().place == nil and not C.History():find("anywhere else", 1, true), "no time counted: no statistic, no line")
+  check(Wd.CountTime(30, "Westfall") and ns.char.haunts.t.Westfall == 30, "time in a land is counted")
+  Wd.CountTime(5000, "Westfall")
+  check(ns.char.haunts.t.Westfall == 150, "a long gap counts as one tick at most")
+  local oldAFK = UnitIsAFK
+  UnitIsAFK = function() return true end
+  check(not Wd.CountTime(30, "Westfall"), "not while away")
+  UnitIsAFK = oldAFK
+  local oldTaxi = UnitOnTaxi
+  UnitOnTaxi = function() return true end
+  check(not Wd.CountTime(30, "Westfall"), "not on a flight")
+  UnitOnTaxi = oldTaxi
+  check(C.Stats().place == nil, "too little time for a statistic")
+  ns.char.haunts.t = { Westfall = 4 * 3600, ["Elwynn Forest"] = 2 * 3600, Duskwood = 1800 }
+  check(C.Stats().place == "Westfall, 4 hours", "the statistic: " .. tostring(C.Stats().place))
+  check(C.TopPlaces(2)[2].name == "Elwynn Forest" and #C.TopPlaces(2) == 2, "most time first")
+  check(C.HomeGround() == "Westfall", "one land holds most of the time")
+  check(C.History():find("Westfall", 1, true), "History says where the days go")
+  ns.char.haunts.t["Elwynn Forest"] = 3.9 * 3600
+  check(C.HomeGround() == nil, "two lands neck and neck: no line")
+  check(C.Duration(59) == "under a minute" and C.Duration(90) == "a minute", "durations read plainly")
+  check(C.Duration(3 * 86400) == "3 days" and C.Duration(3600) == "an hour", "hours and days")
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end
+  SlashCmdList.AUTOTRP("places")
+  DEFAULT_CHAT_FRAME.AddMessage = oldChat
+  check(table.concat(said):find("Westfall 4 hours, Elwynn Forest 3 hours, Duskwood 30 minutes", 1, true), "/atrp places lists them: " .. table.concat(said))
+  check(ns.TRP.FIELDS.stat_place ~= nil, "the statistic has its own switch")
+  ns.char.haunts = nil
+  C.SourcesChanged(); C.Refresh()
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },

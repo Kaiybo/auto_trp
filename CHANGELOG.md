@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.21.0 (2026-11-26): Home Ground
+
+- **Where the days go.** Auto TRP now notes how long your character spends in each land (counted every half minute; not while you're away from the keyboard or on a flight, and a loading screen never counts as more than one tick).
+- A new statistic, *Most time spent*: "Westfall, 14 hours". It has its own switch and appears after an hour in one place.
+- History says it once one land clearly holds the most of your time (at least three hours, a quarter of all of it, and well ahead of the next): "Spends more of her days in Westfall than anywhere else."
+- `/atrp places` lists the five lands you've spent the most time in, and since when.
+
 ## 0.20.0 (2026-11-25): In Good Order
 
 - **Fixed: some characters' profiles stopped being written.** 0.14.0 lost the class rank ladders every race shares, so a character whose race and class have no ladder of their own (a human warlock, a dwarf rogue) hit an error on every update: *Currently* and the glances kept going, but the title, About, History, statistics, nickname and the rest were never written. The ladders are back (a human warlock rises from Initiate to Summoner and on), and a new test builds the whole profile for every race and class.
