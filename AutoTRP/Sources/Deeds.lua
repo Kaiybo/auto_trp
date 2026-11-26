@@ -24,7 +24,11 @@ local function store()
   d.since = tonumber(d.since) or U.Now()
   -- The level the record began at: from level 1 or 2 it's the whole career, and "the first"
   -- or "since" can be said; begun later, its counts only cover the time since.
-  if not d.startLevel then d.startLevel = tonumber(U.Call(UnitLevel, "player")) or 1 end
+  -- Only once the game knows the level (it can read 0 early in loading).
+  if not d.startLevel then
+    local lv = tonumber(U.Call(UnitLevel, "player"))
+    if lv and lv >= 1 then d.startLevel = lv end
+  end
   return d
 end
 
@@ -103,7 +107,7 @@ function D.Read()
   for i = #d.deaths, 1, -1 do out.deaths[#out.deaths + 1] = d.deaths[i] end
   out.deathCount = #d.deaths
   out.created = d.since
-  out.fromStart = (d.startLevel or 1) <= 2
+  out.fromStart = d.startLevel ~= nil and d.startLevel <= 2
   if out.fromStart then
     for _, z in ipairs(out.zones) do if z.t > 1 then out.origin = z break end end
   end
@@ -239,7 +243,7 @@ ns.On("COMBAT_LOG_EVENT_UNFILTERED", function()
     ns.Sources.Life.PartyKill(srcGUID, dstGUID, U.Unsecret(dstName), playerGUID)
   end
   if DAMAGE[sub] then
-    if dstGUID and dstGUID == playerGUID then
+    if dstGUID and dstGUID == playerGUID and srcGUID ~= playerGUID and srcGUID ~= U.Call(UnitGUID, "pet") then
       local name = srcName
       if sub == "ENVIRONMENTAL_DAMAGE" then name = nil end
       lastHit = { name = name, t = U.Now() }

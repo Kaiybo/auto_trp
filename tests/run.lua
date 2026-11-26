@@ -1465,10 +1465,12 @@ do
   check(not C.AmbitionGlance().TX:find("tailoring"), "a mastered craft is no ambition")
   -- A dungeon entered for the first time today, in Lately.
   ns.cache.deeds = { zones = {}, deaths = {}, bosses = {}, finished = {}, dungeons = 1, rares = 0,
-    latestDungeon = { name = "The Deadmines", t = NOW - 600 } }
+    latestDungeon = { name = "The Deadmines", t = NOW - 600 }, fromStart = false }
   ns.char.lastFight, ns.char.finds = nil, nil
   local life = ns.cache.life
   ns.cache.life = nil
+  check(not C.LatelyGlance().TX:find("Deadmines"), "begun mid-career, a dungeon isn't called a first time")
+  ns.cache.deeds.fromStart = true
   local l = C.LatelyGlance()
   ns.cache.life = life
   check(l.TX:find("Deadmines"), "Lately: a dungeon seen for the first time: " .. l.TX)
@@ -1502,6 +1504,64 @@ do
   check(h:find("road has led through") and not h:find("From "), "History counts the lands without inventing a start")
   ns.char.deeds.startLevel = 1
   ns.cache.rpgd, ns.cache.merged = saved, nil
+  ns.Compose.SourcesChanged()
+end
+
+print("\n--- review fixes ---")
+do
+  local C, Deeds, Life = ns.Compose, ns.Sources.Deeds, ns.Sources.Life
+  -- History's start is the first land seen on the road, not one taken in from the map.
+  local saved = ns.cache.rpgd
+  ns.char.deeds.startLevel = 1
+  ns.char.deeds.zones = { ["Duskwood"] = 1, ["Badlands"] = 1, ["Elwynn Forest"] = NOW - 30 * 86400,
+    ["Westfall"] = NOW - 20 * 86400, ["Redridge Mountains"] = NOW - 86400 * 3 }
+  ns.cache.rpgd, ns.cache.deeds, ns.cache.merged = nil, Deeds.Read(), nil
+  local h = C.History() or ""
+  check(h:find("From Elwynn Forest") and not h:find("months ago") and not h:find("From Duskwood"),
+    "History starts the road at the first land seen, not a mapped one")
+  ns.cache.rpgd, ns.cache.merged = saved, nil
+  -- Hurting yourself doesn't make you your own killer.
+  local ev
+  CombatLogGetCurrentEventInfo = function() return unpack(ev) end
+  ev = { NOW, "SPELL_DAMAGE", false, "Creature-0-1-2-3-9-0", "Kobold Miner", 0xa48, 0, "Player-1-0001", "Aldric" }
+  event("COMBAT_LOG_EVENT_UNFILTERED")
+  ev = { NOW, "SPELL_DAMAGE", false, "Player-1-0001", "Aldric", 0x511, 0, "Player-1-0001", "Aldric" }
+  event("COMBAT_LOG_EVENT_UNFILTERED")
+  CombatLogGetCurrentEventInfo = nil
+  Deeds.Death()
+  local r = Deeds.Read()
+  check(r.deaths[1].killer == "Kobold Miner", "self-inflicted damage isn't the killer: " .. tostring(r.deaths[1].killer))
+  -- A roster burst is read once, after the names have arrived.
+  local oldRaid, oldN, oldIsPlayer, oldName, oldClass = IsInRaid, GetNumSubgroupMembers, UnitIsPlayer, UnitName, UnitClass
+  local known = false
+  IsInRaid = function() return false end
+  GetNumSubgroupMembers = function() return 1 end
+  UnitIsPlayer = function() return true end
+  UnitName = function(u) if u == "party1" then return known and "Ysolde" or UNKNOWNOBJECT end return oldName(u) end
+  UnitClass = function() return "Mage", "MAGE" end
+  UNKNOWNOBJECT = "Unknown"
+  event("GROUP_ROSTER_UPDATE")
+  known = true
+  event("GROUP_ROSTER_UPDATE")
+  runTimers()
+  IsInRaid, GetNumSubgroupMembers, UnitIsPlayer, UnitName, UnitClass = oldRaid, oldN, oldIsPlayer, oldName, oldClass
+  local found
+  for _, p in ipairs(Life.Read().companions) do if p.name == "Ysolde" then found = p end end
+  check(found and found.days == 1, "a member whose name arrives late is still recorded, once")
+  -- A letter read from the bags isn't a book.
+  local nBooks = #Life.Read().books
+  ItemTextGetItem, ItemTextGetCreator = function() return "Letter" end, function() return "Mother" end
+  event("ITEM_TEXT_BEGIN")
+  ItemTextGetItem, ItemTextGetCreator = nil, nil
+  check(#Life.Read().books == nBooks, "a letter isn't counted as a book")
+  -- The start level waits until the game knows it.
+  local oldLevel = UnitLevel
+  ns.char.deeds.startLevel = nil
+  UnitLevel = function() return 0 end
+  check(not Deeds.Read().fromStart and ns.char.deeds.startLevel == nil, "no start level is kept while the game reads 0")
+  UnitLevel = oldLevel
+  Deeds.Read()
+  check(ns.char.deeds.startLevel ~= nil, "and it's kept once the level is known")
   ns.Compose.SourcesChanged()
 end
 

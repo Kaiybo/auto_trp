@@ -81,6 +81,8 @@ end
 ns.On("ITEM_TEXT_BEGIN", function()
   -- Mail opened from the mailbox also shows item text; that's a letter, not a book.
   if _G.MailFrame and _G.MailFrame.IsShown and U.Call(_G.MailFrame.IsShown, _G.MailFrame) then return end
+  -- A letter (it has a sender) isn't a book, wherever it's read.
+  if U.Plain(U.Call(ItemTextGetCreator)) then return end
   L.Book(U.Call(ItemTextGetItem))
 end)
 
@@ -135,11 +137,12 @@ function L.Companion(name, class, t)
   trim(d.people, L.KEEP_PEOPLE, function(v) return (v.days or 0) * 1e10 + (v.last or 0) end)
 end
 
-local lastRoster = 0
+-- A burst of roster updates is read once, a few seconds after it starts, when the new
+-- members' names have arrived.
+local scanning = false
 local function roster()
+  scanning = false
   local now = U.Now()
-  if now - lastRoster < 30 then return end   -- a burst of roster updates counts once
-  lastRoster = now
   local raid = U.Call(IsInRaid)
   local n = raid and (U.Call(GetNumGroupMembers) or 0) or (U.Call(GetNumSubgroupMembers) or 0)
   if n == 0 then return end
@@ -155,7 +158,11 @@ local function roster()
     end
   end
 end
-ns.On("GROUP_ROSTER_UPDATE", roster)
+ns.On("GROUP_ROSTER_UPDATE", function()
+  if scanning then return end
+  scanning = true
+  ns.After(5, roster)
+end)
 
 ---------------------------------------------------------------------------
 -- Duels: the game's own "X has defeated Y in a duel" lines

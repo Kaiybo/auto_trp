@@ -308,13 +308,16 @@ function Compose.LatelyGlance()
       TX = say("find", { item = find.item, where = find.zone and (" in " .. U.Mid(find.zone)) or "" }, find.t) })
   end
   -- A new land: RPG Dialogue's record, else Auto TRP's own (the newest is last in both).
-  local lands = (rpgd and #rpgd.zones > 0) and rpgd.zones or (c.deeds and c.deeds.zones) or {}
+  -- (Auto TRP's own only when it has kept the record from the start: begun mid-career,
+  -- the first land it saw isn't new to the character.)
+  local lands = (rpgd and #rpgd.zones > 0) and rpgd.zones
+    or (c.deeds and c.deeds.fromStart and c.deeds.zones) or {}
   local zone = lands[#lands]
   if zone and within(zone.t, 86400) and #lands > 2 then
     add(zone.t, 0, { TI = "New in Town", IC = "INV_Misc_Map_01",
       TX = say("newzone", { zone = U.Mid(zone.name) }, zone.t) })
   end
-  local dungeon = c.deeds and c.deeds.latestDungeon
+  local dungeon = c.deeds and c.deeds.fromStart and c.deeds.latestDungeon
   if dungeon and within(dungeon.t, 86400) then
     add(dungeon.t, 1, { TI = "Gone Below", IC = "INV_Misc_Key_14",
       TX = say("firstdungeon", { place = U.Mid(dungeon.name) }, dungeon.t) })
@@ -848,8 +851,11 @@ function Compose.History()
   local road = {}
   -- Where the road began: RPG Dialogue's first land, else Auto TRP's own when it has kept
   -- the record from the start (not lands taken in from the map, whose order is unknown).
-  local zones = (rpgd and #rpgd.zones > 0) and rpgd.zones
-    or (c.deeds and c.deeds.origin and c.deeds.zones) or {}
+  local zones = (rpgd and #rpgd.zones > 0) and rpgd.zones or {}
+  if #zones == 0 and c.deeds and c.deeds.origin then
+    -- Only the lands seen on the road, in order: not those taken in from the map.
+    for _, z in ipairs(c.deeds.zones) do if z.t > 1 then zones[#zones + 1] = z end end
+  end
   local zoneCount = landsCount(c)
   if zoneCount >= 3 and not zones[1] then
     road[#road + 1] = "{their} road has led through " .. U.Number(zoneCount) .. " lands"
