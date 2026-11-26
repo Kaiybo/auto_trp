@@ -138,7 +138,7 @@ ns.DEFAULTS = {
     ooc = false,        -- an out-of-character note that the profile updates itself
     walkup = false,     -- "open to walk-ups" follows your mood (off by default)
     stats = true,       -- Statistics in Additional information (each one has its own switch too)
-    stat_deaths = true, stat_lands = true, stat_road = true, stat_dungeons = true, stat_foes = true,
+    stat_deaths = true, stat_lands = true, stat_road = true, stat_flights = true, stat_dungeons = true, stat_foes = true,
     stat_rares = true, stat_slain = true, stat_jobs = true, stat_wealth = true, stat_crafts = true,
     stat_standing = true, stat_names = true, stat_spell = true, stat_place = true, stat_met = true, stat_books = true, stat_letters = true,
   },
@@ -166,6 +166,7 @@ ns.CHAR_DEFAULTS = {
   -- names = nil,    -- earned name key -> when it was earned (nil until first looked at)
   -- chosenName = nil, -- the earned name to wear (/atrp name), else the best one
   -- casts = nil,    -- { since, n = { [spell name] = times cast } }, for the most cast spell
+  -- flights = nil,  -- flights taken (a count)
   -- haunts = nil,   -- { since, t = { [zone] = seconds spent there } }, for where they spend their days
   -- deeds = nil,    -- Auto TRP's own record of quests turned in and masters felled (Sources/Deeds.lua)
 }

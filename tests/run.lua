@@ -1266,6 +1266,28 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- Flights taken: counted once each, when control is lost to a flight.
+do
+  local C = ns.Compose
+  ns.char.flights = nil
+  check(C.Stats().flights == nil, "no flights: no statistic")
+  local function run() local t = timers; timers = {}; for _, fn in ipairs(t) do fn() end end
+  event("PLAYER_CONTROL_LOST"); run()
+  check(not ns.char.flights, "control lost without a flight counts nothing")
+  local oldTaxi = UnitOnTaxi
+  UnitOnTaxi = function() return true end
+  event("PLAYER_CONTROL_LOST"); run()
+  event("PLAYER_CONTROL_LOST"); run()
+  check(ns.char.flights == 1, "a flight counts once")
+  event("PLAYER_CONTROL_GAINED")
+  event("PLAYER_CONTROL_LOST"); run()
+  UnitOnTaxi = oldTaxi
+  event("PLAYER_CONTROL_GAINED")
+  check(C.Stats().flights == "2", "the statistic: " .. tostring(C.Stats().flights))
+  check(ns.TRP.FIELDS.stat_flights ~= nil, "the statistic has its own switch")
+  ns.char.flights = nil
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },

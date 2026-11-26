@@ -1030,6 +1030,7 @@ Compose.STATS = {
   { key = "deaths", label = "Deaths", icon = "Ability_Rogue_FeignDeath" },
   { key = "lands", label = "Lands explored", icon = "INV_Misc_Map_01" },
   { key = "road", label = "Days on the road", icon = "INV_Misc_PocketWatch_01" },
+  { key = "flights", label = "Flights taken", icon = "Ability_Mount_Gryphon_01" },
   { key = "dungeons", label = "Dungeons", icon = "INV_Misc_Key_14" },
   { key = "foes", label = "Named foes felled", icon = "INV_Misc_Head_Dragon_01" },
   { key = "rares", label = "Rare beasts", icon = "Ability_Hunter_BeastCall" },
@@ -1083,6 +1084,8 @@ function Compose.Stats()
   if lands > 0 then out.lands = figure(lands) end
   local days = roadDays(c)
   if days and days > 0 then out.road = figure(days) end
+  local flights = ns.char and tonumber(ns.char.flights) or 0
+  if flights > 0 then out.flights = figure(flights) end
   local dungeons = math.max(chron and chron.dungeons or 0, rpgd and #rpgd.cleared or 0)
   if dungeons > 0 then out.dungeons = figure(dungeons) end
   local felled = #Compose.Bosses(c)

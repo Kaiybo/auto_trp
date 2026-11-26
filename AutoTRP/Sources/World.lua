@@ -442,6 +442,18 @@ function World.CountTime(seconds, where)
   return true
 end
 
+-- Flights taken, counted once each: control is lost when a flight starts, so look a moment
+-- later whether it was a flight, and not again until control comes back.
+local flying = false
+function World.CountFlight()
+  if not ns.char or flying or not call("UnitOnTaxi", "player") then return false end
+  flying = true
+  ns.char.flights = (tonumber(ns.char.flights) or 0) + 1
+  return true
+end
+ns.On("PLAYER_CONTROL_LOST", function() ns.After(1, World.CountFlight) end)
+ns.On("PLAYER_CONTROL_GAINED", function() flying = false end)
+
 ns.OnUnit("UNIT_SPELLCAST_SUCCEEDED", "player", function(_, _, _, spellID)
   local name = spellName(spellID)
   if type(name) ~= "string" then return end
