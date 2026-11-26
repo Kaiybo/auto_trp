@@ -156,25 +156,40 @@ end
 -- Standing with the world's factions (Honored and up), through either API.
 ---------------------------------------------------------------------------
 local STANDING_WORD = { [6] = "Honored", [7] = "Revered", [8] = "Exalted" }
+local NEXT_WORD = { [4] = "Friendly", [5] = "Honored", [6] = "Revered", [7] = "Exalted" }
 
 function World.Factions()
   local out = {}
-  local function add(name, standing, isHeader, hasRep)
-    if type(name) == "string" and (not isHeader or hasRep) and STANDING_WORD[standing] then
+  -- out.near: the faction closest to its next standing (Friendly and up, at least 80% of the
+  -- way there): { name, next, frac }.
+  local function add(name, standing, isHeader, hasRep, low, high, value)
+    if type(name) ~= "string" or (isHeader and not hasRep) then return end
+    if STANDING_WORD[standing] then
       out[#out + 1] = { name = U.Plain(name), standing = standing, word = STANDING_WORD[standing] }
+    end
+    if NEXT_WORD[standing] and standing >= 5 and type(low) == "number" and type(high) == "number"
+      and type(value) == "number" and high > low then
+      local frac = (value - low) / (high - low)
+      if frac >= 0.8 and frac < 1 and (not out.near or frac > out.near.frac) then
+        out.near = { name = U.Plain(name), next = NEXT_WORD[standing], frac = frac }
+      end
     end
   end
   if C_Reputation and C_Reputation.GetNumFactions and C_Reputation.GetFactionDataByIndex then
     local n = U.Call(C_Reputation.GetNumFactions) or 0
     for i = 1, n do
       local d = U.Call(C_Reputation.GetFactionDataByIndex, i)
-      if type(d) == "table" then add(World.Safe(d.name), d.reaction, d.isHeader, d.isHeaderWithRep) end
+      if type(d) == "table" then
+        add(World.Safe(d.name), d.reaction, d.isHeader, d.isHeaderWithRep,
+          d.currentReactionThreshold, d.nextReactionThreshold, d.currentStanding)
+      end
     end
   elseif _G.GetNumFactions and _G.GetFactionInfo then
     local n = call("GetNumFactions") or 0
     for i = 1, n do
-      local name, _, standing, _, _, _, _, _, isHeader, _, hasRep = call("GetFactionInfo", i)
-      add(World.Safe(name), standing, isHeader, hasRep)
+      local ok, name, _, standing, low, high, value, _, _, isHeader, _, hasRep = pcall(_G.GetFactionInfo, i)
+      if not ok then break end
+      add(World.Safe(name), World.Safe(standing), isHeader, hasRep, World.Safe(low), World.Safe(high), World.Safe(value))
     end
   end
   table.sort(out, function(a, b) if a.standing ~= b.standing then return a.standing > b.standing end return a.name < b.name end)
@@ -191,10 +206,11 @@ function World.Professions()
   local out = {}
   local n = call("GetNumSkillLines") or 0
   for i = 1, n do
-    local name, header, _, rank = call("GetSkillLineInfo", i)
-    name = World.Safe(name)
+    local ok, name, header, _, rank, _, _, max = pcall(_G.GetSkillLineInfo, i)
+    if not ok then break end
+    name, rank, max = World.Safe(name), World.Safe(rank), World.Safe(max)
     if not header and PROFESSIONS[name] and type(rank) == "number" and rank > 0 then
-      out[#out + 1] = { name = name, rank = rank }
+      out[#out + 1] = { name = name, rank = rank, max = type(max) == "number" and max or nil }
     end
   end
   table.sort(out, function(a, b) return a.rank > b.rank end)
@@ -321,6 +337,8 @@ function World.Snapshot()
   s.guild, s.guildRank = U.Plain(World.Safe(guild)), U.Plain(World.Safe(guildRank))
   local pvpRank = call("UnitPVPRank", "player")
   if type(pvpRank) == "number" and pvpRank >= 5 then s.pvpRank = U.Plain((call("GetPVPRankInfo", pvpRank))) end
+  local hk = call("GetPVPLifetimeStats")
+  s.honorKills = type(hk) == "number" and hk or 0
   s.raid = call("IsInRaid") and true or false
   s.away = call("UnitIsAFK", "player") and true or false
   s.context = World.Context()

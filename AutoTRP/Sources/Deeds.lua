@@ -17,7 +17,18 @@ local function store()
   if type(d) ~= "table" then d = {}; ns.char.deeds = d end
   if type(d.quests) ~= "table" then d.quests = {} end
   if type(d.bosses) ~= "table" then d.bosses = {} end
+  for _, k in ipairs({ "zones", "dungeons", "rares", "deaths" }) do
+    if type(d[k]) ~= "table" then d[k] = {} end
+  end
   d.n = tonumber(d.n) or 0
+  d.since = tonumber(d.since) or U.Now()
+  -- The level the record began at: from level 1 or 2 it's the whole career, and "the first"
+  -- or "since" can be said; begun later, its counts only cover the time since.
+  -- Only once the game knows the level (it can read 0 early in loading).
+  if not d.startLevel then
+    local lv = tonumber(U.Call(UnitLevel, "player"))
+    if lv and lv >= 1 then d.startLevel = lv end
+  end
   return d
 end
 
@@ -81,6 +92,25 @@ function D.Read()
       out.lastQuest = { title = title, t = q.t, zone = q.zone }
     end
   end
+  -- The rest of the road, from the game itself: lands and dungeons by first visit, rare
+  -- beasts felled, deaths (newest first, as in Chronicle) and when the record began.
+  out.zones, out.dungeons, out.rares = {}, 0, 0
+  for name, t in pairs(d.zones) do out.zones[#out.zones + 1] = { name = name, t = tonumber(t) or 0 } end
+  table.sort(out.zones, function(a, b) if a.t ~= b.t then return a.t < b.t end return a.name < b.name end)
+  for name, t in pairs(d.dungeons) do
+    out.dungeons = out.dungeons + 1
+    t = tonumber(t) or 0
+    if not out.latestDungeon or t > out.latestDungeon.t then out.latestDungeon = { name = name, t = t } end
+  end
+  for _ in pairs(d.rares) do out.rares = out.rares + 1 end
+  out.deaths = {}
+  for i = #d.deaths, 1, -1 do out.deaths[#out.deaths + 1] = d.deaths[i] end
+  out.deathCount = #d.deaths
+  out.created = d.since
+  out.fromStart = d.startLevel ~= nil and d.startLevel <= 2
+  if out.fromStart then
+    for _, z in ipairs(out.zones) do if z.t > 1 then out.origin = z break end end
+  end
   for name, b in pairs(d.bosses) do out.bosses[#out.bosses + 1] = { name = name, first = b.t or 0, t = b.last or b.t or 0, where = b.where } end
   table.sort(out.bosses, function(a, b) return a.t > b.t end)
   return out
@@ -132,3 +162,126 @@ function D.Backfill()
   return added
 end
 ns.Listen("LOGIN", function() ns.After(20, D.Backfill) end)
+
+---------------------------------------------------------------------------
+-- The road, deaths and rare beasts, straight from the game
+---------------------------------------------------------------------------
+D.KEEP_DEATHS = 200   -- the count goes on; only the oldest details are let go
+
+-- Where the character is now: a land the first time it's seen, a dungeon or raid the first
+-- time it's entered.
+function D.Place(t)
+  local d = store()
+  if not d then return end
+  local name, kind = U.Call(GetInstanceInfo)
+  name = U.Plain(name)
+  local changed
+  if (kind == "party" or kind == "raid") and name then
+    if not d.dungeons[name] then d.dungeons[name] = t or U.Now(); changed = true end
+  elseif kind ~= "pvp" and kind ~= "arena" then
+    local z = zone()
+    if z and not d.zones[z] then d.zones[z] = t or U.Now(); changed = true end
+  end
+  if changed and ns.Compose then ns.Compose.SourcesChanged() end
+end
+ns.On("ZONE_CHANGED_NEW_AREA", function() D.Place() end)
+ns.On("PLAYER_ENTERING_WORLD", function() D.Place() end)
+
+-- A death, with whatever last hurt the character (from the combat log) as the killer.
+local lastHit   -- { name, t }
+function D.Death(killer, where, t)
+  local d = store()
+  if not d then return end
+  t = t or U.Now()
+  if not killer and lastHit and t - lastHit.t <= 10 then killer = lastHit.name end
+  d.deaths[#d.deaths + 1] = { t = t, zone = where or zone(), killer = U.Plain(killer) }
+  d.deathsLost = tonumber(d.deathsLost) or 0
+  while #d.deaths > D.KEEP_DEATHS do table.remove(d.deaths, 2); d.deathsLost = d.deathsLost + 1 end  -- keep the first
+  lastHit = nil
+  if ns.Compose then ns.Compose.SourcesChanged() end
+end
+ns.On("PLAYER_DEAD", function() D.Death() end)
+
+-- A rare beast felled by the character or their group. Rares are recognised when seen
+-- (target, mouseover, nameplate), since the combat log doesn't say.
+local rareSeen = {}   -- GUID -> name
+local function look(unit)
+  local guid = U.Call(UnitGUID, unit)
+  if not guid or rareSeen[guid] then return end
+  local cls = U.Call(UnitClassification, unit)
+  if (cls == "rare" or cls == "rareelite") and not U.Call(UnitIsPlayer, unit) then
+    rareSeen[guid] = U.Plain(U.Call(UnitName, unit))
+  end
+end
+ns.On("PLAYER_TARGET_CHANGED", function() look("target") end)
+ns.On("UPDATE_MOUSEOVER_UNIT", function() look("mouseover") end)
+ns.On("NAME_PLATE_UNIT_ADDED", function(_, unit) if unit then look(unit) end end)
+
+function D.Rare(name, t)
+  local d = store()
+  name = U.Plain(name)
+  if not d or not name or d.rares[name] then return false end
+  d.rares[name] = t or U.Now()
+  if ns.Compose then ns.Compose.SourcesChanged() end
+  return true
+end
+
+local MINE = 0x7   -- COMBATLOG_OBJECT_AFFILIATION_MINE | PARTY | RAID
+local DAMAGE = { SWING_DAMAGE = true, RANGE_DAMAGE = true, SPELL_DAMAGE = true, SPELL_PERIODIC_DAMAGE = true,
+  ENVIRONMENTAL_DAMAGE = true }
+local playerGUID
+ns.On("COMBAT_LOG_EVENT_UNFILTERED", function()
+  local fn = _G.CombatLogGetCurrentEventInfo
+  if type(fn) ~= "function" then return end
+  local ok, _, sub, _, srcGUID, srcName, srcFlags, _, dstGUID, dstName = pcall(fn)
+  if not ok then return end
+  sub = U.Unsecret(sub)
+  if type(sub) ~= "string" or not (DAMAGE[sub] or sub == "PARTY_KILL" or sub == "UNIT_DIED") then return end
+  srcGUID, srcName, srcFlags, dstGUID = U.Unsecret(srcGUID), U.Unsecret(srcName), U.Unsecret(srcFlags), U.Unsecret(dstGUID)
+  playerGUID = playerGUID or U.Call(UnitGUID, "player")
+  if sub == "PARTY_KILL" and ns.Sources.Life then
+    ns.Sources.Life.PartyKill(srcGUID, dstGUID, U.Unsecret(dstName), playerGUID)
+  end
+  if DAMAGE[sub] then
+    if dstGUID and dstGUID == playerGUID and srcGUID ~= playerGUID and srcGUID ~= U.Call(UnitGUID, "pet") then
+      local name = srcName
+      if sub == "ENVIRONMENTAL_DAMAGE" then name = nil end
+      lastHit = { name = name, t = U.Now() }
+    end
+  elseif sub == "PARTY_KILL" then
+    -- Only a killing blow by the character, their pet or their group: someone else's kill
+    -- of a rare that happened to be nearby isn't the character's deed.
+    local rare = dstGUID and rareSeen[dstGUID]
+    if not rare then return end
+    local bit = _G.bit
+    if bit and srcFlags and bit.band(srcFlags, MINE) == 0 then return end
+    rareSeen[dstGUID] = nil
+    D.Rare(rare)
+  elseif sub == "UNIT_DIED" and dstGUID then
+    rareSeen[dstGUID] = nil   -- felled by someone else: forget it
+  end
+end)
+
+-- Lands explored before the record began: where the game can say which zones' maps a
+-- character has uncovered, those count (their time unknown). Once per session.
+local CONTINENTS = { 1414, 1415 }   -- Kalimdor, the Eastern Kingdoms
+function D.Explored()
+  local d = store()
+  local M, X = _G.C_Map, _G.C_MapExplorationInfo
+  if not d or not M or not X or type(M.GetMapChildrenInfo) ~= "function"
+    or type(X.GetExploredMapTextures) ~= "function" then return 0 end
+  local added = 0
+  for _, continent in ipairs(CONTINENTS) do
+    local kids = U.Call(M.GetMapChildrenInfo, continent, 3, true)   -- Enum.UIMapType.Zone
+    for _, info in ipairs(type(kids) == "table" and kids or {}) do
+      local name = type(info) == "table" and U.Plain(info.name)
+      if name and not d.zones[name] then
+        local tex = U.Call(X.GetExploredMapTextures, info.mapID)
+        if type(tex) == "table" and #tex > 0 then d.zones[name] = 1; added = added + 1 end
+      end
+    end
+  end
+  if added > 0 and ns.Compose then ns.Compose.SourcesChanged() end
+  return added
+end
+ns.Listen("LOGIN", function() ns.After(25, D.Explored) end)

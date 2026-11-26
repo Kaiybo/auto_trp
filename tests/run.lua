@@ -314,6 +314,8 @@ check((scores.eager or 0) >= 15, "close to a level: eager")
 event("PLAYER_DEAD")
 local m = ns.Mood.Current()
 check(m.key == "shaken", "a death leaves them shaken (" .. m.key .. ")")
+check(#ns.char.deeds.deaths == 1, "Auto TRP keeps the death in its own record")
+ns.char.deeds.deaths = {}   -- the Lately tests below set their own
 table.insert(RPGDialogueCharDB.deaths, { t = NOW - 1800, zone = "Duskwood" })
 table.insert(RPGDialogueCharDB.deaths, { t = NOW - 600, zone = "Duskwood" })
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
@@ -1266,7 +1268,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", won = "one", lost = "one", next = "x", craft = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then
@@ -1303,6 +1305,264 @@ do
   ns.TRP.CustomPronouns = function() return "they/them" end
   check(U.Pron("{they} walk{s}, {they} watch{es}, {they} carr{ies}") == "they walk, they watch, they carry", "verb endings follow they")
   ns.TRP.CustomPronouns = oldPron
+end
+
+print("\n--- the road, deaths and rare beasts without Chronicle ---")
+do
+  local C, Deeds = ns.Compose, ns.Sources.Deeds
+  local oldChron, oldRpgd = ns.cache.chronicle, ns.cache.rpgd
+  local before = ns.Sources.Deeds.Read()
+  local zones0, dun0, rares0, deaths0 = #before.zones, before.dungeons, before.rares, before.deathCount
+  GetInstanceInfo = function() return "Westfall", "none" end
+  state.zone = "Westfall"; event("ZONE_CHANGED_NEW_AREA")
+  event("ZONE_CHANGED_NEW_AREA")
+  GetInstanceInfo = function() return "The Deadmines", "party" end
+  event("ZONE_CHANGED_NEW_AREA")
+  local r = Deeds.Read()
+  check(r.dungeons == dun0 + 1, "a dungeon entered is counted once")
+  check(#r.zones >= zones0 and #r.zones >= 1, "lands seen are kept")
+  -- A rare seen on target, then felled by the player.
+  local oldClass, oldGUID, oldName, oldPlayer = UnitClassification, UnitGUID, UnitName, UnitIsPlayer
+  UnitClassification = function() return "rare" end
+  UnitGUID = function(u) return u == "target" and "Creature-0-1-2-3-616-0" or "Player-1-0001" end
+  UnitName = function(u) return u == "target" and "Mother Fang" or oldName(u) end
+  UnitIsPlayer = function() return false end
+  event("PLAYER_TARGET_CHANGED")
+  local ev = { NOW, "PARTY_KILL", false, "Player-1-0001", "Aldric", 0x511, 0, "Creature-0-1-2-3-616-0", "Mother Fang" }
+  CombatLogGetCurrentEventInfo = function() return unpack(ev) end
+  event("COMBAT_LOG_EVENT_UNFILTERED")
+  ev = { NOW, "SWING_DAMAGE", false, "Creature-0-1-2-3-99-0", "Hogger", 0xa48, 0, "Player-1-0001", "Aldric" }
+  event("COMBAT_LOG_EVENT_UNFILTERED")
+  event("PLAYER_DEAD")
+  UnitClassification, UnitGUID, UnitName, UnitIsPlayer = oldClass, oldGUID, oldName, oldPlayer
+  CombatLogGetCurrentEventInfo = nil
+  GetInstanceInfo = nil
+  r = Deeds.Read()
+  check(r.rares == rares0 + 1, "a rare beast felled is counted")
+  check(r.deathCount == deaths0 + 1 and r.deaths[1].killer == "Hogger", "a death is kept with its killer: " .. tostring(r.deaths[1].killer))
+  ns.cache.chronicle, ns.cache.rpgd, ns.cache.deeds = nil, nil, r
+  check(not r.fromStart and C.Stats().rares:find(" since "), "begun mid-career, an own count says since when: " .. C.Stats().rares)
+  check(not (C.Stats().deaths or ""):find("the first"), "and names no first killer")
+  ns.char.deeds.startLevel = 1   -- from here on, as if kept from the first day
+  r = Deeds.Read(); ns.cache.deeds = r
+  local st = C.Stats()
+  check(st.rares == tostring(r.rares), "rare beasts statistic without Chronicle: " .. tostring(st.rares))
+  check(st.deaths and st.deaths:find("^" .. r.deathCount), "deaths statistic without Chronicle or RPG Dialogue: " .. tostring(st.deaths))
+  check(st.dungeons ~= nil, "dungeons statistic without Chronicle")
+  check(C.LatelyGlance().TX:find("Hogger"), "Lately hears of the death without the addons")
+  ns.cache.chronicle, ns.cache.rpgd = oldChron, oldRpgd
+  ns.Compose.SourcesChanged()
+end
+
+print("\n--- everyday life from the game alone ---")
+do
+  local C, Life = ns.Compose, ns.Sources.Life
+  local saved = { rpgd = ns.cache.rpgd, sd = ns.cache.sd, chron = ns.cache.chronicle }
+  -- Kills by the player and their pet; a player killed doesn't count.
+  local ev
+  local k0 = Life.Read().kills
+  CombatLogGetCurrentEventInfo = function() return unpack(ev) end
+  for i = 1, 12 do
+    ev = { NOW, "PARTY_KILL", false, "Player-1-0001", "Aldric", 0x511, 0, "Creature-0-1-2-3-" .. i .. "-0", "Defias Bandit" }
+    event("COMBAT_LOG_EVENT_UNFILTERED")
+  end
+  ev = { NOW, "PARTY_KILL", false, "Player-1-0001", "Aldric", 0x511, 0, "Player-2-0002", "Someone" }
+  event("COMBAT_LOG_EVENT_UNFILTERED")
+  ev = { NOW, "PARTY_KILL", false, "Player-9-0009", "Stranger", 0x548, 0, "Creature-0-1-2-3-50-0", "Kobold Miner" }
+  event("COMBAT_LOG_EVENT_UNFILTERED")
+  CombatLogGetCurrentEventInfo = nil
+  local life = Life.Read()
+  check(life.kills == k0 + 12 and life.grudge.name == "Defias Bandit", "creatures slain by the character, and the kind most often: " .. life.kills)
+  -- A book read.
+  ItemTextGetItem = function() return "The Seven Kingdoms" end
+  event("ITEM_TEXT_BEGIN")
+  ItemTextGetItem = nil
+  -- Home moved.
+  Life.Home("Lion's Pride Inn", NOW - 90 * 86400)
+  Life.Home("Scarlet Raven Tavern", NOW - 86400)
+  -- Drink.
+  DRUNK_MESSAGE_SELF1, DRUNK_MESSAGE_SELF3 = "You feel sober again.", "You feel drunk.  Woah!"
+  event("CHAT_MSG_SYSTEM", "You feel drunk.  Woah!")
+  -- A companion on three days, another once.
+  Life.Companion("Thalia", "MAGE", NOW - 5 * 86400)
+  Life.Companion("Thalia", "MAGE", NOW - 3 * 86400)
+  Life.Companion("Thalia", "MAGE", NOW - 3600)
+  Life.Companion("Thalia", "MAGE", NOW - 3500)
+  Life.Companion("Brom", "WARRIOR", NOW - 3600)
+  life = Life.Read()
+  check(life.books[1].title == "The Seven Kingdoms", "a book read")
+  check(life.home == "Scarlet Raven Tavern" and life.homePrev == "Lion's Pride Inn", "home follows the hearthstone")
+  check(life.drunk == 2, "drink from the game's own line: " .. life.drunk)
+  check(life.companions[1].name == "Thalia" and life.companions[1].days == 3, "companions by the days spent together")
+  ns.cache.rpgd, ns.cache.sd, ns.cache.chronicle, ns.cache.life, ns.cache.merged = nil, nil, nil, life, nil
+  ns.cache.deeds = ns.Sources.Deeds.Read()
+  local st = C.Stats()
+  check(st.slain == (k0 + 12) .. ", 12 of them Defias Bandits", "creatures slain without RPG Dialogue: " .. tostring(st.slain))
+  check(st.books == "1", "books read without RPG Dialogue")
+  check(C.Residence() == "Scarlet Raven Tavern", "residence from the hearthstone")
+  check(#C.Companions() == 1 and C.Companions()[1] == "Thalia", "only someone grouped with on three days is a companion")
+  local marks = C.MarksGlance()
+  check(marks and marks.TI == "Smells of Ale", "drink shows without RPG Dialogue: " .. tostring(marks and marks.TI))
+  check((C.Bearing() or ""):find("Seven Kingdoms"), "Personality names a book without RPG Dialogue")
+  local hist = C.History() or ""
+  print("     " .. hist:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+  check(hist:find("Thalia") and hist:find("Scarlet Raven Tavern"), "History tells of companions and home from the game alone")
+  ns.cache.rpgd, ns.cache.sd, ns.cache.chronicle = saved.rpgd, saved.sd, saved.chron
+  ns.cache.merged = nil
+  ns.Compose.SourcesChanged()
+end
+
+print("\n--- duels, fishing, flights and honour ---")
+do
+  local C, Life = ns.Compose, ns.Sources.Life
+  DUEL_WINNER_KNOCKOUT = "%1$s has defeated %2$s in a duel"
+  DUEL_WINNER_RETREAT = "%2$s has fled from %1$s in a duel"
+  event("CHAT_MSG_SYSTEM", "Aldric has defeated Brom in a duel")
+  event("CHAT_MSG_SYSTEM", "Aldric has fled from Thalia in a duel")
+  event("CHAT_MSG_SYSTEM", "Brom has defeated Thalia in a duel")
+  local life = Life.Read()
+  check(life.duelsWon == 1 and life.duelsLost == 1, "duels from the game's lines, won and fled: " .. life.duelsWon .. "/" .. life.duelsLost)
+  check(life.lastDuel.other == "Thalia" and life.lastDuel.won == false, "the last duel, against whom")
+  IsFishingLoot = function() return true end
+  event("LOOT_OPENED")
+  IsFishingLoot = function() return false end
+  event("LOOT_OPENED")
+  IsFishingLoot = nil
+  UnitOnTaxi = function() return true end
+  event("PLAYER_CONTROL_LOST"); runTimers()
+  event("PLAYER_CONTROL_LOST"); runTimers()   -- still the same flight
+  event("PLAYER_CONTROL_GAINED")
+  UnitOnTaxi = nil
+  life = Life.Read()
+  check(life.fish == 1, "a fish caught, other loot not")
+  check(life.flights == 1, "a flight counted once")
+  ns.cache.life, ns.cache.merged = life, nil
+  ns.cache.deeds = ns.Sources.Deeds.Read()
+  local st = C.Stats()
+  check(st.duels == "1 won, 1 lost", "duels statistic: " .. tostring(st.duels))
+  check(st.fish == "1" and st.flights == "1", "fish and flights statistics")
+  ns.cache.world.honorKills = 120
+  st = C.Stats()
+  check(st.honour == "120", "honourable kills from the game")
+  ns.cache.world.honorKills = nil
+  ns.Compose.SourcesChanged()
+end
+
+print("\n--- ambitions and news the game can see ---")
+do
+  local C = ns.Compose
+  local saved = { rpgd = ns.cache.rpgd, chron = ns.cache.chronicle, factions = ns.cache.world.factions,
+    profs = ns.cache.world.professions }
+  ns.cache.rpgd, ns.cache.chronicle, ns.cache.merged = nil, nil, nil
+  ns.cache.world.factions = { near = { name = "Stormwind", next = "Revered", frac = 0.9 } }
+  local a = C.AmbitionGlance()
+  check(a.TX:find("revered") and a.TX:find("Stormwind"), "Ambition: standing nearly at the next step: " .. a.TX)
+  ns.cache.world.factions = {}
+  ns.cache.world.professions = { { name = "Tailoring", rank = 150, max = 150 } }
+  a = C.AmbitionGlance()
+  check(a.TX:find("tailoring"), "Ambition: a craft at the most its training allows: " .. a.TX)
+  ns.cache.world.professions = { { name = "Tailoring", rank = 300, max = 300 } }
+  check(not C.AmbitionGlance().TX:find("tailoring"), "a mastered craft is no ambition")
+  -- A dungeon entered for the first time today, in Lately.
+  ns.cache.deeds = { zones = {}, deaths = {}, bosses = {}, finished = {}, dungeons = 1, rares = 0,
+    latestDungeon = { name = "The Deadmines", t = NOW - 600 }, fromStart = false }
+  ns.char.lastFight, ns.char.finds = nil, nil
+  local life = ns.cache.life
+  ns.cache.life = nil
+  check(not C.LatelyGlance().TX:find("Deadmines"), "begun mid-career, a dungeon isn't called a first time")
+  ns.cache.deeds.fromStart = true
+  local l = C.LatelyGlance()
+  ns.cache.life = life
+  check(l.TX:find("Deadmines"), "Lately: a dungeon seen for the first time: " .. l.TX)
+  ns.cache.rpgd, ns.cache.chronicle = saved.rpgd, saved.chron
+  ns.cache.world.factions, ns.cache.world.professions = saved.factions, saved.profs
+  ns.cache.merged = nil
+  ns.Compose.SourcesChanged()
+  -- Duels move the mood through the same reader.
+  local before = ns.char.mood.emo.proud or 0
+  event("CHAT_MSG_SYSTEM", "Aldric has defeated Brom in a duel")
+  check((ns.char.mood.emo.proud or 0) > before, "a duel won makes them proud")
+end
+
+print("\n--- lands from the world map ---")
+do
+  local C, Deeds = ns.Compose, ns.Sources.Deeds
+  local oldMap, oldX = C_Map, C_MapExplorationInfo
+  C_Map = { GetMapChildrenInfo = function(id) return id == 1415
+    and { { mapID = 1, name = "Duskwood" }, { mapID = 2, name = "Badlands" }, { mapID = 3, name = "Tirisfal Glades" } } or {} end }
+  C_MapExplorationInfo = { GetExploredMapTextures = function(id) return id ~= 3 and { {} } or {} end }
+  local before = #Deeds.Read().zones
+  local added = Deeds.Explored()
+  check(added >= 1 and #Deeds.Read().zones == before + added, "uncovered maps count as lands explored: " .. added)
+  check(Deeds.Explored() == 0, "and are taken in once")
+  C_Map, C_MapExplorationInfo = oldMap, oldX
+  -- Begun mid-career, History gives the count without claiming where the road began.
+  local saved = ns.cache.rpgd
+  ns.char.deeds.startLevel = 30
+  ns.cache.rpgd, ns.cache.deeds, ns.cache.merged = nil, Deeds.Read(), nil
+  local h = C.History() or ""
+  check(h:find("road has led through") and not h:find("From "), "History counts the lands without inventing a start")
+  ns.char.deeds.startLevel = 1
+  ns.cache.rpgd, ns.cache.merged = saved, nil
+  ns.Compose.SourcesChanged()
+end
+
+print("\n--- review fixes ---")
+do
+  local C, Deeds, Life = ns.Compose, ns.Sources.Deeds, ns.Sources.Life
+  -- History's start is the first land seen on the road, not one taken in from the map.
+  local saved = ns.cache.rpgd
+  ns.char.deeds.startLevel = 1
+  ns.char.deeds.zones = { ["Duskwood"] = 1, ["Badlands"] = 1, ["Elwynn Forest"] = NOW - 30 * 86400,
+    ["Westfall"] = NOW - 20 * 86400, ["Redridge Mountains"] = NOW - 86400 * 3 }
+  ns.cache.rpgd, ns.cache.deeds, ns.cache.merged = nil, Deeds.Read(), nil
+  local h = C.History() or ""
+  check(h:find("From Elwynn Forest") and not h:find("months ago") and not h:find("From Duskwood"),
+    "History starts the road at the first land seen, not a mapped one")
+  ns.cache.rpgd, ns.cache.merged = saved, nil
+  -- Hurting yourself doesn't make you your own killer.
+  local ev
+  CombatLogGetCurrentEventInfo = function() return unpack(ev) end
+  ev = { NOW, "SPELL_DAMAGE", false, "Creature-0-1-2-3-9-0", "Kobold Miner", 0xa48, 0, "Player-1-0001", "Aldric" }
+  event("COMBAT_LOG_EVENT_UNFILTERED")
+  ev = { NOW, "SPELL_DAMAGE", false, "Player-1-0001", "Aldric", 0x511, 0, "Player-1-0001", "Aldric" }
+  event("COMBAT_LOG_EVENT_UNFILTERED")
+  CombatLogGetCurrentEventInfo = nil
+  Deeds.Death()
+  local r = Deeds.Read()
+  check(r.deaths[1].killer == "Kobold Miner", "self-inflicted damage isn't the killer: " .. tostring(r.deaths[1].killer))
+  -- A roster burst is read once, after the names have arrived.
+  local oldRaid, oldN, oldIsPlayer, oldName, oldClass = IsInRaid, GetNumSubgroupMembers, UnitIsPlayer, UnitName, UnitClass
+  local known = false
+  IsInRaid = function() return false end
+  GetNumSubgroupMembers = function() return 1 end
+  UnitIsPlayer = function() return true end
+  UnitName = function(u) if u == "party1" then return known and "Ysolde" or UNKNOWNOBJECT end return oldName(u) end
+  UnitClass = function() return "Mage", "MAGE" end
+  UNKNOWNOBJECT = "Unknown"
+  event("GROUP_ROSTER_UPDATE")
+  known = true
+  event("GROUP_ROSTER_UPDATE")
+  runTimers()
+  IsInRaid, GetNumSubgroupMembers, UnitIsPlayer, UnitName, UnitClass = oldRaid, oldN, oldIsPlayer, oldName, oldClass
+  local found
+  for _, p in ipairs(Life.Read().companions) do if p.name == "Ysolde" then found = p end end
+  check(found and found.days == 1, "a member whose name arrives late is still recorded, once")
+  -- A letter read from the bags isn't a book.
+  local nBooks = #Life.Read().books
+  ItemTextGetItem, ItemTextGetCreator = function() return "Letter" end, function() return "Mother" end
+  event("ITEM_TEXT_BEGIN")
+  ItemTextGetItem, ItemTextGetCreator = nil, nil
+  check(#Life.Read().books == nBooks, "a letter isn't counted as a book")
+  -- The start level waits until the game knows it.
+  local oldLevel = UnitLevel
+  ns.char.deeds.startLevel = nil
+  UnitLevel = function() return 0 end
+  check(not Deeds.Read().fromStart and ns.char.deeds.startLevel == nil, "no start level is kept while the game reads 0")
+  UnitLevel = oldLevel
+  Deeds.Read()
+  check(ns.char.deeds.startLevel ~= nil, "and it's kept once the level is known")
+  ns.Compose.SourcesChanged()
 end
 
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))

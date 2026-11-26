@@ -106,11 +106,14 @@ local function allDeaths()
   local c = ns.cache or {}
   local cutoff = U.Now() - 6 * 3600
   for _, d in ipairs(c.rpgd and c.rpgd.deaths or {}) do if d.t >= cutoff then list[#list + 1] = d.t end end
-  for _, d in ipairs(c.chronicle and c.chronicle.deaths or {}) do
-    if d.t < cutoff then break end   -- Chronicle lists newest first
-    local dup = false
-    for _, t in ipairs(list) do if math.abs(t - d.t) < 30 then dup = true break end end
-    if not dup then list[#list + 1] = d.t end
+  -- Chronicle and Auto TRP's own record list newest first.
+  for _, src in ipairs({ c.chronicle and c.chronicle.deaths or {}, c.deeds and c.deeds.deaths or {} }) do
+    for _, d in ipairs(src) do
+      if d.t < cutoff then break end
+      local dup = false
+      for _, t in ipairs(list) do if math.abs(t - d.t) < 30 then dup = true break end end
+      if not dup then list[#list + 1] = d.t end
+    end
   end
   return list
 end
@@ -252,9 +255,10 @@ function Mood.Scores(world)
   if rpgd then
     if (rpgd.insanity or 0) > 0 then add("haunted", rpgd.insanity * 0.8, "madness") end
     if (rpgd.align.taint or 0) >= 30 then add("haunted", rpgd.align.taint / 3, "a taint") end
-    if (rpgd.drunk or 0) > 0 and now - (rpgd.drunkAt or 0) < 1800 then
-      add("merry", 30 + 10 * math.min(rpgd.drunk, 3), "drink")
-    end
+  end
+  local life = ns.Compose and ns.Compose.Life and ns.cache and ns.cache.world and ns.Compose.Life(ns.cache)
+  if life and (life.drunk or 0) > 0 and now - (life.drunkAt or 0) < 1800 then
+    add("merry", 30 + 10 * math.min(life.drunk, 3), "drink")
   end
   if chron and #chron.goals > 0 then add("determined", 14, "a goal") end
 
@@ -467,18 +471,12 @@ ns.On("PLAYER_MONEY", function()
   lastMoney = m
 end)
 
--- Duels: "X has defeated Y in a duel"
-ns.On("CHAT_MSG_SYSTEM", function(_, msg)
-  msg = ns.World.Safe(msg)
-  if type(msg) ~= "string" then return end
-  local winner, loser = msg:match("^(.-) has defeated (.-) in a duel")
-  if not winner then return end
-  local me = U.Call(UnitName, "player")
-  me = type(me) == "string" and me:match("^(%S+)") or me
-  winner, loser = winner:match("^(%S+)") or winner, loser:match("^(%S+)") or loser
-  if winner == me then Mood.Push("proud", 35, "won a duel against " .. loser)
-  elseif loser == me then Mood.Push("frustrated", 25, "lost a duel to " .. winner) end
-end)
+-- Duels: read by Sources/Life.lua from the game's own duel lines (in any language).
+function Mood.Duel(won, other)
+  other = other or "someone"
+  if won then Mood.Push("proud", 35, "won a duel against " .. other)
+  else Mood.Push("frustrated", 25, "lost a duel to " .. other) end
+end
 
 -- Reputation: rising, falling, a new standing (remembered for History).
 -- Reputation: a gentle push at most once per faction every half hour (never from the
@@ -559,7 +557,7 @@ ns.On("ZONE_CHANGED_NEW_AREA", function()
     if U.Count(seen.zones) > 1 then Mood.Push("wonder", 45, "first time in " .. zone) end
   end
   local bind = U.Plain(U.Call(GetBindLocation))
-  local home = ns.cache and ns.cache.rpgd and ns.cache.rpgd.homeInn
+  local home = ns.cache and ((ns.cache.rpgd and ns.cache.rpgd.homeInn) or (ns.cache.life and ns.cache.life.home))
   local sub = U.Plain(U.Call(GetSubZoneText))
   local isHome = (bind and (zone == bind or sub == bind)) or (home and (zone == home or sub == home))
   if isHome and st.awayFrom and now - st.awayFrom > 3600 then Mood.Push("homecoming", 35, "home again") end
@@ -677,6 +675,10 @@ function Mood.Watch()
   if chron then
     watch(seen, "goalsDone", chron.goalsDone, function(d) if d > 0 then Mood.Push("elated", 40, "reached a goal") end end)
     watch(seen, "rares", chron.rares, function(d) if d > 0 then Mood.Push("thrilled", 25, "spotted a rare beast") end end)
+  end
+  local own = ns.cache and ns.cache.deeds
+  if own and not chron then
+    watch(seen, "ownRares", own.rares, function(d) if d > 0 then Mood.Push("thrilled", 25, "brought down a rare beast") end end)
   end
   -- A name earned: proud, and a quiet line in your own chat (never sent to anyone).
   if ns.Compose and ns.Compose.NoticeNames then

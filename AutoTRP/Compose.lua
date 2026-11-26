@@ -52,7 +52,52 @@ local function mergedFor(c)
     questsDone = math.max(c.chronicle and c.chronicle.questsDone or 0, count) }
   return merged
 end
+-- Everyday life from RPG Dialogue, Social Diary and Auto TRP's own record together: whichever
+-- knows more. { kills, grudge, books, home, homePrev, homeSince, drunk, drunkAt,
+-- recentPeople, companions }
+function Compose.Life(c)
+  c = c or ns.cache
+  if c.merged then return c.merged end
+  local rpgd, sd, own = c.rpgd, c.sd, c.life or {}
+  local m = {}
+  m.kills = math.max(rpgd and rpgd.kills or 0, own.kills or 0)
+  local rg, og = rpgd and rpgd.grudge, own.grudge
+  m.grudge = (rg and (not og or rg.n >= og.n)) and rg or og
+  -- Books: one list, by title, the larger count kept.
+  local byTitle, books = {}, {}
+  for _, list in ipairs({ rpgd and rpgd.books or {}, own.books or {} }) do
+    for _, b in ipairs(list) do
+      local have = byTitle[b.title]
+      if not have then have = { title = b.title, n = b.n or 1 }; byTitle[b.title] = have; books[#books + 1] = have
+      elseif (b.n or 1) > have.n then have.n = b.n end
+    end
+  end
+  table.sort(books, function(x, y) if x.n ~= y.n then return x.n > y.n end return x.title < y.title end)
+  m.books = books
+  if rpgd and rpgd.homeInn then
+    m.home, m.homePrev, m.homeSince = rpgd.homeInn, rpgd.homePrev, rpgd.homeSince
+  else
+    m.home, m.homePrev, m.homeSince = own.home or (c.world and c.world.bind), own.homePrev, own.homeSince
+  end
+  local rd, od = rpgd and rpgd.drunkAt or 0, own.drunkAt or 0
+  if rd >= od then m.drunk, m.drunkAt = rpgd and rpgd.drunk or 0, rd else m.drunk, m.drunkAt = own.drunk or 0, od end
+  m.recentPeople = math.max(sd and sd.recentPeople or 0, own.recentPeople or 0)
+  m.companions = own.companions or {}
+  c.merged = m
+  return m
+end
+
 -- Every quest finished: title -> { t, zone }.
+-- Up to three players grouped with on three days or more, seen within the last month.
+function Compose.Companions(c)
+  local out = {}
+  local month = U.Now() - 30 * 86400
+  for _, p in ipairs(Compose.Life(c).companions) do
+    if p.days >= 3 and p.last >= month then out[#out + 1] = p.name end
+    if #out == 3 then break end
+  end
+  return out
+end
 function Compose.Finished(c) return mergedFor(c or ns.cache).finished end
 -- Every master brought down, the latest first: { name, first, t (latest), where }.
 function Compose.Bosses(c) return mergedFor(c or ns.cache).bosses end
@@ -65,11 +110,13 @@ function Compose.Refresh()
   local c = ns.cache
   local now = U.Now()
   c.world = ns.World.Snapshot()
+  c.merged = nil
   if now - sourcesAt >= 60 or not c.read then
     c.rpgd = S.RPGD.Read()
     c.sd = S.SocialDiary.Read()
     c.chronicle = S.Chronicle.Read()
     c.deeds = S.Deeds.Read()
+    c.life = S.Life and S.Life.Read() or nil
     sourcesAt, c.read = now, true
   end
   c.t = now
@@ -112,7 +159,21 @@ local function seasoned(level, key)
 end
 
 local function deathCount(c)
-  return math.max(c.rpgd and c.rpgd.deathCount or 0, c.chronicle and c.chronicle.deathCount or 0)
+  local own = c.deeds and ((c.deeds.deathCount or 0) + (ns.char and ns.char.deeds and tonumber(ns.char.deeds.deathsLost) or 0)) or 0
+  return math.max(c.rpgd and c.rpgd.deathCount or 0, c.chronicle and c.chronicle.deathCount or 0, own)
+end
+-- Counts and lists the game itself gives Auto TRP's own record, set beside the addons'.
+local function ownCount(c, k) return c.deeds and c.deeds[k] or 0 end
+local function landsCount(c)
+  return math.max(c.rpgd and #c.rpgd.zones or 0, c.chronicle and c.chronicle.zones or 0, c.deeds and #c.deeds.zones or 0)
+end
+local function rares(c) return math.max(c.chronicle and c.chronicle.rares or 0, ownCount(c, "rares")) end
+local function dungeonsSeen(c) return math.max(c.chronicle and c.chronicle.dungeons or 0, ownCount(c, "dungeons")) end
+local function startedAt(c)
+  local first = c.rpgd and c.rpgd.zones[1] and c.rpgd.zones[1].t
+  local ownFirst = c.deeds and c.deeds.origin and c.deeds.origin.t
+  local since = math.min(first or math.huge, c.chronicle and c.chronicle.created or math.huge, ownFirst or math.huge)
+  return since
 end
 
 local function sentence(s)
@@ -183,8 +244,9 @@ function Compose.LatelyGlance()
   local function add(t, prio, g) cands[#cands + 1] = { t = t or 0, prio = prio, g = g } end
 
   local death = rpgd and rpgd.deaths[#rpgd.deaths]
-  local cdeath = chron and chron.deaths[1]
-  if cdeath and (not death or cdeath.t > death.t) then death = cdeath end
+  for _, d in ipairs({ chron and chron.deaths[1] or false, c.deeds and c.deeds.deaths[1] or false }) do
+    if d and (not death or d.t > death.t) then death = d end
+  end
   if death and within(death.t, 2 * 86400) then
     local tx = "Was badly hurt" .. (death.killer and (" by " .. death.killer) or "") .. (death.zone and (" in " .. death.zone) or "")
       .. (within(death.t, 3 * 3600) and ", within the last few hours" or ", a day or two ago")
@@ -194,6 +256,12 @@ function Compose.LatelyGlance()
   if boss and within(boss.t, 2 * 86400) then
     add(boss.t, 2, { TI = "Fresh Victory", IC = "INV_Misc_Head_Dragon_01",
       TX = say("boss", { who = boss.name, where = boss.where and (" in " .. U.Mid(boss.where)) or "" }, boss.t) })
+  end
+  local duel = c.life and c.life.lastDuel
+  if duel and duel.other and within(duel.t, 6 * 3600) then
+    add(duel.t, 1, duel.won
+      and { TI = "Bested a Challenger", IC = "INV_Sword_04", TX = "Lately came out on top in a duel with " .. duel.other .. "." }
+      or { TI = "A Lost Duel", IC = "INV_Sword_04", TX = "Lately came off worse in a duel with " .. duel.other .. "." })
   end
   local cleared = rpgd and rpgd.cleared[1]
   if cleared and within(cleared.t, 3 * 86400) then
@@ -239,10 +307,20 @@ function Compose.LatelyGlance()
     add(find.t, 2, { TI = "A New Prize", IC = "INV_Misc_Gem_Pearl_04",
       TX = say("find", { item = find.item, where = find.zone and (" in " .. U.Mid(find.zone)) or "" }, find.t) })
   end
-  local zone = rpgd and rpgd.zones[#rpgd.zones]
-  if zone and within(zone.t, 86400) and #rpgd.zones > 2 then
+  -- A new land: RPG Dialogue's record, else Auto TRP's own (the newest is last in both).
+  -- (Auto TRP's own only when it has kept the record from the start: begun mid-career,
+  -- the first land it saw isn't new to the character.)
+  local lands = (rpgd and #rpgd.zones > 0) and rpgd.zones
+    or (c.deeds and c.deeds.fromStart and c.deeds.zones) or {}
+  local zone = lands[#lands]
+  if zone and within(zone.t, 86400) and #lands > 2 then
     add(zone.t, 0, { TI = "New in Town", IC = "INV_Misc_Map_01",
       TX = say("newzone", { zone = U.Mid(zone.name) }, zone.t) })
+  end
+  local dungeon = c.deeds and c.deeds.fromStart and c.deeds.latestDungeon
+  if dungeon and within(dungeon.t, 86400) then
+    add(dungeon.t, 1, { TI = "Gone Below", IC = "INV_Misc_Key_14",
+      TX = say("firstdungeon", { place = U.Mid(dungeon.name) }, dungeon.t) })
   end
 
   -- A day-old hurt outranks everything; otherwise the newest, then the weightiest. (A strict
@@ -264,6 +342,13 @@ function Compose.LatelyGlance()
     if last and within(last.last, 86400) then
       return { TI = "Lately", IC = "INV_Letter_15", TX = say("lastseen", { who = last.name }, last.last) }
     end
+  end
+  -- Else the player last grouped with, from Auto TRP's own record.
+  local comp = ns.db.nameFriends and c.life and c.life.companions or {}
+  local last
+  for _, p in ipairs(comp) do if not last or p.last > last.last then last = p end end
+  if last and within(last.last, 6 * 3600) and not world.grouped then
+    return { TI = "Lately", IC = "Spell_Holy_PrayerOfSpirit", TX = say("travelled", { who = last.name }, last.last) }
   end
   local where = world.zone and U.Mid(world.zone) or "these parts"
   return { TI = "Lately", IC = "INV_Misc_Map_01", TX = say("around", { where = where }, world.zone) }
@@ -293,6 +378,12 @@ function Compose.CompanyGlance()
       tx = "Often seen in the company of " .. U.Join(names) .. "."
     end
     return { TI = "Keeps Company", IC = "Spell_Holy_PrayerOfSpirit", TX = tx }
+  end
+  if not (sd and sd.friends[1]) and ns.db.nameFriends then
+    local often = Compose.Companions(c)
+    if #often > 0 then
+      return { TI = "Keeps Company", IC = "Spell_Holy_PrayerOfSpirit", TX = "Often seen on the road with " .. U.Join(often) .. "." }
+    end
   end
   local town = rpgd and rpgd.towns[1]
   local friend = rpgd and rpgd.friends[1]
@@ -352,7 +443,21 @@ function Compose.AmbitionGlance()
         TX = say("unfinished", { t = lowerFirst(t.title) }, t.id) }
     end
   end
-  -- Nothing they've set out to do: the next rank on their road, which the game will give them.
+  -- Nothing they've set out to do: what the game shows is nearly in reach. Standing almost
+  -- at the next step, or a craft at the most their training allows.
+  local near = world.factions and world.factions.near
+  if near then
+    return { TI = "Ambition", IC = "INV_BannerPVP_02",
+      TX = say("nearstanding", { next = near.next:lower(), who = W.FactionName(near.name) }, near.name) }
+  end
+  for _, p in ipairs(world.professions or {}) do
+    local noun = W.PROF_NOUN[p.name:lower()]
+    if p.max and p.max < 300 and p.rank >= p.max and p.rank >= 50 and noun then
+      return { TI = "Ambition", IC = "INV_Misc_Book_11",
+        TX = U.Pron(say("craftcap", { craft = p.name:lower(), noun = noun }, p.name)) }
+    end
+  end
+  -- Else the next rank on their road, which the game will give them.
   local level = world.level or 1
   local ranks = Compose.Ranks(world)
   local now, nextRank = ranks[band(level)], ranks[band(level) + 1]
@@ -418,7 +523,8 @@ function Compose.MarksGlance()
   if world.health and world.health < 0.5 and not world.combat and not world.dead then
     mark(9, "Bloodied", "Freshly wounded, and moving carefully.", "Ability_Rogue_FeignDeath")
   end
-  if rpgd and (rpgd.drunk or 0) > 0 and U.Now() - (rpgd.drunkAt or 0) < 1800 then
+  local life = Compose.Life(c)
+  if (life.drunk or 0) > 0 and U.Now() - (life.drunkAt or 0) < 1800 then
     mark(8, "Smells of Ale", "Unsteady on {their} feet, and smelling of drink.", "INV_Drink_05")
   end
   if rpgd and (rpgd.insanity or 0) >= 30 then
@@ -589,7 +695,21 @@ function Compose.Bearing()
 
   -- Without RPG Dialogue there are no choices to read a character from: only the habit the
   -- game itself records.
-  if not rpgd then return habit and paragraph({ habit }) or nil end
+  local books = Compose.Life(c).books
+  local function read()
+    if #books == 0 then return nil end
+    local titles = {}
+    for i = 1, math.min(2, #books) do titles[i] = quote(books[i].title) end
+    local extra = #books - #titles
+    return "Has read " .. U.Join(titles)
+      .. (extra > 0 and (", and " .. U.Number(extra) .. " " .. U.Plural(extra, "other book") .. " besides") or "")
+  end
+  if not rpgd then
+    local more = {}
+    if habit then more[#more + 1] = habit end
+    if read() then more[#more + 1] = read() end
+    return #more > 0 and paragraph(more) or nil
+  end
 
   -- Temperament and conscience
   local adjs = {}
@@ -629,13 +749,7 @@ function Compose.Bearing()
   if (rpgd.liesExposed or 0) > 0 then
     more[#more + 1] = "Has been caught in " .. (rpgd.liesExposed == 1 and "a lie" or U.Number(rpgd.liesExposed) .. " lies")
   end
-  if #rpgd.books >= 1 then
-    local titles = {}
-    for i = 1, math.min(2, #rpgd.books) do titles[i] = quote(rpgd.books[i].title) end
-    local extra = #rpgd.books - #titles
-    more[#more + 1] = "Has read " .. U.Join(titles)
-      .. (extra > 0 and (", and " .. U.Number(extra) .. " " .. U.Plural(extra, "other book") .. " besides") or "")
-  end
+  if read() then more[#more + 1] = read() end
   if habit then more[#more + 1] = habit end
   local hooks = Compose.Hooks()
   local stories = #hooks > 0 and paragraph({ say("stories", { list = U.Join(hooks) }) }) or nil
@@ -735,10 +849,20 @@ function Compose.History()
 
   -- 2. The road so far
   local road = {}
-  local zones = rpgd and rpgd.zones or {}
-  local zoneCount = math.max(#zones, chron and chron.zones or 0)
-  if zoneCount >= 3 and zones[1] then
-    local since = math.min(zones[1].t or math.huge, chron and chron.created or math.huge)
+  -- Where the road began: RPG Dialogue's first land, else Auto TRP's own when it has kept
+  -- the record from the start (not lands taken in from the map, whose order is unknown).
+  local zones = (rpgd and #rpgd.zones > 0) and rpgd.zones or {}
+  if #zones == 0 and c.deeds and c.deeds.origin then
+    -- Only the lands seen on the road, in order: not those taken in from the map.
+    for _, z in ipairs(c.deeds.zones) do if z.t > 1 then zones[#zones + 1] = z end end
+  end
+  local zoneCount = landsCount(c)
+  if zoneCount >= 3 and not zones[1] then
+    road[#road + 1] = "{their} road has led through " .. U.Number(zoneCount) .. " lands"
+    local dungeons = dungeonsSeen(c)
+    if dungeons >= 2 then road[#road + 1] = "Along the way {they've} been inside at least " .. U.Number(dungeons) .. " dungeons" end
+  elseif zoneCount >= 3 and zones[1] then
+    local since = math.min(zones[1].t or math.huge, startedAt(c))
     local weeks = since < math.huge and math.floor((U.Now() - since) / 604800) or 0
     local ago = weeks >= 9 and (U.Number(math.floor(weeks / 4.3)) .. " months ago")
       or weeks >= 2 and (U.Number(weeks) .. " weeks ago") or nil
@@ -746,7 +870,7 @@ function Compose.History()
     local latest = (last and last.name ~= zones[1].name) and (", " .. placeName(last.name) .. " the latest of them") or ""
     road[#road + 1] = "From " .. placeName(zones[1].name) .. (ago and (", " .. ago .. ",") or "") .. " {their} road has led through "
       .. U.Number(zoneCount) .. " lands" .. latest
-    local dungeons = chron and chron.dungeons or 0
+    local dungeons = dungeonsSeen(c)
     if dungeons >= 2 then road[#road + 1] = "Along the way {they've} been inside " .. U.Number(dungeons) .. " dungeons" end
   elseif (world.level or 1) < 10 then
     road[#road + 1] = say("setout", { name = name })
@@ -764,10 +888,11 @@ function Compose.History()
     end
     if #steps > 0 then road[#road + 1] = "Was made " .. U.Join(steps) end
   end
-  if rpgd and rpgd.homeInn then
-    local s = "Home these days is " .. placeName(rpgd.homeInn)
-    if rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and within(rpgd.homeSince, 14 * 86400) then
-      s = s .. ", lately moved from " .. placeName(rpgd.homePrev)
+  local life = Compose.Life(c)
+  if life.home then
+    local s = "Home these days is " .. placeName(life.home)
+    if life.homePrev and life.homePrev ~= life.home and within(life.homeSince, 14 * 86400) then
+      s = s .. ", lately moved from " .. placeName(life.homePrev)
     end
     road[#road + 1] = s
   end
@@ -797,7 +922,14 @@ function Compose.History()
   local named = earnedKey and latest and earnedKey == "boss:" .. latest.name
   if #bosses >= 3 then deeds[#deeds + 1] = say("bosses", { n = U.Number(#bosses), who = latest.name }, latest.name)
   elseif latest and not named then deeds[#deeds + 1] = say("boss", { who = latest.name, where = "" }, latest.name) end
-  if chron and chron.rares >= 5 then deeds[#deeds + 1] = say("rares", { n = U.Number(chron.rares) }) end
+  if rares(c) >= 5 then deeds[#deeds + 1] = say("rares", { n = U.Number(rares(c)) }) end
+  local own = c.life or {}
+  local won, lost = own.duelsWon or 0, own.duelsLost or 0
+  if won + lost >= 5 then
+    deeds[#deeds + 1] = say(won * 2 >= won + lost and "duels" or "duelist",
+      { n = U.Number(won + lost), won = U.Number(won), lost = U.Number(lost) })
+  end
+  if (own.fish or 0) >= 50 then deeds[#deeds + 1] = say("fish", { n = U.Roughly(own.fish) }) end
   local questsDone = Compose.QuestsDone(c)
   if questsDone >= 25 then deeds[#deeds + 1] = say("jobs", { n = U.Roughly(questsDone) }) end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
@@ -842,8 +974,16 @@ function Compose.History()
   elseif partner then
     people[#people + 1] = name .. " travels with " .. partner
   end
-  if sd and sd.recentPeople >= 4 then
-    people[#people + 1] = "Has fought beside " .. U.Number(sd.recentPeople) .. " others this past week"
+  -- Without Social Diary friends, the players most often grouped with (on three days or more).
+  if not partner and ns.db.nameFriends then
+    local often = Compose.Companions(c)
+    if #often > 0 then
+      people[#people + 1] = (#people > 0 and "On the road {they} often" or (name .. " often")) .. " travel{s} with " .. U.Join(often)
+    end
+  end
+  local recent = Compose.Life(c).recentPeople
+  if recent >= 4 then
+    people[#people + 1] = "Has fought beside " .. U.Number(recent) .. " others this past week"
   end
   if rpgd then
     local good, bad = {}, nil
@@ -865,6 +1005,7 @@ function Compose.History()
   if world.pvpRank then
     people[#people + 1] = "Holds the rank of " .. world.pvpRank .. " in the " .. (world.faction or "faction") .. "'s army"
   end
+  if (world.honorKills or 0) >= 50 then people[#people + 1] = say("honour", { n = U.Roughly(world.honorKills) }) end
   local byWord = {}
   for _, f in ipairs(world.factions or {}) do
     byWord[f.word] = byWord[f.word] or {}
@@ -975,9 +1116,13 @@ Compose.STATS = {
   { key = "foes", label = "Named foes felled", icon = "INV_Misc_Head_Dragon_01" },
   { key = "rares", label = "Rare beasts", icon = "Ability_Hunter_BeastCall" },
   { key = "slain", label = "Creatures slain", icon = "Ability_DualWield" },
+  { key = "honour", label = "Honourable kills", icon = "INV_BannerPVP_01" },
+  { key = "duels", label = "Duels", icon = "INV_Sword_04" },
   { key = "jobs", label = "Jobs done", icon = "INV_Misc_Note_06" },
   { key = "wealth", label = "Wealth", icon = "INV_Misc_Coin_02" },
   { key = "crafts", label = "Crafts", icon = "Trade_Engineering" },
+  { key = "fish", label = "Fish caught", icon = "Trade_Fishing" },
+  { key = "flights", label = "Flights taken", icon = "Ability_Mount_Gryphon_01" },
   { key = "standing", label = "Best standing", icon = "INV_BannerPVP_02" },
   { key = "names", label = "Names earned", icon = "INV_Misc_Note_04" },
   { key = "spell", label = "Most cast spell", icon = "Spell_Holy_MagicalSentry" },
@@ -1002,8 +1147,7 @@ local function money(copper)
 end
 
 local function roadDays(c)
-  local first = c.rpgd and c.rpgd.zones[1] and c.rpgd.zones[1].t
-  local since = math.min(first or math.huge, c.chronicle and c.chronicle.created or math.huge)
+  local since = startedAt(c)
   if since == math.huge then return nil end
   return math.floor((U.Now() - since) / 86400)
 end
@@ -1014,25 +1158,34 @@ function Compose.Stats()
   local rpgd, chron, world = c.rpgd, c.chronicle, c.world
   local function figure(n) return n >= 100 and U.Number(n) or tostring(n) end
   local out = {}
+  -- A count only Auto TRP's own record has, begun partway through a career, says since when
+  -- ("12 since 26 Nov"), so it isn't read as the whole of it.
+  local since = ""
+  if c.deeds and not c.deeds.fromStart and (c.deeds.created or 0) > 1 then
+    since = " since " .. ((date and date("%d %b", c.deeds.created) or ""):gsub("^0", ""))
+  end
+  local function partial(other) return (other or 0) == 0 and since or "" end
   local deaths = deathCount(c)
   if deaths > 0 then
     local first = rpgd and rpgd.deaths[1] or (chron and chron.deaths[#chron.deaths])
-    out.deaths = figure(deaths) .. (first and first.killer and (", the first to " .. first.killer) or "")
+      or (c.deeds and c.deeds.fromStart and c.deeds.deaths[#c.deeds.deaths])
+    local others = math.max(rpgd and rpgd.deathCount or 0, chron and chron.deathCount or 0)
+    out.deaths = figure(deaths) .. partial(others) .. (first and first.killer and (", the first to " .. first.killer) or "")
   end
-  local lands = math.max(rpgd and #rpgd.zones or 0, chron and chron.zones or 0)
+  local lands = landsCount(c)
   if lands > 0 then out.lands = figure(lands) end
   local days = roadDays(c)
   if days and days > 0 then out.road = figure(days) end
-  local dungeons = math.max(chron and chron.dungeons or 0, rpgd and #rpgd.cleared or 0)
-  if dungeons > 0 then out.dungeons = figure(dungeons) end
+  local dungeons = math.max(dungeonsSeen(c), rpgd and #rpgd.cleared or 0)
+  if dungeons > 0 then out.dungeons = figure(dungeons) .. partial(math.max(chron and chron.dungeons or 0, rpgd and #rpgd.cleared or 0)) end
   local felled = #Compose.Bosses(c)
   if felled > 0 then out.foes = figure(felled) end
-  if chron and chron.rares > 0 then out.rares = figure(chron.rares) end
-  local kills = rpgd and rpgd.kills or 0
-  if kills > 0 then
-    out.slain = figure(kills)
-    if rpgd.grudge and rpgd.grudge.n >= 10 then
-      out.slain = out.slain .. ", " .. figure(rpgd.grudge.n) .. " of them " .. Compose.Plural(rpgd.grudge.name)
+  if rares(c) > 0 then out.rares = figure(rares(c)) .. partial(chron and chron.rares) end
+  local life = Compose.Life(c)
+  if life.kills > 0 then
+    out.slain = figure(life.kills) .. partial(rpgd and rpgd.kills)
+    if life.grudge and life.grudge.n >= 10 then
+      out.slain = out.slain .. ", " .. figure(life.grudge.n) .. " of them " .. Compose.Plural(life.grudge.name)
     end
   end
   local questsDone = Compose.QuestsDone(c)
@@ -1045,7 +1198,13 @@ function Compose.Stats()
   if #crafts > 0 then out.crafts = table.concat(crafts, ", ") end
   local top = world.factions and world.factions[1]
   if top and top.word then out.standing = top.word .. " with " .. W.FactionName(top.name) end
-  if rpgd and #rpgd.books > 0 then out.books = figure(#rpgd.books) end
+  if #life.books > 0 then out.books = figure(#life.books) .. partial(rpgd and #rpgd.books) end
+  local own = c.life or {}
+  if (world.honorKills or 0) > 0 then out.honour = figure(world.honorKills) end
+  local won, lost = own.duelsWon or 0, own.duelsLost or 0
+  if won + lost > 0 then out.duels = figure(won) .. " won, " .. figure(lost) .. " lost" .. since end
+  if (own.fish or 0) > 0 then out.fish = figure(own.fish) .. since end
+  if (own.flights or 0) > 0 then out.flights = figure(own.flights) .. since end
   -- Every name earned, the one worn first ("Mine-Warden, Defias-Breaker and Hogger's Bane").
   local names, worn = {}, Compose.Earned()
   if worn then names[1] = worn.nick end
@@ -1119,8 +1278,7 @@ function Compose.OOCNote()
 end
 
 function Compose.Residence()
-  local rpgd = ns.cache.rpgd
-  return (rpgd and rpgd.homeInn) or ns.cache.world.bind
+  return Compose.Life(ns.cache).home
 end
 
 function Compose.Birthplace()
