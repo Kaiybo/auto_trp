@@ -310,8 +310,33 @@ function UI.PreviewText()
   add("bearing", s.bearing)
   add("history", s.history)
   add("physical", s.physical)
+  -- The statistics as one block, one line each, the way Total RP 3 lists them; the ones with
+  -- nothing to count yet gathered at the end rather than a dozen "(nothing yet)"s.
   if s.stats then
-    for _, st in ipairs(ns.Compose.STATS) do if not st.retired then add("stat_" .. st.key, s.stats[st.key]) end end
+    -- A status said once in the heading when they all share it, else beside each that differs.
+    local shared
+    for _, st in ipairs(ns.Compose.STATS) do
+      if not st.retired then
+        local status = TRP.Status("stat_" .. st.key)
+        if shared == nil then shared = status elseif shared ~= status then shared = false end
+      end
+    end
+    out[#out + 1] = "|cffc8a165Statistics|r" .. (shared and ("  " .. STATUS_WORDS[shared]) or "")
+    local empty = {}
+    for _, st in ipairs(ns.Compose.STATS) do
+      if not st.retired then
+        local key, v = "stat_" .. st.key, s.stats[st.key]
+        local status = TRP.Status(key)
+        if v and v ~= "" then
+          local note = (shared or status == "auto") and "" or ("  " .. STATUS_WORDS[status])
+          out[#out + 1] = "  " .. st.label .. ": " .. v .. note
+        else
+          empty[#empty + 1] = st.label:lower()
+        end
+      end
+    end
+    if #empty > 0 then out[#out + 1] = "  |cff808080Nothing to count yet: " .. U.Join(empty) .. ".|r" end
+    out[#out + 1] = ""
   end
   return table.concat(out, "\n")
 end
