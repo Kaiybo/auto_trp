@@ -257,6 +257,12 @@ function Compose.LatelyGlance()
     add(boss.t, 2, { TI = "Fresh Victory", IC = "INV_Misc_Head_Dragon_01",
       TX = say("boss", { who = boss.name, where = boss.where and (" in " .. U.Mid(boss.where)) or "" }, boss.t) })
   end
+  local duel = c.life and c.life.lastDuel
+  if duel and duel.other and within(duel.t, 6 * 3600) then
+    add(duel.t, 1, duel.won
+      and { TI = "Bested a Challenger", IC = "INV_Sword_04", TX = "Lately came out on top in a duel with " .. duel.other .. "." }
+      or { TI = "A Lost Duel", IC = "INV_Sword_04", TX = "Lately came off worse in a duel with " .. duel.other .. "." })
+  end
   local cleared = rpgd and rpgd.cleared[1]
   if cleared and within(cleared.t, 3 * 86400) then
     add(cleared.t, 2, { TI = "Back From the Depths", IC = "INV_Misc_Key_14",
@@ -876,6 +882,13 @@ function Compose.History()
   if #bosses >= 3 then deeds[#deeds + 1] = say("bosses", { n = U.Number(#bosses), who = latest.name }, latest.name)
   elseif latest and not named then deeds[#deeds + 1] = say("boss", { who = latest.name, where = "" }, latest.name) end
   if rares(c) >= 5 then deeds[#deeds + 1] = say("rares", { n = U.Number(rares(c)) }) end
+  local own = c.life or {}
+  local won, lost = own.duelsWon or 0, own.duelsLost or 0
+  if won + lost >= 5 then
+    deeds[#deeds + 1] = say(won * 2 >= won + lost and "duels" or "duelist",
+      { n = U.Number(won + lost), won = U.Number(won), lost = U.Number(lost) })
+  end
+  if (own.fish or 0) >= 50 then deeds[#deeds + 1] = say("fish", { n = U.Roughly(own.fish) }) end
   local questsDone = Compose.QuestsDone(c)
   if questsDone >= 25 then deeds[#deeds + 1] = say("jobs", { n = U.Roughly(questsDone) }) end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
@@ -951,6 +964,7 @@ function Compose.History()
   if world.pvpRank then
     people[#people + 1] = "Holds the rank of " .. world.pvpRank .. " in the " .. (world.faction or "faction") .. "'s army"
   end
+  if (world.honorKills or 0) >= 50 then people[#people + 1] = say("honour", { n = U.Roughly(world.honorKills) }) end
   local byWord = {}
   for _, f in ipairs(world.factions or {}) do
     byWord[f.word] = byWord[f.word] or {}
@@ -1061,9 +1075,13 @@ Compose.STATS = {
   { key = "foes", label = "Named foes felled", icon = "INV_Misc_Head_Dragon_01" },
   { key = "rares", label = "Rare beasts", icon = "Ability_Hunter_BeastCall" },
   { key = "slain", label = "Creatures slain", icon = "Ability_DualWield" },
+  { key = "honour", label = "Honourable kills", icon = "INV_BannerPVP_01" },
+  { key = "duels", label = "Duels", icon = "INV_Sword_04" },
   { key = "jobs", label = "Jobs done", icon = "INV_Misc_Note_06" },
   { key = "wealth", label = "Wealth", icon = "INV_Misc_Coin_02" },
   { key = "crafts", label = "Crafts", icon = "Trade_Engineering" },
+  { key = "fish", label = "Fish caught", icon = "Trade_Fishing" },
+  { key = "flights", label = "Flights taken", icon = "Ability_Mount_Gryphon_01" },
   { key = "standing", label = "Best standing", icon = "INV_BannerPVP_02" },
   { key = "names", label = "Names earned", icon = "INV_Misc_Note_04" },
   { key = "spell", label = "Most cast spell", icon = "Spell_Holy_MagicalSentry" },
@@ -1132,6 +1150,12 @@ function Compose.Stats()
   local top = world.factions and world.factions[1]
   if top and top.word then out.standing = top.word .. " with " .. W.FactionName(top.name) end
   if #life.books > 0 then out.books = figure(#life.books) end
+  local own = c.life or {}
+  if (world.honorKills or 0) > 0 then out.honour = figure(world.honorKills) end
+  local won, lost = own.duelsWon or 0, own.duelsLost or 0
+  if won + lost > 0 then out.duels = figure(won) .. " won, " .. figure(lost) .. " lost" end
+  if (own.fish or 0) > 0 then out.fish = figure(own.fish) end
+  if (own.flights or 0) > 0 then out.flights = figure(own.flights) end
   -- Every name earned, the one worn first ("Mine-Warden, Defias-Breaker and Hogger's Bane").
   local names, worn = {}, Compose.Earned()
   if worn then names[1] = worn.nick end

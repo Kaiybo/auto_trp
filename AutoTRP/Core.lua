@@ -141,6 +141,7 @@ ns.DEFAULTS = {
     stat_deaths = true, stat_lands = true, stat_road = true, stat_dungeons = true, stat_foes = true,
     stat_rares = true, stat_slain = true, stat_jobs = true, stat_wealth = true, stat_crafts = true,
     stat_standing = true, stat_names = true, stat_spell = true, stat_met = true, stat_books = true, stat_letters = true,
+    stat_honour = true, stat_duels = true, stat_fish = true, stat_flights = true,
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },

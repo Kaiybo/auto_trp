@@ -233,12 +233,16 @@ ns.On("COMBAT_LOG_EVENT_UNFILTERED", function()
       if sub == "ENVIRONMENTAL_DAMAGE" then name = nil end
       lastHit = { name = name, t = U.Now() }
     end
-  elseif sub == "PARTY_KILL" or sub == "UNIT_DIED" then
+  elseif sub == "PARTY_KILL" then
+    -- Only a killing blow by the character, their pet or their group: someone else's kill
+    -- of a rare that happened to be nearby isn't the character's deed.
     local rare = dstGUID and rareSeen[dstGUID]
     if not rare then return end
     local bit = _G.bit
-    if sub == "PARTY_KILL" and bit and srcFlags and bit.band(srcFlags, MINE) == 0 then return end
+    if bit and srcFlags and bit.band(srcFlags, MINE) == 0 then return end
     rareSeen[dstGUID] = nil
     D.Rare(rare)
+  elseif sub == "UNIT_DIED" and dstGUID then
+    rareSeen[dstGUID] = nil   -- felled by someone else: forget it
   end
 end)

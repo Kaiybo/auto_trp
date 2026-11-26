@@ -158,6 +158,72 @@ end
 ns.On("GROUP_ROSTER_UPDATE", roster)
 
 ---------------------------------------------------------------------------
+-- Duels: the game's own "X has defeated Y in a duel" lines
+---------------------------------------------------------------------------
+function L.Duel(won, other, t)
+  local d = store()
+  if not d then return end
+  d.duels = type(d.duels) == "table" and d.duels or { won = 0, lost = 0 }
+  if won then d.duels.won = (d.duels.won or 0) + 1 else d.duels.lost = (d.duels.lost or 0) + 1 end
+  d.duels.last = { won = won, other = U.Plain(other), t = t or U.Now() }
+  changed()
+end
+
+-- A global format string ("%1$s has defeated %2$s in a duel") as a pattern capturing the
+-- winner and the loser in that order.
+local function duelPattern(fmt, winnerFirst)
+  if type(fmt) ~= "string" then return nil end
+  local order, pat = {}, fmt:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
+  pat = pat:gsub("%%%%(%d)%%%$s", function(n) order[#order + 1] = tonumber(n); return "(.+)" end)
+  pat = pat:gsub("%%%%s", function() order[#order + 1] = #order + 1; return "(.+)" end)
+  return { pat = "^" .. pat .. "$", order = order }
+end
+local duelLines
+ns.On("CHAT_MSG_SYSTEM", function(_, msg)
+  if type(msg) ~= "string" or not msg:find("duel") then return end
+  duelLines = duelLines or { duelPattern(_G.DUEL_WINNER_KNOCKOUT), duelPattern(_G.DUEL_WINNER_RETREAT) }
+  local me = U.Call(UnitName, "player")
+  for _, p in ipairs(duelLines) do
+    local caps = { msg:match(p.pat) }
+    if #caps == 2 then
+      local winner, loser = caps[p.order[1] == 1 and 1 or 2], caps[p.order[1] == 1 and 2 or 1]
+      if winner == me then L.Duel(true, loser) elseif loser == me then L.Duel(false, winner) end
+      return
+    end
+  end
+end)
+
+---------------------------------------------------------------------------
+-- Fishing: each catch is a loot window the game marks as fishing loot
+---------------------------------------------------------------------------
+function L.Catch(t)
+  local d = store()
+  if not d then return end
+  d.fish = (tonumber(d.fish) or 0) + 1
+  d.fishAt = t or U.Now()
+end
+ns.On("LOOT_OPENED", function()
+  if U.Call(IsFishingLoot) then L.Catch() end
+end)
+
+---------------------------------------------------------------------------
+-- Flights: a trip on a flight path, counted once it's under way
+---------------------------------------------------------------------------
+function L.Flight(t)
+  local d = store()
+  if not d then return end
+  d.flights = (tonumber(d.flights) or 0) + 1
+  d.flightAt = t or U.Now()
+end
+local flying = false
+ns.On("PLAYER_CONTROL_LOST", function()
+  ns.After(1, function()
+    if not flying and U.Call(UnitOnTaxi, "player") then flying = true; L.Flight() end
+  end)
+end)
+ns.On("PLAYER_CONTROL_GAINED", function() flying = false end)
+
+---------------------------------------------------------------------------
 -- Reading
 ---------------------------------------------------------------------------
 -- { kills, grudge = { name, n }, books = { { title, n } }, home, homePrev, homeSince,
@@ -168,7 +234,10 @@ function L.Read()
   if not d then return nil end
   local out = { kills = d.kills, books = {}, companions = {}, recentPeople = 0,
     home = d.home, homePrev = d.homePrev, homeSince = d.homeSince,
-    drunk = tonumber(d.drunk) or 0, drunkAt = tonumber(d.drunkAt) or 0 }
+    drunk = tonumber(d.drunk) or 0, drunkAt = tonumber(d.drunkAt) or 0,
+    fish = tonumber(d.fish) or 0, flights = tonumber(d.flights) or 0,
+    duelsWon = type(d.duels) == "table" and d.duels.won or 0, duelsLost = type(d.duels) == "table" and d.duels.lost or 0,
+    lastDuel = type(d.duels) == "table" and d.duels.last or nil }
   for name, k in pairs(d.kinds) do
     if type(k) == "table" and (not out.grudge or k.n > out.grudge.n or (k.n == out.grudge.n and name < out.grudge.name)) then
       out.grudge = { name = name, n = k.n }

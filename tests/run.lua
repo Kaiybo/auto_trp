@@ -1268,7 +1268,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", won = "one", lost = "one" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then
@@ -1404,6 +1404,41 @@ do
   check(hist:find("Thalia") and hist:find("Scarlet Raven Tavern"), "History tells of companions and home from the game alone")
   ns.cache.rpgd, ns.cache.sd, ns.cache.chronicle = saved.rpgd, saved.sd, saved.chron
   ns.cache.merged = nil
+  ns.Compose.SourcesChanged()
+end
+
+print("\n--- duels, fishing, flights and honour ---")
+do
+  local C, Life = ns.Compose, ns.Sources.Life
+  DUEL_WINNER_KNOCKOUT = "%1$s has defeated %2$s in a duel"
+  DUEL_WINNER_RETREAT = "%2$s has fled from %1$s in a duel"
+  event("CHAT_MSG_SYSTEM", "Aldric has defeated Brom in a duel")
+  event("CHAT_MSG_SYSTEM", "Aldric has fled from Thalia in a duel")
+  event("CHAT_MSG_SYSTEM", "Brom has defeated Thalia in a duel")
+  local life = Life.Read()
+  check(life.duelsWon == 1 and life.duelsLost == 1, "duels from the game's lines, won and fled: " .. life.duelsWon .. "/" .. life.duelsLost)
+  check(life.lastDuel.other == "Thalia" and life.lastDuel.won == false, "the last duel, against whom")
+  IsFishingLoot = function() return true end
+  event("LOOT_OPENED")
+  IsFishingLoot = function() return false end
+  event("LOOT_OPENED")
+  IsFishingLoot = nil
+  UnitOnTaxi = function() return true end
+  event("PLAYER_CONTROL_LOST"); runTimers()
+  event("PLAYER_CONTROL_LOST"); runTimers()   -- still the same flight
+  event("PLAYER_CONTROL_GAINED")
+  UnitOnTaxi = nil
+  life = Life.Read()
+  check(life.fish == 1, "a fish caught, other loot not")
+  check(life.flights == 1, "a flight counted once")
+  ns.cache.life, ns.cache.merged = life, nil
+  local st = C.Stats()
+  check(st.duels == "1 won, 1 lost", "duels statistic: " .. tostring(st.duels))
+  check(st.fish == "1" and st.flights == "1", "fish and flights statistics")
+  ns.cache.world.honorKills = 120
+  st = C.Stats()
+  check(st.honour == "120", "honourable kills from the game")
+  ns.cache.world.honorKills = nil
   ns.Compose.SourcesChanged()
 end
 

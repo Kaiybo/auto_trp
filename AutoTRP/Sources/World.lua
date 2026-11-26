@@ -321,6 +321,8 @@ function World.Snapshot()
   s.guild, s.guildRank = U.Plain(World.Safe(guild)), U.Plain(World.Safe(guildRank))
   local pvpRank = call("UnitPVPRank", "player")
   if type(pvpRank) == "number" and pvpRank >= 5 then s.pvpRank = U.Plain((call("GetPVPRankInfo", pvpRank))) end
+  local hk = call("GetPVPLifetimeStats")
+  s.honorKills = type(hk) == "number" and hk or 0
   s.raid = call("IsInRaid") and true or false
   s.away = call("UnitIsAFK", "player") and true or false
   s.context = World.Context()
