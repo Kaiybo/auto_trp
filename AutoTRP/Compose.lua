@@ -52,7 +52,52 @@ local function mergedFor(c)
     questsDone = math.max(c.chronicle and c.chronicle.questsDone or 0, count) }
   return merged
 end
+-- Everyday life from RPG Dialogue, Social Diary and Auto TRP's own record together: whichever
+-- knows more. { kills, grudge, books, home, homePrev, homeSince, drunk, drunkAt,
+-- recentPeople, companions }
+function Compose.Life(c)
+  c = c or ns.cache
+  if c.merged then return c.merged end
+  local rpgd, sd, own = c.rpgd, c.sd, c.life or {}
+  local m = {}
+  m.kills = math.max(rpgd and rpgd.kills or 0, own.kills or 0)
+  local rg, og = rpgd and rpgd.grudge, own.grudge
+  m.grudge = (rg and (not og or rg.n >= og.n)) and rg or og
+  -- Books: one list, by title, the larger count kept.
+  local byTitle, books = {}, {}
+  for _, list in ipairs({ rpgd and rpgd.books or {}, own.books or {} }) do
+    for _, b in ipairs(list) do
+      local have = byTitle[b.title]
+      if not have then have = { title = b.title, n = b.n or 1 }; byTitle[b.title] = have; books[#books + 1] = have
+      elseif (b.n or 1) > have.n then have.n = b.n end
+    end
+  end
+  table.sort(books, function(x, y) if x.n ~= y.n then return x.n > y.n end return x.title < y.title end)
+  m.books = books
+  if rpgd and rpgd.homeInn then
+    m.home, m.homePrev, m.homeSince = rpgd.homeInn, rpgd.homePrev, rpgd.homeSince
+  else
+    m.home, m.homePrev, m.homeSince = own.home or (c.world and c.world.bind), own.homePrev, own.homeSince
+  end
+  local rd, od = rpgd and rpgd.drunkAt or 0, own.drunkAt or 0
+  if rd >= od then m.drunk, m.drunkAt = rpgd and rpgd.drunk or 0, rd else m.drunk, m.drunkAt = own.drunk or 0, od end
+  m.recentPeople = math.max(sd and sd.recentPeople or 0, own.recentPeople or 0)
+  m.companions = own.companions or {}
+  c.merged = m
+  return m
+end
+
 -- Every quest finished: title -> { t, zone }.
+-- Up to three players grouped with on three days or more, seen within the last month.
+function Compose.Companions(c)
+  local out = {}
+  local month = U.Now() - 30 * 86400
+  for _, p in ipairs(Compose.Life(c).companions) do
+    if p.days >= 3 and p.last >= month then out[#out + 1] = p.name end
+    if #out == 3 then break end
+  end
+  return out
+end
 function Compose.Finished(c) return mergedFor(c or ns.cache).finished end
 -- Every master brought down, the latest first: { name, first, t (latest), where }.
 function Compose.Bosses(c) return mergedFor(c or ns.cache).bosses end
@@ -65,11 +110,13 @@ function Compose.Refresh()
   local c = ns.cache
   local now = U.Now()
   c.world = ns.World.Snapshot()
+  c.merged = nil
   if now - sourcesAt >= 60 or not c.read then
     c.rpgd = S.RPGD.Read()
     c.sd = S.SocialDiary.Read()
     c.chronicle = S.Chronicle.Read()
     c.deeds = S.Deeds.Read()
+    c.life = S.Life and S.Life.Read() or nil
     sourcesAt, c.read = now, true
   end
   c.t = now
@@ -309,6 +356,12 @@ function Compose.CompanyGlance()
     end
     return { TI = "Keeps Company", IC = "Spell_Holy_PrayerOfSpirit", TX = tx }
   end
+  if not (sd and sd.friends[1]) and ns.db.nameFriends then
+    local often = Compose.Companions(c)
+    if #often > 0 then
+      return { TI = "Keeps Company", IC = "Spell_Holy_PrayerOfSpirit", TX = "Often seen on the road with " .. U.Join(often) .. "." }
+    end
+  end
   local town = rpgd and rpgd.towns[1]
   local friend = rpgd and rpgd.friends[1]
   if town and town.value >= 10 then
@@ -433,7 +486,8 @@ function Compose.MarksGlance()
   if world.health and world.health < 0.5 and not world.combat and not world.dead then
     mark(9, "Bloodied", "Freshly wounded, and moving carefully.", "Ability_Rogue_FeignDeath")
   end
-  if rpgd and (rpgd.drunk or 0) > 0 and U.Now() - (rpgd.drunkAt or 0) < 1800 then
+  local life = Compose.Life(c)
+  if (life.drunk or 0) > 0 and U.Now() - (life.drunkAt or 0) < 1800 then
     mark(8, "Smells of Ale", "Unsteady on {their} feet, and smelling of drink.", "INV_Drink_05")
   end
   if rpgd and (rpgd.insanity or 0) >= 30 then
@@ -604,7 +658,21 @@ function Compose.Bearing()
 
   -- Without RPG Dialogue there are no choices to read a character from: only the habit the
   -- game itself records.
-  if not rpgd then return habit and paragraph({ habit }) or nil end
+  local books = Compose.Life(c).books
+  local function read()
+    if #books == 0 then return nil end
+    local titles = {}
+    for i = 1, math.min(2, #books) do titles[i] = quote(books[i].title) end
+    local extra = #books - #titles
+    return "Has read " .. U.Join(titles)
+      .. (extra > 0 and (", and " .. U.Number(extra) .. " " .. U.Plural(extra, "other book") .. " besides") or "")
+  end
+  if not rpgd then
+    local more = {}
+    if habit then more[#more + 1] = habit end
+    if read() then more[#more + 1] = read() end
+    return #more > 0 and paragraph(more) or nil
+  end
 
   -- Temperament and conscience
   local adjs = {}
@@ -644,13 +712,7 @@ function Compose.Bearing()
   if (rpgd.liesExposed or 0) > 0 then
     more[#more + 1] = "Has been caught in " .. (rpgd.liesExposed == 1 and "a lie" or U.Number(rpgd.liesExposed) .. " lies")
   end
-  if #rpgd.books >= 1 then
-    local titles = {}
-    for i = 1, math.min(2, #rpgd.books) do titles[i] = quote(rpgd.books[i].title) end
-    local extra = #rpgd.books - #titles
-    more[#more + 1] = "Has read " .. U.Join(titles)
-      .. (extra > 0 and (", and " .. U.Number(extra) .. " " .. U.Plural(extra, "other book") .. " besides") or "")
-  end
+  if read() then more[#more + 1] = read() end
   if habit then more[#more + 1] = habit end
   local hooks = Compose.Hooks()
   local stories = #hooks > 0 and paragraph({ say("stories", { list = U.Join(hooks) }) }) or nil
@@ -779,10 +841,11 @@ function Compose.History()
     end
     if #steps > 0 then road[#road + 1] = "Was made " .. U.Join(steps) end
   end
-  if rpgd and rpgd.homeInn then
-    local s = "Home these days is " .. placeName(rpgd.homeInn)
-    if rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and within(rpgd.homeSince, 14 * 86400) then
-      s = s .. ", lately moved from " .. placeName(rpgd.homePrev)
+  local life = Compose.Life(c)
+  if life.home then
+    local s = "Home these days is " .. placeName(life.home)
+    if life.homePrev and life.homePrev ~= life.home and within(life.homeSince, 14 * 86400) then
+      s = s .. ", lately moved from " .. placeName(life.homePrev)
     end
     road[#road + 1] = s
   end
@@ -857,8 +920,16 @@ function Compose.History()
   elseif partner then
     people[#people + 1] = name .. " travels with " .. partner
   end
-  if sd and sd.recentPeople >= 4 then
-    people[#people + 1] = "Has fought beside " .. U.Number(sd.recentPeople) .. " others this past week"
+  -- Without Social Diary friends, the players most often grouped with (on three days or more).
+  if not partner and ns.db.nameFriends then
+    local often = Compose.Companions(c)
+    if #often > 0 then
+      people[#people + 1] = (#people > 0 and "On the road {they} often" or (name .. " often")) .. " travel{s} with " .. U.Join(often)
+    end
+  end
+  local recent = Compose.Life(c).recentPeople
+  if recent >= 4 then
+    people[#people + 1] = "Has fought beside " .. U.Number(recent) .. " others this past week"
   end
   if rpgd then
     local good, bad = {}, nil
@@ -1043,11 +1114,11 @@ function Compose.Stats()
   local felled = #Compose.Bosses(c)
   if felled > 0 then out.foes = figure(felled) end
   if rares(c) > 0 then out.rares = figure(rares(c)) end
-  local kills = rpgd and rpgd.kills or 0
-  if kills > 0 then
-    out.slain = figure(kills)
-    if rpgd.grudge and rpgd.grudge.n >= 10 then
-      out.slain = out.slain .. ", " .. figure(rpgd.grudge.n) .. " of them " .. Compose.Plural(rpgd.grudge.name)
+  local life = Compose.Life(c)
+  if life.kills > 0 then
+    out.slain = figure(life.kills)
+    if life.grudge and life.grudge.n >= 10 then
+      out.slain = out.slain .. ", " .. figure(life.grudge.n) .. " of them " .. Compose.Plural(life.grudge.name)
     end
   end
   local questsDone = Compose.QuestsDone(c)
@@ -1060,7 +1131,7 @@ function Compose.Stats()
   if #crafts > 0 then out.crafts = table.concat(crafts, ", ") end
   local top = world.factions and world.factions[1]
   if top and top.word then out.standing = top.word .. " with " .. W.FactionName(top.name) end
-  if rpgd and #rpgd.books > 0 then out.books = figure(#rpgd.books) end
+  if #life.books > 0 then out.books = figure(#life.books) end
   -- Every name earned, the one worn first ("Mine-Warden, Defias-Breaker and Hogger's Bane").
   local names, worn = {}, Compose.Earned()
   if worn then names[1] = worn.nick end
@@ -1134,8 +1205,7 @@ function Compose.OOCNote()
 end
 
 function Compose.Residence()
-  local rpgd = ns.cache.rpgd
-  return (rpgd and rpgd.homeInn) or ns.cache.world.bind
+  return Compose.Life(ns.cache).home
 end
 
 function Compose.Birthplace()

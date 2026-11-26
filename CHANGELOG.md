@@ -3,6 +3,9 @@
 ## 0.21.0 (2026-11-26): Its Own Eyes
 
 - **Less reliance on other addons.** Auto TRP now records from the game itself what only Chronicle used to give it: the lands you've been to, the dungeons and raids you've entered, the rare beasts you or your group bring down, and every death with what killed you (from the combat log). *Lands explored*, *Days on the road*, *Dungeons*, *Rare beasts* and *Deaths* (*"3, the first to Hogger"*), History's road and rare beasts, and the *Lately* glance's close call now work with no other addon installed. With Chronicle or RPG Dialogue too, the larger count stands and nothing counts twice.
+- **Everyday life from the game too.** Without RPG Dialogue or Social Diary, Auto TRP now keeps: *creatures slain* by you or your pet and the kind you put down most (*"412, 60 of them Defias Bandits"*); *books read* in the world (Personality names them, mail doesn't count); *home*, by where your hearthstone is set, and where you lately moved from; *drink*, from the game's own "You feel tipsy" lines (the *Smells of Ale* mark and a merry mood); and the players you group with. Someone you've grouped with on three or more days in the past month is a travelling companion: *"Often seen on the road with Thalia."* in Company and History, unless Social Diary names your friends. *"Has fought beside 9 others this past week"* counts them too.
+- Mood: deaths in Auto TRP's own record now leave you downcast like any other, and a rare beast brought down thrills you without Chronicle.
+- The combat log is read once for all of this, and only deaths, kills and hits on you are looked at.
 - The record starts from this version: earlier lands, deaths and rares still come from Chronicle or RPG Dialogue if you have them.
 
 ## 0.20.0 (2026-11-25): In Good Order

@@ -1350,5 +1350,62 @@ do
   ns.Compose.SourcesChanged()
 end
 
+print("\n--- everyday life from the game alone ---")
+do
+  local C, Life = ns.Compose, ns.Sources.Life
+  local saved = { rpgd = ns.cache.rpgd, sd = ns.cache.sd, chron = ns.cache.chronicle }
+  -- Kills by the player and their pet; a player killed doesn't count.
+  local ev
+  local k0 = Life.Read().kills
+  CombatLogGetCurrentEventInfo = function() return unpack(ev) end
+  for i = 1, 12 do
+    ev = { NOW, "PARTY_KILL", false, "Player-1-0001", "Aldric", 0x511, 0, "Creature-0-1-2-3-" .. i .. "-0", "Defias Bandit" }
+    event("COMBAT_LOG_EVENT_UNFILTERED")
+  end
+  ev = { NOW, "PARTY_KILL", false, "Player-1-0001", "Aldric", 0x511, 0, "Player-2-0002", "Someone" }
+  event("COMBAT_LOG_EVENT_UNFILTERED")
+  ev = { NOW, "PARTY_KILL", false, "Player-9-0009", "Stranger", 0x548, 0, "Creature-0-1-2-3-50-0", "Kobold Miner" }
+  event("COMBAT_LOG_EVENT_UNFILTERED")
+  CombatLogGetCurrentEventInfo = nil
+  local life = Life.Read()
+  check(life.kills == k0 + 12 and life.grudge.name == "Defias Bandit", "creatures slain by the character, and the kind most often: " .. life.kills)
+  -- A book read.
+  ItemTextGetItem = function() return "The Seven Kingdoms" end
+  event("ITEM_TEXT_BEGIN")
+  ItemTextGetItem = nil
+  -- Home moved.
+  Life.Home("Lion's Pride Inn", NOW - 90 * 86400)
+  Life.Home("Scarlet Raven Tavern", NOW - 86400)
+  -- Drink.
+  DRUNK_MESSAGE_SELF1, DRUNK_MESSAGE_SELF3 = "You feel sober again.", "You feel drunk.  Woah!"
+  event("CHAT_MSG_SYSTEM", "You feel drunk.  Woah!")
+  -- A companion on three days, another once.
+  Life.Companion("Thalia", "MAGE", NOW - 5 * 86400)
+  Life.Companion("Thalia", "MAGE", NOW - 3 * 86400)
+  Life.Companion("Thalia", "MAGE", NOW - 3600)
+  Life.Companion("Thalia", "MAGE", NOW - 3500)
+  Life.Companion("Brom", "WARRIOR", NOW - 3600)
+  life = Life.Read()
+  check(life.books[1].title == "The Seven Kingdoms", "a book read")
+  check(life.home == "Scarlet Raven Tavern" and life.homePrev == "Lion's Pride Inn", "home follows the hearthstone")
+  check(life.drunk == 2, "drink from the game's own line: " .. life.drunk)
+  check(life.companions[1].name == "Thalia" and life.companions[1].days == 3, "companions by the days spent together")
+  ns.cache.rpgd, ns.cache.sd, ns.cache.chronicle, ns.cache.life, ns.cache.merged = nil, nil, nil, life, nil
+  local st = C.Stats()
+  check(st.slain == (k0 + 12) .. ", 12 of them Defias Bandits", "creatures slain without RPG Dialogue: " .. tostring(st.slain))
+  check(st.books == "1", "books read without RPG Dialogue")
+  check(C.Residence() == "Scarlet Raven Tavern", "residence from the hearthstone")
+  check(#C.Companions() == 1 and C.Companions()[1] == "Thalia", "only someone grouped with on three days is a companion")
+  local marks = C.MarksGlance()
+  check(marks and marks.TI == "Smells of Ale", "drink shows without RPG Dialogue: " .. tostring(marks and marks.TI))
+  check((C.Bearing() or ""):find("Seven Kingdoms"), "Personality names a book without RPG Dialogue")
+  local hist = C.History() or ""
+  print("     " .. hist:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+  check(hist:find("Thalia") and hist:find("Scarlet Raven Tavern"), "History tells of companions and home from the game alone")
+  ns.cache.rpgd, ns.cache.sd, ns.cache.chronicle = saved.rpgd, saved.sd, saved.chron
+  ns.cache.merged = nil
+  ns.Compose.SourcesChanged()
+end
+
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))
 os.exit(fails == 0 and 0 or 1)

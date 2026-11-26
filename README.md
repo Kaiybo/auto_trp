@@ -2,7 +2,7 @@
 
 A companion to [RPG Dialogue](https://github.com/Kaiybo/rpg-dialogue) for World of Warcraft: Forever. It keeps your **Total RP 3** profile in step with your character's story: what they feel, where they are, what they believe, who they know and what they've been through.
 
-It doesn't depend on other addons for what it knows. It reads the game itself (your gear, stats, reputations, skills, gold, spells, where you are and what's happening) and keeps its own record of the quests you turn in, the dungeon and raid masters and rare beasts you bring down, the lands and dungeons you've been to, and your deaths and who caused them. On top of that it reads three addons if you have them (all optional, and it never changes them), for what only they know:
+It doesn't depend on other addons for what it knows. It reads the game itself (your gear, stats, reputations, skills, gold, spells, where you are and what's happening) and keeps its own record of the quests you turn in, the dungeon and raid masters and rare beasts you bring down, the lands and dungeons you've been to, your deaths and who caused them, the creatures you've slain, the books you've read, where your hearthstone is set, when you've been drinking, and the players you travel with. On top of that it reads three addons if you have them (all optional, and it never changes them), for what only they know:
 
 - **RPG Dialogue**: your origin, alignment and traits, opinions you've voiced, standing in towns, the people you've met, the stories you've followed, your diary.
 - **Social Diary**: the players you've marked as friends (and the relationship you wrote down for them), your recent groups.

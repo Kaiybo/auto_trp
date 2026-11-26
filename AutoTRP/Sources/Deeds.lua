@@ -214,15 +214,21 @@ end
 local MINE = 0x7   -- COMBATLOG_OBJECT_AFFILIATION_MINE | PARTY | RAID
 local DAMAGE = { SWING_DAMAGE = true, RANGE_DAMAGE = true, SPELL_DAMAGE = true, SPELL_PERIODIC_DAMAGE = true,
   ENVIRONMENTAL_DAMAGE = true }
+local playerGUID
 ns.On("COMBAT_LOG_EVENT_UNFILTERED", function()
   local fn = _G.CombatLogGetCurrentEventInfo
   if type(fn) ~= "function" then return end
-  local ok, _, sub, _, srcGUID, srcName, srcFlags, _, dstGUID = pcall(fn)
+  local ok, _, sub, _, srcGUID, srcName, srcFlags, _, dstGUID, dstName = pcall(fn)
   if not ok then return end
-  sub, srcName, srcFlags, dstGUID = U.Unsecret(sub), U.Unsecret(srcName), U.Unsecret(srcFlags), U.Unsecret(dstGUID)
-  if type(sub) ~= "string" then return end
+  sub = U.Unsecret(sub)
+  if type(sub) ~= "string" or not (DAMAGE[sub] or sub == "PARTY_KILL" or sub == "UNIT_DIED") then return end
+  srcGUID, srcName, srcFlags, dstGUID = U.Unsecret(srcGUID), U.Unsecret(srcName), U.Unsecret(srcFlags), U.Unsecret(dstGUID)
+  playerGUID = playerGUID or U.Call(UnitGUID, "player")
+  if sub == "PARTY_KILL" and ns.Sources.Life then
+    ns.Sources.Life.PartyKill(srcGUID, dstGUID, U.Unsecret(dstName), playerGUID)
+  end
   if DAMAGE[sub] then
-    if dstGUID and dstGUID == U.Call(UnitGUID, "player") then
+    if dstGUID and dstGUID == playerGUID then
       local name = srcName
       if sub == "ENVIRONMENTAL_DAMAGE" then name = nil end
       lastHit = { name = name, t = U.Now() }
