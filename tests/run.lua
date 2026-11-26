@@ -314,6 +314,9 @@ check((scores.eager or 0) >= 15, "close to a level: eager")
 event("PLAYER_DEAD")
 local m = ns.Mood.Current()
 check(m.key == "shaken", "a death leaves them shaken (" .. m.key .. ")")
+check(ns.char.deeds.deathCount == 1 and ns.char.deeds.deaths[1].t == NOW, "Auto TRP's own record keeps the death")
+-- The later checks count on the RPG Dialogue deaths below being the newest.
+ns.char.deeds.deaths, ns.char.deeds.deathCount = {}, 0
 table.insert(RPGDialogueCharDB.deaths, { t = NOW - 1800, zone = "Duskwood" })
 table.insert(RPGDialogueCharDB.deaths, { t = NOW - 600, zone = "Duskwood" })
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
@@ -1303,6 +1306,84 @@ do
   ns.TRP.CustomPronouns = function() return "they/them" end
   check(U.Pron("{they} walk{s}, {they} watch{es}, {they} carr{ies}") == "they walk, they watch, they carry", "verb endings follow they")
   ns.TRP.CustomPronouns = oldPron
+end
+
+-- 0.21.0: Auto TRP's own record of the road (lands, deaths), so History, the statistics,
+-- Lately and the mood work with neither RPG Dialogue nor Chronicle.
+do
+  local C, Deeds = ns.Compose, ns.Sources.Deeds
+  local chron, rpgd = ChronicleCharDB, RPGDialogueCharDB
+  ChronicleCharDB, RPGDialogueCharDB = nil, nil
+  local seenZones = ns.char.seen.zones
+  ns.char.seen.zones = { ["Elwynn Forest"] = NOW - 20 * 86400, ["Westfall"] = NOW - 10 * 86400 }
+  ns.char.deeds, ns.char.names = nil, nil
+  C.SourcesChanged(); C.Refresh()
+  check(ns.char.deeds.lands["Westfall"] and ns.char.deeds.since == NOW - 20 * 86400, "the lands the mood remembered start the record")
+  state.zone = "Duskwood"
+  event("ZONE_CHANGED_NEW_AREA")
+  check(ns.char.deeds.lands["Duskwood"] and ns.char.deeds.lands["Duskwood"].t == NOW, "a new land is kept")
+  local t0 = ns.char.deeds.lands["Duskwood"].t
+  ns.char.deeds.lands["Duskwood"].t = NOW - 3600
+  event("ZONE_CHANGED_NEW_AREA")
+  check(ns.char.deeds.lands["Duskwood"].t == NOW - 3600, "only the first time counts")
+  C.SourcesChanged(); C.Refresh()
+  local st = C.Stats()
+  check(st.lands == "3" and st.road == "20", "lands and days on the road without the other add-ons: " .. tostring(st.lands) .. "/" .. tostring(st.road))
+  local h = C.History() or ""
+  check(h:find("From Elwynn Forest") and h:find("three lands, Duskwood the latest"), "History tells the road: " .. h:sub(1, 160))
+  check(C.LatelyGlance().TI == "New in Town", "a land walked into today is news: " .. C.LatelyGlance().TI)
+  -- Deaths: counted and told, never with a killer the game didn't name.
+  event("PLAYER_DEAD")
+  C.Refresh()
+  st = C.Stats()
+  check(st.deaths == "1", "a death is counted without the other add-ons: " .. tostring(st.deaths))
+  local g = C.LatelyGlance()
+  check(g.TI == "Hurt" and g.TX == "Was badly hurt in Duskwood, within the last few hours.", "and reaches Lately: " .. g.TX)
+  ns.char.deeds.deaths[1].t = NOW - 1200
+  C.SourcesChanged(); C.Refresh()
+  local scores = ns.Mood.Scores(ns.cache.world)
+  check((scores.downcast or 0) > 20, "grief lingers without RPG Dialogue: " .. tostring(scores.downcast))
+  local keep = Deeds.KEEP_DEATHS
+  Deeds.KEEP_DEATHS = 2
+  Deeds.Death("Westfall", NOW - 50); Deeds.Death("Westfall", NOW - 40)
+  check(#ns.char.deeds.deaths == 2 and ns.char.deeds.deathCount == 3, "old details go, the count stays")
+  Deeds.KEEP_DEATHS = keep
+  -- Lands from before the record: from the game's own map exploration.
+  C_MapExplorationInfo = { GetExploredMapTextures = function(id) return (id == 1413 or id == 1429) and { {} } or {} end }
+  C_Map = { GetMapInfo = function(id) return { name = ns.Words.ZONE_BY_MAP[id] } end }
+  check(Deeds.BackfillLands() >= 1, "lands explored before are taken in")
+  check(Deeds.BackfillLands() == 0, "and not twice")
+  C_MapExplorationInfo, C_Map = nil, nil
+  C.SourcesChanged(); C.Refresh()
+  local lands = C.Lands()
+  check(lands[1].before and C.Stats().road == "20", "they come first, and don't stretch the road")
+  h = C.History() or ""
+  check(not h:find("From ") and h:find("road has led through"), "History doesn't guess where it began: " .. h:sub(1, 160))
+  ChronicleCharDB, RPGDialogueCharDB = chron, rpgd
+  ns.char.seen.zones = seenZones
+  ns.char.deeds, ns.char.names = nil, nil
+  C.SourcesChanged(); C.Refresh()
+end
+
+-- 0.21.0 fixes
+do
+  local R = ns.Sources.RPGD
+  check(R.AlignTitle({ light = 55, order = 0, honor = -90 }, "Alliance") == "Silvertongue", "the strongest lean names the title")
+  local before = ns.char.mood.lastSocial
+  ns.char.mood.lastSocial = NOW - 3 * 3600
+  event("GROUP_ROSTER_UPDATE")   -- leaving a long group: not alone yet
+  check(ns.char.mood.lastSocial == NOW, "leaving a group starts the time alone from now")
+  ns.char.mood.lastSocial = before
+  -- /atrp release needs a profile, like claim
+  local id = ns.char.profileID
+  ns.char.profileID = nil
+  local printed = {}
+  local oldPrint = ns.Print
+  ns.Print = function(m) printed[#printed + 1] = m end
+  SlashCmdList.AUTOTRP("release history")
+  ns.Print = oldPrint
+  ns.char.profileID = id
+  check(printed[1] and printed[1]:find("Choose a profile first"), "release without a profile says so: " .. tostring(printed[1]))
 end
 
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))

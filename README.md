@@ -2,7 +2,7 @@
 
 A companion to [RPG Dialogue](https://github.com/Kaiybo/rpg-dialogue) for World of Warcraft: Forever. It keeps your **Total RP 3** profile in step with your character's story: what they feel, where they are, what they believe, who they know and what they've been through.
 
-It reads three addons if you have them (all optional, and it never changes them), and keeps its own record of the quests you turn in and the dungeon and raid masters you bring down, so earned names work with none of them:
+It reads three addons if you have them (all optional, and it never changes them), and keeps its own record of the lands you walk, your deaths, the quests you turn in and the dungeon and raid masters you bring down, so earned names, the road and the statistics work with none of them:
 
 - **RPG Dialogue**: your origin, alignment and traits, opinions you've voiced, standing in towns, the people you've met, the stories you've followed, your diary.
 - **Social Diary**: the players you've marked as friends (and the relationship you wrote down for them), your recent groups.
@@ -72,7 +72,7 @@ A profile is public, so the character isn't made out to be widely known. Standin
 - It never writes to Total RP 3's default profile (Total RP 3 doesn't allow it).
 - **Switched off means taken down.** Turn off a statistic and Auto TRP removes what it wrote there; turn off a glance and it's hidden (Total RP 3 keeps the text). Other fields simply stop updating. Anything you've edited is left as it is.
 - **It never writes over your own words.** If a field already has text it didn't write, or you edit something it wrote, that field becomes yours and it stops touching it. `/atrp claim <field>` hands one back.
-- Nothing is written in combat. *Currently* and the glances update at most every 90 seconds; the rest every five minutes or after something that matters.
+- Nothing is written in combat. *Currently* and the glances update at most every 15 seconds; the rest every five minutes or after something that matters.
 - **Backup**: before its first write to a profile, Auto TRP keeps a copy of everything it might touch. `/atrp restore` puts the profile back exactly and hands every field back to you.
 - Profile text is public, so it never gives your exact position, never reads Chronicle notes, and only names other players you've marked as friends in Social Diary (switch that off in settings).
 - Optional: pause *Currently* and the glances while you're out of character.

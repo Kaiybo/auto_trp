@@ -307,7 +307,8 @@ local function glanceField(slotKey)
     end,
     sig = function(v) return v and ((U.Plain(v.TI) or "") .. "\n" .. (U.Plain(v.TX) or "")) or "" end,
     raw = function(p) local misc = sub(p, "misc"); return copy(type(misc.PE) == "table" and misc.PE[slot()] or nil) end,
-    setRaw = function(p, v) local misc = sub(p, "misc"); if type(misc.PE) ~= "table" then misc.PE = {} end; misc.PE[slot()] = v end,
+    setRaw = function(p, v, at) local misc = sub(p, "misc"); if type(misc.PE) ~= "table" then misc.PE = {} end; misc.PE[at or slot()] = v end,
+    slot = slot,
   }
 end
 
@@ -431,6 +432,8 @@ local function released(id) return book("released", id) end
 local function previous(id) return book("previous", id) end   -- the signature before the last write
 
 function TRP.Owned(id) return owned(id or ns.char.profileID) end
+function TRP.ReleasedBook(id) return released(id or ns.char.profileID) end
+function TRP.PreviousBook(id) return previous(id or ns.char.profileID) end
 
 function TRP.Claim(key, id)
   id = id or ns.char.profileID
@@ -506,7 +509,7 @@ function TRP.Restore()
   for key, saved in pairs(b.fields) do
     local def = TRP.FIELDS[key]
     if def and def.setRaw then
-      def.setRaw(profile, copy(saved.raw))
+      def.setRaw(profile, copy(saved.raw), saved.slot)   -- a glance goes back to the slot it was taken from
       sections[def.section] = true
     end
   end
@@ -568,7 +571,7 @@ function TRP.Apply(values, only)
         if mine[key] ~= have and prev[key] ~= have then
           TRP.Release(key, id); left[#left + 1] = key
         else
-          if not bk.fields[key] and def.raw then bk.fields[key] = { raw = copy(def.raw(profile)) } end
+          if not bk.fields[key] and def.raw then bk.fields[key] = { raw = copy(def.raw(profile)), slot = def.slot and def.slot() } end
           prev[key] = have
           def.write(profile, nil)
           mine[key] = def.read(profile)
@@ -601,7 +604,7 @@ function TRP.Apply(values, only)
         elseif def.ready and not def.ready(profile, id) then
           TRP.Release(key, id); left[#left + 1] = key   -- About uses another layout, with text
         else
-          if not bk.fields[key] and def.raw then bk.fields[key] = { raw = copy(def.raw(profile)) } end
+          if not bk.fields[key] and def.raw then bk.fields[key] = { raw = copy(def.raw(profile)), slot = def.slot and def.slot() } end
           prev[key] = have
           def.write(profile, value)
           mine[key] = def.read(profile)

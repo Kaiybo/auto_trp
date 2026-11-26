@@ -112,6 +112,14 @@ local function allDeaths()
     for _, t in ipairs(list) do if math.abs(t - d.t) < 30 then dup = true break end end
     if not dup then list[#list + 1] = d.t end
   end
+  -- Auto TRP's own record: the same death seen by another add-on counts once.
+  for _, d in ipairs(c.deeds and c.deeds.deaths or {}) do
+    if d.t >= cutoff then
+      local dup = false
+      for _, t in ipairs(list) do if math.abs(t - d.t) < 30 then dup = true break end end
+      if not dup then list[#list + 1] = d.t end
+    end
+  end
   return list
 end
 
@@ -312,10 +320,10 @@ function Mood.Current(world)
   if ct and ct[key] then pool(ct[key]) end
   local tell = #pools > 0 and pick(pools[(U.Hash(seed .. key .. "pool") % #pools) + 1], seed .. key .. "t", world)
     or pick(W.CALM.default.tells, seed .. "t", world)
-  local adj = pick(d.adj, seed .. key, world)
+  local adj = pick(d.adj, seed .. key, world) or pick(W.CALM.default.adj, seed .. key, world) or "Steady"
   -- A feeling from something that happened, mostly worn off now: say it's fading.
   if ranked[1] and st.emo[key] and st.emo[key] >= 0.6 * ranked[1].v and ranked[1].v < 30
-    and not adj:find("^Still") and not adj:find("^Not") then
+    and adj and not adj:find("^Still") and not adj:find("^Not") then
     adj = "Still " .. adj:gsub("^%u", string.lower)
   end
   local out = {
@@ -436,7 +444,8 @@ ns.On("PLAYER_REGEN_ENABLED", function()
   lowest, fightStart, foe = 1, nil, nil
 end)
 ns.On("GROUP_ROSTER_UPDATE", function()
-  if ns.char and (U.Call(IsInGroup) or U.Call(IsInRaid)) then state().lastSocial = U.Now() end
+  -- Any change to the group, leaving it included: being alone is counted from the end of it.
+  if ns.char then state().lastSocial = U.Now() end
 end)
 
 -- Loot: a rare find thrills, an epic one more so.
@@ -606,13 +615,6 @@ end)
 ---------------------------------------------------------------------------
 -- Every tick: road-weariness, and news from the other addons.
 ---------------------------------------------------------------------------
-local function sumAffinity(rpgd)
-  local n = 0
-  for _, f in ipairs(rpgd.friends) do n = n + f.affinity end
-  for _, f in ipairs(rpgd.rivals) do n = n + f.affinity end
-  return n
-end
-
 local function sumStanding(rpgd)
   local n = 0
   for _, t in ipairs(rpgd.towns) do n = n + t.value end
@@ -663,8 +665,13 @@ function Mood.Watch()
     watch(seen, "honor", math.floor(rpgd.align.honor), function(d)
       if d <= -2 then Mood.Push("conflicted", 20, "told a lie") end
     end)
-    watch(seen, "affinity", sumAffinity(rpgd), function(d)
-      if d > 0 then Mood.Push("sociable", 10, "made a friend") elseif d < 0 then Mood.Push("angry", 12, "a falling-out") end
+    -- A new friend or a new rival, not a point of affinity either way (a friend slipping
+    -- from 3 to 2 is no falling-out).
+    watch(seen, "friendsN", #rpgd.friends, function(d)
+      if d > 0 then Mood.Push("sociable", 10, "made a friend") end
+    end)
+    watch(seen, "rivalsN", #rpgd.rivals, function(d)
+      if d > 0 then Mood.Push("angry", 12, "a falling-out") end
     end)
     watch(seen, "standing", math.floor(sumStanding(rpgd)), function(d)
       if d >= 3 then Mood.Push("proud", 30, "earned some goodwill") elseif d <= -3 then Mood.Push("ashamed", 30, "lost some goodwill") end
