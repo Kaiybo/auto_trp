@@ -1288,6 +1288,24 @@ do
   ns.char.flights = nil
 end
 
+-- Reads as one piece: nothing said twice, and one event told in one sentence.
+do
+  local C = ns.Compose
+  C.SourcesChanged(); C.Refresh()
+  check(C.Echoes("Calm-eyed and gentle.", "calm-faced and unhurried") and not C.Echoes("Soft-spoken.", "calm-faced"),
+    "an echo is a shared word")
+  local b = C.Bearing() or ""
+  local _, lights = b:gsub("the Light", "")
+  check(lights <= 1, "Personality names the Light once: " .. b)
+  local h = C.History() or ""
+  check(not h:find("Deadmines.%s+Helped bring down") and h:find("Edwin VanCleef there", 1, true),
+    "a master felled in a dungeon just named shares its sentence")
+  local p = C.Physical() or ""
+  local _, crowns = p:gsub("Crown of the Lost", "")
+  check(crowns <= 1, "the finest piece isn't named twice: " .. p)
+  check(not (p:find("calm%-faced") and p:find("Calm%-eyed")), "the class look doesn't echo the build")
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
@@ -1335,7 +1353,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", was = "x" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", was = "x", here = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then

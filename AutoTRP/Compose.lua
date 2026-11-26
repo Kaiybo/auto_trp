@@ -673,7 +673,14 @@ function Compose.Bearing()
 
   -- Beliefs, and where they have shifted
   local views = {}
-  local ops = opinions(rpgd, 3)
+  -- A belief the temperament line has already said ("keeps to the Light", then "keeps
+  -- faith in the Light") is left out rather than read twice.
+  local said = table.concat(first, " "):lower()
+  local ops = {}
+  for _, op in ipairs(opinions(rpgd, 4)) do
+    local topic = op:match("(the %u[%w']+)$") or op:match("(%u[%w']+)$")
+    if #ops < 3 and not (topic and said:find(topic:lower(), 1, true)) then ops[#ops + 1] = op end
+  end
   if #ops > 0 then views[#views + 1] = U.Join(ops) end
   for _, o in ipairs(rpgd.opinions) do
     local topic = o.topic ~= "peace" and topicName(o.topic)
@@ -846,16 +853,32 @@ function Compose.History()
     end
   end
   for _, s in ipairs(earned or {}) do deeds[#deeds + 1] = s end
-  if rpgd then
-    local places = {}
-    for k = 1, math.min(3, #rpgd.cleared) do places[k] = U.Mid(rpgd.cleared[k].name) end
-    if #places > 0 then deeds[#deeds + 1] = say("delved", { list = U.Join(places) }, places[1]) end
-  end
   local bosses = Compose.Bosses(c)
   local latest = bosses[1]
   local named = earnedKey and latest and earnedKey == "boss:" .. latest.name
+  local bossTold = named or #bosses >= 3
+  if rpgd then
+    local places, joined = {}, nil
+    for k = 1, math.min(3, #rpgd.cleared) do places[k] = U.Mid(rpgd.cleared[k].name) end
+    if #places > 0 then
+      local line = say("delved", { list = U.Join(places) }, places[1])
+      -- One master, felled in a place just named: one sentence, not two.
+      if latest and not bossTold and latest.where then
+        local where = U.Mid(latest.where):lower()
+        for _, p in ipairs(places) do
+          if p:lower() == where then joined = true end
+        end
+        if joined then
+          local here = #places == 1 and "there" or ("in " .. U.Mid(latest.where))
+          line = say("delvedboss", { list = U.Join(places), who = latest.name, here = here }, latest.name)
+          bossTold = true
+        end
+      end
+      deeds[#deeds + 1] = line
+    end
+  end
   if #bosses >= 3 then deeds[#deeds + 1] = say("bosses", { n = U.Number(#bosses), who = latest.name }, latest.name)
-  elseif latest and not named then deeds[#deeds + 1] = say("boss", { who = latest.name, where = "" }, latest.name) end
+  elseif latest and not bossTold then deeds[#deeds + 1] = say("boss", { who = latest.name, where = "" }, latest.name) end
   if chron and chron.rares >= 5 then deeds[#deeds + 1] = say("rares", { n = U.Number(chron.rares) }) end
   local questsDone = Compose.QuestsDone(c)
   if questsDone >= 25 then deeds[#deeds + 1] = say("jobs", { n = U.Roughly(questsDone) }) end
@@ -971,6 +994,17 @@ end
 ---------------------------------------------------------------------------
 -- About: Physical, from gear (live, or Chronicle's snapshot) and physique (stats)
 ---------------------------------------------------------------------------
+-- Whether two descriptions lean on the same word ("calm-faced" and "Calm-eyed"): any word
+-- of five letters or more, or its first five, shared between them.
+local ECHO_SKIP = { their = true, there = true, about = true, other = true, which = true, every = true }
+function Compose.Echoes(a, b)
+  if type(a) ~= "string" or type(b) ~= "string" then return false end
+  local stems = {}
+  for w in b:lower():gmatch("%a+") do if #w >= 4 and not ECHO_SKIP[w] then stems[w:sub(1, 5)] = true end end
+  for w in a:lower():gmatch("%a+") do if #w >= 4 and not ECHO_SKIP[w] and stems[w:sub(1, 5)] then return true end end
+  return false
+end
+
 local function physique(c)
   local stats = (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.stats) or c.world.stats or {}
   local best, bestV
@@ -995,10 +1029,16 @@ function Compose.Physical()
   -- What they wear and carry, by name, and what their class keeps in the bags
   local dress = {}
   local cl = U.BackedList(noGear(W.CLASS_LOOK[world.class or ""]), world)
-  if #cl > 0 then dress[#dress + 1] = U.Pick(cl, seed("classlook")) end
-  dress[#dress + 1] = kit(world, false, itemName)
+  if #cl > 0 then
+    -- Not one that echoes the build just given ("calm-faced", then "Calm-eyed").
+    local fresh = {}
+    for _, l in ipairs(cl) do if not Compose.Echoes(l, build) then fresh[#fresh + 1] = l end end
+    if #fresh > 0 then dress[#dress + 1] = U.Pick(fresh, seed("classlook")) end
+  end
+  local worn = kit(world, false, itemName)
+  dress[#dress + 1] = worn
   local finest = world.gear and world.gear.finest
-  if finest and finest.name and (finest.quality or 0) >= 4 then
+  if finest and finest.name and (finest.quality or 0) >= 4 and not (worn or ""):find(finest.name, 1, true) then
     dress[#dress + 1] = "The finest piece is " .. itemName(finest.name, finest.quality)
   end
   local bag = {}
