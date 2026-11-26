@@ -22,6 +22,9 @@ local function store()
   end
   d.n = tonumber(d.n) or 0
   d.since = tonumber(d.since) or U.Now()
+  -- The level the record began at: from level 1 or 2 it's the whole career, and "the first"
+  -- or "since" can be said; begun later, its counts only cover the time since.
+  if not d.startLevel then d.startLevel = tonumber(U.Call(UnitLevel, "player")) or 1 end
   return d
 end
 
@@ -100,6 +103,10 @@ function D.Read()
   for i = #d.deaths, 1, -1 do out.deaths[#out.deaths + 1] = d.deaths[i] end
   out.deathCount = #d.deaths
   out.created = d.since
+  out.fromStart = (d.startLevel or 1) <= 2
+  if out.fromStart then
+    for _, z in ipairs(out.zones) do if z.t > 1 then out.origin = z break end end
+  end
   for name, b in pairs(d.bosses) do out.bosses[#out.bosses + 1] = { name = name, first = b.t or 0, t = b.last or b.t or 0, where = b.where } end
   table.sort(out.bosses, function(a, b) return a.t > b.t end)
   return out
@@ -250,3 +257,27 @@ ns.On("COMBAT_LOG_EVENT_UNFILTERED", function()
     rareSeen[dstGUID] = nil   -- felled by someone else: forget it
   end
 end)
+
+-- Lands explored before the record began: where the game can say which zones' maps a
+-- character has uncovered, those count (their time unknown). Once per session.
+local CONTINENTS = { 1414, 1415 }   -- Kalimdor, the Eastern Kingdoms
+function D.Explored()
+  local d = store()
+  local M, X = _G.C_Map, _G.C_MapExplorationInfo
+  if not d or not M or not X or type(M.GetMapChildrenInfo) ~= "function"
+    or type(X.GetExploredMapTextures) ~= "function" then return 0 end
+  local added = 0
+  for _, continent in ipairs(CONTINENTS) do
+    local kids = U.Call(M.GetMapChildrenInfo, continent, 3, true)   -- Enum.UIMapType.Zone
+    for _, info in ipairs(type(kids) == "table" and kids or {}) do
+      local name = type(info) == "table" and U.Plain(info.name)
+      if name and not d.zones[name] then
+        local tex = U.Call(X.GetExploredMapTextures, info.mapID)
+        if type(tex) == "table" and #tex > 0 then d.zones[name] = 1; added = added + 1 end
+      end
+    end
+  end
+  if added > 0 and ns.Compose then ns.Compose.SourcesChanged() end
+  return added
+end
+ns.Listen("LOGIN", function() ns.After(25, D.Explored) end)

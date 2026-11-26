@@ -1341,6 +1341,10 @@ do
   check(r.rares == rares0 + 1, "a rare beast felled is counted")
   check(r.deathCount == deaths0 + 1 and r.deaths[1].killer == "Hogger", "a death is kept with its killer: " .. tostring(r.deaths[1].killer))
   ns.cache.chronicle, ns.cache.rpgd, ns.cache.deeds = nil, nil, r
+  check(not r.fromStart and C.Stats().rares:find(" since "), "begun mid-career, an own count says since when: " .. C.Stats().rares)
+  check(not (C.Stats().deaths or ""):find("the first"), "and names no first killer")
+  ns.char.deeds.startLevel = 1   -- from here on, as if kept from the first day
+  r = Deeds.Read(); ns.cache.deeds = r
   local st = C.Stats()
   check(st.rares == tostring(r.rares), "rare beasts statistic without Chronicle: " .. tostring(st.rares))
   check(st.deaths and st.deaths:find("^" .. r.deathCount), "deaths statistic without Chronicle or RPG Dialogue: " .. tostring(st.deaths))
@@ -1391,6 +1395,7 @@ do
   check(life.drunk == 2, "drink from the game's own line: " .. life.drunk)
   check(life.companions[1].name == "Thalia" and life.companions[1].days == 3, "companions by the days spent together")
   ns.cache.rpgd, ns.cache.sd, ns.cache.chronicle, ns.cache.life, ns.cache.merged = nil, nil, nil, life, nil
+  ns.cache.deeds = ns.Sources.Deeds.Read()
   local st = C.Stats()
   check(st.slain == (k0 + 12) .. ", 12 of them Defias Bandits", "creatures slain without RPG Dialogue: " .. tostring(st.slain))
   check(st.books == "1", "books read without RPG Dialogue")
@@ -1432,6 +1437,7 @@ do
   check(life.fish == 1, "a fish caught, other loot not")
   check(life.flights == 1, "a flight counted once")
   ns.cache.life, ns.cache.merged = life, nil
+  ns.cache.deeds = ns.Sources.Deeds.Read()
   local st = C.Stats()
   check(st.duels == "1 won, 1 lost", "duels statistic: " .. tostring(st.duels))
   check(st.fish == "1" and st.flights == "1", "fish and flights statistics")
@@ -1474,6 +1480,29 @@ do
   local before = ns.char.mood.emo.proud or 0
   event("CHAT_MSG_SYSTEM", "Aldric has defeated Brom in a duel")
   check((ns.char.mood.emo.proud or 0) > before, "a duel won makes them proud")
+end
+
+print("\n--- lands from the world map ---")
+do
+  local C, Deeds = ns.Compose, ns.Sources.Deeds
+  local oldMap, oldX = C_Map, C_MapExplorationInfo
+  C_Map = { GetMapChildrenInfo = function(id) return id == 1415
+    and { { mapID = 1, name = "Duskwood" }, { mapID = 2, name = "Badlands" }, { mapID = 3, name = "Tirisfal Glades" } } or {} end }
+  C_MapExplorationInfo = { GetExploredMapTextures = function(id) return id ~= 3 and { {} } or {} end }
+  local before = #Deeds.Read().zones
+  local added = Deeds.Explored()
+  check(added >= 1 and #Deeds.Read().zones == before + added, "uncovered maps count as lands explored: " .. added)
+  check(Deeds.Explored() == 0, "and are taken in once")
+  C_Map, C_MapExplorationInfo = oldMap, oldX
+  -- Begun mid-career, History gives the count without claiming where the road began.
+  local saved = ns.cache.rpgd
+  ns.char.deeds.startLevel = 30
+  ns.cache.rpgd, ns.cache.deeds, ns.cache.merged = nil, Deeds.Read(), nil
+  local h = C.History() or ""
+  check(h:find("road has led through") and not h:find("From "), "History counts the lands without inventing a start")
+  ns.char.deeds.startLevel = 1
+  ns.cache.rpgd, ns.cache.merged = saved, nil
+  ns.Compose.SourcesChanged()
 end
 
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))

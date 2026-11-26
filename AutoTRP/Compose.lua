@@ -171,7 +171,7 @@ local function rares(c) return math.max(c.chronicle and c.chronicle.rares or 0, 
 local function dungeonsSeen(c) return math.max(c.chronicle and c.chronicle.dungeons or 0, ownCount(c, "dungeons")) end
 local function startedAt(c)
   local first = c.rpgd and c.rpgd.zones[1] and c.rpgd.zones[1].t
-  local ownFirst = c.deeds and c.deeds.zones[1] and c.deeds.zones[1].t
+  local ownFirst = c.deeds and c.deeds.origin and c.deeds.origin.t
   local since = math.min(first or math.huge, c.chronicle and c.chronicle.created or math.huge, ownFirst or math.huge)
   return since
 end
@@ -846,9 +846,16 @@ function Compose.History()
 
   -- 2. The road so far
   local road = {}
-  local zones = (rpgd and #rpgd.zones > 0) and rpgd.zones or (c.deeds and c.deeds.zones) or {}
+  -- Where the road began: RPG Dialogue's first land, else Auto TRP's own when it has kept
+  -- the record from the start (not lands taken in from the map, whose order is unknown).
+  local zones = (rpgd and #rpgd.zones > 0) and rpgd.zones
+    or (c.deeds and c.deeds.origin and c.deeds.zones) or {}
   local zoneCount = landsCount(c)
-  if zoneCount >= 3 and zones[1] then
+  if zoneCount >= 3 and not zones[1] then
+    road[#road + 1] = "{their} road has led through " .. U.Number(zoneCount) .. " lands"
+    local dungeons = dungeonsSeen(c)
+    if dungeons >= 2 then road[#road + 1] = "Along the way {they've} been inside at least " .. U.Number(dungeons) .. " dungeons" end
+  elseif zoneCount >= 3 and zones[1] then
     local since = math.min(zones[1].t or math.huge, startedAt(c))
     local weeks = since < math.huge and math.floor((U.Now() - since) / 604800) or 0
     local ago = weeks >= 9 and (U.Number(math.floor(weeks / 4.3)) .. " months ago")
@@ -1145,24 +1152,32 @@ function Compose.Stats()
   local rpgd, chron, world = c.rpgd, c.chronicle, c.world
   local function figure(n) return n >= 100 and U.Number(n) or tostring(n) end
   local out = {}
+  -- A count only Auto TRP's own record has, begun partway through a career, says since when
+  -- ("12 since 26 Nov"), so it isn't read as the whole of it.
+  local since = ""
+  if c.deeds and not c.deeds.fromStart and (c.deeds.created or 0) > 1 then
+    since = " since " .. ((date and date("%d %b", c.deeds.created) or ""):gsub("^0", ""))
+  end
+  local function partial(other) return (other or 0) == 0 and since or "" end
   local deaths = deathCount(c)
   if deaths > 0 then
     local first = rpgd and rpgd.deaths[1] or (chron and chron.deaths[#chron.deaths])
-      or (c.deeds and c.deeds.deaths[#c.deeds.deaths])
-    out.deaths = figure(deaths) .. (first and first.killer and (", the first to " .. first.killer) or "")
+      or (c.deeds and c.deeds.fromStart and c.deeds.deaths[#c.deeds.deaths])
+    local others = math.max(rpgd and rpgd.deathCount or 0, chron and chron.deathCount or 0)
+    out.deaths = figure(deaths) .. partial(others) .. (first and first.killer and (", the first to " .. first.killer) or "")
   end
   local lands = landsCount(c)
   if lands > 0 then out.lands = figure(lands) end
   local days = roadDays(c)
   if days and days > 0 then out.road = figure(days) end
   local dungeons = math.max(dungeonsSeen(c), rpgd and #rpgd.cleared or 0)
-  if dungeons > 0 then out.dungeons = figure(dungeons) end
+  if dungeons > 0 then out.dungeons = figure(dungeons) .. partial(math.max(chron and chron.dungeons or 0, rpgd and #rpgd.cleared or 0)) end
   local felled = #Compose.Bosses(c)
   if felled > 0 then out.foes = figure(felled) end
-  if rares(c) > 0 then out.rares = figure(rares(c)) end
+  if rares(c) > 0 then out.rares = figure(rares(c)) .. partial(chron and chron.rares) end
   local life = Compose.Life(c)
   if life.kills > 0 then
-    out.slain = figure(life.kills)
+    out.slain = figure(life.kills) .. partial(rpgd and rpgd.kills)
     if life.grudge and life.grudge.n >= 10 then
       out.slain = out.slain .. ", " .. figure(life.grudge.n) .. " of them " .. Compose.Plural(life.grudge.name)
     end
@@ -1177,13 +1192,13 @@ function Compose.Stats()
   if #crafts > 0 then out.crafts = table.concat(crafts, ", ") end
   local top = world.factions and world.factions[1]
   if top and top.word then out.standing = top.word .. " with " .. W.FactionName(top.name) end
-  if #life.books > 0 then out.books = figure(#life.books) end
+  if #life.books > 0 then out.books = figure(#life.books) .. partial(rpgd and #rpgd.books) end
   local own = c.life or {}
   if (world.honorKills or 0) > 0 then out.honour = figure(world.honorKills) end
   local won, lost = own.duelsWon or 0, own.duelsLost or 0
-  if won + lost > 0 then out.duels = figure(won) .. " won, " .. figure(lost) .. " lost" end
-  if (own.fish or 0) > 0 then out.fish = figure(own.fish) end
-  if (own.flights or 0) > 0 then out.flights = figure(own.flights) end
+  if won + lost > 0 then out.duels = figure(won) .. " won, " .. figure(lost) .. " lost" .. since end
+  if (own.fish or 0) > 0 then out.fish = figure(own.fish) .. since end
+  if (own.flights or 0) > 0 then out.flights = figure(own.flights) .. since end
   -- Every name earned, the one worn first ("Mine-Warden, Defias-Breaker and Hogger's Bane").
   local names, worn = {}, Compose.Earned()
   if worn then names[1] = worn.nick end
