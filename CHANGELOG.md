@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.21.0 (2026-11-26): Its Own Eyes
+
+- **Less reliance on other addons.** Auto TRP now records from the game itself what only Chronicle used to give it: the lands you've been to, the dungeons and raids you've entered, the rare beasts you or your group bring down, and every death with what killed you (from the combat log). *Lands explored*, *Days on the road*, *Dungeons*, *Rare beasts* and *Deaths* (*"3, the first to Hogger"*), History's road and rare beasts, and the *Lately* glance's close call now work with no other addon installed. With Chronicle or RPG Dialogue too, the larger count stands and nothing counts twice.
+- The record starts from this version: earlier lands, deaths and rares still come from Chronicle or RPG Dialogue if you have them.
+
 ## 0.20.0 (2026-11-25): In Good Order
 
 - **Fixed: some characters' profiles stopped being written.** 0.14.0 lost the class rank ladders every race shares, so a character whose race and class have no ladder of their own (a human warlock, a dwarf rogue) hit an error on every update: *Currently* and the glances kept going, but the title, About, History, statistics, nickname and the rest were never written. The ladders are back (a human warlock rises from Initiate to Summoner and on), and a new test builds the whole profile for every race and class.

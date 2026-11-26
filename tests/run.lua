@@ -314,6 +314,8 @@ check((scores.eager or 0) >= 15, "close to a level: eager")
 event("PLAYER_DEAD")
 local m = ns.Mood.Current()
 check(m.key == "shaken", "a death leaves them shaken (" .. m.key .. ")")
+check(#ns.char.deeds.deaths == 1, "Auto TRP keeps the death in its own record")
+ns.char.deeds.deaths = {}   -- the Lately tests below set their own
 table.insert(RPGDialogueCharDB.deaths, { t = NOW - 1800, zone = "Duskwood" })
 table.insert(RPGDialogueCharDB.deaths, { t = NOW - 600, zone = "Duskwood" })
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
@@ -1303,6 +1305,49 @@ do
   ns.TRP.CustomPronouns = function() return "they/them" end
   check(U.Pron("{they} walk{s}, {they} watch{es}, {they} carr{ies}") == "they walk, they watch, they carry", "verb endings follow they")
   ns.TRP.CustomPronouns = oldPron
+end
+
+print("\n--- the road, deaths and rare beasts without Chronicle ---")
+do
+  local C, Deeds = ns.Compose, ns.Sources.Deeds
+  local oldChron, oldRpgd = ns.cache.chronicle, ns.cache.rpgd
+  local before = ns.Sources.Deeds.Read()
+  local zones0, dun0, rares0, deaths0 = #before.zones, before.dungeons, before.rares, before.deathCount
+  GetInstanceInfo = function() return "Westfall", "none" end
+  state.zone = "Westfall"; event("ZONE_CHANGED_NEW_AREA")
+  event("ZONE_CHANGED_NEW_AREA")
+  GetInstanceInfo = function() return "The Deadmines", "party" end
+  event("ZONE_CHANGED_NEW_AREA")
+  local r = Deeds.Read()
+  check(r.dungeons == dun0 + 1, "a dungeon entered is counted once")
+  check(#r.zones >= zones0 and #r.zones >= 1, "lands seen are kept")
+  -- A rare seen on target, then felled by the player.
+  local oldClass, oldGUID, oldName, oldPlayer = UnitClassification, UnitGUID, UnitName, UnitIsPlayer
+  UnitClassification = function() return "rare" end
+  UnitGUID = function(u) return u == "target" and "Creature-0-1-2-3-616-0" or "Player-1-0001" end
+  UnitName = function(u) return u == "target" and "Mother Fang" or oldName(u) end
+  UnitIsPlayer = function() return false end
+  event("PLAYER_TARGET_CHANGED")
+  local ev = { NOW, "PARTY_KILL", false, "Player-1-0001", "Aldric", 0x511, 0, "Creature-0-1-2-3-616-0", "Mother Fang" }
+  CombatLogGetCurrentEventInfo = function() return unpack(ev) end
+  event("COMBAT_LOG_EVENT_UNFILTERED")
+  ev = { NOW, "SWING_DAMAGE", false, "Creature-0-1-2-3-99-0", "Hogger", 0xa48, 0, "Player-1-0001", "Aldric" }
+  event("COMBAT_LOG_EVENT_UNFILTERED")
+  event("PLAYER_DEAD")
+  UnitClassification, UnitGUID, UnitName, UnitIsPlayer = oldClass, oldGUID, oldName, oldPlayer
+  CombatLogGetCurrentEventInfo = nil
+  GetInstanceInfo = nil
+  r = Deeds.Read()
+  check(r.rares == rares0 + 1, "a rare beast felled is counted")
+  check(r.deathCount == deaths0 + 1 and r.deaths[1].killer == "Hogger", "a death is kept with its killer: " .. tostring(r.deaths[1].killer))
+  ns.cache.chronicle, ns.cache.rpgd, ns.cache.deeds = nil, nil, r
+  local st = C.Stats()
+  check(st.rares == tostring(r.rares), "rare beasts statistic without Chronicle: " .. tostring(st.rares))
+  check(st.deaths and st.deaths:find("^" .. r.deathCount), "deaths statistic without Chronicle or RPG Dialogue: " .. tostring(st.deaths))
+  check(st.dungeons ~= nil, "dungeons statistic without Chronicle")
+  check(C.LatelyGlance().TX:find("Hogger"), "Lately hears of the death without the addons")
+  ns.cache.chronicle, ns.cache.rpgd = oldChron, oldRpgd
+  ns.Compose.SourcesChanged()
 end
 
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))

@@ -112,7 +112,21 @@ local function seasoned(level, key)
 end
 
 local function deathCount(c)
-  return math.max(c.rpgd and c.rpgd.deathCount or 0, c.chronicle and c.chronicle.deathCount or 0)
+  local own = c.deeds and ((c.deeds.deathCount or 0) + (ns.char and ns.char.deeds and tonumber(ns.char.deeds.deathsLost) or 0)) or 0
+  return math.max(c.rpgd and c.rpgd.deathCount or 0, c.chronicle and c.chronicle.deathCount or 0, own)
+end
+-- Counts and lists the game itself gives Auto TRP's own record, set beside the addons'.
+local function ownCount(c, k) return c.deeds and c.deeds[k] or 0 end
+local function landsCount(c)
+  return math.max(c.rpgd and #c.rpgd.zones or 0, c.chronicle and c.chronicle.zones or 0, c.deeds and #c.deeds.zones or 0)
+end
+local function rares(c) return math.max(c.chronicle and c.chronicle.rares or 0, ownCount(c, "rares")) end
+local function dungeonsSeen(c) return math.max(c.chronicle and c.chronicle.dungeons or 0, ownCount(c, "dungeons")) end
+local function startedAt(c)
+  local first = c.rpgd and c.rpgd.zones[1] and c.rpgd.zones[1].t
+  local ownFirst = c.deeds and c.deeds.zones[1] and c.deeds.zones[1].t
+  local since = math.min(first or math.huge, c.chronicle and c.chronicle.created or math.huge, ownFirst or math.huge)
+  return since
 end
 
 local function sentence(s)
@@ -183,8 +197,9 @@ function Compose.LatelyGlance()
   local function add(t, prio, g) cands[#cands + 1] = { t = t or 0, prio = prio, g = g } end
 
   local death = rpgd and rpgd.deaths[#rpgd.deaths]
-  local cdeath = chron and chron.deaths[1]
-  if cdeath and (not death or cdeath.t > death.t) then death = cdeath end
+  for _, d in ipairs({ chron and chron.deaths[1] or false, c.deeds and c.deeds.deaths[1] or false }) do
+    if d and (not death or d.t > death.t) then death = d end
+  end
   if death and within(death.t, 2 * 86400) then
     local tx = "Was badly hurt" .. (death.killer and (" by " .. death.killer) or "") .. (death.zone and (" in " .. death.zone) or "")
       .. (within(death.t, 3 * 3600) and ", within the last few hours" or ", a day or two ago")
@@ -735,10 +750,10 @@ function Compose.History()
 
   -- 2. The road so far
   local road = {}
-  local zones = rpgd and rpgd.zones or {}
-  local zoneCount = math.max(#zones, chron and chron.zones or 0)
+  local zones = (rpgd and #rpgd.zones > 0) and rpgd.zones or (c.deeds and c.deeds.zones) or {}
+  local zoneCount = landsCount(c)
   if zoneCount >= 3 and zones[1] then
-    local since = math.min(zones[1].t or math.huge, chron and chron.created or math.huge)
+    local since = math.min(zones[1].t or math.huge, startedAt(c))
     local weeks = since < math.huge and math.floor((U.Now() - since) / 604800) or 0
     local ago = weeks >= 9 and (U.Number(math.floor(weeks / 4.3)) .. " months ago")
       or weeks >= 2 and (U.Number(weeks) .. " weeks ago") or nil
@@ -746,7 +761,7 @@ function Compose.History()
     local latest = (last and last.name ~= zones[1].name) and (", " .. placeName(last.name) .. " the latest of them") or ""
     road[#road + 1] = "From " .. placeName(zones[1].name) .. (ago and (", " .. ago .. ",") or "") .. " {their} road has led through "
       .. U.Number(zoneCount) .. " lands" .. latest
-    local dungeons = chron and chron.dungeons or 0
+    local dungeons = dungeonsSeen(c)
     if dungeons >= 2 then road[#road + 1] = "Along the way {they've} been inside " .. U.Number(dungeons) .. " dungeons" end
   elseif (world.level or 1) < 10 then
     road[#road + 1] = say("setout", { name = name })
@@ -797,7 +812,7 @@ function Compose.History()
   local named = earnedKey and latest and earnedKey == "boss:" .. latest.name
   if #bosses >= 3 then deeds[#deeds + 1] = say("bosses", { n = U.Number(#bosses), who = latest.name }, latest.name)
   elseif latest and not named then deeds[#deeds + 1] = say("boss", { who = latest.name, where = "" }, latest.name) end
-  if chron and chron.rares >= 5 then deeds[#deeds + 1] = say("rares", { n = U.Number(chron.rares) }) end
+  if rares(c) >= 5 then deeds[#deeds + 1] = say("rares", { n = U.Number(rares(c)) }) end
   local questsDone = Compose.QuestsDone(c)
   if questsDone >= 25 then deeds[#deeds + 1] = say("jobs", { n = U.Roughly(questsDone) }) end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
@@ -1002,8 +1017,7 @@ local function money(copper)
 end
 
 local function roadDays(c)
-  local first = c.rpgd and c.rpgd.zones[1] and c.rpgd.zones[1].t
-  local since = math.min(first or math.huge, c.chronicle and c.chronicle.created or math.huge)
+  local since = startedAt(c)
   if since == math.huge then return nil end
   return math.floor((U.Now() - since) / 86400)
 end
@@ -1017,17 +1031,18 @@ function Compose.Stats()
   local deaths = deathCount(c)
   if deaths > 0 then
     local first = rpgd and rpgd.deaths[1] or (chron and chron.deaths[#chron.deaths])
+      or (c.deeds and c.deeds.deaths[#c.deeds.deaths])
     out.deaths = figure(deaths) .. (first and first.killer and (", the first to " .. first.killer) or "")
   end
-  local lands = math.max(rpgd and #rpgd.zones or 0, chron and chron.zones or 0)
+  local lands = landsCount(c)
   if lands > 0 then out.lands = figure(lands) end
   local days = roadDays(c)
   if days and days > 0 then out.road = figure(days) end
-  local dungeons = math.max(chron and chron.dungeons or 0, rpgd and #rpgd.cleared or 0)
+  local dungeons = math.max(dungeonsSeen(c), rpgd and #rpgd.cleared or 0)
   if dungeons > 0 then out.dungeons = figure(dungeons) end
   local felled = #Compose.Bosses(c)
   if felled > 0 then out.foes = figure(felled) end
-  if chron and chron.rares > 0 then out.rares = figure(chron.rares) end
+  if rares(c) > 0 then out.rares = figure(rares(c)) end
   local kills = rpgd and rpgd.kills or 0
   if kills > 0 then
     out.slain = figure(kills)
