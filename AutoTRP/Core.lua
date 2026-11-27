@@ -334,6 +334,17 @@ function U.Call(fn, ...)
   return nil
 end
 
+-- The same, for the few APIs whose answer runs past four values (GetItemInfo's item level,
+-- slot and set): every value comes back, each one scrubbed.
+local function scrubbed(ok, ...)
+  if not ok then return nil end
+  return scrub(...)
+end
+function U.CallAll(fn, ...)
+  if type(fn) ~= "function" then return nil end
+  return scrubbed(pcall(fn, ...))
+end
+
 -- The player's pronouns for prose. Total RP 3's own pronoun field wins when it is set;
 -- otherwise they/them, never a guess from the character's model.
 function U.Pronouns()

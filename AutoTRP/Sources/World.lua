@@ -20,14 +20,14 @@ function World.Safe(v) return U.Unsecret(v) end
 ---------------------------------------------------------------------------
 local function aura(unit, i, filter)
   if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
-    local ok, a = pcall(C_UnitAuras.GetAuraDataByIndex, unit, i, filter)
-    if ok and type(a) == "table" then return World.Safe(a.name), World.Safe(a.dispelName), World.Safe(a.spellId) end
-    if ok then return nil end
+    local a = U.Call(C_UnitAuras.GetAuraDataByIndex, unit, i, filter)
+    if type(a) == "table" then return World.Safe(a.name), World.Safe(a.dispelName), World.Safe(a.spellId) end
+    return nil
   end
   local fn = filter == "HARMFUL" and _G.UnitDebuff or _G.UnitBuff
   if type(fn) ~= "function" then return nil end
-  local ok, name, _, _, kind, _, _, _, _, _, spellId = pcall(fn, unit, i)
-  name = ok and World.Safe(name) or nil
+  local name, _, _, kind, _, _, _, _, _, spellId = U.CallAll(fn, unit, i)
+  name = World.Safe(name)
   if name then return name, World.Safe(kind), World.Safe(spellId) end
   return nil
 end
@@ -40,7 +40,7 @@ local WORLD_BUFFS = {
 }
 
 function World.Auras()
-  local out = { buffs = 0, debuffs = 0, worldBuffs = 0, kinds = {}, names = {} }
+  local out = { buffs = 0, debuffs = 0, worldBuffs = 0, kinds = {}, names = {}, harm = {} }
   for i = 1, 40 do
     local name = aura("player", i, "HELPFUL")
     if not name then break end
@@ -54,6 +54,7 @@ function World.Auras()
   for i = 1, 40 do
     local name, kind = aura("player", i, "HARMFUL")
     if not name then break end
+    out.harm[name] = true
     if name == "Resurrection Sickness" then out.resSick = true
     else
       out.debuffs = out.debuffs + 1
@@ -68,48 +69,110 @@ end
 ---------------------------------------------------------------------------
 local SLOTS = { 1, 3, 5, 6, 7, 8, 9, 10, 15, 16, 17, 18 }
 
+-- name, quality, subType, then item level, required level, equip slot and set id.
 local function itemInfo(link)
   local fn = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
   if type(fn) ~= "function" or not link then return nil end
-  local ok, name, _, quality, _, _, _, subType = pcall(fn, link)
-  if ok then return World.Safe(name), World.Safe(quality), World.Safe(subType) end
+  local name, _, quality, ilvl, req, _, subType, _, equipLoc, _, _, _, _, _, _, setID = U.CallAll(fn, link)
+  return World.Safe(name), World.Safe(quality), World.Safe(subType), World.Safe(ilvl), World.Safe(req),
+    World.Safe(equipLoc), World.Safe(setID)
+end
+
+-- Every slot the game can show, read once: head to tabard (the ammo slot aside).
+local ALL_SLOTS = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }
+-- The armour proper (what decides cloth, leather, mail or plate; cloaks are always cloth).
+World.ARMOUR_SLOTS = { 1, 3, 5, 6, 7, 8, 9, 10 }
+-- What counts toward how fine and how current the gear is (not the shirt or tabard).
+local GRADED = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }
+
+-- A set's name from its id, where the client can say.
+local function setName(id)
+  if type(id) ~= "number" or id <= 0 then return nil end
+  local fn = _G.GetItemSetInfo or (C_Item and C_Item.GetItemSetInfo)
+  local name = U.Call(fn, id)
+  if type(name) == "table" then name = name.name end
+  return U.Plain(World.Safe(name))
 end
 
 function World.Gear()
-  local g = { qualitySum = 0, items = 0, names = {}, q = {} }
-  local function slot(id)
+  local g = { qualitySum = 0, items = 0, names = {}, q = {}, slots = {}, armourCount = {}, qualityCount = {},
+    sets = {}, enchanted = {} }
+  for _, id in ipairs(ALL_SLOTS) do
     local link = call("GetInventoryItemLink", "player", id)
-    if not link then return nil end
-    local name, q, sub = itemInfo(link)
-    if not name then g.incomplete = true end   -- not cached yet: read again when it arrives
-    return name, q, sub
+    if type(link) == "string" then
+      local name, q, sub, ilvl, req, loc, set = itemInfo(link)
+      if not name then g.incomplete = true   -- not cached yet: read again when it arrives
+      else
+        -- A permanent enchantment is the second field of the item string.
+        local ench = tonumber(link:match("item:%-?%d+:(%d+)") or "")
+        g.slots[id] = { name = U.Plain(name), q = q, sub = sub, ilvl = ilvl, req = req, loc = loc, set = set,
+          enchant = ench and ench > 0 or nil }
+        g.names[id], g.q[id] = U.Plain(name), q
+        if ench and ench > 0 then g.enchanted[#g.enchanted + 1] = id end
+      end
+    end
   end
+  local s = g.slots
   for _, id in ipairs(SLOTS) do
-    local _, q = slot(id)
+    local q = s[id] and s[id].q
     if type(q) == "number" then g.qualitySum = g.qualitySum + q; g.items = g.items + 1 end
   end
   if g.items > 0 then g.quality = math.floor(g.qualitySum / g.items + 0.5) end
-  local _, _, chest = slot(5)
-  g.armor = chest and W.ARMOR[chest]
-  local _, _, main = slot(16)
-  g.main = main and W.WEAPONS[main]
-  local _, _, off = slot(17)
-  g.off = off and W.WEAPONS[off]
-  local _, _, ranged = slot(18)
-  g.ranged = ranged and W.WEAPONS[ranged]
-  for _, id in ipairs({ 19, 5, 1, 3, 15, 16, 17, 18, 7, 10, 8 }) do
-    local name, q = slot(id)
-    if type(q) == "number" and q >= 3 and (not g.finest or q > g.finest.quality) then
-      g.finest = { name = U.Plain(name), quality = q, slot = id }
+  -- Quality mix, item level and required level over everything graded
+  local ilvlSum, ilvlN = 0, 0
+  for _, id in ipairs(GRADED) do
+    local it = s[id]
+    if it and type(it.q) == "number" then
+      g.qualityCount[it.q] = (g.qualityCount[it.q] or 0) + 1
+      local lv = (type(it.ilvl) == "number" and it.ilvl > 1 and it.ilvl) or (type(it.req) == "number" and it.req > 1 and it.req + 5)
+      if lv then ilvlSum, ilvlN = ilvlSum + lv, ilvlN + 1 end
     end
   end
-  for _, id in ipairs({ 1, 3, 5, 15, 16, 17, 18, 19 }) do
-    local name, q = slot(id)
-    if name then g.names[id] = U.Plain(name); g.q[id] = q end
+  if ilvlN > 0 then g.ilvl = math.floor(ilvlSum / ilvlN + 0.5); g.ilvlN = ilvlN end
+  -- Cloth, leather, mail or plate: what most of the armour proper is
+  for _, id in ipairs(World.ARMOUR_SLOTS) do
+    local sub = s[id] and s[id].sub
+    if W.ARMOR[sub or ""] then g.armourCount[sub] = (g.armourCount[sub] or 0) + 1; g.armourPieces = (g.armourPieces or 0) + 1 end
+  end
+  local top, topN = nil, 0
+  for sub, n in pairs(g.armourCount) do
+    if n > topN or (n == topN and sub < top) then top, topN = sub, n end
+  end
+  g.armourType = top
+  g.armourMixed = top and topN < (g.armourPieces or 0) * 0.7 or nil
+  -- Matched pieces: the same set, by name where the client gives one
+  local bySet = {}
+  for _, id in ipairs(ALL_SLOTS) do
+    local it = s[id]
+    if it and type(it.set) == "number" and it.set > 0 then
+      local e = bySet[it.set]
+      if not e then e = { id = it.set, n = 0, q = it.q, slots = {} }; bySet[it.set] = e end
+      e.n = e.n + 1
+      e.slots[#e.slots + 1] = id
+    end
+  end
+  for setID, e in pairs(bySet) do
+    if e.n >= 2 then
+      e.name = setName(setID)
+      g.sets[#g.sets + 1] = e
+    end
+  end
+  table.sort(g.sets, function(a, b) if a.n ~= b.n then return a.n > b.n end return a.id < b.id end)
+  -- What the older readers expect
+  local chest, main, off, ranged = s[5] and s[5].sub, s[16] and s[16].sub, s[17] and s[17].sub, s[18] and s[18].sub
+  g.armor = chest and W.ARMOR[chest]
+  g.main = main and W.WEAPONS[main]
+  g.off = off and W.WEAPONS[off]
+  g.ranged = ranged and W.WEAPONS[ranged]
+  for _, id in ipairs({ 19, 5, 1, 3, 15, 16, 17, 18, 7, 10, 8 }) do
+    local it = s[id]
+    if it and type(it.q) == "number" and it.q >= 3 and (not g.finest or it.q > g.finest.quality) then
+      g.finest = { name = it.name, quality = it.q, slot = id }
+    end
   end
   g.offType = off
-  g.tabard = U.Plain((slot(19)))
-  g.cloak = U.Plain((slot(15)))
+  g.tabard = s[19] and s[19].name
+  g.cloak = s[15] and s[15].name
   -- Durability: the worst-kept piece
   local worst, worstSlot
   for _, id in ipairs(SLOTS) do
@@ -120,7 +183,7 @@ function World.Gear()
     end
   end
   g.durability = worst
-  g.worstName = worstSlot and U.Plain((slot(worstSlot)))
+  g.worstName = worstSlot and s[worstSlot] and s[worstSlot].name
   return g
 end
 
@@ -289,6 +352,7 @@ function World.Snapshot()
   local xp, xpMax = World.Safe(call("UnitXP", "player")), World.Safe(call("UnitXPMax", "player"))
   if type(xp) == "number" and type(xpMax) == "number" and xpMax > 0 then s.xp = xp / xpMax end
   s.rested = call("GetXPExhaustion")
+  s.restKnown = type(_G.GetXPExhaustion) == "function"
   s.money = call("GetMoney")
   local hour = call("GetGameTime")
   s.hour = type(hour) == "number" and hour or nil
@@ -310,13 +374,14 @@ function World.Snapshot()
   end
   -- Reputations, skills and gear change rarely: read again only when the game says so.
   local slow = World.slow
-  if not slow or slow.dirty or U.Now() - slow.t > 300 then
+  if not slow or ((slow.dirty or U.Now() - slow.t > 300) and not s.combat) then
     slow = { t = U.Now(), factions = World.Factions(), professions = World.Professions(), gear = World.Gear(),
       reagents = World.Reagents(s.class) }
     World.slow = slow
   end
   s.factions, s.professions, s.gear, s.reagents = slow.factions, slow.professions, slow.gear, slow.reagents or {}
   s.form = World.Form(s.auras)
+  s.drunk = World.Drunk()
   local guild, guildRank = call("GetGuildInfo", "player")
   s.guild, s.guildRank = U.Plain(World.Safe(guild)), U.Plain(World.Safe(guildRank))
   local pvpRank = call("UnitPVPRank", "player")
@@ -326,6 +391,28 @@ function World.Snapshot()
   s.context = World.Context()
   return s
 end
+
+-- Drink: the game says so in a system line ("You feel tipsy."), never as an aura. Kept for
+-- half an hour, or until "You feel sober again."
+local drunk
+World.DRUNK_SECONDS = 1800
+ns.On("CHAT_MSG_SYSTEM", function(_, msg)
+  msg = World.Safe(msg)
+  if type(msg) ~= "string" then return end
+  for level = 1, 4 do
+    local line = _G["DRUNK_MESSAGE_SELF" .. level]
+    if type(line) == "string" and msg == line then
+      drunk = level > 1 and { level = level - 1, t = U.Now() } or nil
+      return
+    end
+  end
+end)
+-- 1 tipsy, 2 drunk, 3 completely smashed; nil when sober (or long enough ago).
+function World.Drunk()
+  if drunk and U.Now() - drunk.t <= World.DRUNK_SECONDS then return drunk.level end
+  return nil
+end
+function World.SetDrunk(level) drunk = level and { level = level, t = U.Now() } or nil end
 
 function World.Invalidate() if World.slow then World.slow.dirty = true end end
 for _, e in ipairs({ "UPDATE_FACTION", "SKILL_LINES_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "UPDATE_INVENTORY_DURABILITY",
