@@ -863,6 +863,27 @@ W.CLASS_ICON = {
   DRUID = "ClassIcon_Druid", DEATHKNIGHT = "ClassIcon_DeathKnight",
 }
 
+-- The profile icon by the talent tree they've put most into, in the game's tree order.
+W.SPEC_ICON = {
+  WARRIOR = { "Ability_Warrior_SavageBlow", "Ability_Warrior_InnerRage", "Ability_Warrior_DefensiveStance" },
+  PALADIN = { "Spell_Holy_HolyBolt", "Spell_Holy_DevotionAura", "Spell_Holy_AuraOfLight" },
+  HUNTER = { "Ability_Hunter_BeastTaming", "Ability_Marksmanship", "Ability_Hunter_SwiftStrike" },
+  ROGUE = { "Ability_Rogue_Eviscerate", "Ability_BackStab", "Ability_Stealth" },
+  PRIEST = { "Spell_Holy_WordFortitude", "Spell_Holy_Renew", "Spell_Shadow_ShadowWordPain" },
+  SHAMAN = { "Spell_Nature_Lightning", "Spell_Nature_LightningShield", "Spell_Nature_MagicImmunity" },
+  MAGE = { "Spell_Holy_MagicalSentry", "Spell_Fire_FireBolt02", "Spell_Frost_FrostBolt02" },
+  WARLOCK = { "Spell_Shadow_DeathCoil", "Spell_Shadow_Metamorphosis", "Spell_Shadow_RainOfFire" },
+  DRUID = { "Spell_Nature_StarFall", "Ability_Racial_BearForm", "Spell_Nature_HealingTouch" },
+  DEATHKNIGHT = { "Spell_Deathknight_BloodPresence", "Spell_Deathknight_FrostPresence", "Spell_Deathknight_UnholyPresence" },
+}
+-- Before any talents, the face of their people (as Total RP 3's own default icon):
+-- Achievement_Character_<name>_Male / _Female, by the game's race token.
+W.RACE_PORTRAIT = {
+  Human = "Human", Dwarf = "Dwarf", Gnome = "Gnome", NightElf = "Nightelf", Draenei = "Draenei", Worgen = "Worgen",
+  Orc = "Orc", Scourge = "Undead", Undead = "Undead", Tauren = "Tauren", Troll = "Troll", BloodElf = "Bloodelf",
+  Goblin = "Goblin", Pandaren = "Pandaren",
+}
+
 ---------------------------------------------------------------------------
 -- Opinions from RPG Dialogue (char.opinions[topic].stance).
 ---------------------------------------------------------------------------

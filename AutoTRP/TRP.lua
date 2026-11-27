@@ -480,6 +480,17 @@ function TRP.Status(key, id)
   return "waiting"
 end
 
+-- Whether a field is empty on the profile Auto TRP writes to: no text, or a glance hidden.
+-- A pause out of character still fills these, so it never leaves a slot blank. One that's
+-- yours (you cleared or hid what Auto TRP wrote) isn't Auto TRP's to fill.
+function TRP.Blank(key)
+  local def = TRP.FIELDS[key]
+  local profile, id = TRP.Managed()
+  if not def or not profile or released(id)[key] then return false end
+  local have = def.read(profile)
+  return have == "" or have:find("^off:") ~= nil
+end
+
 ---------------------------------------------------------------------------
 -- Writing
 ---------------------------------------------------------------------------

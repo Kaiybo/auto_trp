@@ -4033,10 +4033,27 @@ function Compose.Nickname()
   return W.RACE_NICK[ns.cache.world.race or ""]
 end
 
--- The profile icon: the earned nickname's, else the class crest.
+-- The profile icon: who they are, by class, race and talents. The tree they've put the most
+-- into (a Balance druid's Starfall, a Fury warrior's rage), with a clear lead; before that,
+-- the face of their people (Total RP 3's own portrait), where this client has it; else
+-- their class crest.
 function Compose.Icon()
-  local e = Compose.Earned()
-  return (e and e.icon) or W.CLASS_ICON[ns.cache.world.class or ""]
+  local world = ns.cache.world or {}
+  local S = ns.Sources.Style
+  local spec = S and S.Spec and S.Spec()
+  if spec and spec.index and spec.points > (spec.secondPoints or 0) then
+    local trees = W.SPEC_ICON[world.class or ""]
+    local name = trees and trees[spec.index]
+    if name and U.IconKnown(name) then return name end
+    if spec.icon then return spec.icon end   -- the game's own icon for the tree
+  end
+  local face = W.RACE_PORTRAIT[world.race or ""]
+  local sex = world.sex == 3 and "Female" or world.sex == 2 and "Male" or nil
+  if face and sex then
+    local name = "Achievement_Character_" .. face .. "_" .. sex
+    if U.IconKnown(name, true) then return name end
+  end
+  return W.CLASS_ICON[world.class or ""]
 end
 
 -- The History sentences for the deed behind the name: the deed and where the name came

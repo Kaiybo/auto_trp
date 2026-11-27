@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.0 (2026-11-27): True Colours
+
+- **Fixed: Currently and the glances left empty while out of character.** With "Pause Currently and glances while out of character" on, a profile set out of character in Total RP 3 never had *Currently* or the Mood, Lately, Company and Marks glances written at all, so they stayed blank (only Ambition, written with the story, got through). A pause now holds what's there but still fills anything empty, so all five At first glance slots and *Currently* always have something in them. Text you've cleared or written yourself is still left alone.
+- **The profile icon is who you are.** It used to follow your nickname (a coin for *Mine-Warden*, a mask for *VanCleef's Bane*). Now it's the talent tree you've put the most into, with a clear lead: Starfall for a Balance druid, the bear for a Feral one, Healing Touch for Restoration, Shadow Word: Pain for a Shadow priest, the inner rage of Fury, and so on for every class and tree. Before any talents (or with two trees level), it's the face of your people, Total RP 3's own race and body portrait, where the game has it; else your class crest. An icon this client hasn't got is never written: the game's own icon for the tree takes its place.
+
 ## 0.23.0 (2026-11-27): Second Wind
 
 ### Your calling

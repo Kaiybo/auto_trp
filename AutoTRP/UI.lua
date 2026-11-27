@@ -11,6 +11,8 @@ ns.UI = UI
 -- What goes where
 ---------------------------------------------------------------------------
 local FAST = { walkup = true, currently = true, glance_mood = true, glance_lately = true, glance_company = true, glance_marks = true }
+-- What a pause out of character still fills when it's empty (walk-ups have no "empty").
+local PAUSE_FILLS = { currently = true, glance_mood = true, glance_lately = true, glance_company = true, glance_marks = true }
 
 local function values(sheet)
   local v = {
@@ -47,7 +49,12 @@ function UI.Update(force, fresh, mood)
   local any = false
   local paused = ns.db.pauseOOC and TRP.IsOOC()
   local gap = ns.db.currentlyEvery or 15
-  if not paused and (force or now - lastFast >= gap) then
+  if paused then
+    -- Paused holds what's there; it never leaves Currently or a glance empty.
+    for k in pairs(PAUSE_FILLS) do
+      if TRP.Enabled(k) and TRP.Blank(k) then only[k], any = true, true end
+    end
+  elseif force or now - lastFast >= gap then
     for k in pairs(FAST) do only[k] = true end
     any = true
   end
@@ -818,7 +825,7 @@ UI.TIPS = {
   ["fields.fulltitle"] = "Your alignment and where you're liked, kept modest.",
   ["fields.nickname"] = "A name earned by a deed. /atrp names lists yours; /atrp name <n> wears another.",
   ["fields.motto"] = "The saying that came with the deed behind your nickname.",
-  ["fields.icon"] = "The profile's icon: your nickname's, else your class crest.",
+  ["fields.icon"] = "The profile's icon: your main talent tree's, before any talents your race's portrait, else your class crest.",
   ["fields.residence"] = "The inn your hearthstone is set to.",
   ["fields.birthplace"] = "Your homeland, or the origin you chose in RPG Dialogue.",
   ["fields.relationship"] = "Married or Taken, if you've named a partner in Social Diary.",
@@ -854,7 +861,7 @@ UI.TIPS = {
   ["richText"] = "Uses Total RP 3's colour markup: quotes in cream, items in their quality colour.",
   ["chronicleGoals"] = "Your open Chronicle goal becomes the Ambition glance.",
   ["nameFriends"] = "Friends you marked in Social Diary are named on your profile. Off, they're left out.",
-  ["pauseOOC"] = "While Total RP 3 shows you out of character, Currently and the glances stay as they are.",
+  ["pauseOOC"] = "While Total RP 3 shows you out of character, Currently and the glances stay as they are. One left empty is still filled.",
   ["reactPeople"] = "Targeting someone from your records (a friend, a rival, an enemy) nudges your mood.",
   ["reactPlaces"] = "Places and spells that mean something to your race and class nudge your mood.",
   ["moodNotes"] = "A line in your own chat when your mood turns. Nobody else sees it.",

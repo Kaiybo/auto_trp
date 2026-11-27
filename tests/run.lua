@@ -204,7 +204,7 @@ check(p.characteristics.FT == "Lightsworn, Friend of Goldshire", "full title: " 
 check(p.characteristics.PS[1].LT == "Good" and p.characteristics.PS[1].RT == "Evil", "plain good/evil bar")
 for i = 1, 5 do check(p.misc.PE[tostring(i)] and p.misc.PE[tostring(i)].AC and p.misc.PE[tostring(i)].TX ~= nil, "glance " .. i .. " filled") end
 check(p.about.T3.PH.TX and p.about.T3.PH.TX:find("Crown of the Lost"), "physical mentions the finest gear")
-check(p.characteristics.IC == "INV_Misc_Coin_02", "the profile icon follows the earned nickname: " .. tostring(p.characteristics.IC))
+check(p.characteristics.IC == "ClassIcon_Priest", "the profile icon is who they are, not the nickname (no talents yet, no portrait to ask about): " .. tostring(p.characteristics.IC))
 check(p.about.TE == 3 and p.about.T3.HI.TX and p.about.T3.HI.TX:find("Lion's Pride"), "history written in template 3")
 check(not p.about.T3.HI.TX:find("died"), "deaths stay out of the History prose")
 local statDeaths
@@ -379,6 +379,32 @@ runTimers(); runTimers()
 check(#timers == 0, "and the loop doesn't continue")
 p.character.RP = 1
 ns.db.pauseOOC = false
+-- 1b. Paused out of character still fills what's empty (a glance, Currently) and asks for
+-- nothing else of the quick fields; with nothing empty, nothing is asked for.
+do
+  ns.db.pauseOOC, p.character.RP = true, 2
+  ns.TRP.Claim("glance_company"); ns.TRP.Claim("currently")
+  p.misc.PE["3"], p.character.CU = nil, ""
+  local apply, asked = ns.TRP.Apply, nil
+  ns.TRP.Apply = function(v, only) asked = only; return apply(v, only) end
+  ns.UI.Update(false)
+  check(p.misc.PE["3"] and p.misc.PE["3"].AC and (p.misc.PE["3"].TX or "") ~= "", "paused out of character: an empty glance is still filled")
+  check((p.character.CU or "") ~= "", "and an empty Currently: " .. tostring(p.character.CU))
+  check(asked and asked.glance_company and asked.currently and not asked.glance_mood and not asked.glance_lately
+    and not asked.glance_marks and not asked.walkup, "only the empty ones; the rest stay as they are")
+  asked = nil
+  ns.UI.Update(false)
+  check(not (asked and (asked.currently or asked.glance_company)), "filled once, then held while paused")
+  local marks = p.misc.PE["5"]
+  ns.TRP.Release("glance_marks"); p.misc.PE["5"] = nil
+  asked = nil
+  ns.UI.Update(false)
+  check(not (asked and asked.glance_marks) and p.misc.PE["5"] == nil, "a slot that's yours stays empty while paused")
+  ns.TRP.Claim("glance_marks"); p.misc.PE["5"] = marks
+  ns.TRP.Apply = apply
+  ns.db.pauseOOC, p.character.RP = false, 1
+  runTimers()
+end
 -- 2. An editor saving an older copy over Auto TRP's text is rewritten, not taken as yours.
 NOW = NOW + 400
 local mine = ns.TRP.Owned()
@@ -1224,7 +1250,7 @@ end
 do
   local sh = ns.Compose.Sheet()
   check(sh.nickname == "Mine-Warden" and sh.motto == "Gold isn't worth a life.", "a finished story earns a nickname and motto: " .. tostring(sh.nickname))
-  check(sh.icon == "INV_Misc_Coin_02", "the icon follows the nickname: " .. tostring(sh.icon))
+  check(sh.icon == "ClassIcon_Priest", "the icon doesn't follow the nickname: " .. tostring(sh.icon))
   check(sh.history:find("Saw the gold of Elwynn's mines through to the end", 1, true) and sh.history:find("\"Mine-Warden\"", 1, true)
     and sh.history:find("Gold isn't worth a life", 1, true), "History explains the nickname and motto")
   check(sh.history:find("\"VanCleef's Bane\"", 1, true), "and names the other name that stuck")
@@ -1234,7 +1260,7 @@ do
   ns.Compose.SourcesChanged(); ns.Compose.Refresh()
   sh = ns.Compose.Sheet(true)
   check(sh.nickname == "VanCleef's Bane" and sh.motto == "Every mask comes off.", "no story: the dungeon master felled names them: " .. tostring(sh.nickname))
-  check(sh.icon == "INV_Misc_Mask_01", "with the master's own icon: " .. tostring(sh.icon))
+  check(sh.icon == "ClassIcon_Priest", "nor the master's: " .. tostring(sh.icon))
   check(sh.history:find("Was there when Edwin VanCleef fell in the Deadmines", 1, true), "and History says so")
   ChronicleCharDB.bosses["2"] = { name = "Archmage Arugal", kills = 1, lastSuccess = NOW - 90000, instanceName = "Shadowfang Keep" }
   ChronicleCharDB.bosses["3"] = { name = "Some Random Ogre", kills = 1, lastSuccess = NOW - 100 }
@@ -1304,7 +1330,7 @@ do
   SlashCmdList.AUTOTRP("names")
   ns.TRP.Claim("nickname")
   SlashCmdList.AUTOTRP("name 3")
-  check(C.Nickname() == "Hogger's Bane" and C.Icon() == "INV_Misc_Note_06", "/atrp name wears a lesser one: " .. tostring(C.Nickname()))
+  check(C.Nickname() == "Hogger's Bane", "/atrp name wears a lesser one: " .. tostring(C.Nickname()))
   check(ns.TRP.FIELDS.nickname.read(profiles[ns.char.profileID]) == "Hogger's Bane", "and writes it: " .. tostring(ns.TRP.FIELDS.nickname.read(profiles[ns.char.profileID])))
   SlashCmdList.AUTOTRP("name vancleef's bane")
   check(C.Nickname() == "VanCleef's Bane", "/atrp name takes the name itself")
@@ -7354,6 +7380,41 @@ do
   end
   scan(ns.char, "char")
   check(#leak == 0, "a player's pet that killed them isn't named in anything kept: " .. table.concat(leak, ", "))
+end
+
+-- 0.24.0: the profile icon by class, race and talents.
+do
+  local C = ns.Compose
+  local was = { GetNumTalentTabs = GetNumTalentTabs, GetTalentTabInfo = GetTalentTabInfo, UnitSex = UnitSex,
+    GetFileIDFromPath = GetFileIDFromPath, UnitClass = UnitClass, UnitRace = UnitRace }
+  local trees = { { "Balance", 21 }, { "Feral Combat", 5 }, { "Restoration", 0 } }
+  local known = {}
+  UnitClass = function() return "Druid", "DRUID" end
+  UnitRace = function() return "Night Elf", "NightElf" end
+  UnitSex = function() return 3 end
+  GetNumTalentTabs = function() return #trees end
+  GetTalentTabInfo = function(i) return trees[i][1], 136000 + i, trees[i][2], "bg" end
+  local function icon() C.SourcesChanged(); C.Refresh(); return C.Icon() end
+  check(icon() == "Spell_Nature_StarFall", "a Balance druid wears Starfall: " .. tostring(C.Icon()))
+  trees[1][2], trees[2][2] = 5, 31
+  check(icon() == "Ability_Racial_BearForm", "a Feral one, the bear: " .. tostring(C.Icon()))
+  GetTalentTabInfo = function(i) return i, trees[i][1], "desc", 136000 + i, trees[i][2] end
+  check(icon() == "Ability_Racial_BearForm", "on either talent API")
+  GetTalentTabInfo = function(i) return trees[i][1], 136000 + i, trees[i][2], "bg" end
+  GetFileIDFromPath = function(path) return known[path] end
+  check(icon() == 136002, "a spec icon this client hasn't got: the game's own icon for the tree: " .. tostring(C.Icon()))
+  trees[1][2], trees[2][2] = 0, 0
+  known["Interface\\Icons\\Achievement_Character_Nightelf_Female"] = 236449
+  check(icon() == "Achievement_Character_Nightelf_Female", "no talents yet: the face of their people: " .. tostring(C.Icon()))
+  trees[1][2], trees[2][2] = 8, 8
+  check(icon() == "Achievement_Character_Nightelf_Female", "two trees level: no spec yet, still the portrait")
+  UnitSex = function() return 2 end
+  UnitRace = function() return "Undead", "Scourge" end
+  check(icon() == "ClassIcon_Druid", "a portrait this client hasn't got: the class crest: " .. tostring(C.Icon()))
+  GetFileIDFromPath = nil
+  check(icon() == "ClassIcon_Druid", "a client that can't be asked: no portrait, the crest")
+  for k, v in pairs(was) do _G[k] = v end
+  C.SourcesChanged(); C.Refresh()
 end
 
 -- The README lists every field `/atrp claim` and `/atrp release` take (the retired ones aside).

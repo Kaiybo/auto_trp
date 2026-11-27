@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.23.0"
+ns.VERSION = "0.24.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -375,6 +375,16 @@ end
 function U.CallAll(fn, ...)
   if type(fn) ~= "function" then return nil end
   return passAll(pcall(fn, ...))
+end
+
+-- Whether this client has an icon by that name (Interface\Icons\<name>), so a profile never
+-- shows a question mark. A client that can't be asked: strict says no, otherwise yes.
+function U.IconKnown(name, strict)
+  if type(name) ~= "string" or name == "" then return false end
+  local f = _G.GetFileIDFromPath
+  if type(f) ~= "function" then return not strict end
+  local ok, id = pcall(f, "Interface\\Icons\\" .. name)
+  return ok and type(id) == "number" and id > 0
 end
 
 -- The player's pronouns for prose. Total RP 3's own pronoun field wins when it is set;
