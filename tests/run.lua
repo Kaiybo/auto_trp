@@ -2160,10 +2160,15 @@ do
   check(marks.TI == "Sore", "Marks: a fall just now: " .. tostring(marks.TI) .. ": " .. tostring(marks.TX))
   life().env.Falling.t = NOW - 3600
   C.SourcesChanged(); C.Refresh()
+  check(C.MarksGlance().TI == "Fresh From Battle" and C.MarksGlance().TX:find("Warsong Gulch", 1, true),
+    "Marks: a battle just now: " .. C.MarksGlance().TI .. ": " .. C.MarksGlance().TX)
+  life().pvp.last.t = NOW - 3600
+  C.SourcesChanged(); C.Refresh()
   check(C.MarksGlance().TI == "Fresh From a Duel", "Marks: a duel just now: " .. C.MarksGlance().TI)
   for _, d in ipairs(life().duels.log) do d.t = NOW - 3600 end
   C.SourcesChanged(); C.Refresh()
   check(C.MarksGlance().TI == "Smells of Fish", "Marks: an afternoon's fishing: " .. C.MarksGlance().TI .. ": " .. C.MarksGlance().TX)
+  life().pvp.last.t = NOW
   -- The fall's death is news of its own in Lately (from Auto TRP's own record); age it, so
   -- the record's other news shows.
   for _, d in ipairs(ns.char.deeds and ns.char.deeds.deaths or {}) do d.t = NOW - 30 * 86400 end
@@ -2226,6 +2231,190 @@ do
   ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones = keep[4], keep[5], keep[6], keep[7]
   ns.char.life = nil
   state.zone, state.sub, state.resting = "Duskwood", "Raven Hill", false
+  ns.World.slow = nil
+  C.SourcesChanged(); C.Refresh()
+end
+
+-- The war (Sources/War.lua): battlegrounds through their own chat lines and scoreboard,
+-- honour rank and kills, the fighting in the open (counted by class and race, never named).
+do
+  local C, War, W, U = ns.Compose, ns.Sources.War, ns.Words, ns.U
+  local function war() return ns.char.war end
+  local function find(t, s) for k, v in pairs(t) do if v == s or k == s or (type(v) == "table" and find(v, s)) then return true end end end
+  local saved = { deeds = ns.char.deeds, life = ns.char.life, IsInInstance = IsInInstance, UnitGUID = UnitGUID, UnitLevel = UnitLevel,
+    GetZonePVPInfo = GetZonePVPInfo, UnitFactionGroup = UnitFactionGroup, zone = state.zone, sub = state.sub, combat = state.combat }
+  ns.char.war, ns.char.life = nil, nil
+  local function bg(name, id)
+    IsInInstance = function() return true, "pvp" end
+    GetInstanceInfo = function() return name, "pvp", 0, "", 40, 0, false, id end
+    state.zone, state.sub = name, nil
+    event("PLAYER_ENTERING_WORLD")
+  end
+  local function out()
+    IsInInstance = saved.IsInInstance
+    GetInstanceInfo, GetBattlefieldWinner = nil, nil
+    event("PLAYER_ENTERING_WORLD")
+  end
+  local function say(msg, side) event("CHAT_MSG_BG_SYSTEM_" .. (side or "ALLIANCE"), msg) end
+  UnitPVPRank = function() return 0 end
+  GetPVPRankInfo = function(i) local n = ({ [8] = "Sergeant", [9] = "Knight" })[i]; return n, n and (i - 4) end
+  GetPVPLifetimeStats = function() return 412, 0, 9 end
+  GetPVPSessionStats = function() return 7, 0 end
+  War.CheckRank()
+  -- Warsong Gulch: two flags carried home by the player, one by somebody else, one returned.
+  local start = NOW
+  bg("Warsong Gulch", 489)
+  check(war().game and war().game.name == "Warsong Gulch" and war().game.kind == "wsg", "into a battleground: a game begins")
+  say("Aldric captured the Horde flag!")
+  say("Mirelle captured the Horde flag!")
+  say("Aldricson captured the Horde flag!")
+  say("Aldric captured the Horde flag!")
+  say("The Alliance Flag was returned to its base by Aldric!")
+  check(war().game.flags == 2 and war().game.returns == 1, "flags captured and returned: only the player's own, by their own name")
+  check((ns.char.mood.emo.triumphant or 0) > 0, "a flag carried home is a triumph")
+  C.SourcesChanged(); C.Refresh()
+  local co = C.WarCompany(ns.cache)
+  check(co and co:find("twice", 1, true), "Company in a battleground: what they've done in this one: " .. tostring(co))
+  -- The scoreboard at the end says three.
+  GetNumBattlefieldScores = function() return 2 end
+  GetBattlefieldScore = function(i) return ({ "Gankalot", "Aldric" })[i] end
+  GetBattlefieldStatData = function(i, k) if i == 2 then return ({ 3, 1 })[k] end return 9 end
+  GetBattlefieldWinner = function() return 1 end
+  NOW = NOW + 1500
+  event("UPDATE_BATTLEFIELD_STATUS"); event("UPDATE_BATTLEFIELD_STATUS")
+  GetNumBattlefieldScores, GetBattlefieldScore, GetBattlefieldStatData = nil, nil, nil
+  check(war().last and war().last.flags == 3 and war().last.won and ns.char.life.pvp.fought == 1 and ns.char.life.pvp.wonBy["Warsong Gulch"] == 1,
+    "the result: Life counts it once, the war record keeps the scoreboard's flags")
+  NOW = NOW + 120
+  out()
+  check(war().game == nil and war().grounds["Warsong Gulch"].secs == 1500 and war().grounds["Warsong Gulch"].flags == 3, "time in the battleground, kept on leaving")
+  C.SourcesChanged(); C.Refresh()
+  local lately = C.LatelyGlance()
+  check(lately.TI == "Back From Battle" and lately.TX:find("three times", 1, true), "Lately: back from Warsong Gulch with the flags: " .. lately.TX)
+  local hist = C.History()
+  check(hist:find("Warsong Gulch", 1, true) and hist:find("three times", 1, true), "History's news: the battle, and the flags carried home")
+  -- Arathi Basin: the bases that change hands; four held at the end.
+  bg("Arathi Basin", 529)
+  say("The Alliance has taken the Stables!")
+  say("The Alliance has taken the Farm!")
+  say("Aldric has assaulted the Gold Mine!")
+  say("Aldric claims the Lumber Mill! If left unchallenged, the Alliance will control it in 1 minute!")
+  say("The Alliance has taken the Gold Mine!")
+  say("The Horde has taken the Lumber Mill!", "HORDE")
+  say("Aldric has defended the Blacksmith!")
+  say("The Alliance has taken the Blacksmith!")
+  check(war().game.assaults == 2 and war().game.defends == 1, "bases assaulted (or claimed) and defended")
+  GetBattlefieldWinner = function() return 1 end
+  NOW = NOW + 60
+  event("UPDATE_BATTLEFIELD_STATUS")
+  check(war().last.held == 4, "four bases held by the player's side at the end: " .. tostring(war().last.held))
+  C.SourcesChanged(); C.Refresh()
+  lately = C.LatelyGlance()
+  check(lately.TX:find("Arathi Basin", 1, true) and lately.TX:find("the Alliance", 1, true) and lately.TX:find("four bases", 1, true),
+    "Lately: back from Arathi Basin, where the Alliance held four bases: " .. lately.TX)
+  NOW = NOW + 600
+  out()
+  -- A longer record: thirty games in Warsong Gulch.
+  ns.char.life.pvp.byName["Warsong Gulch"], ns.char.life.pvp.wonBy["Warsong Gulch"] = 30, 18
+  ns.char.life.pvp.byName["Arathi Basin"] = 12
+  -- A rank: Sergeant, after being a Knight once.
+  UnitPVPRank = function() return 8 end
+  event("PLAYER_PVP_RANK_CHANGED")
+  check(war().rank.name == "Sergeant" and war().rank.log[1] and war().rank.log[1].up, "a new honour rank is noted")
+  -- In the open: a Horde rogue brought down in Southshore, in a contested land, after the fight.
+  state.zone, state.sub = "Hillsbrad Foothills", "Southshore"
+  GetZonePVPInfo = function() return "contested" end
+  GetPlayerInfoByGUID = function() return "Rogue", "ROGUE", "Orc", "Orc", 2, "Gankalot", "" end
+  local log
+  CombatLogGetCurrentEventInfo = function() return unpack(log) end
+  local function cl(...) log = { ... }; event("COMBAT_LOG_EVENT_UNFILTERED") end
+  state.combat = true
+  cl(0, "PARTY_KILL", false, "Player-1-0001", "Aldric", 0x511, 0, "Player-9-0042", "Gankalot", 0x548)
+  cl(0, "PARTY_KILL", false, "Player-1-0001", "Aldric", 0x511, 0, "Player-9-0043", "Friendly", 0x514)
+  cl(0, "SPELL_CAST_SUCCESS", false, "Player-9-0042", "Gankalot", 0x548, 0, "Player-1-0001", "Aldric", 0x511)
+  check(war().killed.n == nil, "nothing is looked up in a fight")
+  state.combat = false
+  event("PLAYER_REGEN_ENABLED")
+  check(war().killed.n == 1 and war().killed.class.ROGUE == 1 and war().killed.race.Orc == 1, "an enemy player brought down, by class and race")
+  check(war().defended.Southshore == 1 and war().contested["Hillsbrad Foothills"] == 1, "in a town of the player's own, in a contested land")
+  -- Brought down by a skull-level enemy: a gank.
+  UnitGUID = function(u) if u == "target" then return "Player-9-0042" end return saved.UnitGUID(u) end
+  UnitLevel = function(u) if u == "target" then return -1 end return 22 end
+  cl(0, "SPELL_DAMAGE", false, "Player-9-0042", "Gankalot", 0x548, 0, "Player-1-0001", "Aldric", 0x511, 0, 1, "Backstab", 1, 300)
+  event("PLAYER_DEAD")
+  UnitGUID, UnitLevel = saved.UnitGUID, saved.UnitLevel
+  CombatLogGetCurrentEventInfo = nil
+  check(war().fell.n == 1 and war().fell.class.ROGUE == 1 and war().ganks == 1, "brought down by an enemy far above: counted, and a gank")
+  check(not find(war(), "Gankalot") and not find(war(), "Mirelle") and not find(war(), "Player-9-0042"), "the war record names nobody")
+  -- Time flagged.
+  UnitIsPVP = function() return true end
+  war().flag.at = nil
+  War.Tick(NOW); War.Tick(NOW + 30)
+  check(war().flag.secs == 30 and war().flag.played == 30, "time flagged for the war")
+  UnitIsPVP = nil
+  -- Enough to tell: a town defended often, a dozen enemies in the open.
+  war().defended.Southshore, war().killed.n, war().killed.class.ROGUE, war().fell.n = 6, 12, 7, 4
+  C.SourcesChanged(); C.Refresh()
+  hist = C.History()
+  print("\nHistory with the war:\n" .. hist)
+  check(hist:find("Warsong Gulch thirty times", 1, true) or hist:find("Warsong Gulch, thirty times", 1, true)
+    or hist:find("Warsong Gulch thirty times,", 1, true), "History: the battleground fought in most, with the count")
+  local flagLine = false
+  for _, l in ipairs(W.WAR.D_FLAGS) do if hist:find((l:gsub(" {times}", "")), 1, true) then flagLine = true end end
+  check(flagLine, "History: and the flags carried home there")
+  check(hist:find("Sergeant", 1, true) and hist:find("Knight", 1, true), "History: the honour rank, and the best one held")
+  check(hist:find("Southshore", 1, true) and hist:find("twelve", 1, true) and hist:find("Horde", 1, true), "History: the war in the open, the Horde named as a side")
+  check(not hist:find("Gankalot", 1, true), "History names no enemy player")
+  local bearing = C.Bearing()
+  local defender = false
+  for _, l in ipairs(W.WAR.HABIT.defender) do if bearing:find(U.Pron(l:gsub("{enemy}", "Horde")), 1, true) then defender = true end end
+  check(defender, "Personality: defends {their} towns, from the record")
+  local st = C.Stats()
+  print("     Battlegrounds: " .. tostring(st.grounds) .. "\n     Honour: " .. tostring(st.honour))
+  check(st.grounds:find("Warsong Gulch: 30 fought, 18 won, 3 flags captured, 1 returned", 1, true)
+    and st.grounds:find("Arathi Basin: 12 fought", 1, true), "statistics: each battleground: " .. tostring(st.grounds))
+  check(st.honour:find("Sergeant, at best Knight", 1, true) and st.honour:find("412 honourable kills, 7 today", 1, true)
+    and st.honour:find("12 brought down in the open, most of them rogues", 1, true) and st.honour:find("6 towns defended", 1, true),
+    "statistics: honour: " .. tostring(st.honour))
+  for _, k in ipairs({ "grounds", "honour" }) do
+    check(ns.TRP.FIELDS["stat_" .. k] ~= nil and ns.db.fields["stat_" .. k] == true, "statistic " .. k .. " has its own switch, on by default")
+  end
+  -- The Horde says it its own way.
+  UnitFactionGroup = function() return "Horde" end
+  C.SourcesChanged(); C.Refresh()
+  local rank = C.WarRank(ns.cache.war, ns.cache.world)
+  check(rank and not rank:find("Alliance", 1, true), "a Horde character's rank is in the Horde's army: " .. tostring(rank))
+  UnitFactionGroup = saved.UnitFactionGroup
+  -- SAMPLES=1 prints the war's wording, Alliance and Horde, a few ways.
+  if os.getenv("SAMPLES") then
+    local seedName = ns.char.seedName
+    print("\n--- the war, a few ways ---")
+    for i, side in ipairs({ "Alliance", "Horde", "Alliance", "Horde" }) do
+      UnitFactionGroup = function() return side end
+      ns.char.seedName = "war" .. i
+      war().defendLast = { town = side == "Horde" and "Tarren Mill" or "Southshore", t = NOW }
+      war().game = { name = "Arathi Basin", kind = "ab", start = NOW + i, held = {}, flags = 0, returns = 0, assaults = i % 2, defends = 0, graves = 0 }
+      C.SourcesChanged(); C.Refresh()
+      local lines = C.WarHistory(ns.cache)
+      print(("[%s] History: %s"):format(side, table.concat(lines, ". ")))
+      print(("[%s] Rank: %s"):format(side, tostring(C.WarRank(ns.cache.war, ns.cache.world))))
+      local wl = C.WarLately(ns.cache, ns.cache.life.battleLast)
+      print(("[%s] Lately: %s | %s"):format(side, tostring(wl), C.LatelyGlance().TX))
+      print(("[%s] Company: %s"):format(side, tostring(C.WarCompany(ns.cache))))
+      print(("[%s] Marks: %s"):format(side, tostring(C.WarWords("MARK", { place = "Arathi Basin" }, i))))
+      print(("[%s] Habits: %s"):format(side, table.concat(C.Habits(3), " | ")))
+    end
+    war().game, war().defendLast = nil, nil
+    ns.char.seedName = seedName
+    UnitFactionGroup = saved.UnitFactionGroup
+  end
+  -- Bounded.
+  for i = 1, 40 do War.Killed("C" .. i, "R" .. i, "Zone " .. i, "contested") end
+  check(U.Count(war().killed.class) <= 12 and U.Count(war().killed.race) <= 12 and U.Count(war().contested) <= War.CAP_ZONES, "the war record stays bounded")
+  ns.char.war, ns.char.deeds, ns.char.life = nil, saved.deeds, saved.life
+  IsInInstance, GetZonePVPInfo, state.zone, state.sub, state.combat = saved.IsInInstance, saved.GetZonePVPInfo, saved.zone, saved.sub, saved.combat
+  UnitPVPRank, GetPVPRankInfo, GetPVPLifetimeStats, GetPVPSessionStats, GetPlayerInfoByGUID = nil, nil, nil, nil, nil
+  event("PLAYER_ENTERING_WORLD")
   ns.World.slow = nil
   C.SourcesChanged(); C.Refresh()
 end
@@ -2772,7 +2961,8 @@ do
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
     mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", guild = "x", rel = "x",
-    span = "x", akind = "x", faction = "x", races = "x", times = "x" }
+    span = "x", akind = "x", faction = "x", races = "x", times = "x",
+    army = "x", enemy = "x", town = "x", count = "x", side = "x", best = "x", arank = "x", class = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then
@@ -2791,7 +2981,7 @@ do
     seen = {}
     for _, key in ipairs({ "MOODS", "CALM", "RACE_TELLS", "CLASS_TELLS", "FESTIVALS", "SAY", "TRAVEL", "ACTIVITY", "PET",
       "AMBITIONS", "RACE_LOOK", "CLASS_LOOK", "PHYSIQUE", "WEEK_TONE", "WEALTH", "DURABILITY", "CLASS_TEMPER", "RACE_TEMPER",
-      "RACE_CLASS_TEMPER", "CLASS_MOTTO", "RACE_MOTTO", "COMPANY", "LIFE" }) do
+      "RACE_CLASS_TEMPER", "CLASS_MOTTO", "RACE_MOTTO", "COMPANY", "LIFE", "WAR" }) do
       scan(W[key], key)
     end
   end

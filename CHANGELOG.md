@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.22.0 (2026-11-27): Second Wind
+
+- **The war, from the game alone.** A new record (`Sources/War.lua`) of your part in the war between the factions. For Warsong Gulch, Arathi Basin and Alterac Valley each: the flags you carry home and return, the bases you assault and defend, the graveyards and towers you take (from the battleground's own lines, only those that start with your own name, and your own row of the end scoreboard), how many bases your side held at the end and the time you spend there; games fought and won per battleground are now kept by Life's battle record. Your honour rank and its changes, the highest you've held, and your honourable kills (lifetime and today). In the open world: time flagged for the war, the contested lands you fight in, the enemy players you bring down and who bring you down, by class and race (counted, never named, looked up only after the fight), ganks (an enemy ten or more levels above you), and the enemies you bring down in your own faction's towns.
+- **History** tells it (*"Has fought in Warsong Gulch thirty times and carried the flag home three times."*, *"Out in the open lands he's brought down twelve of the Horde's fighters and fallen to them four times."*, *"Carries the rank of Sergeant in the Alliance's army, and has stood as high as Knight."*), with news of a new or lost rank, a town defended and what you did in the last battle (*"won a battle in Warsong Gulch, carrying the flag home twice"*). The rank line now has five ways to say it, in your own faction's words.
+- **Lately** says what happened in the battle (*"Back from Arathi Basin, where the Alliance held four bases."*, *"Back from Warsong Gulch, having carried the flag home twice."*), and has *Promoted* and *Town Defended*. **Marks** has *Fresh From Battle* for a quarter of an hour after one. **Company** in a battleground adds what you've done in this one, or how well you know it (*"Has fought here twelve times before."*, *"New to Alterac Valley."*).
+- **Personality** gains habits from the record: going about always flagged, or seldom, defending your own towns, seeking out the enemy, going for the flag, taking bases or holding them, watching your back after ganks.
+- **The mood**: a flag carried home is a triumph, a flag returned or a base held a quiet pride, a base or graveyard taken fierce, a town defended righteous, a gank humbling.
+- **Two new statistics**, each with its own switch and tooltip: *Battlegrounds* (*"Warsong Gulch: 30 fought, 18 won, 3 flags captured, 1 returned; Arathi Basin: 12 fought, 7 won"*) and *Honour* (*"Sergeant, at best Knight; 412 honourable kills, 7 today; 12 brought down in the open, most of them rogues; 6 towns defended"*).
+- Light by design: the combat log handler looks up its sub-event in a small table and leaves at once on anything else; kills are queued by GUID in memory and looked up after the fight; every list is capped (twelve classes and races, thirty lands and towns, ten rank changes).
+
 ## 0.21.0 (2026-11-27): Lately
 
 ### With Total RP 3 alone

@@ -825,6 +825,8 @@ UI.TIPS = {
   ["fields.music"] = "Sets your profile's music to your home's zone music, or where you are, when the game has a match.",
   ["fields.walkup"] = "Marks you open to walk-ups when your mood is sociable, and not when it isn't.",
   ["fields.stats"] = "The Statistics entries under Additional information. Your own entries there stay as they are.",
+  ["fields.stat_grounds"] = "The \"Battlegrounds\" statistic: each battleground fought in, won, and your flags, bases and graveyards. Off, Auto TRP takes down what it wrote there.",
+  ["fields.stat_honour"] = "The \"Honour\" statistic: your honour rank, honourable kills, enemies brought down in the open (counted, never named) and towns defended. Off, Auto TRP takes down what it wrote there.",
   ["sources.rpgd"] = "Your origin, alignment, choices, opinions, the people you've met, stories and diary.",
   ["sources.socialDiary"] = "The players you've marked as friends, a partner, and your recent groups.",
   ["sources.chronicle"] = "Goals, bosses, dungeons, rare beasts, professions and gear. Your private notes are never read.",
@@ -1398,7 +1400,7 @@ local HELP = {
   { "/atrp status", "which profile it writes to and which addons it reads" },
   { "/atrp welcome", "show the welcome window again" },
   { "/atrp on", "resume (/atrp off: pause; your profile stays as it is)" },
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, talents, fish, made, gathered, duels, battles, gold, inns, hit)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, talents, fish, made, gathered, duels, battles, grounds, honour, gold, inns, hit)",
 }
 UI.HELP = HELP
 

@@ -4261,3 +4261,124 @@ if W.JOURNAL and W.JOURNAL.feel then
     bitter = { "sour about it all", "nursing a grudge" },
   }) do W.JOURNAL.feel[k] = W.JOURNAL.feel[k] or v end
 end
+
+---------------------------------------------------------------------------
+-- The war (Sources/War.lua): battlegrounds, honour and the fighting in the open, for
+-- History, Personality, Lately, Marks, Company and the Battlegrounds and Honour statistics.
+-- Kept local and modest: a soldier's record, not a legend. Other players are only counted.
+-- {place} a battleground, {times} "four times", {count} "four bases", {side} the player's
+-- faction, {enemy} the other one ("the {enemy}", "{enemy} raiders"), {army}, {rank},
+-- {arank} ("a Sergeant"), {best}, {town}, {class} (plural), {deed}, {list}, {n}.
+---------------------------------------------------------------------------
+W.WAR = {
+  -- Towns each faction holds, for "defended a town" (a kill made there).
+  TOWNS = {
+    ["Stormwind City"] = "Alliance", ["Ironforge"] = "Alliance", ["Darnassus"] = "Alliance", ["Goldshire"] = "Alliance",
+    ["Northshire Abbey"] = "Alliance", ["Sentinel Hill"] = "Alliance", ["Lakeshire"] = "Alliance", ["Darkshire"] = "Alliance",
+    ["Kharanos"] = "Alliance", ["Thelsamar"] = "Alliance", ["Menethil Harbor"] = "Alliance", ["Southshore"] = "Alliance",
+    ["Refuge Pointe"] = "Alliance", ["Aerie Peak"] = "Alliance", ["Nethergarde Keep"] = "Alliance", ["Dolanaar"] = "Alliance",
+    ["Auberdine"] = "Alliance", ["Astranaar"] = "Alliance", ["Theramore Isle"] = "Alliance", ["Feathermoon Stronghold"] = "Alliance",
+    ["Nijel's Point"] = "Alliance", ["Stonetalon Peak"] = "Alliance", ["Talonbranch Glade"] = "Alliance", ["Chillwind Camp"] = "Alliance",
+    ["Morgan's Vigil"] = "Alliance", ["Rut'theran Village"] = "Alliance", ["Anvilmar"] = "Alliance", ["Thalanaar"] = "Alliance",
+    ["Orgrimmar"] = "Horde", ["Thunder Bluff"] = "Horde", ["Undercity"] = "Horde", ["Razor Hill"] = "Horde",
+    ["Sen'jin Village"] = "Horde", ["The Crossroads"] = "Horde", ["Camp Taurajo"] = "Horde", ["Bloodhoof Village"] = "Horde",
+    ["Brill"] = "Horde", ["The Sepulcher"] = "Horde", ["Tarren Mill"] = "Horde", ["Hammerfall"] = "Horde",
+    ["Kargath"] = "Horde", ["Grom'gol Base Camp"] = "Horde", ["Stonard"] = "Horde", ["Splintertree Post"] = "Horde",
+    ["Sun Rock Retreat"] = "Horde", ["Freewind Post"] = "Horde", ["Camp Mojache"] = "Horde", ["Shadowprey Village"] = "Horde",
+    ["Brackenwall Village"] = "Horde", ["Zoram'gar Outpost"] = "Horde", ["Valormok"] = "Horde", ["Bloodvenom Post"] = "Horde",
+    ["Revantusk Village"] = "Horde", ["Camp Narache"] = "Horde",
+  },
+  ARMY = {
+    Alliance = { "the Alliance's army", "the armies of the Alliance", "the Alliance's forces", "the army of the Alliance" },
+    Horde = { "the Horde's army", "the Warchief's army", "the armies of the Horde", "the Horde's forces" },
+  },
+
+  -- History, the longer record: the battleground fought in most ("Has fought in Warsong
+  -- Gulch thirty times and carried the flag home four times"). {deed} is one of the D_ lists.
+  H_GROUND = { "Has fought in {place} {times} and {deed}", "Has gone into {place} {times}, and {deed}",
+    "Has answered the call to {place} {times} and {deed}", "Has stood in the line at {place} {times} and {deed}",
+    "Has been to {place} {times} to fight, and {deed}" },
+  H_GROUND_PLAIN = { "Has fought in {place} {times}", "Has gone into {place} {times}", "Has answered the call to {place} {times}",
+    "Has stood in the line at {place} {times}" },
+  H_GROUND_MORE = { "{they've} also fought in {list}", "{they've} been to {list} as well", "{they've} answered the call to {list} too",
+    "{they've} also stood in the line at {list}" },
+  D_FLAGS = { "carried the flag home {times}", "brought the enemy's flag home {times}", "run the flag home {times}",
+    "carried the enemy's flag back {times}" },
+  D_ASSAULTS = { "taken {count} from the enemy", "captured {count}", "won {count} for the {side}", "led the push on {count}" },
+  D_GRAVES = { "taken {count}", "won {count} for the {side}", "claimed {count} from the enemy", "taken {count} from the enemy" },
+  D_WON = { "won {count} of them", "come out ahead in {count}", "seen the {side} win {count}", "been on the winning side in {count}" },
+  -- The rank, in History's people paragraph.
+  RANK = { "Holds the rank of {rank} in {army}", "Serves in {army} with the rank of {rank}", "Has reached the rank of {rank} in {army}",
+    "Carries the rank of {rank} in {army}", "Is {arank} in {army}" },
+  RANK_BEST = { ", and has stood as high as {best}", ", and once held the rank of {best}", ", though {they've} been as high as {best}",
+    ", down from {best} at {their} best" },
+  -- The war in the open, as a sentence: a lead, then what was done.
+  H_OPEN = { "Out in the open lands {they've} {list}", "Beyond the battlegrounds {they've} {list}",
+    "Away from the battlegrounds {they've} {list}", "In the contested lands {they've} {list}" },
+  H_OPEN_MORE = { "{they've} also {list}", "{they've} {list} as well", "On top of that {they've} {list}", "{they've} {list} besides" },
+  O_KILLS = { "brought down {n} of the {enemy}'s fighters", "seen off {n} {enemy} fighters", "bested {n} {enemy} fighters",
+    "beaten {n} of the {enemy}'s soldiers" },
+  O_FELL = { "fallen to them {times}", "been brought down by them {times}", "lost to them {times}", "come off worse against them {times}" },
+  O_MOST = { "Most of the enemies {they've} beaten have been {class}", "{class} have been the commonest among the enemies {they've} beaten",
+    "More of the enemies {they've} beaten have been {class} than any other kind", "Of the enemies {they've} beaten, most have been {class}" },
+  O_TOWNS = { "turned out {times} to defend {town} against {enemy} raiders", "helped drive {enemy} raiders out of {town} {times}",
+    "stood with the guards of {town} against {enemy} raiders {times}", "fought off {enemy} raiders in {town} {times}" },
+  O_GANKS = { "been set upon {times} by enemies far above {their} own strength", "been caught {times} by enemies far stronger than {them}",
+    "been run down {times} by enemies far more seasoned than {them}", "been jumped {times} by enemies well out of {their} reach" },
+  O_LANDS = { "fought the {enemy} across {n} contested lands", "crossed swords with the {enemy} in {n} contested lands",
+    "met the {enemy} in {n} contested lands", "taken the fight to the {enemy} in {n} contested lands" },
+  -- History, the last three weeks (past-tense predicates).
+  EV_RANK_UP = { "rose to the rank of {rank}", "was made {arank}", "earned the rank of {rank}", "took up the rank of {rank}" },
+  EV_RANK_DOWN = { "slipped back to {rank}", "fell back to the rank of {rank}", "lost a rank, back to {rank}", "dropped back to {rank}" },
+  EV_DEFEND = { "helped drive {enemy} raiders out of {town}", "stood with the guards when {enemy} raiders came to {town}",
+    "turned out to defend {town} against the {enemy}", "fought off {enemy} raiders in {town}" },
+  -- After a battle in the news: ", carrying the flag home twice".
+  B_FLAGS = { "carrying the flag home {times}", "bringing the flag home {times}", "and carried the flag home {times}",
+    "running the flag home {times}" },
+  B_TOOK = { "taking {count} along the way", "and took {count}", "capturing {count}", "having taken {count}" },
+  -- Lately glance, back from a battleground.
+  L_HELD = { "Back from {place}, where the {side} held {count}.", "Has just come back from {place}, where the {side} ended holding {count}.",
+    "Fought in {place} lately; the {side} held {count} by the end.", "Back from {place}: the {side} held {count} when it was over.",
+    "Lately in {place}, where the {side} finished holding {count}." },
+  L_FLAGS = { "Back from {place}, having carried the flag home {times}.", "Has just come back from {place}, where {they} carried the flag home {times}.",
+    "Fought in {place} lately, and brought the flag home {times}.", "Back from {place} with the flag carried home {times}." },
+  L_TOOK = { "Back from {place}, where {they} took {count}.", "Has just come back from {place}, having taken {count}.",
+    "Fought in {place} lately, and took {count}.", "Back from {place}, with {count} taken." },
+  L_RANK_UP = { "Was made {arank} in the last day or two.", "Has lately risen to the rank of {rank}.",
+    "Holds the rank of {rank} now, and hasn't for long.", "Is newly {arank} in {army}." },
+  L_DEFEND = { "Helped drive {enemy} raiders out of {town} within the hour.", "Was at {town} when {enemy} raiders came, and helped see them off.",
+    "Has just helped fight off {enemy} raiders in {town}.", "Stood with the guards of {town} against {enemy} raiders a short while ago." },
+  -- Marks, just after a battle.
+  MARK = { "Still has the dust of {place} on {them}.", "Bruised and scuffed from {place}.", "Smells of sweat and smoke from {place}.",
+    "Fresh back from {place}, with a few new bruises.", "Still breathing hard after {place}." },
+  -- Company, in a battleground (a second sentence after the team).
+  C_FLAGS = { "Has carried the flag home {times} already this battle", "Has brought the flag home {times} so far",
+    "Has run the flag home {times} this battle", "Has carried the enemy's flag home {times} so far" },
+  C_TOOK = { "Has taken {count} already this battle", "Has {count} to {their} name so far this battle", "Has claimed {count} so far",
+    "Has taken {count} for the {side} so far" },
+  C_VETERAN = { "Has fought here {times} before", "Knows {place} well, from {times} before", "Has stood on this field {times} before",
+    "Has been here {times} before" },
+  C_NEW = { "This is {their} first time in {place}", "New to {place}", "Has never fought in {place} before",
+    "Is in {place} for the first time", "Is seeing {place} for the first time" },
+  -- Personality: the character's part in the war, only once the record backs it.
+  HABIT = {
+    flagged_always = { "Goes about ready to fight the {enemy} wherever {they} meet{s} them", "Keeps {their} colours up for the war wherever {they} go{es}",
+      "Rarely lowers {their} guard against the {enemy}", "Is always ready for a fight with the {enemy}",
+      "Travels as though the war could start again at any bend in the road" },
+    flagged_seldom = { "Keeps out of the war where {they} can", "Would rather leave the {enemy} alone, if they'll do the same",
+      "Has little appetite for fighting the {enemy} in the open", "Steers clear of the war unless it comes to {them}",
+      "Leaves the fighting with the {enemy} to others, mostly" },
+    defender = { "Turns out whenever the {enemy} come raiding {their} towns", "Doesn't stand by while the {enemy} raid a town of {their} own",
+      "Is quick to defend {their} own towns against the {enemy}", "Takes it personally when the {enemy} come raiding" },
+    hunter = { "Doesn't let a {enemy} fighter pass unchallenged", "Is quick to cross swords with the {enemy}",
+      "Seeks out the {enemy} in the contested lands", "Treats the contested lands as a place to fight, not to pass through" },
+    flagrunner = { "Goes for the flag whenever there's one to take", "Is usually the one running with the flag",
+      "Has a habit of going after the enemy's flag", "Wants the flag in {their} own hands" },
+    assaulter = { "Is usually among the first at a contested base", "Would rather take a base than guard one",
+      "Goes where the next base or graveyard is to be won", "Leads the charge on enemy-held ground" },
+    guardian = { "Would rather hold what's been taken than chase after more", "Stays behind to guard a base when others ride off",
+      "Is often the one left holding the base", "Keeps watch over what {their} side has won" },
+    wary = { "Has learned to watch {their} back in the contested lands", "Keeps an eye on the road behind {them} in contested country",
+      "Travels the contested lands warily, and with reason", "Has been caught out often enough to keep {their} guard up" },
+  },
+}
