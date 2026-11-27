@@ -1273,7 +1273,14 @@ function Compose.Stats()
   if #names > 0 then out.names = U.Join(names) end
   -- The most cast spell, with how many times ("Flash Heal, 1,240 times").
   local top = Compose.TopSpells(1)[1]
-  if top and top.n >= 10 then out.spell = top.name .. ", " .. figure(top.n) .. " times" end
+  if top and top.n >= 10 then out.spell = top.name .. ", " .. figure(top.n) .. " times"
+  elseif top then out.spell = top.name .. ", " .. U.Times(top.n) end
+  -- Nothing counted yet still says so, so no statistic is left blank.
+  if not out.road and days == 0 then out.road = "Less than a day" end
+  if not out.lands and world.zone then out.lands = "1" end
+  for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "crafts", "standing", "books", "names", "spell" }) do
+    out[k] = out[k] or "None yet"
+  end
   return out
 end
 

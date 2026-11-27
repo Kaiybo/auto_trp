@@ -1149,7 +1149,13 @@ do
           if not sh.traits or #sh.traits < 3 then missing[#missing + 1] = "traits" end
           if select(2, (sh.bearing or ""):gsub("%. ", "")) < 2 then missing[#missing + 1] = "bearing (short)" end
           if select(2, (sh.history or ""):gsub("%. ", "")) < 2 then missing[#missing + 1] = "history (short)" end
-          for g, v in pairs(sh.glances) do if not v or not v.TX or v.TX == "" then missing[#missing + 1] = "glance " .. g end end
+          for _, g in ipairs({ "mood", "lately", "company", "ambition", "marks" }) do
+            local v = sh.glances[g]
+            if not v or not v.TX or v.TX == "" or not v.TI or not v.IC then missing[#missing + 1] = "glance " .. g end
+          end
+          for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "wealth", "crafts", "standing", "books", "names", "spell" }) do
+            if not sh.stats[k] then missing[#missing + 1] = "stat " .. k end
+          end
         end
         if #missing > 0 then thin[#thin + 1] = race .. "/" .. class .. ": " .. table.concat(missing, ",") end
       end
@@ -1266,7 +1272,7 @@ do
   GetSpellInfo = function(id) return SPELLS[id] end
   IsPlayerSpell = function(id) return id ~= 746 end
   ns.char.casts = nil
-  check(C.Stats().spell == nil and not (C.Bearing() or ""):find("Flash Heal"), "nothing cast yet: no statistic, no line")
+  check(C.Stats().spell == "None yet" and not (C.Bearing() or ""):find("Flash Heal"), "nothing cast yet: None yet, no line")
   local function cast(id, times) for _ = 1, times do event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-guid", id) end end
   cast(2061, 9); cast(139, 4); cast(6603, 40); cast(8690, 3); cast(746, 20)
   ns.World.SetContext("craft", "Tailoring"); cast(3908, 30); ns.World.SetContext("none")
@@ -1274,7 +1280,7 @@ do
   check(n["Flash Heal"] == 9 and n["Renew"] == 4, "the character's own spells are counted")
   check(not n["Attack"] and not n["Hearthstone"] and not n["Linen Bandage"] and not n["Tailoring"],
     "swings, the hearthstone, items and crafting are not")
-  check(C.Stats().spell == nil, "too few casts for a statistic yet")
+  check(C.Stats().spell:find("^Flash Heal, "), "a few casts: the statistic, not yet a habit: " .. C.Stats().spell)
   cast(2061, 1)
   check(C.Stats().spell == "Flash Heal, 10 times", "the most cast spell is a statistic: " .. tostring(C.Stats().spell))
   check(not C.Bearing():find("Flash Heal"), "but not yet a habit worth a line")
