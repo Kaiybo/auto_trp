@@ -157,3 +157,6 @@ weighs nothing
 on the edge of | max 12
 in the thick of | max 2
 endless | max 2
+
+# Fame, from the reputation hearsay (0.22.0)
+famed
