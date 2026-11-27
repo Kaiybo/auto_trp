@@ -140,8 +140,9 @@ function L.Battle(name, won)
   if not d or not name then return end
   local p = d.pvp
   p.fought, p.won = (p.fought or 0) + 1, (p.won or 0) + (won and 1 or 0)
-  p.byName = p.byName or {}
+  p.byName, p.wonBy = p.byName or {}, p.wonBy or {}
   bump(p.byName, name, 1, 20)
+  if won and p.byName[name] then p.wonBy[name] = (p.wonBy[name] or 0) + 1 end
   p.last = { name = name, won = won and true or false, t = U.Now() }
 end
 
@@ -364,6 +365,9 @@ function L.Read()
   local p = d.pvp
   o.battles, o.battlesWon, o.battleLast, o.killingBlows = p.fought or 0, p.won or 0, p.last, p.kb or 0
   o.battleTop, o.battleKinds = top(p.byName), U.Count(p.byName)
+  -- Each battleground's own count, and how many of those were won (Sources/War.lua tells more).
+  o.battleBy = {}
+  for name, n in pairs(p.byName or {}) do o.battleBy[name] = { n = n, won = math.min(n, (p.wonBy or {})[name] or 0) } end
   o.money = {}
   for k, v in pairs(d.money) do o.money[k] = v end
   o.inns = sortedBy(d.inns, "n")

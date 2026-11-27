@@ -72,6 +72,7 @@ function Compose.Refresh()
     c.deeds = S.Deeds.Read()
     c.self = S.Self and S.Self.Read(c) or nil
     c.life = S.Life and S.Life.Read() or nil
+    c.war = S.War and S.War.Read() or nil
     c.trade = S.Trade and S.Trade.Read() or nil
     c.work = S.Work and S.Work.Read() or nil
     c.bestiary = S.Bestiary and S.Bestiary.Read() or nil
@@ -153,6 +154,139 @@ local function band(level)
   level = level or 1
   if level >= 60 then return 7 end
   return math.floor(level / 10) + 1
+end
+
+---------------------------------------------------------------------------
+-- The war (Sources/War.lua): its words, shared by the glances, History and statistics.
+-- Other players are only ever counted; the wording is in W.WAR.
+---------------------------------------------------------------------------
+local function ww(key, vars, which)
+  local line = U.Pick(W.WAR[key], seed("war:" .. key .. ":" .. tostring(which or "")))
+  if type(line) ~= "string" then return nil end
+  return (line:gsub("{([%a']+)}", function(k) if vars and vars[k] ~= nil then return vars[k] end end))
+end
+Compose.WarWords = ww
+local function counted(n, one, many) return n == 1 and ("a " .. one) or (U.Number(n) .. " " .. (many or (one .. "s"))) end
+
+-- What was done most on a battleground (or in one game): the kind ("flags", "graves",
+-- "assaults") and its words, or nil when nothing was.
+function Compose.WarDeed(e)
+  if not e then return nil end
+  if (e.flags or 0) > 0 then return "flags", { times = U.Times(e.flags) } end
+  local graves, assaults = e.graves or 0, e.assaults or 0
+  if graves > 0 and graves >= assaults then return "graves", { count = counted(graves, "graveyard") } end
+  if assaults > 0 then return "assaults", { count = counted(assaults, e.kind == "av" and "tower" or "base") } end
+  return nil
+end
+
+-- The army of the player's side ("the Warchief's army").
+local function army(side, which) return U.Pick(W.WAR.ARMY[side or ""] or { "the army" }, seed("war:army:" .. tostring(which or ""))) end
+
+-- "Holds the rank of Sergeant in the Alliance's army, and once held the rank of Knight."
+function Compose.WarRank(war, world)
+  local rank = (war and war.rank) or world.pvpRank
+  if not rank then return nil end
+  local side = (war and war.side) or world.faction
+  local line = ww("RANK", { rank = rank, arank = article(rank), army = army(side, rank) }, rank)
+  if war and war.best and (war.bestN or 0) > (war.rankN or 0) then line = line .. ww("RANK_BEST", { best = war.best }, war.best) end
+  return line
+end
+
+-- The war in History's longer record: the battleground fought in most, the others, and the
+-- fighting in the open. Returns the sentences, and whether the battlegrounds were told.
+function Compose.WarHistory(c)
+  local war = c.war
+  local out = {}
+  if not war then return out, false end
+  local side, enemy = war.side or "faction", war.enemy or "enemy"
+  local grounds = {}
+  for _, e in ipairs(war.grounds or {}) do if e.games >= 3 then grounds[#grounds + 1] = e end end
+  local told = false
+  local e = grounds[1]
+  if e then
+    local key, vars = Compose.WarDeed(e)
+    local deed
+    if key then
+      vars.side = side
+      deed = ww("D_" .. key:upper(), vars, e.name)
+    elseif e.won > 0 then
+      deed = ww("D_WON", { count = U.Number(e.won), side = side }, e.name)
+    end
+    local vars2 = { place = U.Mid(e.name), times = U.Times(e.games), deed = deed }
+    out[#out + 1] = deed and ww("H_GROUND", vars2, e.name) or ww("H_GROUND_PLAIN", vars2, e.name)
+    local more = {}
+    for k = 2, math.min(3, #grounds) do more[#more + 1] = U.Mid(grounds[k].name) .. " " .. U.Times(grounds[k].games) end
+    if #more > 0 then out[#out + 1] = ww("H_GROUND_MORE", { list = U.Join(more) }, more[1]) end
+    told = true
+  end
+  -- The open world: enemies brought down (and brought down by), towns defended, ganks, lands.
+  local first, rest = {}, {}
+  if (war.kills or 0) >= 5 then
+    local p = ww("O_KILLS", { n = U.Roughly(war.kills), enemy = enemy }, war.kills >= 100 and "many" or war.kills)
+    if (war.deaths or 0) >= 3 then p = p .. " and " .. ww("O_FELL", { times = U.Times(war.deaths) }, war.deaths) end
+    first[#first + 1] = p
+  end
+  if (war.defends or 0) >= 1 and war.defendTop then
+    local p = ww("O_TOWNS", { town = war.defendTop, enemy = enemy, times = U.Times(war.defendTopN) }, war.defendTop)
+    if #first == 0 then first[1] = p else rest[#rest + 1] = p end
+  end
+  if (war.ganks or 0) >= 2 then rest[#rest + 1] = ww("O_GANKS", { times = U.Times(war.ganks) }, war.ganks) end
+  if (war.contested or 0) >= 3 then rest[#rest + 1] = ww("O_LANDS", { n = U.Number(war.contested), enemy = enemy }, war.contested) end
+  if #first == 0 and #rest > 0 then first[1] = table.remove(rest, 1) end
+  if #first > 0 then
+    out[#out + 1] = ww("H_OPEN", { list = U.Join(first) }, first[1])
+    local cp = W.CLASS_PLURAL[war.killClass or ""]
+    if cp and (war.kills or 0) >= 5 and (war.killClassN or 0) >= 3 and war.killClassN >= war.kills * 0.3 then
+      out[#out + 1] = ww("O_MOST", { class = cp[2] }, war.killClass)
+    end
+    if #rest > 0 then out[#out + 1] = ww("H_OPEN_MORE", { list = U.Join(rest) }, rest[1]) end
+  end
+  return out, told
+end
+
+-- The last battle, told after its result: ", carrying the flag home twice" (History's news).
+function Compose.WarBattleTail(c, bl)
+  local last = c.war and c.war.last
+  if not last or not bl or math.abs((last.t or 0) - (bl.t or 0)) > 120 then return "" end
+  local key, vars = Compose.WarDeed(last)
+  if not key then return "" end
+  return ", " .. ww(key == "flags" and "B_FLAGS" or "B_TOOK", vars, last.t)
+end
+
+-- Lately, back from a battle: the bases held at the end, the flags carried home, the
+-- graveyards and bases taken; nil when there's nothing more to say than won or lost.
+function Compose.WarLately(c, bl)
+  local war = c.war
+  local last = war and war.last
+  if not last or not bl or math.abs((last.t or 0) - (bl.t or 0)) > 120 then return nil end
+  local vars = { place = U.Mid(last.name), side = last.side or war.side or "faction" }
+  if last.kind == "ab" and (last.held or 0) >= 1 then
+    vars.count = counted(last.held, "base")
+    return U.Pron(ww("L_HELD", vars, last.t))
+  end
+  local key, more = Compose.WarDeed(last)
+  if not key then return nil end
+  for k, v in pairs(more) do vars[k] = v end
+  return U.Pron(ww(key == "flags" and "L_FLAGS" or "L_TOOK", vars, last.t))
+end
+
+-- Company, in a battleground: what they've done in this one, else how well they know it.
+function Compose.WarCompany(c)
+  local war = c.war
+  local gm = war and war.game
+  if not gm then return nil end
+  local key, vars = Compose.WarDeed(gm)
+  local line
+  if key then
+    vars.side = war.side or "faction"
+    line = ww(key == "flags" and "C_FLAGS" or "C_TOOK", vars, gm.start)
+  else
+    local games = 0
+    for _, e in ipairs(war.grounds or {}) do if e.name == gm.name then games = e.games end end
+    if games >= 3 then line = ww("C_VETERAN", { times = U.Times(games), place = U.Mid(gm.name) }, gm.start)
+    elseif games == 0 then line = ww("C_NEW", { place = U.Mid(gm.name) }, gm.start) end
+  end
+  return line and (U.Cap(line) .. ".") or nil
 end
 
 local function seasoned(level, key)
@@ -448,7 +582,7 @@ function Compose.LatelyGlance()
     local bl = life.battleLast
     if bl and within(bl.t, 7200) then
       add(bl.t, 2, { TI = "Back From Battle", IC = "INV_BannerPVP_02",
-        TX = say(bl.won and "lately_battle_won" or "lately_battle_lost", { place = U.Mid(bl.name) }, bl.t) })
+        TX = Compose.WarLately(c, bl) or say(bl.won and "lately_battle_won" or "lately_battle_lost", { place = U.Mid(bl.name) }, bl.t) })
     end
     local mount = life.mounts[1]
     if mount and not mount.before and within(mount.t, 2 * 86400) then
@@ -471,6 +605,20 @@ function Compose.LatelyGlance()
     if inn and within(inn.t, 86400) then
       local innName = inn.name:find("^The ") and U.Mid(inn.name) or ("the " .. inn.name)
       add(inn.t, 0, { TI = "A New Inn", IC = "INV_Drink_05", TX = say("lately_inn", { inn = innName }, inn.t) })
+    end
+  end
+  -- The war (Sources/War.lua): a new honour rank, a town defended.
+  local war = c.war
+  if war then
+    local step = war.rankLog[#war.rankLog]
+    if step and step.up and step.to and within(step.t, 2 * 86400) then
+      add(step.t, 2, { TI = "Promoted", IC = war.side == "Horde" and "INV_Jewelry_TrinketPVP_02" or "INV_Jewelry_TrinketPVP_01",
+        TX = ww("L_RANK_UP", { rank = step.to, arank = article(step.to), army = army(war.side, step.to) }, step.t) })
+    end
+    local dl = war.defendLast
+    if dl and within(dl.t, 3600) then
+      add(dl.t, 1, { TI = "Town Defended", IC = "INV_Shield_06",
+        TX = ww("L_DEFEND", { town = dl.town, enemy = war.enemy or "enemy" }, dl.t) })
     end
   end
   -- Trades in depth (Sources/Trade.lua): a recipe learned, a first or finest piece, work for others.
@@ -606,7 +754,7 @@ function Compose.CompanyGlance()
     local n = math.max(g.size or 0, world.groupSize or 0)
     if g.battleground then
       return { TI = "On the Battlefield", IC = "INV_BannerPVP_02",
-        TX = join(cw("battle", { n = U.Number(n), faction = world.faction or "cause" }, n)) }
+        TX = join(cw("battle", { n = U.Number(n), faction = world.faction or "cause" }, n), Compose.WarCompany(c)) }
     end
     local clause = groupClause(g, guild)
     -- The part they play in it: "the group's healer" (Sources/Style.lua).
@@ -846,6 +994,10 @@ function Compose.MarksGlance()
     if world.swimming then mark(5.5, "Soaked", say("mark_swim", nil, world.zone), "Spell_Frost_SummonWaterElemental") end
     local du = life.duelLog[#life.duelLog]
     if du and within(du.t, 600) then mark(4.6, "Fresh From a Duel", say("mark_duel", nil, du.t), "Ability_Warrior_Challange") end
+    local bl = life.battleLast
+    if bl and within(bl.t, 900) then
+      mark(4.7, "Fresh From Battle", ww("MARK", { place = U.Mid(bl.name) }, bl.t), "INV_BannerPVP_02")
+    end
     local fr = life.fishRun
     if fr and within(fr.last, 1800) and (fr.n or 0) >= 5 then mark(4.5, "Smells of Fish", say("mark_fish", nil, fr.start), "INV_Misc_Fish_02") end
     local mr = life.madeRun
@@ -1220,6 +1372,25 @@ function Compose.Habits(k)
   if #life.inns >= 10 then add(1, "inns") end
   if life.falls >= 10 then add(1.2, "falls") end
   if life.closeCalls >= 10 then add(1.1, "close") end
+  -- The war (Sources/War.lua): how they take part in it, from the record.
+  local war = c.war
+  if war then
+    local enemy = war.enemy or "enemy"
+    local function addWar(score, key)
+      local pool = W.WAR.HABIT[key]
+      if pool then cands[#cands + 1] = { score = score, key = "war:" .. key, text = (U.Pick(pool, seed("habit:war:" .. key)):gsub("{enemy}", enemy)) } end
+    end
+    if war.flagShare and war.flagShare >= 0.6 then addWar(2.1, "flagged_always")
+    elseif war.flagShare and war.flagShare < 0.05 and war.played >= 72000 then addWar(1.6, "flagged_seldom") end
+    if war.defends >= 5 then addWar(2.3, "defender") end
+    if war.kills >= 25 then addWar(2, "hunter") end
+    if war.ganks >= 5 then addWar(1.5, "wary") end
+    local flags, taken, held = 0, 0, 0
+    for _, e in ipairs(war.grounds) do flags, taken, held = flags + e.flags, taken + e.assaults + e.graves, held + e.defends end
+    if flags >= 5 then addWar(2.2, "flagrunner") end
+    if taken >= 10 and taken >= held then addWar(2, "assaulter")
+    elseif held >= 10 then addWar(1.9, "guardian") end
+  end
   -- How they practise their calling (Sources/Calling.lua).
   for _, h in ipairs(ns.Sources.Calling and ns.Sources.Calling.Habits(c) or {}) do cands[#cands + 1] = h end
   for _, h in ipairs(Compose.KeepsakeHabits and Compose.KeepsakeHabits() or {}) do add(h.score, h.key, h.list) end
@@ -2212,7 +2383,9 @@ function Compose.History()
       event(lastDuel.t, 7, say(lastDuel.won and "ev_duel_won" or "ev_duel_lost", { zone = U.Mid(lastDuel.zone) }, lastDuel.t), "duels")
     end
     local bl = life.battleLast
-    if bl then event(bl.t, 5, say(bl.won and "ev_battle_won" or "ev_battle_lost", { place = U.Mid(bl.name) }, bl.t), "battle") end
+    if bl then
+      event(bl.t, 5, say(bl.won and "ev_battle_won" or "ev_battle_lost", { place = U.Mid(bl.name) }, bl.t) .. Compose.WarBattleTail(c, bl), "battle")
+    end
     local inn = life.innNew
     if inn and not (rpgd and rpgd.homeInn == inn.name) then
       event(inn.t, 7, say("ev_inn", { inn = placeName(inn.name) }, inn.t), "inn")
@@ -2249,6 +2422,16 @@ function Compose.History()
     if cl and cl.zone then
       event(cl.t, 6, say("ev_close", { who = cl.foe and (" with " .. (cl.named and cl.foe or article(cl.foe))) or "", zone = U.Mid(cl.zone) }, cl.t), "close")
     end
+  end
+  -- The war (Sources/War.lua): an honour rank gained or lost, a town defended.
+  local war = c.war
+  if war then
+    local step = war.rankLog[#war.rankLog]
+    if step and step.to then
+      event(step.t, 5, ww(step.up and "EV_RANK_UP" or "EV_RANK_DOWN", { rank = step.to, arank = article(step.to) }, step.t), "warrank")
+    end
+    local dl = war.defendLast
+    if dl then event(dl.t, 6, ww("EV_DEFEND", { town = dl.town, enemy = war.enemy or "enemy" }, dl.t), "defend") end
   end
   if c.trade and ns.Sources.Trade then
     for _, e in ipairs(ns.Sources.Trade.Events(c.trade, recent, itemName)) do event(e.t, e.rank, e.text, e.key) end
@@ -2332,11 +2515,13 @@ function Compose.History()
     for n, k in pairs(own.killsByName or {}) do if k > tn then top, tn = n, k end end
     if top and tn >= 20 then older[#older + 1] = "killed more " .. Compose.Plural(top) .. " than any other creature" end
   end
+  -- The war: each battleground and the fighting in the open (told after the older record).
+  local warLines, warGrounds = Compose.WarHistory(c)
   -- Their people (Sources/Kin.lua): homecomings, places of their people, old enemies.
   for _, s in ipairs(ns.Sources.Kin and ns.Sources.Kin.Older(c, toldRecent) or {}) do older[#older + 1] = s end
   -- Auto TRP's own record: battles, duels, inns, flight masters and coin.
   if life then
-    if life.battles >= 3 then
+    if life.battles >= 3 and not warGrounds then
       local where = life.battleTop and (" in " .. U.Mid(life.battleTop) .. ((life.battleKinds or 0) > 1 and " and elsewhere" or "")) or ""
       older[#older + 1] = "fought " .. U.Number(life.battles) .. " battles" .. where .. ", winning "
         .. (life.battlesWon == life.battles and "every one" or life.battlesWon == 0 and "none" or U.Number(life.battlesWon))
@@ -2379,6 +2564,7 @@ function Compose.History()
     record[#record + 1] = lead .. " {they've} " .. joinRun(a)
     if #b > 0 then record[#record + 1] = "{they've} also " .. joinRun(b) end
   end
+  for _, s in ipairs(warLines) do record[#record + 1] = s end
   -- What most of the work has been, and the escorts (Sources/Work.lua).
   for _, s in ipairs(ns.Sources.Work and ns.Sources.Work.Record(c.work, toldRecent) or {}) do record[#record + 1] = s end
   -- What they've fought (Sources/Bestiary.lua): the kinds, the greatest, the notable.
@@ -2582,9 +2768,7 @@ function Compose.History()
     standing[#standing + 1] = line
   end
   standing[#standing + 1] = serve
-  if world.pvpRank then
-    standing[#standing + 1] = "Holds the rank of " .. world.pvpRank .. " in the " .. (world.faction or "faction") .. "'s army"
-  end
+  standing[#standing + 1] = Compose.WarRank(c.war, world)
   -- What's said of them: hearsay, each line from a stored record (Sources/Renown.lua).
   for _, r in ipairs(Compose.Rumours()) do people[#people + 1] = r end
   if sd and #sd.foes > 0 then
@@ -3055,6 +3239,9 @@ Compose.STATS = {
   { key = "gathered", label = "Gathered", icon = "Trade_Herbalism" },
   { key = "duels", label = "Duels", icon = "Ability_Warrior_Challange" },
   { key = "battles", label = "Battles", icon = "INV_BannerPVP_01" },
+  -- From Auto TRP's record of the war (Sources/War.lua).
+  { key = "grounds", label = "Battlegrounds", icon = "INV_BannerPVP_02" },
+  { key = "honour", label = "Honour", icon = "INV_Jewelry_TrinketPVP_01" },
   { key = "gold", label = "Most gold held", icon = "INV_Misc_Coin_01" },
   { key = "inns", label = "Inns stayed at", icon = "INV_Drink_05" },
   { key = "hit", label = "Hardest hit", icon = "Ability_Warrior_Rampage" },
@@ -3188,6 +3375,41 @@ function Compose.Stats()
     if taken then parts[#parts + 1] = figure(taken.n) .. " taken" .. (taken.from and (" from " .. taken.from) or "") end
     if #parts > 0 then out.hit = table.concat(parts, "; ") end
   end
+  -- The war: each battleground ("Warsong Gulch: 30 fought, 18 won, 4 flags captured"), and
+  -- honour (rank, honourable kills, enemies brought down in the open, towns defended).
+  local war = c.war
+  if war then
+    local grounds, secs = {}, 0
+    for _, e in ipairs(war.grounds) do
+      secs = secs + (e.secs or 0)
+      if e.games > 0 and #grounds < 3 then
+        local bits = { figure(e.games) .. " fought", figure(e.won) .. " won" }
+        if e.flags > 0 then bits[#bits + 1] = figure(e.flags) .. " " .. U.Plural(e.flags, "flag") .. " captured" end
+        if e.returns > 0 then bits[#bits + 1] = figure(e.returns) .. " returned" end
+        if e.graves > 0 then bits[#bits + 1] = figure(e.graves) .. " " .. U.Plural(e.graves, "graveyard") .. " taken" end
+        if e.assaults > 0 then
+          bits[#bits + 1] = figure(e.assaults) .. " " .. U.Plural(e.assaults, e.kind == "av" and "tower" or "base") .. " assaulted"
+        end
+        if e.defends > 0 then bits[#bits + 1] = figure(e.defends) .. " defended" end
+        grounds[#grounds + 1] = e.name .. ": " .. table.concat(bits, ", ")
+      end
+    end
+    local hours = math.floor(secs / 3600)
+    if #grounds > 0 then out.grounds = table.concat(grounds, "; ") .. (hours >= 1 and ("; " .. figure(hours) .. " " .. U.Plural(hours, "hour") .. " in all") or "") end
+    local hp = {}
+    if war.rank then hp[1] = war.rank .. ((war.best and war.bestN > war.rankN) and (", at best " .. war.best) or "")
+    elseif war.best then hp[1] = "Once " .. war.best end
+    if war.hk > 0 then
+      hp[#hp + 1] = figure(war.hk) .. " honourable " .. U.Plural(war.hk, "kill") .. (war.hkSession > 0 and (", " .. figure(war.hkSession) .. " today") or "")
+    end
+    if war.kills > 0 then
+      local cp = W.CLASS_PLURAL[war.killClass or ""]
+      hp[#hp + 1] = figure(war.kills) .. " brought down in the open"
+        .. ((cp and war.killClassN >= 3 and war.killClassN < war.kills) and (", most of them " .. cp[2]) or "")
+    end
+    if war.defends > 0 then hp[#hp + 1] = figure(war.defends) .. " " .. U.Plural(war.defends, "town defended", "towns defended") end
+    if #hp > 0 then out.honour = table.concat(hp, "; ") end
+  end
   -- The trades in depth: recipes known, the finest thing made.
   if c.trade and ns.Sources.Trade then
     local tr = ns.Sources.Trade.Stats(c.trade)
@@ -3238,7 +3460,7 @@ function Compose.Stats()
   if not out.lands and world.zone then out.lands = "1" end
   for k, v in pairs(ns.Sources.Kin and ns.Sources.Kin.Stats(c) or {}) do out[k] = v end
   for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "crafts", "standing", "books", "names", "spell",
-    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "kinds", "greatest", "longest", "festivals", "renown", "keepsake", "deepest", "wipes",
+    "fish", "made", "gathered", "duels", "battles", "grounds", "honour", "gold", "inns", "hit", "kinds", "greatest", "longest", "festivals", "renown", "keepsake", "deepest", "wipes",
     "kinhome", "racial", "kinfoes", "recipes", "finest" }) do
     out[k] = out[k] or "None yet"
   end

@@ -833,6 +833,8 @@ UI.TIPS = {
   ["fields.stat_recipes"] = "The \"Recipes known\" statistic: how many recipes each trade knows, counted when its window is open. Off, Auto TRP takes down what it wrote there.",
   ["fields.stat_finest"] = "The \"Finest work\" statistic: the best thing you've made at a trade, by its quality. Off, Auto TRP takes down what it wrote there.",
   ["fields.stats"] = "The Statistics entries under Additional information. Your own entries there stay as they are.",
+  ["fields.stat_grounds"] = "The \"Battlegrounds\" statistic: each battleground fought in, won, and your flags, bases and graveyards. Off, Auto TRP takes down what it wrote there.",
+  ["fields.stat_honour"] = "The \"Honour\" statistic: your honour rank, honourable kills, enemies brought down in the open (counted, never named) and towns defended. Off, Auto TRP takes down what it wrote there.",
   ["fields.stat_kinhome"] = "How much of your play is spent in your people's capital and home lands, and how much abroad. Counted while you play, not while you're away.",
   ["fields.stat_racial"] = "Your race's gift you use most (Stoneform, Shadowmeld, War Stomp...), and how often it got you out of trouble.",
   ["fields.stat_kinfoes"] = "Old enemies of your people you've killed, by the creature's name: the Scarlet Crusade for the Forsaken, satyrs for night elves, Dark Irons for dwarves.",
@@ -1414,7 +1416,7 @@ local HELP = {
   { "/atrp status", "which profile it writes to and which addons it reads" },
   { "/atrp welcome", "show the welcome window again" },
   { "/atrp on", "resume (/atrp off: pause; your profile stays as it is)" },
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, role, speciality, fish, made, gathered, duels, battles, gold, inns, hit, renown, keepsake, deepest, wipes, since, festivals, kinhome, racial, kinfoes, longest, calling, escapes, given, forms, work, kinds, greatest, recipes, finest)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, role, speciality, fish, made, gathered, duels, battles, grounds, honour, gold, inns, hit, renown, keepsake, deepest, wipes, since, festivals, kinhome, racial, kinfoes, longest, calling, escapes, given, forms, work, kinds, greatest, recipes, finest)",
 }
 UI.HELP = HELP
 
