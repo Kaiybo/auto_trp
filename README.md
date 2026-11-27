@@ -38,7 +38,7 @@ Your race and class shape almost everything: the rank ladder, how each mood show
 
 ## How your character feels
 
-Dozens of signals feed it, and each feeling remembers why (`/atrp mood` shows the reasons):
+Dozens of signals feed it, most of them from the game itself (no other addon needed), and each feeling remembers why (`/atrp mood` shows the reasons):
 
 - **Death**: shaken right after, then **downcast** for hours; die again soon and you're **frustrated**. Resurrection sickness leaves you **drained**. Watching a party member fall brings sorrow and anger.
 - **Blessings and ailments**: three or more buffs and you're **in fine fettle**; a world buff makes you **glorious**; Well Fed, **well-fed**. Disease, poison or a curse leaves you **ailing**; low health out of a fight, **wounded**.
@@ -48,7 +48,10 @@ Dozens of signals feed it, and each feeling remembers why (`/atrp mood` shows th
 - **Company**: in good company in a group, happier with Social Diary friends, **solitary** after a long time alone.
 - **Your story** (RPG Dialogue): a dark choice leaves you **conflicted**, a good one **righteous**; goodwill earned makes you **proud**, lost **ashamed**; a story beat **intrigues**; a letter brings **news**; drink makes you **merry**; madness **haunts**. A Chronicle goal reached **elates**.
 - **Your emotes**: /cry, /dance, /pray, /flirt, /rage, /cower, /wave and more move your mood.
-- **Temperament** bends all of it: brave characters shake less, kind ones grieve more, greedy ones love a windfall, the devout take prayer to heart.
+- **Other people**: a wave, smile or hug aimed at you **cheers** you; thanks, a heal, a blessing or an offered resurrection from someone else makes you **grateful**; being spat at or laughed at leaves you **bitter** or **humbled**. Strangers are never named; Social Diary friends are.
+- **Fights and contests**: a run of telling blows makes you **smug**, killing something far above you **proud**, a string of easy kills **bored**; running for it on low health, being polymorphed, feared or stunned, or losing a duel **humbles**; dying to an enemy player leaves you **bitter**. A loot roll won is smug, one lost after you needed it bitter; a job failed or abandoned stings.
+- **The body and the clock**: a long fall rattles you; nearly drowning shakes you; three hours on the go (or the small hours) leaves you **exhausted**; idling or nothing happening makes you **bored**; hours away from your hearth make you **homesick**; full rested energy, a new mount, early light and coming back after days away make you **cheerful**. A level after a long climb, a new craft rank and a trainer visit are their own small prides.
+- **Temperament** bends all of it: brave characters shake less, kind ones grieve more and are more grateful, greedy ones love a windfall and hate a lost roll, the devout take prayer to heart. Race and class bend it too (a goblin is smug about a won roll, the Forsaken don't get homesick), so it works with no other addon installed.
 
 `/atrp feel <mood>` sets it yourself for an hour.
 

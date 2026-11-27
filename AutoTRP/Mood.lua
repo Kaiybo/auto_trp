@@ -18,6 +18,8 @@ Mood.HALF_LIFE = {
   homecoming = 40, sociable = 20, intrigued = 90, sorrowful = 45, angry = 25, smitten = 40,
   devout = 30, merry = 30, ease = 20, thrilled = 40, flush = 60, conflicted = 60, righteous = 45,
   proud = 60, ashamed = 60, newsy = 45, fierce = 10, accomplished = 40, determined = 60,
+  grateful = 45, humbled = 50, smug = 30, bitter = 60, cheerful = 40, bored = 30, homesick = 60, exhausted = 60,
+  worried = 40, uneasy = 30, eager = 40,
 }
 Mood.THRESHOLD = 15
 Mood.TICK = 30
@@ -49,13 +51,48 @@ local BIAS = {
   charming = { sociable = 1.3, smitten = 1.2, lonely = 1.3 },
   reserved = { sociable = 0.6, lonely = 0.6, company = 0.8 },
 }
+-- The 0.21.0 moods, by the same traits.
+local BIAS_MORE = {
+  brave = { humbled = 0.8, bitter = 1.15, exhausted = 0.9, smug = 1.1 },
+  cautious = { humbled = 1.15, grateful = 1.15, smug = 0.8 },
+  kind = { grateful = 1.3, bitter = 0.7, smug = 0.6, cheerful = 1.1 },
+  cruel = { bitter = 1.3, smug = 1.3, grateful = 0.6, cheerful = 0.8 },
+  pious = { grateful = 1.3, humbled = 1.25, smug = 0.7 },
+  skeptical = { grateful = 0.85, cheerful = 0.9 },
+  greedy = { smug = 1.3, bitter = 1.3 },
+  generous = { grateful = 1.2, bitter = 0.7 },
+  curious = { bored = 1.3, cheerful = 1.1, homesick = 0.8 },
+  witty = { cheerful = 1.2, bored = 1.15, smug = 1.1 },
+  stern = { cheerful = 0.8, smug = 0.8, humbled = 0.9 },
+  charming = { cheerful = 1.3, smug = 1.1, bored = 1.1 },
+  reserved = { cheerful = 0.8, grateful = 0.9, bored = 0.8 },
+}
+for trait, list in pairs(BIAS_MORE) do
+  BIAS[trait] = BIAS[trait] or {}
+  for k, v in pairs(list) do BIAS[trait][k] = v end
+end
+
+-- Traits from RPG Dialogue, or from Auto TRP's own reading of play (ns.cache.self, shaped
+-- like RPG Dialogue's), whichever says more. Neither is needed: race and class still bend.
+local function traits()
+  local c = ns.cache or {}
+  local a = c.rpgd and c.rpgd.traits
+  local b = c.self and (c.self.traits or c.self)
+  if type(b) ~= "table" then b = nil end
+  if not b then return a or {} end
+  if not a then return b end
+  local out = {}
+  for k, v in pairs(a) do if type(v) == "number" then out[k] = v end end
+  for k, v in pairs(b) do if type(v) == "number" and v > (out[k] or 0) then out[k] = v end end
+  return out
+end
+Mood.Traits = traits
 
 function Mood.Bias(name)
-  local rpgd = ns.cache and ns.cache.rpgd
-  local traits = rpgd and rpgd.traits or {}
+  local t = traits()
   local m = 1
   for trait, list in pairs(BIAS) do
-    if (traits[trait] or 0) >= 3 and list[name] then m = m * list[name] end
+    if type(t[trait]) == "number" and t[trait] >= 3 and list[name] then m = m * list[name] end
   end
   local world = ns.cache and ns.cache.world
   if world then
@@ -258,6 +295,7 @@ function Mood.Scores(world)
   end
   if chron and #chron.goals > 0 then add("determined", 14, "a goal") end
 
+  Mood.ScoresMore(world, add, st, now)
   return s, why
 end
 
@@ -297,7 +335,7 @@ function Mood.Current(world)
     d = def(key, world)
   else
     local rpgd = ns.cache and ns.cache.rpgd
-    key = rpgd and rpgd.dominant and rpgd.dominant[1] or "default"
+    key = rpgd and rpgd.dominant and rpgd.dominant[1] or Mood.TopTrait() or "default"
     d = W.CALM[key] or W.CALM.default
     key = "calm:" .. key
   end
@@ -358,6 +396,7 @@ ns.On("PLAYER_DEAD", function()
 end)
 ns.On("PLAYER_LEVEL_UP", function(_, level)
   Mood.Push("elated", 55, "grew stronger")
+  Mood.LevelClimb()
   -- A new rank every ten levels: remember where it happened and how it felt.
   level = tonumber(level)
   if not ns.char or not level or (level % 10 ~= 0 and level ~= 60) then return end
@@ -375,6 +414,7 @@ ns.On("PLAYER_LEVEL_UP", function(_, level)
 end)
 ns.On("QUEST_TURNED_IN", function()
   if not ns.char then return end
+  Mood.Stir()
   Mood.Push("satisfied", 18, "a job done")
   local st = state()
   table.insert(st.quests, U.Now()); prune(st.quests, 3600)
@@ -393,11 +433,19 @@ ns.On("PLAYER_REGEN_DISABLED", function()
     local named = U.Call(UnitIsPlayer, "target") or (kind and kind ~= "normal" and kind ~= "minus" and kind ~= "trivial")
     foe = name and { name = name, named = named and true or false } or nil
   end
+  Mood.Sizeup()
 end)
 local function onHealth(_, unit)
   if unit == "player" then
     local hp, max = ns.World.Safe(U.Call(UnitHealth, "player")), ns.World.Safe(U.Call(UnitHealthMax, "player"))
-    if type(hp) == "number" and type(max) == "number" and max > 0 and hp > 0 then lowest = math.min(lowest, hp / max) end
+    if type(hp) == "number" and type(max) == "number" and max > 0 and hp > 0 then
+      lowest = math.min(lowest, hp / max)
+      -- Low and on the move in a fight: running for it (one more call, only when low).
+      if hp / max < 0.25 and fightStart and not Mood.fleeing then
+        local speed = U.Call(GetUnitSpeed, "player")
+        if type(speed) == "number" and speed > 0 then Mood.fleeing = true end
+      end
+    end
   elseif type(unit) == "string" and unit:find("^party%d$") then
     -- A companion falls
     ns.partyDead = ns.partyDead or {}
@@ -434,6 +482,8 @@ ns.On("PLAYER_REGEN_ENABLED", function()
   -- The fight, for the Lately glance.
   ns.char.lastFight = { foe = foe, t = U.Now(), close = lowest < 0.25, long = fightStart and U.Now() - fightStart > 45 }
   lowest, fightStart, foe = 1, nil, nil
+  Mood.Stir()
+  Mood.Flush()
 end)
 ns.On("GROUP_ROSTER_UPDATE", function()
   if ns.char and (U.Call(IsInGroup) or U.Call(IsInRaid)) then state().lastSocial = U.Now() end
@@ -467,18 +517,7 @@ ns.On("PLAYER_MONEY", function()
   lastMoney = m
 end)
 
--- Duels: "X has defeated Y in a duel"
-ns.On("CHAT_MSG_SYSTEM", function(_, msg)
-  msg = ns.World.Safe(msg)
-  if type(msg) ~= "string" then return end
-  local winner, loser = msg:match("^(.-) has defeated (.-) in a duel")
-  if not winner then return end
-  local me = U.Call(UnitName, "player")
-  me = type(me) == "string" and me:match("^(%S+)") or me
-  winner, loser = winner:match("^(%S+)") or winner, loser:match("^(%S+)") or loser
-  if winner == me then Mood.Push("proud", 35, "won a duel against " .. loser)
-  elseif loser == me then Mood.Push("frustrated", 25, "lost a duel to " .. winner) end
-end)
+-- Duels are handled with the other 0.21.0 signals below (no names but friends').
 
 -- Reputation: rising, falling, a new standing (remembered for History).
 -- Reputation: a gentle push at most once per faction every half hour (never from the
@@ -518,15 +557,12 @@ function Mood.CheckHome()
   if bind and boundTo and bind ~= boundTo then Mood.Push("homecoming", 25, "made " .. bind .. " home") end
   boundTo = bind or boundTo
 end
-ns.On("LEARNED_SPELL_IN_TAB", function() Mood.Push("satisfied", 10, "learned something new") end)
-ns.On("LEARNED_SPELL_IN_SKILL_LINE", function() Mood.Push("satisfied", 10, "learned something new") end)
 ns.On("CHAT_MSG_LOOT", function(_, msg)
   msg = ns.World.Safe(msg)
   local item = type(msg) == "string" and msg:match("^You create: .-%[(.-)%]")
   if item then Mood.Push("satisfied", 8, "made " .. item) end
 end)
 
-ns.On("CHAT_MSG_SKILL", function() Mood.Push("satisfied", 8, "getting better at a craft") end)
 
 -- Emotes the player uses.
 ns.On("CHAT_MSG_TEXT_EMOTE", function(_, msg, sender)
@@ -556,14 +592,22 @@ ns.On("ZONE_CHANGED_NEW_AREA", function()
   local st, now = state(), U.Now()
   if not seen.zones[zone] then
     seen.zones[zone] = now
-    if U.Count(seen.zones) > 1 then Mood.Push("wonder", 45, "first time in " .. zone) end
+    if U.Count(seen.zones) > 1 then
+      Mood.Push("wonder", 45, "first time in " .. zone)
+      -- Somewhere new after dark is another thing.
+      local hour = U.Call(GetGameTime)
+      if type(hour) == "number" and (hour >= 21 or hour < 5) and not U.Call(IsResting) then
+        Mood.Push("uneasy", 18, "somewhere new, after dark")
+      end
+    end
   end
   local bind = U.Plain(U.Call(GetBindLocation))
   local home = ns.cache and ns.cache.rpgd and ns.cache.rpgd.homeInn
   local sub = U.Plain(U.Call(GetSubZoneText))
   local isHome = (bind and (zone == bind or sub == bind)) or (home and (zone == home or sub == home))
   if isHome and st.awayFrom and now - st.awayFrom > 3600 then Mood.Push("homecoming", 35, "home again") end
-  if isHome then st.awayFrom = nil elseif not st.awayFrom then st.awayFrom = now end
+  if isHome then st.awayFrom, st.awayPlayed = nil, 0 elseif not st.awayFrom then st.awayFrom = now end
+  Mood.Stir()
 end)
 
 -- Running into people you know (Social Diary friends and foes), at most once every half hour
@@ -604,6 +648,457 @@ ns.On("ZONE_CHANGED", function()
 end)
 
 ---------------------------------------------------------------------------
+-- 0.21.0: more of what the game itself shows, so the mood is lively with no other addon.
+-- Other players are never named (and never kept) unless they're Social Diary friends.
+-- The combat log only notes things in a few small counters; feelings are pushed once the
+-- fight is over (Mood.Flush), never in the middle of one.
+---------------------------------------------------------------------------
+local myGUID
+local function me()
+  if not myGUID then myGUID = U.Call(UnitGUID, "player") end
+  return myGUID
+end
+function Mood.ResetGUID() myGUID = nil end
+
+-- A Social Diary friend's first name, or nil for anyone else.
+local function friend(name)
+  if type(name) ~= "string" or not (ns.db and ns.db.nameFriends) then return nil end
+  local short = name:match("^[^%-]+")
+  local sd = ns.cache and ns.cache.sd
+  for _, f in ipairs(sd and sd.friends or {}) do if f.name == short then return short end end
+  return nil
+end
+Mood.Friend = friend
+
+-- A game message format ("%s won: %s") as a Lua pattern, the English one if the game has none.
+local function pattern(global, fallback, open)
+  local fmt = type(_G[global]) == "string" and _G[global] or fallback
+  fmt = fmt:gsub("%%%d%$", "%%")
+  fmt = fmt:gsub("([%(%)%.%[%]%*%+%-%?%^%$])", "%%%1")
+  fmt = fmt:gsub("%%s", "(.-)"):gsub("%%d", "(%%d+)")
+  return "^" .. fmt .. (open and "" or "$")
+end
+Mood.Pattern = pattern
+
+local function hasFlag(flags, bit)
+  return type(flags) == "number" and math.floor(flags / bit) % 2 == 1
+end
+local TYPE_PLAYER, REACTION_HOSTILE = 0x400, 0x40
+
+local function inCombat() return U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") end
+
+-- Something happened: boredom resets.
+function Mood.Stir() if ns.char then state().stirred = U.Now() end end
+
+-- What the combat log noticed, waiting for the fight to end.
+local pend = { healers = {}, buffers = {}, crits = 0, run = 0 }
+Mood.pending = pend
+local helpedBy = {}         -- GUID -> when they last helped (this session only, never saved)
+local lastHostileHit = 0    -- an enemy player's blow on you
+local lastKillAt = 0
+local foeGUID, foeSize
+
+-- The foe at the start of a fight: how it measures up.
+local function greyGap(level)
+  if level <= 5 then return 5 end
+  if level <= 39 then return 5 + math.floor(level / 10) end
+  return 1 + math.floor(level / 5)
+end
+function Mood.Sizeup()
+  Mood.fleeing = false
+  pend.run = 0
+  foeGUID, foeSize = nil, nil
+  if not U.Call(UnitCanAttack, "player", "target") or U.Call(UnitIsPlayer, "target") then return end
+  local lvl, mine = U.Call(UnitLevel, "target"), U.Call(UnitLevel, "player")
+  if type(lvl) ~= "number" or type(mine) ~= "number" then return end
+  foeGUID = U.Call(UnitGUID, "target")
+  local kind = U.Call(UnitClassification, "target")
+  if lvl < 0 or kind == "worldboss" then foeSize = "skull"
+  elseif lvl - mine >= 4 or (lvl - mine >= 2 and (kind == "elite" or kind == "rareelite")) then foeSize = "red"
+  elseif mine - lvl > greyGap(mine) then foeSize = "grey" end
+end
+ns.On("PLAYER_TARGET_CHANGED", function() if fightStart and not foeGUID then Mood.Sizeup() end end)
+
+-- The combat log: one call, two comparisons, and out for anything not about you.
+local DAMAGE = { SWING_DAMAGE = 18, SPELL_DAMAGE = 21, RANGE_DAMAGE = 21 }
+local HURT = { SWING_DAMAGE = true, SPELL_DAMAGE = true, RANGE_DAMAGE = true, SPELL_PERIODIC_DAMAGE = true }
+local function onLog(_, sub, _, src, _, srcFlags, _, dest, _, _, _, a12, a13, a14, a15, ...)
+  local mine = me()
+  if not mine or (src ~= mine and dest ~= mine) then return end
+  if dest == mine and src ~= mine then
+    if HURT[sub] then
+      if hasFlag(srcFlags, TYPE_PLAYER) and hasFlag(srcFlags, REACTION_HOSTILE) then lastHostileHit = U.Now() end
+    elseif sub == "SPELL_HEAL" then
+      if src and (a15 or 0) > (select(1, ...) or 0) then pend.healers[src] = true end
+    elseif sub == "SPELL_AURA_APPLIED" then
+      if a15 == "BUFF" and src and not hasFlag(srcFlags, REACTION_HOSTILE) then pend.buffers[src] = true
+      elseif a15 == "DEBUFF" and type(a13) == "string" and W.CROWD_CONTROL[a13] then pend.cc = W.CROWD_CONTROL[a13] end
+    elseif sub == "ENVIRONMENTAL_DAMAGE" and type(a12) == "string" then
+      local kind = a12:upper()
+      if kind == "FALLING" then pend.fall = (pend.fall or 0) + (tonumber(a13) or 0)
+      elseif kind == "DROWNING" or kind == "FATIGUE" then pend.scare = kind end
+    end
+  end
+  if src == mine then
+    if sub == "PARTY_KILL" then
+      lastKillAt = U.Now()
+      if dest and dest == foeGUID and foeSize then pend.kill = foeSize; foeGUID = nil end
+    elseif DAMAGE[sub] then
+      local crit = select(DAMAGE[sub] - 11, a12, a13, a14, a15, ...)
+      if crit then pend.run = pend.run + 1; if pend.run >= 3 then pend.crits = pend.crits + 1; pend.run = 0 end
+      else pend.run = 0 end
+    end
+  end
+end
+ns.On("COMBAT_LOG_EVENT_UNFILTERED", function()
+  onLog(U.CallAll(CombatLogGetCurrentEventInfo))
+end)
+
+-- Helpers count once each in half an hour, so a healer's every spell isn't a new kindness.
+local function newHelpers(set, now)
+  local n = 0
+  for guid in pairs(set) do
+    if not helpedBy[guid] or now - helpedBy[guid] > 1800 then n = n + 1 end
+    helpedBy[guid] = now
+    set[guid] = nil
+  end
+  return n
+end
+
+local function pushAll(list, why)
+  for _, p in ipairs(list or {}) do Mood.Push(p[1], p[2], p[3] or why) end
+end
+
+-- What the fight left behind (after combat, or on the next tick).
+function Mood.Flush()
+  if not ns.char or inCombat() then return end
+  local now = U.Now()
+  local healed, blessed = newHelpers(pend.healers, now), newHelpers(pend.buffers, now)
+  if healed > 0 then
+    Mood.Push("grateful", math.min(40, 18 + 8 * (healed - 1)),
+      healed == 1 and "someone tended {their} wounds" or (U.Number(healed) .. " people tended {their} wounds"))
+  elseif blessed > 0 then
+    Mood.Push("grateful", math.min(25, 10 + 5 * (blessed - 1)),
+      blessed == 1 and "a blessing from a stranger" or ("blessings from " .. U.Number(blessed) .. " people"))
+  end
+  if pend.cc then pushAll(W.CC_MOOD[pend.cc]); pend.cc = nil end
+  if pend.crits > 0 then
+    Mood.Push("smug", math.min(45, 22 + 10 * (pend.crits - 1)), "a run of telling blows")
+    Mood.Push("fierce", 10)
+    pend.crits = 0
+  end
+  if pend.kill == "skull" or pend.kill == "red" then
+    Mood.Push("proud", pend.kill == "skull" and 45 or 30, "brought down something far stronger")
+    Mood.Push("triumphant", 20)
+  elseif pend.kill == "grey" then
+    local st = state()
+    st.greys = st.greys or {}
+    table.insert(st.greys, now); prune(st.greys, 1800)
+    if #st.greys >= 5 then Mood.Push("bored", 8 + 2 * #st.greys, "nothing here is a match for {them} now") end
+  end
+  pend.kill = nil
+  if pend.fall then
+    local max = U.Call(UnitHealthMax, "player")
+    local share = type(max) == "number" and max > 0 and pend.fall / max or 0
+    if share >= 0.25 and not U.Call(UnitIsDeadOrGhost, "player") then
+      Mood.Push("rattled", share >= 0.6 and 40 or 25, "a long fall")
+      if share >= 0.6 then Mood.Push("shaken", 15) end
+    end
+    pend.fall = nil
+  end
+  if pend.scare then
+    Mood.Push("shaken", 25, pend.scare == "DROWNING" and "nearly drowned" or "nearly lost in deep water")
+    pend.scare = nil
+  end
+  if Mood.fleeing then
+    if now - lastKillAt > 10 then
+      Mood.Push("humbled", 28, "ran for {their} life")
+      Mood.Push("rattled", 12)
+    end
+    Mood.fleeing = false
+  end
+end
+
+-- Killed by an enemy player: bitter in the open world, part of the war on a battlefield.
+ns.On("PLAYER_DEAD", function()
+  if U.Now() - lastHostileHit > 10 then return end
+  local _, kind = U.Call(IsInInstance)
+  if kind == "pvp" or kind == "arena" then Mood.Push("bitter", 15, "fell to the enemy in battle")
+  else Mood.Push("bitter", 45, "cut down by the enemy"); Mood.Push("humbled", 15) end
+  lastHostileHit = 0
+end)
+
+-- Brought back by someone.
+ns.On("RESURRECT_REQUEST", function(_, name)
+  local f = friend(ns.World.Safe(name))
+  Mood.Push("grateful", 45, f and (f .. " came back for {them}") or "someone came back for {them}")
+end)
+
+-- Other players' emotes aimed at you ("Mirelle waves at you."). Names are kept only for a
+-- ten-minute throttle in memory, hashed, and shown only for friends.
+local emotedAt = {}
+ns.On("CHAT_MSG_TEXT_EMOTE", function(_, msg, sender)
+  msg, sender = ns.World.Safe(msg), ns.World.Safe(sender)
+  if type(msg) ~= "string" or type(sender) ~= "string" or msg:find("^You ") then return end
+  local myName = U.Call(UnitName, "player")
+  if myName and sender:match("^[^%-]+") == myName then return end
+  local lower = " " .. msg:lower() .. " "
+  if not lower:find("[^%a]you[^%a]") then return end
+  local now, key = U.Now(), U.Hash(sender)
+  if emotedAt[key] and now - emotedAt[key] < 600 then return end
+  for _, e in ipairs(W.EMOTES_AT_YOU) do
+    if lower:find(e[1], 1, true) then
+      emotedAt[key] = now
+      local f = friend(sender)
+      Mood.Push(e[2], f and e[3] + 10 or e[3], f and (f .. " " .. e[5]) or e[4])
+      state().lastSocial = now
+      return
+    end
+  end
+end)
+
+-- Loot rolls: won, or lost after asking for it (no winner named).
+local rolling = {}
+local P_WON, P_OTHER = pattern("LOOT_ROLL_YOU_WON", "You won: %s"), pattern("LOOT_ROLL_WON", "%s won: %s")
+local P_NEED = pattern("LOOT_ROLL_NEED_SELF", "You have selected Need for: %s")
+local P_GREED = pattern("LOOT_ROLL_GREED_SELF", "You have selected Greed for: %s")
+local P_PASS = pattern("LOOT_ROLL_PASSED_SELF", "You passed on: %s")
+local function itemOf(s) return type(s) == "string" and (s:match("%[(.-)%]") or U.Plain(s)) or nil end
+ns.On("CHAT_MSG_LOOT", function(_, msg)
+  msg = ns.World.Safe(msg)
+  if type(msg) ~= "string" then return end
+  local item = itemOf(msg:match(P_WON))
+  if item then
+    Mood.Push("smug", rolling[item] == "need" and 30 or 22, "won the roll for " .. item)
+    rolling[item] = nil
+    return
+  end
+  item = itemOf(msg:match(P_NEED))
+  if item then rolling[item] = "need" return end
+  item = itemOf(msg:match(P_GREED))
+  if item then rolling[item] = "greed" return end
+  item = itemOf(msg:match(P_PASS))
+  if item then rolling[item] = nil return end
+  local _, lost = msg:match(P_OTHER)
+  lost = itemOf(lost)
+  if lost and rolling[lost] then
+    Mood.Push("bitter", rolling[lost] == "need" and 25 or 12, "lost the roll for " .. lost)
+    rolling[lost] = nil
+  end
+end)
+
+-- Duels ("X has defeated Y in a duel", "X has fled from Y in a duel").
+local P_DUEL_KO = pattern("DUEL_WINNER_KNOCKOUT", "%1$s has defeated %2$s in a duel", true)
+local P_DUEL_RUN = pattern("DUEL_WINNER_RETREAT", "%2$s has fled from %1$s in a duel", true)
+ns.On("CHAT_MSG_SYSTEM", function(_, msg)
+  msg = ns.World.Safe(msg)
+  if type(msg) ~= "string" then return end
+  local winner, loser = msg:match(P_DUEL_KO)
+  if not winner then
+    local fled, other = msg:match(P_DUEL_RUN)
+    if fled then winner, loser = other, fled end
+  end
+  if not winner then return end
+  local myName = U.Call(UnitName, "player")
+  winner, loser = winner:match("^[^%-]+"), loser:match("^[^%-]+")
+  if winner == myName then
+    local f = friend(loser)
+    Mood.Push("smug", 30, f and ("bested " .. f .. " in a duel") or "won a duel")
+    Mood.Push("proud", 10)
+  elseif loser == myName then
+    local f = friend(winner)
+    Mood.Push("humbled", 30, f and ("lost a duel to " .. f) or "lost a duel")
+    Mood.Push("bitter", 8)
+  end
+end)
+
+-- A job failed or given up.
+local P_QFAIL = pattern("ERR_QUEST_FAILED_S", "%s failed.")
+local failedAt = {}
+local function failed(msg)
+  msg = ns.World.Safe(msg)
+  local title = type(msg) == "string" and U.Plain(msg:match(P_QFAIL))
+  if not title or (failedAt[title] and U.Now() - failedAt[title] < 10) then return end
+  failedAt[title] = U.Now()
+  Mood.Push("bitter", 22, "failed at \"" .. title .. "\"")
+  Mood.Push("humbled", 10)
+end
+ns.On("CHAT_MSG_SYSTEM", function(_, msg) failed(msg) end)
+ns.On("UI_INFO_MESSAGE", function(_, a, b) failed(type(b) == "string" and b or a) end)
+function Mood.Abandoned(title)
+  title = U.Plain(title)
+  Mood.Push("humbled", 12, title and ("gave up on \"" .. title .. "\"") or "gave up on a job")
+end
+if type(_G.AbandonQuest) == "function" then
+  U.Call(hooksecurefunc, "AbandonQuest", function() Mood.Abandoned(U.Call(GetAbandonQuestName)) end)
+end
+
+-- Honourable kills: a little pride, throttled.
+local honourAt = 0
+ns.On("CHAT_MSG_COMBAT_HONOR_GAIN", function()
+  local now = U.Now()
+  if now - honourAt < 120 then return end
+  honourAt = now
+  Mood.Push("proud", 14, "an honourable kill")
+  Mood.Push("fierce", 10)
+end)
+
+-- Holding breath, deep water.
+local breathAt
+ns.On("MIRROR_TIMER_START", function(_, timer)
+  if timer == "BREATH" then breathAt = U.Now()
+  elseif timer == "EXHAUSTION" then Mood.Push("uneasy", 22, "out too far in deep water") end
+end)
+ns.On("MIRROR_TIMER_STOP", function(_, timer)
+  if timer == "BREATH" and breathAt and U.Now() - breathAt >= 45 then Mood.Push("rattled", 20, "came up for air just in time") end
+  if timer == "BREATH" then breathAt = nil end
+end)
+
+-- The pet's temper.
+local petMood
+ns.OnUnit("UNIT_HAPPINESS", "pet", function()
+  local h = U.Call(GetPetHappiness)
+  local name = U.Plain(U.Call(UnitName, "pet")) or "the pet"
+  if h == 1 and petMood and petMood > 1 then Mood.Push("worried", 22, name .. " is going hungry")
+  elseif h == 3 and petMood and petMood < 3 then Mood.Push("cheerful", 12, name .. " is content again") end
+  if type(h) == "number" then petMood = h end
+end)
+
+-- Learning: one push for a visit to the trainer, however many lessons.
+local learnt = { n = 0, t = 0 }
+function Mood.Learned(spellID)
+  local now = U.Now()
+  if now - learnt.t > 60 then learnt.n = 0 end
+  learnt.n, learnt.t = learnt.n + 1, now
+  local name = U.Plain(U.Call(GetSpellInfo, spellID))
+  if learnt.n == 1 then Mood.Push("satisfied", 14, name and ("learned " .. name) or "learned something new")
+  else Mood.Push("satisfied", 4, "learned " .. U.Number(learnt.n) .. " new things") end
+  if learnt.n == 1 then Mood.Push("eager", 10) end
+end
+ns.On("LEARNED_SPELL_IN_TAB", function(_, id) Mood.Learned(id) end)
+
+-- A craft getting better, and a new rank in it (75, 150, 225, 300).
+local P_SKILL = pattern("SKILL_RANK_UP", "Your skill in %s has increased to %d.")
+local skillAt = 0
+local RANK_AT = { [75] = true, [150] = true, [225] = true, [300] = true }
+ns.On("CHAT_MSG_SKILL", function(_, msg)
+  msg = ns.World.Safe(msg)
+  if type(msg) ~= "string" then return end
+  local skill, value = msg:match(P_SKILL)
+  value = tonumber(value)
+  if skill and value and RANK_AT[value] then
+    Mood.Push("accomplished", 30, U.Plain(skill) .. " up to " .. value)
+    Mood.Push("proud", 15)
+    return
+  end
+  local now = U.Now()
+  if now - skillAt < 300 then return end
+  skillAt = now
+  Mood.Push("satisfied", 8, skill and ("getting better at " .. U.Plain(skill)) or "getting better at a craft")
+end)
+
+-- A level after a long climb.
+function Mood.LevelClimb()
+  if not ns.char then return end
+  local st = state()
+  local played = st.played or 0
+  local climb = played - (st.levelPlayed or played)
+  st.levelPlayed = played
+  if climb >= 3 * 3600 then
+    Mood.Push("proud", 35, "a long climb, over at last")
+    Mood.Push("satisfied", 20)
+  end
+end
+
+-- A new mount, the first time it's ridden (none counted on the very first look).
+function Mood.CheckMount(world)
+  if not ns.char or not world or not world.mounted then return end
+  local seen = ns.char.seen
+  local first = not seen.mounts
+  seen.mounts = seen.mounts or {}
+  for name in pairs(world.auras and world.auras.names or {}) do
+    for _, m in ipairs(W.MOUNTS) do
+      if name:find(m[1]) then
+        if not seen.mounts[name] then
+          seen.mounts[name] = U.Now()
+          if not first then Mood.Push("cheerful", 40, "a new mount: " .. name); Mood.Push("proud", 15) end
+        end
+        return
+      end
+    end
+  end
+end
+
+-- Back after days away: missed the road.
+function Mood.Welcome()
+  local st, now = state(), U.Now()
+  st.session = 0
+  st.afk = 0
+  if st.levelPlayed == nil then st.levelPlayed = st.played or 0 end
+  local away = st.lastSeen and now - st.lastSeen or 0
+  if away >= 3 * 86400 then
+    local days = math.floor(away / 86400)
+    Mood.Push("cheerful", 40, "back on the road after " .. (days >= 14 and "weeks" or (U.Number(days) .. " days")))
+    Mood.Push("eager", 20)
+  end
+  st.lastSeen = now
+end
+
+-- The highest trait, from Auto TRP's own reading when RPG Dialogue isn't there.
+function Mood.TopTrait()
+  local t = traits()
+  local best, n
+  for k, v in pairs(t) do
+    if type(v) == "number" and v >= 3 and W.CALM[k] and (not n or v > n or (v == n and k < best)) then best, n = k, v end
+  end
+  return best
+end
+
+-- The moment, from the game alone: the hour, a long session, idleness, home, the season.
+function Mood.ScoresMore(world, add, st, now)
+  -- The hour (in the world).
+  local hour = world.hour
+  if hour and hour >= 0 and hour < 4 and not world.instance then add("exhausted", 12, "the small hours") end
+  if world.dawn and not world.indoors then add("cheerful", 10, "early light") end
+  -- A long session.
+  local hours = (st.session or 0) / 3600
+  if hours >= 3 then
+    add("exhausted", math.min(60, 18 + 12 * (hours - 3)), "on the go for " .. U.Number(math.floor(hours)) .. " hours")
+  end
+  -- Idle: away from the keyboard, or nothing happening for a long while.
+  local afk = st.afk or 0
+  if world.away and afk >= 600 then
+    add("bored", math.min(50, 15 + (afk - 600) / 60 * 2), "idle " .. U.Number(math.floor(afk / 60)) .. " minutes")
+  elseif not world.resting and not world.grouped and not world.instance and not world.combat then
+    local quiet = now - (st.stirred or now)
+    if quiet >= 2700 and (st.session or 0) >= 2700 then add("bored", math.min(35, 12 + (quiet - 2700) / 300), "nothing much happening") end
+  end
+  -- Far from home a long while.
+  local away = (st.awayPlayed or 0) / 3600
+  if away >= 2 and not world.resting then
+    local v = U.Clamp(10 + 8 * (away - 2), 0, 40) + (world.night and 8 or 0)
+    if world.grouped then v = v / 2 end
+    add("homesick", v, world.bind and ("a long way from " .. world.bind) or "a long way from home")
+  end
+  -- Well rested.
+  if type(world.rested) == "number" and world.rested > 0 and (world.level or 60) < 60 then
+    local max = U.Call(UnitXPMax, "player")
+    if type(max) == "number" and max > 0 and world.rested >= max * 1.5 - 1 then add("cheerful", 14, "well rested") end
+  end
+  -- The pet's temper (the live signal for others is above; hunters only).
+  if world.petHappy == 3 then add("cheerful", 6) end
+  -- The season, beyond the festive mood.
+  local fm = world.festival and W.FESTIVAL_MOODS[world.festival]
+  if fm then
+    for _, f in ipairs(fm) do
+      if (f.when == "night" and world.night) or (f.when == "alone" and not world.grouped) or not f.when then
+        add(f[1], f[2], f[3])
+      end
+    end
+  end
+end
+
+---------------------------------------------------------------------------
 -- Every tick: road-weariness, and news from the other addons.
 ---------------------------------------------------------------------------
 local function sumAffinity(rpgd)
@@ -636,6 +1131,16 @@ function Mood.Road(seconds)
   else
     st.road = (st.road or 0) + seconds
   end
+  -- Time played (this session and in all), time away from home, time idle.
+  st.session = (st.session or 0) + seconds
+  st.played = (st.played or 0) + seconds
+  st.lastSeen = U.Now()
+  if st.awayFrom then st.awayPlayed = (st.awayPlayed or 0) + seconds end
+  if U.Call(UnitIsAFK, "player") then st.afk = (st.afk or 0) + seconds
+  elseif (st.afk or 0) > 0 then
+    if st.afk >= 1800 then Mood.Push("bored", 20, "idle a long while") end
+    st.afk = 0
+  end
 end
 
 function Mood.Tick()
@@ -646,6 +1151,8 @@ end
 -- News from the other addons since last time (safe to call any time).
 function Mood.Watch()
   if not ns.char then return end
+  Mood.Flush()
+  Mood.CheckMount(ns.cache and ns.cache.world)
   local st = state()
   local seen = ns.char.seen
   local rpgd = ns.cache and ns.cache.rpgd
@@ -697,6 +1204,7 @@ ns.Listen("LOGIN", function()
   st.t = st.t and st.t > 0 and st.t or U.Now()
   st.lastSocial = st.lastSocial or U.Now()
   lastMoney = U.Call(GetMoney)
+  Mood.Welcome()
 end)
 
 ---------------------------------------------------------------------------
