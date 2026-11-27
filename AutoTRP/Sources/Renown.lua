@@ -540,7 +540,7 @@ function R.News(c, recentSeconds)
     if (s.t or 0) >= since and s.to < s.from and not told[s.faction] then
       told[s.faction] = true
       local vars = { faction = W.FactionName(s.faction), word = (Wn.STANDING[s.to] or ""):lower() }
-      out[#out + 1] = { t = s.t, key = "renown:" .. s.faction, text = pick(s.to <= 4 and Wn.EV_FELL or Wn.EV_SLIP, "ev:" .. s.faction, vars) }
+      out[#out + 1] = { t = s.t, rank = 3, key = "renown:" .. s.faction, text = pick(s.to <= 4 and Wn.EV_FELL or Wn.EV_SLIP, "ev:" .. s.faction, vars) }
     end
   end
   local honoured = {}

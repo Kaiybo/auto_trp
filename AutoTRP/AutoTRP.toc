@@ -35,6 +35,7 @@ Sources\Style.lua
 Sources\Renown.lua
 Sources\Pack.lua
 Sources\Kin.lua
+Sources\Road.lua
 Mood.lua
 Journal.lua
 Compose.lua

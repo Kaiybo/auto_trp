@@ -2777,7 +2777,8 @@ do
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
     mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", guild = "x", rel = "x",
-    span = "x", akind = "x", faction = "x", races = "x", times = "x" }
+    span = "x", akind = "x", faction = "x", races = "x", times = "x",
+    away = "x", from = "x", stay = "x", rest = "", a = "x", b = "x", story = "x", town = "x", dungeon = "x", boss = "x", sub = "" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then
@@ -2796,7 +2797,7 @@ do
     seen = {}
     for _, key in ipairs({ "MOODS", "CALM", "RACE_TELLS", "CLASS_TELLS", "FESTIVALS", "SAY", "TRAVEL", "ACTIVITY", "PET",
       "AMBITIONS", "RACE_LOOK", "CLASS_LOOK", "PHYSIQUE", "WEEK_TONE", "WEALTH", "DURABILITY", "CLASS_TEMPER", "RACE_TEMPER",
-      "RACE_CLASS_TEMPER", "CLASS_MOTTO", "RACE_MOTTO", "COMPANY", "LIFE" }) do
+      "RACE_CLASS_TEMPER", "CLASS_MOTTO", "RACE_MOTTO", "COMPANY", "LIFE", "ROAD", "ZONE_KIND" }) do
       scan(W[key], key)
     end
   end
@@ -4147,6 +4148,172 @@ do
   ns.char.kin = nil
   K.ResetClock(); K.ResetFoes()
   ns.World.slow = nil
+  C.SourcesChanged(); C.Refresh()
+end
+
+-- The road, land by land (Sources/Road.lua): a journey played through the game's own events,
+-- then told in History, Lately and the "Longest stay" statistic.
+do
+  local R, C, D = ns.Sources.Road, ns.Compose, ns.Sources.Deeds
+  local keep = { NOW = NOW, road = ns.char.road, deeds = ns.char.deeds, life = ns.char.life, UnitLevel = UnitLevel,
+    IsInInstance = IsInInstance, GetInstanceInfo = GetInstanceInfo, UnitIsAFK = UnitIsAFK, zone = state.zone, sub = state.sub,
+    resting = state.resting, rpgd = RPGDialogueCharDB, chron = ChronicleCharDB, seen = ns.char.seen.zones,
+    journal = deepcopy(ns.char.journal), days = deepcopy(ns.char.days), mood = deepcopy(ns.char.mood), seasons = deepcopy(ns.char.seasons) }
+  RPGDialogueCharDB, ChronicleCharDB = nil, nil
+  ns.char.road, ns.char.deeds = nil, nil
+  ns.char.seen.zones = {}
+  ns.char.life = ns.char.life or {}
+  ns.char.life.close = { n = 0 }
+  local lvl = 6
+  UnitLevel = function() return lvl end
+  UnitIsAFK = function() return false end
+  local inside
+  IsInInstance = function() if inside then return true, "party" end return false, "none" end
+  GetInstanceInfo = function() return inside end
+  local function go(zone, sub, rest)
+    state.zone, state.sub, state.resting = zone, sub or zone, rest or false
+    event("ZONE_CHANGED_NEW_AREA")
+    event("ZONE_CHANGED")
+  end
+  local function play(seconds)
+    for _ = 1, math.floor(seconds / 30) do NOW = NOW + 30; R.Tick() end
+  end
+  local function level(n) lvl = n; event("PLAYER_LEVEL_UP", n) end
+  local function sleep(seconds) NOW = NOW + seconds; R.Tick() end
+  local function quests(zone, list) for _, q in ipairs(list) do D.Quest(q, nil, zone, NOW) end end
+  NOW = NOW + 86400
+  R.Store()
+  -- Elwynn: two hours, levels six to ten, the kobolds at Echo Ridge.
+  go("Elwynn Forest", "Northshire Valley")
+  play(3600); level(7); level(8); play(1800); level(9); level(10); play(1800)
+  quests("Elwynn Forest", { "Kobold Camp Cleanup", "Investigate Echo Ridge", "Skirmish at Echo Ridge" })
+  -- Stormwind, often, between everything else.
+  local function city() go("Stormwind City", "Trade District", true); play(600) end
+  city()
+  -- Westfall: six days, three hours a day, levels eleven to seventeen, the Defias, the Deadmines.
+  lvl = 10
+  go("Westfall", "Sentinel Hill", true)
+  event("ZONE_CHANGED")
+  for d = 1, 6 do
+    play(3 * 3600)
+    level(10 + d)
+    if d == 2 or d == 4 then event("PLAYER_DEAD") end
+    if d < 6 then sleep(21 * 3600) end
+  end
+  quests("Westfall", { "Red Leather Bandanas", "The People's Militia", "Patrolling Westfall", "The Killing Fields" })
+  inside = "The Deadmines"; event("ZONE_CHANGED_NEW_AREA")
+  event("ENCOUNTER_END", 1, "Edwin VanCleef", 1, 5, 1)
+  inside = nil
+  go("Westfall", "Moonbrook")
+  play(1200)
+  city()
+  -- The Wetlands: a look, and away.
+  NOW = NOW + 3600
+  go("Wetlands", "Menethil Harbor"); play(600)
+  NOW = NOW + 3600
+  city()
+  -- Duskwood: four hours, a few jobs, two close calls.
+  lvl = 20
+  NOW = NOW + 3600
+  go("Duskwood", "Darkshire", true); play(2 * 3600); level(21); play(3600); level(22); play(3600)
+  quests("Duskwood", { "The Night Watch", "Wolves at Our Heels", "The Hermit" })
+  for _ = 1, 2 do ns.char.life.close.n = ns.char.life.close.n + 1; event("PLAYER_REGEN_ENABLED") end
+  -- AFK and fights don't count.
+  local before = ns.char.road.zones.Duskwood.secs
+  UnitIsAFK = function() return true end
+  play(600)
+  UnitIsAFK = function() return false end
+  state.combat = true
+  NOW = NOW + 30; R.Tick()
+  state.combat = false
+  check(ns.char.road.zones.Duskwood.secs == before, "the road clock skips time away from the keyboard and in fights")
+  for _ = 1, 3 do NOW = NOW + 3600; go("Elwynn Forest", "Goldshire"); play(300); NOW = NOW + 3600; city() end
+  -- A month in Stranglethorn, then back to Westfall.
+  lvl = 30
+  go("Stranglethorn Vale", "Booty Bay", true)
+  for _ = 1, 5 do play(2 * 3600); sleep(5 * 86400) end
+  NOW = NOW + 3600
+  go("Westfall", "Sentinel Hill", true)
+  play(1800)
+  C.SourcesChanged(); C.Refresh()
+  local road = ns.cache.road
+  local wf = road.byName.Westfall
+  check(wf and wf.visits == 2 and wf.ups == 6 and wf.deaths == 2 and wf.quests == 4 and wf.story and wf.story.id == "defias"
+    and wf.dungeons[1] and wf.dungeons[1].name == "The Deadmines" and wf.bosses[1] and wf.bosses[1].name == "Edwin VanCleef",
+    "the road keeps each land's visits, levels, deaths, jobs, storyline, dungeon and master: " .. tostring(wf and wf.visits) .. "/"
+    .. tostring(wf and wf.ups) .. "/" .. tostring(wf and wf.deaths) .. "/" .. tostring(wf and wf.quests))
+  check(wf.sub == "Sentinel Hill" and wf.town == "Sentinel Hill" and wf.wall > 5 * 86400, "and its subzones, towns and the days the stay lasted")
+  check(road.byName.Duskwood.close == 2 and road.byName["Stormwind City"].visits == 6, "close calls by land; Stormwind visited six times: " .. road.byName.Duskwood.close .. "/" .. road.byName["Stormwind City"].visits)
+  check(road.back and road.back.zone == "Westfall" and road.back.away > 25 * 86400, "back in Westfall after a month away")
+  check(not road.byName["The Deadmines"], "a dungeon isn't a land on the road")
+  local story = C.RoadStory("Aldric")
+  print("\nThe road:\n" .. tostring(story))
+  story = story or ""
+  check(story:find("Westfall", 1, true) and story:find("Elwynn Forest", 1, true) and story:find("Duskwood", 1, true)
+    and story:find("Stranglethorn", 1, true), "the road tells the lands that mattered")
+  local wfAt, elAt = story:find("Westfall", 1, true), story:find("Elwynn Forest", 1, true)
+  check(elAt and wfAt and elAt < wfAt, "in the order they were reached")
+  check(story:find("Defias trouble", 1, true) and not story:find("Defias trouble in Westfall", 1, true), "with the storyline worked on there")
+  check(story:find("Aldric", 1, true) and (story:find("twice", 1, true)), "and how often they fell there")
+  check(story:find("ten to seventeen", 1, true) or story:find("level ten", 1, true), "and the levels while there")
+  check(story:find("Deadmines", 1, true) and story:find("Edwin VanCleef", 1, true), "and the dungeon and master")
+  check(not story:find("Wetlands", 1, true), "four lands leave room for only two more lines (the land left at once goes first)")
+  do
+    local dz = ns.char.road.zones.Duskwood
+    ns.char.road.zones.Duskwood = nil
+    C.SourcesChanged(); C.Refresh()
+    local three = C.RoadStory("Aldric") or ""
+    check(three:find("the Wetlands", 1, true), "with three, the land left quickly: " .. three)
+    ns.char.road.zones.Duskwood = dz
+    C.SourcesChanged(); C.Refresh()
+  end
+  check(story:find("Westfall lately", 1, true) or story:find("Westfall this week", 1, true) or story:find("Westfall again", 1, true)
+    or story:find("leaving it", 1, true), "back in Westfall after a month away")
+  check(story:find("Stormwind City", 1, true), "the land they keep coming back to")
+  check(not story:find("{", 1, true) and not story:find("  ", 1, true) and not story:find(" ,", 1, true) and not story:find(",,", 1, true),
+    "the road reads cleanly")
+  local hist = C.History()
+  check(hist:find(story, 1, true), "History tells the road after the roots")
+  local g = C.LatelyGlance()
+  check(g.TI == "Back Again" and g.TX:find("Westfall", 1, true) and g.TX:find("month", 1, true), "Lately: back in Westfall after a month: " .. g.TX)
+  local st = C.Stats()
+  check(st.longest and st.longest:find("^Westfall, 18 hours over 2 visits"),
+    "the Longest stay statistic: " .. tostring(st.longest))
+  check(ns.TRP.FIELDS.stat_longest ~= nil and ns.db.fields.stat_longest == true and ns.UI.TipFor({ path = { "fields", "stat_longest" } }),
+    "Longest stay has its own switch, on by default, with a tooltip")
+  -- Every variant reads cleanly, with every pronoun.
+  local oldPron, oldSeed = ns.TRP.CustomPronouns, ns.char.seedName
+  local bad = {}
+  for i = 1, 12 do
+    ns.char.seedName = "road" .. i
+    ns.TRP.CustomPronouns = function() return ({ "she/her", "he/him", "they/them" })[i % 3 + 1] end
+    local s = C.RoadStory("Aldric") or ""
+    if s:find("{", 1, true) or s:find(" ,", 1, true) or s:find("%.%.") or s:find("they has") or s:find("she have") then bad[#bad + 1] = s end
+    if os.getenv("SAMPLES") and i <= 4 then print("\nThe road (" .. i .. "):\n" .. s) end
+  end
+  check(#bad == 0, "every way of telling the road reads cleanly: " .. table.concat(bad, " | "))
+  ns.TRP.CustomPronouns, ns.char.seedName = oldPron, oldSeed
+  -- Moving on: new to a land after days somewhere else.
+  go("Duskwood", "Raven Hill"); play(600)
+  go("Hillsbrad Foothills", "Southshore", true); play(600)
+  C.SourcesChanged(); C.Refresh()
+  local mv = C.RoadLately()
+  check(#mv == 0 or mv[1].g.TI ~= "Moving On", "a short stay isn't moving on")
+  ns.char.road.left = { zone = "Westfall", t = NOW - 60, stay = 3 * 86400, secs = 5 * 3600 }
+  C.SourcesChanged(); C.Refresh()
+  mv = C.RoadLately()
+  check(mv[1] and mv[1].g.TI == "Moving On" and mv[1].g.TX:find("Hillsbrad", 1, true) and mv[1].g.TX:find("Westfall", 1, true),
+    "Lately: moving on after a long stay: " .. tostring(mv[1] and mv[1].g.TX))
+  -- Bounded: past the cap the least visited land goes, never the one they're in.
+  for i = 1, 70 do ns.char.road.cur = nil; R.Arrive("Land " .. i); NOW = NOW + 60 end
+  local n = ns.U.Count(ns.char.road.zones)
+  check(n <= R.CAP_ZONES and ns.char.road.zones["Land 70"] and ns.char.road.zones.Westfall, "the road keeps at most " .. R.CAP_ZONES .. " lands, the least visited dropped: " .. n)
+  NOW = keep.NOW
+  ns.char.road, ns.char.deeds, ns.char.life, ns.char.seen.zones = keep.road, keep.deeds, keep.life, keep.seen
+  UnitLevel, IsInInstance, GetInstanceInfo, UnitIsAFK = keep.UnitLevel, keep.IsInInstance, keep.GetInstanceInfo, keep.UnitIsAFK
+  state.zone, state.sub, state.resting = keep.zone, keep.sub, keep.resting
+  RPGDialogueCharDB, ChronicleCharDB = keep.rpgd, keep.chron
+  ns.char.journal, ns.char.days, ns.char.mood, ns.char.seasons = keep.journal, keep.days, keep.mood, keep.seasons
   C.SourcesChanged(); C.Refresh()
 end
 

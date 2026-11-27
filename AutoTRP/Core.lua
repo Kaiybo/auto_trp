@@ -142,7 +142,7 @@ ns.DEFAULTS = {
     stat_rares = true, stat_slain = true, stat_jobs = true, stat_wealth = true, stat_crafts = true,
     stat_standing = true, stat_names = true, stat_spell = true, stat_met = true, stat_books = true, stat_letters = true,
     stat_fish = true, stat_made = true, stat_gathered = true, stat_duels = true, stat_battles = true, stat_gold = true,
-    stat_inns = true, stat_hit = true, stat_keepsake = true, stat_deepest = true, stat_wipes = true, stat_since = true, stat_festivals = true,
+    stat_inns = true, stat_hit = true, stat_longest = true, stat_keepsake = true, stat_deepest = true, stat_wipes = true, stat_since = true, stat_festivals = true,
     stat_kinhome = true, stat_racial = true, stat_kinfoes = true,
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
