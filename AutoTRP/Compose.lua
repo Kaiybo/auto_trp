@@ -73,6 +73,10 @@ function Compose.Refresh()
     c.self = S.Self and S.Self.Read(c) or nil
     c.life = S.Life and S.Life.Read() or nil
     c.kin = S.Kin and S.Kin.Read() or nil
+    c.delves = S.Delves and S.Delves.Read() or nil
+    c.pack = S.Pack and S.Pack.Read() or nil
+    c.style = S.Style and S.Style.Read() or nil
+    c.renown = S.Renown and S.Renown.Read() or nil
     sourcesAt, c.read = now, true
   end
   -- The company is the game's own (cheap: a party is five units, a raid forty); Social
@@ -367,6 +371,12 @@ function Compose.LatelyGlance()
   end
   -- Their people (Sources/Kin.lua): a homecoming, a place of their people, a gift that mattered.
   for _, k in ipairs(ns.Sources.Kin and ns.Sources.Kin.Lately(c) or {}) do add(k.t, k.prio, k.g) end
+  -- What's in the bags: something new, something long kept let go (Keepsakes.lua).
+  for _, k in ipairs(Compose.KeepsakeLately and Compose.KeepsakeLately() or {}) do add(k.t, k.prio, k.g) end
+
+  -- A dungeon or raid run just over (Runs.lua).
+  local run = ns.Runs and ns.Runs.Lately(c)
+  if run then add(run.t, run.prio, run.g) end
 
   -- A day-old hurt outranks everything; otherwise the newest, then the weightiest. (A strict
   -- order: table.sort may compare an entry with itself.)
@@ -479,6 +489,9 @@ function Compose.CompanyGlance()
         TX = join(cw("battle", { n = U.Number(n), faction = world.faction or "cause" }, n)) }
     end
     local clause = groupClause(g, guild)
+    -- The part they play in it: "the group's healer" (Sources/Style.lua).
+    local role = ns.Sources.Style and ns.Sources.Style.PartyClause(c.style)
+    if role then clause = clause and (clause .. ", " .. role) or role end
     if g.raid and n > 5 then
       local s1 = cw(g.lead and "host_lead" or "host", { n = U.Number(n) }, n)
       return { TI = g.lead and "Leading a Host" or "Part of a Host", IC = "INV_BannerPVP_02",
@@ -727,6 +740,9 @@ function Compose.MarksGlance()
     end
   end
   for _, m in ipairs(ns.Sources.Kin and ns.Sources.Kin.Marks(c) or {}) do mark(m.prio, m.title, m.text, m.icon) end
+  -- Just out of a hard dungeon or raid run (Runs.lua).
+  local rm = ns.Runs and ns.Runs.Mark(c)
+  if rm then mark(rm.prio, rm.title, rm.text, rm.icon) end
   local finest = g.finest or (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
   if finest and finest.name and finest.quality >= 4 then
     mark(4, "Remarkable Gear", say("remarkable", { item = finest.name }, finest.name), "INV_Misc_Gem_Pearl_04")
@@ -738,6 +754,7 @@ function Compose.MarksGlance()
   if parts.armsKey == "twohand" then mark(2.4, M.twohand[1], parts.arms, M.twohand[2])
   elseif parts.armsKey == "dual" then mark(2.3, M.dual[1], parts.arms, M.dual[2]) end
   if parts.armourType == "Plate" and not parts.mixed then mark(2, M.plate[1], parts.armour, M.plate[2]) end
+  for _, k in ipairs(Compose.KeepsakeMarks and Compose.KeepsakeMarks() or {}) do mark(k.prio, k.title, k.text, k.icon) end
   table.sort(marks, function(a, b) if a.prio ~= b.prio then return a.prio > b.prio end return a.title < b.title end)
   if marks[1] then
     local m = marks[1]
@@ -821,6 +838,7 @@ end
 Compose.Colour = colour
 
 local function quote(text) return colour("\"" .. text .. "\"", QUOTE_COLOUR) end
+Compose.Quote = quote
 local function itemName(name, quality) return colour(name, ITEM_COLOUR[quality or 0]) end
 
 -- Pronouns filled in, and every sentence starts with a capital.
@@ -925,6 +943,12 @@ function Compose.FavouriteSpell()
   return say("favspell", { spell = top.name, noun = noun }, top.name)
 end
 
+-- How they fight (Sources/Style.lua): Personality's lines, strongest first.
+function Compose.FightLines(k)
+  local Style = ns.Sources.Style
+  return Style and Style.TemperLines(ns.cache.style, k) or {}
+end
+
 ---------------------------------------------------------------------------
 -- Life on the road (Sources/Life.lua): small helpers shared by the fields below.
 ---------------------------------------------------------------------------
@@ -997,6 +1021,7 @@ function Compose.Habits(k)
   if #life.inns >= 10 then add(1, "inns") end
   if life.falls >= 10 then add(1.2, "falls") end
   if life.closeCalls >= 10 then add(1.1, "close") end
+  for _, h in ipairs(Compose.KeepsakeHabits and Compose.KeepsakeHabits() or {}) do add(h.score, h.key, h.list) end
   table.sort(cands, function(a, b) if a.score ~= b.score then return a.score > b.score end return a.key < b.key end)
   local out = {}
   for i = 1, math.min(k or 2, #cands) do out[i] = cands[i].text end
@@ -1061,6 +1086,9 @@ function Compose.Bearing()
     return lines
   end
 
+  -- How they fight (Sources/Style.lua), its own short paragraph.
+  local fighting = paragraph(Compose.FightLines(2))
+
   -- Nothing to read a character from: only the habit the game itself records.
   if not rpgd then
     local after = { habit }
@@ -1068,7 +1096,7 @@ function Compose.Bearing()
     for _, h in ipairs(Compose.KinLines()) do after[#after + 1] = h end
     after[#after + 1] = Compose.BooksLine()
     after[#after + 1] = Compose.WeekTone()
-    return pages({ paragraph(temperLines()), paragraph(after) })
+    return pages({ paragraph(temperLines()), fighting, paragraph(after) })
   end
 
   -- Temperament and conscience
@@ -1128,7 +1156,7 @@ function Compose.Bearing()
   -- and race fill in above, and how the week has gone closes it.
   if rpgd.own then more[#more + 1] = Compose.WeekTone() end
 
-  return pages({ paragraph(first), #views > 0 and paragraph({ name .. " " .. views[1], views[2] }) or nil, paragraph(more), stories })
+  return pages({ paragraph(first), #views > 0 and paragraph({ name .. " " .. views[1], views[2] }) or nil, fighting, paragraph(more), stories })
 end
 
 -- "Kobold Miner" -> "Kobold Miners", "Wolf" -> "Wolves", "Harpy" -> "Harpies"
@@ -1271,6 +1299,20 @@ end
 
 local function guildName(g) return g:find("^The ") and U.Mid(g) or g end
 
+-- Reputation as people would see it (Sources/Renown.lua). Rumours: "What's said of them",
+-- at most k lines of hearsay (3 by default), each built from one stored record.
+function Compose.Rumours(k)
+  local R = ns.Sources.Renown
+  local out = {}
+  for i, r in ipairs(R and R.Rumours(ns.cache, k) or {}) do out[i] = r.text end
+  return out
+end
+-- Standing changes for History's news: { t, text, key }.
+function Compose.StandingNews()
+  local R = ns.Sources.Renown
+  return R and R.News(ns.cache, RECENT) or {}
+end
+
 -- History, in five paragraphs. The first and the last two hold what lasts: where they
 -- came from and the road, the people, how things stand. The second is the news (the last
 -- three weeks, newest first, and what has changed). The third is the longer record: the
@@ -1382,10 +1424,16 @@ function Compose.History()
     for k, t in ipairs(caught) do titles[k] = lowerFirst(t.title) end
     event(caught[1].t, 3, "got caught up in " .. U.Join(titles), "thread:" .. caught[1].id)
   end
+  -- Dungeon and raid runs as stories (Runs.lua): what the story tells isn't news twice.
+  local tales, taleTold = nil, { bosses = {}, items = {} }
+  if ns.Runs then
+    local t, told = ns.Runs.Tales(c, name)
+    tales, taleTold = t, told or taleTold
+  end
   local bosses = Compose.Bosses(c)
   local nb = 0
   for _, b in ipairs(bosses) do
-    if nb < 2 and recent(b.t) and earnedKey ~= "boss:" .. b.name then
+    if nb < 2 and recent(b.t) and earnedKey ~= "boss:" .. b.name and not taleTold.bosses[b.name] then
       nb = nb + 1
       local again = b.first and b.first > 0 and not recent(b.first)
       event(b.t, 3, (again and "brought down " .. b.name .. " again" or "helped bring down " .. b.name), "boss:" .. b.name)
@@ -1407,6 +1455,8 @@ function Compose.History()
   local hon = ns.char and ns.char.honours or {}
   local h = hon[#hon]
   if h then event(h.t, 5, "earned " .. h.standing:lower() .. " standing with " .. W.FactionName(h.faction), "honour") end
+  -- Standing lost or worked hard for (Sources/Renown.lua).
+  for _, e in ipairs(Compose.StandingNews()) do event(e.t, 5, e.text, e.key) end
   if rpgd and rpgd.homeInn and rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn then
     event(rpgd.homeSince, 5, "moved from " .. placeName(rpgd.homePrev) .. " to " .. placeName(rpgd.homeInn), "home")
   end
@@ -1431,7 +1481,7 @@ function Compose.History()
   end
   local finds = ns.char and ns.char.finds or {}
   local f = finds[#finds]
-  if f then event(f.t, 7, "came by " .. itemName(f.item, f.quality) .. (f.zone and (" in " .. U.Mid(f.zone)) or ""), "find") end
+  if f and not taleTold.items[f.item] then event(f.t, 7, "came by " .. itemName(f.item, f.quality) .. (f.zone and (" in " .. U.Mid(f.zone)) or ""), "find") end
   -- Auto TRP's own record of the rest of life on the road.
   local life = c.life
   if life then
@@ -1523,6 +1573,7 @@ function Compose.History()
     subject = "{they}"
   end
   paras[#paras + 1] = paragraph(lately)
+  if tales then paras[#paras + 1] = paragraph(tales) end
 
   -- 3. The longer record: the name and the deed behind it (these stay), then what came
   -- before the news, briefly.
@@ -1587,6 +1638,10 @@ function Compose.History()
     if mend >= 20 then older[#older + 1] = "spent " .. U.Number(mend) .. " gold having {their} gear mended" end
     if (life.money.auctions or 0) >= 5 then older[#older + 1] = "sold " .. U.Roughly(life.money.auctions) .. " things at auction" end
   end
+  -- How they fight: the role they take, the spells they cut off, what they fight most.
+  if ns.Sources.Style then
+    for _, s in ipairs(ns.Sources.Style.HistoryClauses(c.style, world.level)) do older[#older + 1] = s end
+  end
   if lastMs and rankOf(lastMs) and not toldRecent.rank then
     local steps = {}
     for k = math.max(1, #ms - 1), #ms do
@@ -1638,11 +1693,12 @@ function Compose.History()
   local oldFinds = {}
   for k = #finds, 1, -1 do
     local fd = finds[k]
-    if #oldFinds < 2 and not (k == #finds and toldRecent.find) then
+    if #oldFinds < 2 and not (k == #finds and toldRecent.find) and not taleTold.items[fd.item] then
       oldFinds[#oldFinds + 1] = itemName(fd.item, fd.quality) .. (fd.zone and (" from " .. U.Mid(fd.zone)) or "")
     end
   end
   if #oldFinds > 0 then record[#record + 1] = say("finds", { list = U.Join(oldFinds) }, finds[1].item) end
+  record[#record + 1] = Compose.KeepsakeHistory and Compose.KeepsakeHistory(itemName) or nil   -- Keepsakes.lua
   paras[#paras + 1] = paragraph(record)
 
   -- 4. The people: friends, the company they keep, their pet, their guild, standing.
@@ -1784,6 +1840,8 @@ function Compose.History()
   if rpgd and rpgd.rivals[1] then
     people[#people + 1] = say("rival", { who = rpgd.rivals[1].name }, rpgd.rivals[1].name)
   end
+  -- What's said of them: hearsay, each line from a stored record (Sources/Renown.lua).
+  for _, r in ipairs(Compose.Rumours()) do people[#people + 1] = r end
   if sd and #sd.foes > 0 then
     people[#people + 1] = say("foes", { what = #sd.foes == 1 and "an enemy" or (U.Number(#sd.foes) .. " enemies") }, #sd.foes)
   end
@@ -1808,7 +1866,7 @@ function Compose.History()
     nowLines[#nowLines + 1] = ns.Journal.LatestLine(quote)   -- Auto TRP's own journal (Journal.lua)
   end
   paras[#paras + 1] = paragraph(nowLines)
-  paras[6] = Compose.Drives()   -- 6. What drives them
+  paras[#paras + 1] = Compose.Drives()   -- 6. What drives them (after the runs, when there are any)
 
   return pages(paras)
 end
@@ -2127,6 +2185,8 @@ function Compose.Physical()
   body[#body + 1] = fillPick(W.RACE_BEARING[world.race or ""], nil, "bearing")
   local Kin = ns.Sources.Kin
   body[#body + 1] = Kin and Kin.Voice(c) or nil   -- the tongue they speak aloud, when it means something
+  -- How they carry themselves in a fight (Sources/Style.lua).
+  body[#body + 1] = ns.Sources.Style and ns.Sources.Style.Bearing(c.style) or nil
 
   -- What they wear and carry, by name, and what their class keeps in the bags
   local p = Compose.GearParts(world, itemName)
@@ -2165,7 +2225,9 @@ function Compose.Physical()
   end
   if #now == 0 and not world.dead and (world.health or 1) >= 0.8 then now[1] = fillPick(W.PHYS_UNHURT, nil, "unhurt") end
 
-  return pages({ paragraph(body), paragraph(dress), paragraph(now) })
+  -- What they carry in the bags (Keepsakes.lua)
+  local carry = Compose.Keepsakes and paragraph(Compose.Keepsakes(itemName)) or nil
+  return pages({ paragraph(body), paragraph(dress), carry, paragraph(now) })
 end
 
 ---------------------------------------------------------------------------
@@ -2199,11 +2261,18 @@ Compose.STATS = {
   { key = "gold", label = "Most gold held", icon = "INV_Misc_Coin_01" },
   { key = "inns", label = "Inns stayed at", icon = "INV_Drink_05" },
   { key = "hit", label = "Hardest hit", icon = "Ability_Warrior_Rampage" },
+  -- From Auto TRP's record of dungeon and raid runs (Sources/Delves.lua, Runs.lua).
+  { key = "deepest", label = "Deepest run", icon = "INV_Misc_Key_13" },
+  { key = "wipes", label = "Wipes", icon = "Spell_Shadow_DeathScream" },
+  -- How every faction sees them (Sources/Renown.lua): "Exalted with 1, Revered with 3".
+  { key = "renown", label = "Standing", icon = "INV_Misc_Token_ArgentDawn" },
   { key = "letters", label = "Letters received", icon = "INV_Letter_15", retired = true },
   -- From Auto TRP's record of their people (Sources/Kin.lua).
   { key = "kinhome", label = "Time at home / abroad", icon = "INV_Misc_Rune_01" },
   { key = "racial", label = "Racial ability most used", icon = "Spell_Nature_Strength" },
   { key = "kinfoes", label = "Old enemies slain", icon = "INV_Sword_04" },
+  -- From the bags (Sources/Pack.lua): the thing carried longest.
+  { key = "keepsake", label = "Treasured keepsake", icon = "INV_Misc_Bag_11" },
 }
 
 -- How well off, against what's usual at their level.
@@ -2272,6 +2341,7 @@ function Compose.Stats()
   if top and top.word then out.standing = top.word .. " with " .. W.FactionName(top.name) end
   local books = #Compose.Books()
   if books > 0 then out.books = figure(books) end
+  out.renown = ns.Sources.Renown and ns.Sources.Renown.Stat(world, c.renown) or nil
   -- Auto TRP's own record of life on the road.
   local life = c.life
   if life then
@@ -2316,12 +2386,15 @@ function Compose.Stats()
   local top = Compose.TopSpells(1)[1]
   if top and top.n >= 10 then out.spell = top.name .. ", " .. figure(top.n) .. " times"
   elseif top then out.spell = top.name .. ", " .. U.Times(top.n) end
+  if ns.Runs then ns.Runs.Stats(c, out) end
+  out.keepsake = Compose.KeepsakeStat and Compose.KeepsakeStat() or nil
   -- Nothing counted yet still says so, so no statistic is left blank.
   if not out.road and days == 0 then out.road = "Less than a day" end
   if not out.lands and world.zone then out.lands = "1" end
   for k, v in pairs(ns.Sources.Kin and ns.Sources.Kin.Stats(c) or {}) do out[k] = v end
   for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "crafts", "standing", "books", "names", "spell",
-    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "kinhome", "racial", "kinfoes" }) do
+    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "renown", "keepsake", "deepest", "wipes",
+    "kinhome", "racial", "kinfoes" }) do
     out[k] = out[k] or "None yet"
   end
   return out
@@ -2357,9 +2430,10 @@ function Compose.FullTitle()
   if align and standing then return align .. ", " .. standing end
   if standing then return standing end
   local noun = U.Cap(W.CLASS_NOUN[world.class or ""] or "wanderer")
-  if align then return align .. " " .. noun end
-  local top = world.factions and world.factions[1]
-  if top and top.standing >= 7 then return "Friend of " .. W.FactionName(top.name) end
+  -- No town to name: a faction they're Revered or Exalted with (Sources/Renown.lua).
+  local friend = ns.Sources.Renown and ns.Sources.Renown.Title(world)
+  if align then return friend and (align .. ", " .. friend) or (align .. " " .. noun) end
+  if friend then return friend end
   local home = W.RACE_HOME[world.race or ""]
   return U.Cap(seasoned(world.level, "seasoned")) .. " " .. noun .. (home and (" of " .. home) or "")
 end
