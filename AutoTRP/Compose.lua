@@ -73,6 +73,7 @@ function Compose.Refresh()
     c.self = S.Self and S.Self.Read(c) or nil
     c.life = S.Life and S.Life.Read() or nil
     c.seasons = S.Seasons and S.Seasons.Read(c) or nil
+    c.pack = S.Pack and S.Pack.Read() or nil
     c.style = S.Style and S.Style.Read() or nil
     c.renown = S.Renown and S.Renown.Read() or nil
     sourcesAt, c.read = now, true
@@ -465,6 +466,8 @@ function Compose.LatelyGlance()
       add(inn.t, 0, { TI = "A New Inn", IC = "INV_Drink_05", TX = say("lately_inn", { inn = innName }, inn.t) })
     end
   end
+  -- What's in the bags: something new, something long kept let go (Keepsakes.lua).
+  for _, k in ipairs(Compose.KeepsakeLately and Compose.KeepsakeLately() or {}) do add(k.t, k.prio, k.g) end
 
   -- The shape of their time: an anniversary this week, a festival, a return (Seasons.lua).
   for _, cd in ipairs(Compose.TimeLately(c)) do add(cd.t, cd.prio, cd.g) end
@@ -841,6 +844,7 @@ function Compose.MarksGlance()
   if parts.armsKey == "twohand" then mark(2.4, M.twohand[1], parts.arms, M.twohand[2])
   elseif parts.armsKey == "dual" then mark(2.3, M.dual[1], parts.arms, M.dual[2]) end
   if parts.armourType == "Plate" and not parts.mixed then mark(2, M.plate[1], parts.armour, M.plate[2]) end
+  for _, k in ipairs(Compose.KeepsakeMarks and Compose.KeepsakeMarks() or {}) do mark(k.prio, k.title, k.text, k.icon) end
   table.sort(marks, function(a, b) if a.prio ~= b.prio then return a.prio > b.prio end return a.title < b.title end)
   if marks[1] then
     local m = marks[1]
@@ -1107,6 +1111,7 @@ function Compose.Habits(k)
   if #life.inns >= 10 then add(1, "inns") end
   if life.falls >= 10 then add(1.2, "falls") end
   if life.closeCalls >= 10 then add(1.1, "close") end
+  for _, h in ipairs(Compose.KeepsakeHabits and Compose.KeepsakeHabits() or {}) do add(h.score, h.key, h.list) end
   table.sort(cands, function(a, b) if a.score ~= b.score then return a.score > b.score end return a.key < b.key end)
   local out = {}
   for i = 1, math.min(k or 2, #cands) do out[i] = cands[i].text end
@@ -1766,6 +1771,7 @@ function Compose.History()
     end
   end
   if #oldFinds > 0 then record[#record + 1] = say("finds", { list = U.Join(oldFinds) }, finds[1].item) end
+  record[#record + 1] = Compose.KeepsakeHistory and Compose.KeepsakeHistory(itemName) or nil   -- Keepsakes.lua
   paras[#paras + 1] = paragraph(record)
 
   -- 4. The people: friends, the company they keep, their pet, their guild, standing.
@@ -2288,7 +2294,9 @@ function Compose.Physical()
   end
   if #now == 0 and not world.dead and (world.health or 1) >= 0.8 then now[1] = fillPick(W.PHYS_UNHURT, nil, "unhurt") end
 
-  return pages({ paragraph(body), paragraph(dress), paragraph(now) })
+  -- What they carry in the bags (Keepsakes.lua)
+  local carry = Compose.Keepsakes and paragraph(Compose.Keepsakes(itemName)) or nil
+  return pages({ paragraph(body), paragraph(dress), carry, paragraph(now) })
 end
 
 ---------------------------------------------------------------------------
@@ -2328,6 +2336,8 @@ Compose.STATS = {
   -- How every faction sees them (Sources/Renown.lua): "Exalted with 1, Revered with 3".
   { key = "renown", label = "Standing", icon = "INV_Misc_Token_ArgentDawn" },
   { key = "letters", label = "Letters received", icon = "INV_Letter_15", retired = true },
+  -- From the bags (Sources/Pack.lua): the thing carried longest.
+  { key = "keepsake", label = "Treasured keepsake", icon = "INV_Misc_Bag_11" },
 }
 
 -- How well off, against what's usual at their level.
@@ -2455,11 +2465,12 @@ function Compose.Stats()
   local top = Compose.TopSpells(1)[1]
   if top and top.n >= 10 then out.spell = top.name .. ", " .. figure(top.n) .. " times"
   elseif top then out.spell = top.name .. ", " .. U.Times(top.n) end
+  out.keepsake = Compose.KeepsakeStat and Compose.KeepsakeStat() or nil
   -- Nothing counted yet still says so, so no statistic is left blank.
   if not out.road and days == 0 then out.road = "Less than a day" end
   if not out.lands and world.zone then out.lands = "1" end
   for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "crafts", "standing", "books", "names", "spell",
-    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "festivals", "renown" }) do
+    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "festivals", "renown", "keepsake" }) do
     out[k] = out[k] or "None yet"
   end
   return out

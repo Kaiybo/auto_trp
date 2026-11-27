@@ -30,6 +30,15 @@
 - **Falling out is felt**: a step down between standings leaves them ashamed (*"fell out with Booty Bay"*) and a little bitter; losing 250 standing with one faction in a session makes them uneasy (once an hour).
 - **New statistic, Standing** (*"Exalted with 1, Revered with 3, Honored with 2, out of favour with 1"*), with its own switch and tooltip like the others; "out of favour" only counts factions Auto TRP saw them lose standing with.
 
+### What they carry
+
+- **The bags, read.** A new record (`Sources/Pack.lua`) looks in the bags after the game says they changed (never in a fight, at most every few seconds) and remembers each notable thing from the first time it's seen, and where: companion pets and mount items, toys and novelties (a list in `W.PACK.TOYS`), fishing poles, keys (the keyring too), things that start a job, letters and books, recipes not yet learned, and grey keepsakes kept for their own sake; also the biggest stacks, how full the bags are, a quiver, ammo pouch, soul, herb, enchanting, engineering or mining bag, and the hearthstone's town. A letter or book whose title could carry someone's name is skipped. Bounded: 120 things, 12 changes, 20 stacks.
+- **Gained and lost.** Something new in the bags is news; something sold, auctioned, given in a trade, posted or thrown away after a while is a change, with how long it was carried. Something put in the bank isn't lost, and keeps its first-seen time when it comes back.
+- **About: Physical** has a short paragraph of what they carry, at most three sentences and one of them about the bags themselves when there's something to say (*"Has carried Tattered Ribbon since Westfall. Keeps Cat Carrier (Siamese) near the top of his pack. Is carrying twenty Linen Bandages, more than anything else."*). Item names in their quality colour; no two sentences say "in their pack".
+- **At first glance**: Marks *Something to Deliver*, *Heavy Pack*, *A Small Companion*, *Something Fun*, *A Keepsake*, *Well Stocked*; Lately *A New Companion*, *A New Toy*, *Something New*, *Let Go*, *Given Away*, *Sent Off*, *Thrown Out*, and *Long Carried* (*"Has carried a Westfall Stew recipe card for three weeks."*) when nothing fresher is.
+- **Personality** picks up a habit from a stack kept well stocked for three days or more (*"Never seems to travel without a few Linen Bandages to spare."*, potions, food, drink, arrows, reagents, trade goods), or from a pack of old keepsakes. **History** tells the thing kept longest (*"Has kept Tattered Ribbon since Westfall, three weeks now"*).
+- **A new statistic, Treasured keepsake** (*"Tattered Ribbon, carried for three weeks, from Westfall"*), with its own switch and tooltip.
+
 ## 0.21.0 (2026-11-27): Lately
 
 ### With Total RP 3 alone
