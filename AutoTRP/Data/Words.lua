@@ -1313,6 +1313,138 @@ function W.FactionName(name)
 end
 
 ---------------------------------------------------------------------------
+-- Reputation as people would see it (Sources/Renown.lua). Hearsay stays local and modest:
+-- a town's regulars, a faction's people, the guards of one place. Every line is filled
+-- from one stored record ({town}, {story}, {people}, {why}, {foes}, {where}, {quest}, {n},
+-- {times}, {place}, {zone}, {enemy}, {faction}, {word}); pronouns are tags.
+---------------------------------------------------------------------------
+W.RENOWN = {
+  STANDING = { "Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted" },
+  -- Who speaks for a faction, in a sentence. Anything else reads as W.FactionName.
+  PEOPLE = {
+    ["Booty Bay"] = "the goblins of Booty Bay", ["Gadgetzan"] = "the goblins of Gadgetzan",
+    ["Ratchet"] = "the goblins of Ratchet", ["Everlook"] = "the goblins of Everlook",
+    ["Steamwheedle Cartel"] = "the goblins of Steamwheedle", ["Bloodsail Buccaneers"] = "the Bloodsail Buccaneers",
+    ["Timbermaw Hold"] = "the Timbermaw furbolgs", ["Thorium Brotherhood"] = "the smiths of the Thorium Brotherhood",
+    ["Argent Dawn"] = "the Argent Dawn", ["Cenarion Circle"] = "the druids of the Cenarion Circle",
+    ["Hydraxian Waterlords"] = "the Hydraxian Waterlords", ["Ravenholdt"] = "the folk at Ravenholdt",
+    ["Zandalar Tribe"] = "the Zandalar trolls", ["Wintersaber Trainers"] = "the Wintersaber Trainers",
+    ["Gelkis Clan Centaur"] = "the Gelkis centaur", ["Magram Clan Centaur"] = "the Magram centaur",
+    ["Syndicate"] = "the Syndicate", ["Shen'dralar"] = "the Shen'dralar",
+    ["Frostwolf Clan"] = "the Frostwolf orcs", ["Stormpike Guard"] = "the Stormpike dwarves",
+    ["Silverwing Sentinels"] = "the Silverwing Sentinels", ["Warsong Outriders"] = "the Warsong Outriders",
+    ["Stormwind"] = "the people of Stormwind", ["Ironforge"] = "the dwarves of Ironforge",
+    ["Gnomeregan Exiles"] = "the gnomes of Gnomeregan", ["Darnassus"] = "the night elves of Darnassus",
+    ["Orgrimmar"] = "the orcs of Orgrimmar", ["Thunder Bluff"] = "the tauren of Thunder Bluff",
+    ["Undercity"] = "the Forsaken of the Undercity", ["Darkspear Trolls"] = "the Darkspear trolls",
+  },
+  -- Those who keep a town's peace (creature names).
+  GUARDS = { "Guard$", "Guardian$", "Guards?man$", "Bruiser$", "Grunt$", "Sentinel$", "Deathguard", "Protector$",
+    "Patroller$", "Peacekeeper$", "Watchman$", "Mountaineer$", "Bluffwatcher$" },
+
+  -- A town where they've done many jobs, and the story of its land they saw most of.
+  TOWN_STORY = {
+    "In {town} the regulars at the inn have heard of {them}, mostly over {story}",
+    "Talk of {them} in {town} turns, sooner or later, to {story}",
+    "A few folk in {town} could put a face to {their} name, mostly because of {story}",
+    "Mention {them} in {town} and the talk soon turns to {story}",
+    "Around {town}, {their} name tends to come up alongside {story}",
+  },
+  -- The same with no story to tell: the jobs done there ({n}, four or more).
+  TOWN_JOBS = {
+    "In {town} a few people have {their} name from the {n} jobs {they've} done there",
+    "Around {town}, {their} name means work done and paid for: {n} jobs of it",
+    "The people of {town} have handed {them} {n} jobs so far, and speak of {them} kindly enough",
+    "In {town} the word is that {they} can be trusted with a job; {n} of them, so far",
+    "Folk in {town} have seen {them} through {n} of their jobs, and say so over a drink",
+  },
+  -- A faction they've lost much standing with, and why ({why} from WHY_KILL or WHY_QUEST).
+  FALLOUT = {
+    "{people} have no love for {them}, {why}",
+    "{people} won't hear a good word about {them}, {why}",
+    "There's little welcome for {them} among {people}, {why}",
+    "{people} speak of {them} sourly, {why}",
+    "Among {people}, {their} name gets a scowl, {why}",
+  },
+  WHY_KILL = {
+    "after what happened in {where}",
+    "after the {foes} {they've} cut down in {where}",
+    "not since the business with the {foes} in {where}",
+    "on account of the {foes} in {where}",
+    "for the {foes} {they} put down in {where}",
+  },
+  WHY_QUEST = { "over {quest}", "ever since {quest}", "after {quest}", "not since {quest}", "all because of {quest}" },
+  -- A faction they've done much for, and what for.
+  GOOD = {
+    "{people} speak well of {them}, mostly {why}",
+    "Among {people}, {their} name comes up kindly, {why}",
+    "{people} have a good word for {them}, {why}",
+    "{people} count {them} a help, {why}",
+    "{people} are glad of {them}, {why}",
+  },
+  GOOD_KILL = {
+    "for the {foes} {they've} cleared out of {where}",
+    "for clearing {foes} out of {where}",
+    "for the work against the {foes} in {where}",
+    "for thinning out the {foes} in {where}",
+  },
+  GOOD_QUEST = { "for {quest}", "for seeing {quest} through", "for the help with {quest}", "for {their} work on {quest}" },
+  GOOD_QUESTS = { "for {quest}, {times} over", "for answering {quest} {times}", "for coming back with {quest} {times}",
+    "for turning in {quest} {times}" },
+  -- Losses with a faction in the last two weeks.
+  COOLING = {
+    "{people} have cooled toward {them} lately",
+    "{people} have been less glad to see {them} of late",
+    "{people} have had less to say to {them} these past weeks",
+    "{their} welcome among {people} has worn thin lately",
+    "{people} are warier of {them} than they were",
+  },
+  -- Guards killed ({n}), or guards who had the better of them ({times}).
+  GUARDS_KILLED = {
+    "The guards of {place} haven't forgotten the {n} of their own who fell to {them}",
+    "In {place} the guards keep a close eye on {them}, after losing {n} of their number",
+    "The watch in {place} still counts the {n} of its guards {they've} put down",
+    "The guards around {place} have reason to remember {them}: {n} of theirs fell to {them}",
+    "Nobody on guard in {place} has forgotten {them}, or the {n} they lost",
+  },
+  GUARDS_WON = {
+    "The guards of {place} have had to put {them} down {times}",
+    "The guards in {place} have seen {them} off {times}",
+    "In {place}, the guards have had the better of {them} {times}",
+    "The guards around {place} have laid {them} out {times}",
+  },
+  -- The war: kills in one land ({n}, three or more), or deaths to the other side ({times}).
+  HONOUR = {
+    "In {zone}, the {enemy} have lost {n} fighters to {them}",
+    "The {enemy} in {zone} have learned to watch for {them}, after {n} of theirs fell",
+    "Word among the {enemy} in {zone} is to mind {them}; {they've} put down {n} of theirs there",
+    "The {enemy} count {n} of their own lost to {them} in {zone}",
+    "The {enemy} who pass through {zone} have {n} reasons to give {them} room",
+  },
+  HONOUR_LOST = {
+    "The {enemy} in {zone} have had the better of {them} {times}",
+    "In {zone}, the {enemy} have sent {them} to the spirit healer {times}",
+    "The {enemy} raiding {zone} have caught {them} out {times}",
+    "The {enemy} around {zone} have brought {them} down {times}",
+  },
+  -- History news: a step down to Neutral or worse, a step down otherwise ({word}), a run of
+  -- losses, a great deal of work.
+  EV_FELL = { "fell out with {faction}", "lost the goodwill of {faction}", "wore out {their} welcome with {faction}",
+    "fell from favour with {faction}", "found {faction} turned against {them}" },
+  EV_SLIP = { "slipped to {word} with {faction}", "dropped back to {word} with {faction}", "fell back to {word} with {faction}",
+    "lost a step with {faction}, down to {word}" },
+  EV_LOST = { "lost ground with {faction}", "lost standing with {faction}", "gave {faction} cause to think less of {them}",
+    "set {faction} against {them} a step at a time", "spent some of {their} goodwill with {faction}" },
+  EV_WORK = { "did a good deal of work for {faction}", "put in long days for {faction}", "gave {faction} plenty of help",
+    "kept busy on behalf of {faction}", "earned the thanks of {faction} more than once" },
+  -- Full title, from real standing (Revered, Exalted). Kept modest.
+  TITLE = {
+    Revered = { "Friend of {faction}", "Helper of {faction}", "Ally of {faction}" },
+    Exalted = { "Friend of {faction}", "Trusted by {faction}", "Sworn Friend of {faction}" },
+  },
+}
+
+---------------------------------------------------------------------------
 -- Racial tells: how a mood shows on this body. Used about half the time, when one fits.
 ---------------------------------------------------------------------------
 W.RACE_TELLS = {
@@ -1889,6 +2021,204 @@ W.PROF_NOUN = {
 W.WEEK_TONE = {
   hard = { "The last few days have been hard on {them}.", "It's been a bad stretch." },
   good = { "The last few days have been good ones.", "Things have been going well lately." },
+}
+
+-- The shape of their time (Sources/Seasons.lua): the hours they keep, the days they come,
+-- anniversaries, absences and returns, the festivals they kept, how a season went. {name}
+-- is the character's first name; the rest are filled by Compose (TimeLines, the Lately glance).
+W.SEASONS = {
+  -- By the game's clock, from the hours they're usually abroad.
+  night = {
+    "Is most often abroad after dark",
+    "Keeps late hours, and does most of {their} travelling after nightfall",
+    "Is seen about far more by night than by day",
+    "Tends to be out once the sun is down and the roads are quiet",
+    "Does most of {their} business after dark, going by the hours {they} keep{s}",
+  },
+  dawn = {
+    "Is an early riser, usually on the road by first light",
+    "Keeps early hours, and is mostly abroad in the morning",
+    "Likes an early start: most of {their} days begin at dawn",
+    "Is usually up and about while the dew is still on the grass",
+  },
+  day = {
+    "Keeps to the daylight, and is seldom out after dark",
+    "Travels by day and is rarely seen once night falls",
+    "Keeps honest daylight hours on the road",
+    "Is mostly about between morning and dusk, and indoors by nightfall",
+  },
+  evening = {
+    "Is mostly about in the evenings",
+    "Tends to take to the road as the day draws in",
+    "Is most often seen at dusk and into the evening",
+    "Does most of {their} travelling in the last hours of the day",
+  },
+  -- The real days of the week. {day}: "Tuesday".
+  weekend = {
+    "Is mostly seen at the end of the week",
+    "Turns up chiefly at the week's end, and is scarcer in between",
+    "Keeps the end of the week for {their} travels",
+    "Is a week's-end traveller, more often than not",
+  },
+  weekday = {
+    "Is most often seen of a {day}",
+    "Can usually be found on the road on a {day}",
+    "Has a habit of turning up on {day}s",
+    "Is about more on {day}s than on any other day",
+  },
+  -- Anniversaries. {span}: "a year", "two years", "half a year", "a hundred days", "a month";
+  -- {when}: "this week" or "today"; {rank}: the rank risen to.
+  anniv = {
+    "It's {span} {when} since {name} first set out",
+    "{span} ago {when}, {name} first took to the road",
+    "{name} has been on the road {span} {when}",
+    "{when} makes {span} since {name} set out",
+    "It was {span} ago {when} that {name}'s road began",
+  },
+  anniv_rank = {
+    "It's {span} {when} since {name} rose to {rank}",
+    "{span} ago {when}, {name} rose to {rank}",
+    "{name} rose to {rank} {span} ago {when}",
+    "{when} makes {span} since {name} rose to {rank}",
+  },
+  -- Coming back. {span}: "eleven days", "three weeks".
+  back = {
+    "Came back after {span} away",
+    "Has only lately come back, after {span} away",
+    "Turned up again after {span} gone",
+    "Is newly back on the road after {span} away",
+    "Is back again, after {span} away from the road",
+  },
+  gap = {
+    "Was gone {span} once, and came back",
+    "Once went {span} without being seen on the road",
+    "Has been away as long as {span} before now",
+    "Once dropped out of sight for {span}",
+  },
+  -- Runs of days. {n}: "seven".
+  streak = {
+    "Has been on the road {n} days running",
+    "Hasn't missed a day in {n}",
+    "Has been out every one of the last {n} days",
+    "Has kept at it {n} days straight",
+  },
+  -- The longest session. {span}: "nine hours".
+  longest = {
+    "Has gone {span} at a stretch before now",
+    "Once stayed out {span} straight",
+    "{name}'s longest day on the road ran to {span}",
+    "Can keep going for {span} at a time",
+  },
+  -- Festivals. {fest}: "Hallow's End"; {zone}; {list}: several festivals.
+  fest = {
+    "Spent {fest} in {zone}",
+    "Kept {fest} in {zone}",
+    "Was in {zone} for {fest}",
+    "Saw {fest} through in {zone}",
+    "Marked {fest} in {zone}",
+  },
+  fest_list = {
+    "Has kept {list} on the road",
+    "Has turned out for {list}",
+    "Has made time for {list}",
+    "Has joined in {list} in {their} time",
+  },
+  faire = {
+    "Has been to the Darkmoon Faire {times}",
+    "Has visited the Darkmoon Faire {times}",
+    "Has called at the Darkmoon Faire {times}",
+    "Has taken in the Darkmoon Faire {times}",
+    "Knows the Darkmoon Faire, having been {times}",
+  },
+  -- How the season (or the month) just past went. {season}: "autumn"; {month}: "October".
+  season_hard = {
+    "Had a hard {season} of it",
+    "The {season} went hard for {them}",
+    "Came through a bleak {season}",
+    "Found the {season} a hard one",
+    "Has had a rough {season}",
+  },
+  season_good = {
+    "Had a good {season}",
+    "The {season} treated {them} well",
+    "Came through the {season} in good heart",
+    "Found the {season} a kind one",
+    "Had the best of the {season}",
+  },
+  month_hard = {
+    "{month} was a hard month for {them}",
+    "Had a bleak {month}",
+    "Found {month} hard going",
+    "{month} went badly for {them}",
+  },
+  month_good = {
+    "{month} was a good month for {them}",
+    "Had a fine {month}",
+    "{month} went well for {them}",
+    "Did well through {month}",
+  },
+  -- The Lately glance.
+  lately_anniv = {
+    "{span} ago {when}, {name} first set out.",
+    "{name} has been on the road {span} {when}.",
+    "It's {span} {when} since {name} took to the road.",
+    "{when} makes {span} on the road for {name}.",
+  },
+  lately_rank = {
+    "It's {span} {when} since {name} rose to {rank}.",
+    "{span} ago {when}, {name} rose to {rank}.",
+    "{when} makes {span} since {name} rose to {rank}.",
+    "{name} rose to {rank} {span} ago {when}.",
+  },
+  lately_fest = {
+    "Out for {fest} in {zone}.",
+    "Keeping {fest} in {zone}.",
+    "In {zone} for {fest}.",
+    "Making the most of {fest} in {zone}.",
+    "Turned out for {fest}, in {zone}.",
+  },
+  lately_faire = {
+    "At the Darkmoon Faire in {zone}.",
+    "Spent some of the day at the Darkmoon Faire in {zone}.",
+    "Took in the Darkmoon Faire in {zone}.",
+    "Down at the Darkmoon Faire in {zone}.",
+  },
+  lately_back = {
+    "Back on the road after {span} away.",
+    "Only just back, after {span} gone.",
+    "Newly returned after {span} away.",
+    "Has come back after {span} away.",
+    "Out again after {span} away.",
+  },
+  -- The journal, in the character's own voice.
+  journal = {
+    anniv = {
+      "It's {span} this week since I set out",
+      "{span} on the road now, near enough to the day",
+      "I've been on the road {span} this week",
+      "{span} since I first set out, and I thought about that today",
+    },
+    anniv_rank = {
+      "It's {span} since I rose to {rank}",
+      "{span} now since I rose to {rank}",
+      "I rose to {rank} {span} ago this week",
+      "{span} as {rank}, near enough",
+    },
+    back = {
+      "Back on the road after {span} away",
+      "First day back after {span}",
+      "{span} away, and now back on the road",
+      "I came back today after {span} away",
+    },
+    fest = {
+      "{fest} was on, and I kept it in {zone}",
+      "I kept {fest} in {zone}",
+      "Spent some of the day on {fest} in {zone}",
+      "{fest} in {zone}, and I joined in",
+    },
+  },
+  -- Lately's headings, by the span.
+  titles = { year = "A Year On", half = "Half a Year On", hundred = "A Hundred Days", month = "A Month On" },
 }
 
 
@@ -2842,6 +3172,191 @@ W.SAY.trainer_usual = { "Still goes back for lessons to {who} in {place}", "Take
 -- inns, flight masters, mounts, emotes, company, close calls. A block of its own, kept apart
 -- from the lists above.
 ---------------------------------------------------------------------------
+-- What a character carries (Sources/Pack.lua, told in Keepsakes.lua). Every line names only
+-- what is in the bags at the time; {item} is the thing's own name.
+W.PACK = {
+  -- Companion pets in classic are carried as items; most are caught by the patterns below.
+  PETS = { ["Mechanical Squirrel Box"] = true, ["Tiny Crimson Whelpling"] = true, ["Tiny Emerald Whelpling"] = true,
+    ["Dark Whelpling"] = true, ["Azure Whelpling"] = true, ["Sprite Darter Egg"] = true, ["Wood Frog Box"] = true,
+    ["Tree Frog Box"] = true, ["Prairie Dog Whistle"] = true, ["Rabbit Crate (Snowshoe)"] = true, ["Pet Bombling"] = true,
+    ["Lil' Smoky"] = true, ["Worg Carrier"] = true, ["Smolderweb Carrier"] = true, ["Disgusting Oozeling"] = true,
+    ["Jubling"] = true, ["Pet Fish"] = true, ["Panda Collar"] = true, ["Zergling Leash"] = true, ["Diablo Stone"] = true,
+    ["Ancona Chicken"] = true, ["Chicken Egg"] = true, ["Hawk Owl"] = true, ["Great Horned Owl"] = true,
+    ["Snake Egg"] = true },
+  PET_PATTERNS = { "Carrier", "Parrot Cage", "Box %(", "Hatchling$", " Whelpling$" },
+  MOUNT_PATTERNS = { "^Reins of ", "^Horn of the ", "^Whistle of the ", " Bridle$", "Mechanostrider$",
+    " Skeletal Horse$", " Skeletal Warhorse$", "^%a+ Kodo$", "^%a+ Ram$", "^Swift %a+ Ram$" },
+  -- Toys and novelties: kept for the fun of it.
+  TOYS = { ["Toy Train Set"] = true, ["Piccolo of the Flaming Fire"] = true, ["Orb of Deception"] = true,
+    ["Dartol's Rod of Transformation"] = true, ["Gnomish Universal Remote"] = true, ["Gnomish Net-o-Matic Projector"] = true,
+    ["Gnomish Shrink Ray"] = true, ["Goblin Jumper Cables"] = true, ["Discombobulator Ray"] = true,
+    ["Snowball"] = true, ["Handful of Snowflakes"] = true, ["Mistletoe"] = true, ["Fresh Holly"] = true,
+    ["Winter Veil Disguise Kit"] = true, ["Red Rose"] = true, ["Elune's Candle"] = true, ["Festival Firecracker"] = true,
+    ["Blue Firework"] = true, ["Green Firework"] = true, ["Red Firework"] = true, ["Large Blue Rocket"] = true,
+    ["Large Red Rocket"] = true, ["Large Green Rocket"] = true, ["Cluster Launcher"] = true, ["Firework Launcher"] = true,
+    ["Noggenfogger Elixir"] = true, ["Savory Deviate Delight"] = true, ["Wand of Holiday Cheer"] = true,
+    ["Hallowed Wand - Pirate"] = true, ["Hallowed Wand - Ninja"] = true, ["Hallowed Wand - Bat"] = true,
+    ["Hallowed Wand - Ghost"] = true, ["Ogre Pocket Knife"] = true, ["Barov Peasant Caller"] = true,
+    ["Bag of Marbles"] = true, ["Crashin' Thrashin' Robot"] = true },
+  RECIPE_PATTERNS = { "^Recipe: ", "^Pattern: ", "^Plans: ", "^Formula: ", "^Schematic: ", "^Manual: " },
+  -- A recipe as carried: "a Westfall Stew recipe card".
+  RECIPE_NOUN = { Recipe = "recipe card", Pattern = "pattern", Plans = "set of plans", Formula = "formula",
+    Schematic = "schematic", Manual = "manual" },
+  LETTER_PATTERNS = { "Letter", " Note$", "^Note ", "Missive", "Orders$", "Correspondence", "Dispatch" },
+  -- Letters that are the game's own and safe to name whatever their title says.
+  LETTERS = { ["Plain Letter"] = true, ["Letter to Stormpike"] = true, ["Sealed Letter"] = true,
+    ["Torn Letter"] = true, ["Tattered Letter"] = true, ["Bloodstained Letter"] = true,
+    ["Stained Letter"] = true, ["Waterlogged Letter"] = true, ["An Undelivered Letter"] = true },
+  -- Stacks big enough to tell, first match wins: pat (name), type and sub (the game's item
+  -- type and subtype), min (how many is a lot), mass (no plural: "Conjured Water").
+  STACKS = {
+    { pat = "Bandage$", kind = "bandage", min = 10 },
+    { pat = "Potion$", kind = "potion", min = 5 },
+    { pat = "Elixir", kind = "potion", min = 5 },
+    { pat = "Water$", kind = "drink", min = 20, mass = true },
+    { pat = "Milk$", kind = "drink", min = 20, mass = true },
+    { pat = "Juice$", kind = "drink", min = 20, mass = true },
+    { pat = "Cider$", kind = "drink", min = 20, mass = true },
+    { pat = "Ale$", kind = "drink", min = 10, mass = true },
+    { pat = "Mead$", kind = "drink", min = 10, mass = true },
+    { type = "Projectile", kind = "ammo", min = 200 },
+    { pat = "Arrow$", kind = "ammo", min = 200 },
+    { pat = "Shot$", kind = "ammo", min = 200 },
+    { pat = "Cloth$", kind = "goods", min = 40, mass = true },
+    { pat = "Bread$", kind = "food", min = 20, mass = true },
+    { pat = "Jerky$", kind = "food", min = 20, mass = true },
+    { pat = "Cheese$", kind = "food", min = 20, mass = true },
+    { sub = "Food & Drink", kind = "food", min = 20 },
+    { type = "Reagent", kind = "reagent", min = 10 },
+    { type = "Trade Goods", kind = "goods", min = 40 },
+    { type = "Consumable", kind = "food", min = 20 },
+  },
+  -- The kinds of bag worth telling (the game's subtype), in the order they're told.
+  BAGS = { "Quiver", "Ammo Pouch", "Soul Bag", "Herb Bag", "Enchanting Bag", "Engineering Bag", "Mining Bag" },
+
+  -- About: Physical, a short paragraph of what they carry. {item} names it.
+  CARRY = {
+    pet = { "Has {item} packed carefully among {their} things", "Keeps {item} near the top of {their} pack",
+      "Travels with {item}, and checks on it more often than on {their} supplies",
+      "Makes room in {their} pack for {item}, whatever else has to go", "Carries {item} wherever {they} go{es}" },
+    mount = { "Has {item} among {their} things", "Keeps {item} with {them} for the long roads",
+      "Carries {item}, ready for the next long ride", "Owns {item}, and keeps it close" },
+    toy = { "Carries {item}, for no better reason than the fun of it", "Has {item} rattling about in {their} pack",
+      "Keeps {item} in {their} pack for idle moments", "Never seems to leave {item} behind",
+      "Has {item} tucked away for a slow evening" },
+    pole = { "Has {item} packed for any water worth stopping at", "Carries {item}, in case of a good river",
+      "Keeps {item} with {their} things, ready to cast", "Has {item} along for quiet hours by the water" },
+    key = { "Has {item} on {their} keyring", "Carries {item}, and knows which door it opens",
+      "Keeps {item} safe with the rest of {their} keys", "Has {item} among {their} keys" },
+    keys = { "Has a keyring with {item} on it", "Carries {item} on {their} keyring", "Keeps {item} on {their} keyring",
+      "Has {item} among {their} keys" },
+    starts = { "Carries {item}, which someone will surely want to see", "Has {item} in {their} pack, still waiting for the right hands",
+      "Holds on to {item}, not yet sure who should have it", "Has {item} with {them}, and a reason to find someone about it" },
+    letter = { "Keeps {item} folded small in {their} pack", "Carries {item}, read more than once by the look of it",
+      "Has {item} tucked away with {their} things", "Holds on to {item}", "Keeps {item} where it won't get creased" },
+    book = { "Carries a copy of {item}", "Has {item} in {their} pack, the spine well worn", "Keeps {item} for reading on the road",
+      "Has {item} packed among {their} things", "Carries {item} to read when the road is quiet" },
+    recipe = { "Has carried {item} for {dur} without learning it", "Still has {item} in {their} pack, {dur} on and unlearned",
+      "Carries {item}, and has done for {dur}", "Has had {item} for {dur} and not yet tried it" },
+    since = { "Has carried {item} since {zone}", "Still has {item} from {zone}", "Has kept {item} since {zone}",
+      "Holds on to {item}, picked up in {zone} {dur} ago", "Has had {item} with {them} since {zone}" },
+    long = { "Has carried {item} for {dur}", "Has held on to {item} for {dur}, for reasons of {their} own",
+      "Has kept {item} for {dur} now", "Still carries {item}, {dur} on", "Has not been without {item} in {dur}" },
+    hearth = { "{their} hearthstone is set to {town}", "Carries a hearthstone that would take {them} home to {town}",
+      "Keeps a hearthstone bound to {town}", "Has a hearthstone tied to {town}", "{their} hearthstone answers to {town}" },
+    stack = { "Has {n} {item} stacked in {their} bags", "Is carrying {n} {item}, more than anything else",
+      "Keeps {n} {item} in {their} bags", "The bulk of {their} pack is {n} {item}" },
+    full = { "{their} bags are full to the last slot", "Has bags packed so full nothing more would fit",
+      "Is carrying all {their} bags will hold", "Has not a slot to spare in {their} bags" },
+    light = { "Travels light, {their} bags mostly empty", "Carries little, with plenty of room to spare",
+      "Has more empty space in {their} bags than not", "Keeps {their} pack light" },
+    Quiver = { "Wears {item} across {their} back", "Keeps {their} arrows in {item}", "Has {item} slung for {their} arrows",
+      "Carries {item}, full of fletching" },
+    ["Ammo Pouch"] = { "Keeps {their} shot in {item}", "Carries {item} for {their} shot", "Has {item} heavy with shot",
+      "Keeps {item} for {their} ammunition" },
+    ["Soul Bag"] = { "Keeps {their} soul shards in {item}", "Carries {item} for the shards {they} gather{s}",
+      "Has {item}, heavy with what {they've} taken", "Carries {item}, never far from {their} hand" },
+    ["Herb Bag"] = { "Keeps {their} herbs sorted in {item}", "Carries {item}, smelling of whatever {they} picked last",
+      "Has {item} for the herbs {they} gather{s}", "Keeps {item} for {their} herbs" },
+    ["Enchanting Bag"] = { "Keeps {their} dusts and shards in {item}", "Carries {item} for {their} enchanting",
+      "Has {item}, glittering faintly with dust", "Keeps {item} for {their} enchanter's stock" },
+    ["Engineering Bag"] = { "Carries {their} tools and parts in {item}", "Has {item} full of gears and bolts",
+      "Keeps {item} for {their} engineering", "Has {item} clanking with parts" },
+    ["Mining Bag"] = { "Keeps ore and stone in {item}", "Carries {item} for {their} ore", "Has {item} heavy with stone",
+      "Keeps {item} for what {they} dig{s} up" },
+  },
+  -- At first glance (Marks): { title, icon, lines }.
+  MARK = {
+    full = { "Heavy Pack", "INV_Misc_Bag_10", { "Bags stuffed to bursting, with not a slot to spare.",
+      "Carries everything {they} own{s}, by the look of the bags.", "Laden down, bags full to the brim.",
+      "Weighed down with full bags." } },
+    pet = { "A Small Companion", "INV_Box_PetCarrier_01", { "Carries {item} wherever {they} go{es}.",
+      "Has {item} close at hand.", "Never far from {item}.", "Keeps {item} in {their} pack, and a careful hand on it." } },
+    toy = { "Something Fun", "INV_Misc_Toy_01", { "Has {item} in {their} pack, and the look of someone who uses it.",
+      "Carries {item}, just for fun.", "Keeps {item} close, for when things get dull.", "Has {item} along, for no good reason." } },
+    starts = { "Something to Deliver", "INV_Misc_Note_01", { "Carries {item}, and someone should see it.",
+      "Has {item} that wants taking to the right person.", "Holds {item}, as yet undelivered.",
+      "Has {item} to show someone." } },
+    keepsake = { "A Keepsake", "INV_Misc_Bag_11", { "Has carried {item} for {dur}.", "Still carries {item}, {dur} on.",
+      "Has kept {item} for {dur}.", "Has not let go of {item} in {dur}." } },
+    hoard = { "Well Stocked", "INV_Misc_Bag_09", { "Carries {n} {item}, and plenty more besides.",
+      "Bags heavy with {n} {item}.", "Is well stocked: {n} {item}.", "Has {n} {item} packed away." } },
+  },
+  -- Lately: something new in the bags, something long kept let go, something long carried.
+  LATELY = {
+    new = { "Has a new {item} in {their} pack.", "Has come by {item}, and keeps it close.", "Picked up {item} lately.",
+      "Has {item} now, and is still getting used to it." },
+    new_pet = { "Has a new companion: {item}.", "Has come by {item}, and keeps checking on it.",
+      "Got {item} lately, and is rarely without it.", "Has taken on {item}." },
+    new_toy = { "Has a new toy: {item}.", "Picked up {item} lately, and has been trying it out.",
+      "Has been playing with {item}.", "Came by {item}, and can't leave it alone." },
+    new_starts = { "Came by {item}, which someone will want to see.", "Has picked up {item}, and has someone to find.",
+      "Turned up {item}, and wonders who it's for.", "Found {item}, and it means work." },
+    sold = { "Sold the {item} {they've} carried for {dur}.", "Has sold {item}, after {dur} of carrying it.",
+      "Let a merchant have {item}, kept for {dur}.", "Finally sold {item}, after {dur}." },
+    auctioned = { "Put {item} up for auction, after {dur}.", "Has sent {item} to auction, carried {dur}.",
+      "Let {item} go at auction, after carrying it {dur}.", "Is selling {item}, kept for {dur}." },
+    given = { "Gave away {item}, kept for {dur}.", "Has given {item} away, after {dur}.",
+      "Handed over {item}, after carrying it {dur}.", "Parted with {item}, a gift after {dur}." },
+    sent = { "Sent {item} off by post, after {dur}.", "Has mailed {item} away, kept for {dur}.",
+      "Posted {item} away, after {dur} carrying it.", "Let {item} go by the mail, after {dur}." },
+    destroyed = { "Threw away {item}, after carrying it for {dur}.", "Got rid of {item}, kept for {dur}.",
+      "Has finally thrown out {item}, after {dur}.", "Destroyed {item}, carried for {dur}." },
+    carried = { "Has carried {item} for {dur}.", "Is still carrying {item}, {dur} on.", "Has had {item} for {dur} now.",
+      "Has kept {item} for {dur}, and shows no sign of letting go." },
+  },
+  LATELY_TITLE = { new = "Something New", new_pet = "A New Companion", new_toy = "A New Toy", new_starts = "Something to Deliver",
+    sold = "Let Go", auctioned = "Let Go", given = "Given Away", sent = "Sent Off", destroyed = "Thrown Out", carried = "Long Carried" },
+  -- Personality: what's hoarded, once it's been kept well stocked for days. {item} is the plural.
+  HABIT = {
+    bandage = { "Never seems to travel without a few {item} to spare", "Always has {item} on hand, and plenty of them",
+      "Keeps a stock of {item} for whoever needs one", "Is rarely caught short of {item}" },
+    potion = { "Never goes far without {item}", "Keeps {item} close, for the fight that goes wrong",
+      "Always has a few {item} put by", "Carries {item} as a matter of course" },
+    food = { "Is never short of {item}", "Always has {item} packed for the road", "Keeps {their} bags well stocked with {item}",
+      "Travels with enough {item} to feed a small camp" },
+    drink = { "Is never short of {item}", "Always has {item} to hand", "Keeps more {item} in {their} bags than one person needs",
+      "Carries {item} enough for a long dry road" },
+    ammo = { "Never lets {their} stock of {item} run low", "Always carries more {item} than {they} need{s}",
+      "Keeps {their} bags heavy with {item}", "Is never caught short of {item}" },
+    reagent = { "Keeps a good stock of {item}", "Never lets {their} {item} run short", "Always has {item} put by",
+      "Restocks {their} {item} before {they} need{s} to" },
+    goods = { "Hoards {item}, and has done for a while", "Has been sitting on a stack of {item} for some time",
+      "Can't seem to part with {their} {item}", "Keeps a stockpile of {item}, against some future need" },
+    keepsakes = { "Holds on to small things long after they stop being useful", "Keeps odds and ends anyone else would throw out",
+      "Finds it hard to throw anything away", "Carries things kept for their own sake" },
+  },
+  -- History: what's been kept longest.
+  HISTORY = {
+    since = { "Has kept {item} since {zone}, {dur} now", "Still carries {item}, picked up in {zone} {dur} ago",
+      "Has held on to {item} since {zone}", "Has carried {item} all the way from {zone}", "Carries {item}, kept since {zone}" },
+    long = { "Has carried {item} for {dur} and more", "Has kept {item} for {dur} at the least",
+      "Has had {item} for {dur}, and longer", "Has not been without {item} in {dur}" },
+    lost = { "Let go of {item} after carrying it for {dur}", "Parted with {item} after {dur}",
+      "Gave up {item}, after {dur} of keeping it", "Finally let {item} go, after {dur}" },
+  },
+}
+
 W.LIFE = {
   -- Fishing loot that is a fish without "Raw" in its name.
   FISH = { ["Oily Blackmouth"] = true, ["Firefin Snapper"] = true, ["Stonescale Eel"] = true, ["Deviate Fish"] = true,
@@ -4260,3 +4775,784 @@ if W.JOURNAL and W.JOURNAL.feel then
     bitter = { "sour about it all", "nursing a grudge" },
   }) do W.JOURNAL.feel[k] = W.JOURNAL.feel[k] or v end
 end
+
+---------------------------------------------------------------------------
+-- THE ROAD, land by land (Sources/Road.lua; Compose.RoadStory, the Lately glance and the
+-- "Longest stay" statistic). Each line is one sentence without its full stop. {zone}: the
+-- land ("Westfall", "the Barrens"), with what it is when there's room ("Westfall, the dry
+-- farmland west of Stormwind"); {stay}: how long ("the better part of a week"); {rest}: the
+-- level and the work there, each opening with a comma, or nothing; {name}: the character.
+---------------------------------------------------------------------------
+W.ROAD = {
+  -- The first of the lands that mattered.
+  first = {
+    "Spent {stay} in {zone}{rest}",
+    "Gave {stay} to {zone}{rest}",
+    "Put in {stay} in {zone}{rest}",
+    "Stayed {stay} in {zone}{rest}",
+    "Worked {zone} for {stay}{rest}",
+  },
+  -- The ones after it, in order.
+  next = {
+    "Then came {stay} in {zone}{rest}",
+    "After that {they} spent {stay} in {zone}{rest}",
+    "From there it was on to {zone} for {stay}{rest}",
+    "Moved on to {zone} next and stayed {stay}{rest}",
+    "Later {they} gave {stay} to {zone}{rest}",
+    "{zone} came after, with {stay} there{rest}",
+  },
+  -- The one they stayed in longest (when it isn't the first).
+  longest = {
+    "{zone} held {them} longest, {stay}{rest}",
+    "The longest stay was in {zone}, {stay}{rest}",
+    "Most of {their} time went to {zone}, {stay} in all{rest}",
+    "No land kept {them} longer than {zone}: {stay}{rest}",
+    "{zone} is where {they} stayed longest, {stay}{rest}",
+  },
+  -- How long, from the days a stay lasted...
+  days = {
+    { max = 3, words = { "a couple of days", "two days or so" } },
+    { max = 5, words = { "a few days", "three or four days" } },
+    { max = 8, words = { "the better part of a week", "most of a week" } },
+    { max = 12, words = { "more than a week", "a week and more" } },
+    { max = 20, words = { "a fortnight or so", "the better part of a fortnight" } },
+    { max = 35, words = { "most of a month", "close on a month" } },
+    { max = math.huge, words = { "more than a month", "the better part of two months" } },
+  },
+  -- ...or the hours spent there, when it was all one sitting or two.
+  hours = {
+    { max = 1.5, words = { "an hour or two", "a short spell" } },
+    { max = 4, words = { "a few hours", "an afternoon or so" } },
+    { max = 8, words = { "a long day", "the length of a long day" } },
+    { max = 16, words = { "a couple of long days", "two long days" } },
+    { max = math.huge, words = { "many long days", "day after long day" } },
+  },
+  -- The level while there: {a} and {b} in words ("twelve", "seventeen").
+  climb = { ", going from level {a} to {b} there", ", arriving at level {a} and leaving at {b}", ", climbing from level {a} to {b}",
+    ", rising from level {a} to {b} along the way" },
+  level = { ", at around level {a}", ", at level {a} or so", ", somewhere about level {a}" },
+  -- The work done there: {story} (a storyline), {n} (jobs, in words).
+  story = { ", mostly on {story}", ", much of it on {story}", ", most of it caught up in {story}", ", largely on {story}" },
+  jobs = { ", seeing {n} jobs through", ", with {n} jobs done there", ", taking on {n} jobs along the way" },
+  town = { ", working out of {town}", ", mostly around {town}", ", with {town} for a base" },
+  inn = { ", putting up at {inn}", ", lodging at {inn}", ", sleeping at {inn}" },
+  -- What else happened there, after a semicolon. {dungeon}, {boss}, {times} ("twice").
+  boss = { "it's also where {they} went down into {dungeon} and brought down {boss}",
+    "from there {they} went down into {dungeon} after {boss}",
+    "{dungeon} is close by, and it was from there that {they} went after {boss}",
+    "it was from there that {they} went into {dungeon} and came out with {boss} beaten" },
+  dungeon = { "from there {they} went down into {dungeon}", "it's also where {they} first went into {dungeon}",
+    "{dungeon} lies close by, and {they} went down into it from there" },
+  deaths = { "it's also where {name} fell {times}", "{name} fell there {times}, too", "{name} was laid low there {times}",
+    "it's where {name} met {their} end {times} and came back from it" },
+  close = { "{name} came close to dying there {times}", "{name} nearly fell there {times}",
+    "it's where {name} came nearest to the end, {times}" },
+  -- The land they keep coming back to: {n} ("eleven times").
+  returns = {
+    "Keeps coming back to {zone}, {n} now",
+    "Of all the lands, {zone} is the one {they} return{s} to most, {n} so far",
+    "{zone} keeps drawing {them} back; {they've} returned {n}",
+    "Returns to {zone} more often than anywhere else, {n} so far",
+    "Has gone back to {zone} {n}, more than to anywhere else",
+  },
+  -- The land they left quickly.
+  quick = {
+    "Didn't stay long in {zone}, and hasn't been back",
+    "Passed through {zone} in under an hour and hasn't gone back since",
+    "Had seen enough of {zone} within the hour",
+    "{zone} got no more than a look before {they} moved on",
+    "Left {zone} almost as soon as {they} arrived",
+  },
+  -- Where they've been this past week ({sub}: ", around Booty Bay" or nothing).
+  lately = {
+    "These days {they're} mostly in {zone}{sub}",
+    "Lately {they've} kept to {zone}{sub}",
+    "Most of this past week has gone to {zone}{sub}",
+    "{zone} is where {they've} spent this past week{sub}",
+    "This week it has been {zone}, for the most part{sub}",
+  },
+  -- Back in a land after a long while ({away}: "a month").
+  lately_back = {
+    "Back in {zone} lately, after {away} away",
+    "Has come back to {zone} this week, after {away} elsewhere",
+    "Is in {zone} again, for the first time in {away}",
+    "Returned to {zone} only lately, {away} after last leaving it",
+  },
+  away = {
+    { max = 12, words = "a week" }, { max = 19, words = "two weeks" }, { max = 26, words = "three weeks" },
+    { max = 45, words = "a month" }, { max = 75, words = "two months" }, { max = 150, words = "a few months" },
+    { max = math.huge, words = "half a year or more" },
+  },
+}
+
+-- The Lately glance: back in a land, and moving on from a long stay.
+W.SAY.lately_back = { "Back in {zone} after {away} away.", "Has come back to {zone} after {away} elsewhere.",
+  "In {zone} again, for the first time in {away}.", "Returned to {zone} lately, {away} after last leaving it.",
+  "On the roads of {zone} again after {away}." }
+W.SAY.lately_moved = { "Has left {from} behind after {stay} there, and is new to {zone}.",
+  "After {stay} in {from}, has moved on to {zone}.", "Fresh to {zone}, with {stay} in {from} behind {them}.",
+  "Done with {from} for now, after {stay}; {zone} is next.", "Only lately came on to {zone}, after {stay} in {from}." }
+
+---------------------------------------------------------------------------
+-- WORK 0.22.0: the kind of work the character takes on (Sources/Work.lua).
+---------------------------------------------------------------------------
+W.WORK = {
+  -- English cues in a job's title, objectives and text (lower case, Lua patterns). On another
+  -- language they find nothing and the log's objective types decide.
+  CUES = {
+    escort = { "escort", "accompany", "see me safely", "see her safely", "see him safely", "safe passage", "protect me",
+      "guide me", "lead me out", "lead me to", "get me out of", "walk with me" },
+    rescue = { "rescue", "free the ", "free them", "free my", "freed", "release the", "prisoner", "captive", "imprisoned",
+      "held hostage", "break out" },
+    bounty = { "bounty", "wanted", "dead or alive", "the head of", "his head", "her head", "price on", "reward for the" },
+    delivery = { "deliver", "take this", "bring this", "carry this", "letter", "package", "parcel", "report to",
+      "report back to", "speak with", "speak to", "message to", "give this", "hand this" },
+    investigation = { "investigate", "explore", "scout", "search for", "find out", "discover", "locate", "look into",
+      "survey", "find the source", "learn what" },
+    slaying = { "kill", "slay", "slain", "destroy", "cull", "thin their", "thin out", "wipe out", "put down", "exterminate" },
+    gathering = { "collect", "gather", "bring me", "recover", "retrieve", "fetch", "samples", "harvest" },
+    holiday = { "winter veil", "lunar festival", "hallow's end", "midsummer", "love is in the air", "harvest festival",
+      "children's week", "noblegarden", "brewfest" },
+  },
+  -- Quest log headers that say what a job is.
+  HOLIDAY = { seasonal = true, ["lunar festival"] = true, ["feast of winter veil"] = true, ["winter veil"] = true,
+    ["hallow's end"] = true, ["midsummer fire festival"] = true, ["love is in the air"] = true, ["harvest festival"] = true,
+    ["children's week"] = true, noblegarden = true, brewfest = true },
+  CLASS_HEADERS = { warrior = true, paladin = true, hunter = true, rogue = true, priest = true, shaman = true, mage = true,
+    warlock = true, druid = true },
+  PROF_HEADERS = { fishing = true, cooking = true, ["first aid"] = true, alchemy = true, blacksmithing = true,
+    enchanting = true, engineering = true, herbalism = true, leatherworking = true, mining = true, skinning = true,
+    tailoring = true },
+
+  -- The statistic: "120 slaying, 64 gathering, 31 courier".
+  STAT = { slaying = "slaying", gathering = "gathering", delivery = "courier", escort = "escort", investigation = "scouting",
+    rescue = "rescue", bounty = "bounty", dungeon = "dungeon", class = "calling", profession = "trade", holiday = "festival" },
+
+  -- History, the longer record: what most of the work has been.
+  MAIN = {
+    slaying = { "Most of {their} work has been the killing kind",
+      "The jobs {they} take{s} on are mostly the ones that end with something dead",
+      "Most of what {they've} been paid for has ended with something lying still",
+      "When word goes round that something needs killing, {they} tend{s} to be the one who answers",
+      "Thinning out whatever troubles the farms and roads has been most of {their} work" },
+    gathering = { "Most of {their} work has been fetching and collecting",
+      "Filling sacks for other people has been most of {their} work",
+      "Most of the jobs {they've} taken have meant gathering something up and bringing it back",
+      "Much of {their} working life has gone on collecting things other people needed" },
+    delivery = { "Most of {their} work has been carrying things from one person to another",
+      "Errands and deliveries make up most of {their} work",
+      "Much of {their} work has been running messages and parcels between towns",
+      "More of {their} jobs have been deliveries than anything else" },
+    escort = { "An unusual share of {their} work has been seeing travellers safely on their way",
+      "Much of {their} work has been walking beside people who couldn't make the road alone",
+      "Escort work makes up more of {their} jobs than most would take on",
+      "Has spent more of {their} working days guarding travellers than doing anything else" },
+    investigation = { "Most of {their} work has been looking into things: tracks, ruins, rumours",
+      "Much of {their} work has meant going to see what's wrong somewhere and coming back to say",
+      "Scouting and asking questions make up most of {their} work",
+      "More of {their} jobs have been about finding things out than anything else" },
+    rescue = { "A good share of {their} work has been getting people out of cages and cells",
+      "Much of {their} work has been bringing back people who were taken",
+      "Rescues make up more of {their} jobs than most people's",
+      "Has spent much of {their} working life freeing captives" },
+    bounty = { "Much of {their} work has been bounty work",
+      "Most of {their} jobs have come off the wanted posters",
+      "A good deal of {their} work has been hunting down troublemakers for the price on their heads",
+      "Bounties make up more of {their} work than anything else" },
+    dungeon = { "Much of {their} work has taken {them} underground, into places others won't go",
+      "Most of {their} jobs have been the kind that need a group and a long way down",
+      "A good share of {their} work has been done in dungeons",
+      "More of {their} jobs have led into dungeons than anywhere else" },
+    class = { "Much of {their} work has been for those who trained {them}",
+      "A good share of {their} work has been set by {their} own trainers",
+      "Much of {their} work has been the tests and errands of {their} own calling",
+      "More of {their} jobs have come from {their} own teachers than from anyone else" },
+    profession = { "Much of {their} work has been for {their} trade",
+      "A good share of {their} jobs have come from the masters of {their} craft",
+      "More of {their} work has been about {their} trade than about fighting",
+      "Much of what {they've} taken on has been to do with {their} craft" },
+    holiday = { "A surprising share of {their} work has been festival errands",
+      "Much of {their} work has come with the festivals",
+      "More of {their} jobs have been festival business than most people's",
+      "Has done a good deal of work for the festivals" },
+  },
+  -- ...and the next kind, where it was done most.
+  THOUGH = {
+    slaying = { "though {they've} also put down a fair few troublemakers in {zone}",
+      "though {zone} has seen {them} take up arms for pay more than once",
+      "though in {zone} it tended to end with something dead",
+      "though plenty of {their} jobs in {zone} came down to killing" },
+    gathering = { "though {they've} filled more than a few sacks for people in {zone}",
+      "though {zone} kept {them} busy picking things up for others",
+      "though {they've} fetched and carried plenty around {zone}",
+      "though in {zone} it was mostly collecting" },
+    delivery = { "though {they've} carried more letters across {zone} than anyone needs to",
+      "though {they've} run more errands around {zone} than {they} could count",
+      "though {zone} has seen {them} carrying parcels from door to door",
+      "though in {zone} {they} mostly carried messages" },
+    escort = { "though {they've} walked more than one traveller safely through {zone}",
+      "though in {zone} {they} kept ending up as someone's escort",
+      "though {zone} had {them} guarding travellers more than once",
+      "though {they've} seen a few people safely across {zone}" },
+    investigation = { "though {they've} done a good deal of poking about in {zone}",
+      "though in {zone} the work was mostly finding things out",
+      "though {zone} had {them} scouting more often than not",
+      "though {they've} gone to look into plenty of trouble around {zone}" },
+    rescue = { "though {they've} freed a captive or two in {zone}",
+      "though in {zone} {they} brought back people who'd been taken",
+      "though {zone} has seen {them} open a few cages",
+      "though {they've} pulled people out of trouble in {zone}" },
+    bounty = { "though {they've} collected a bounty or two in {zone}",
+      "though in {zone} {they} went after the names on the posters",
+      "though the wanted posters in {zone} kept {them} busy",
+      "though {they've} hunted down a few wanted names around {zone}" },
+    dungeon = { "though {they've} gone underground for work more than once",
+      "though now and then the work has led down into a dungeon",
+      "though a few jobs have taken {them} into the dark with a group",
+      "though some of {their} jobs have meant a dungeon and a group at {their} back" },
+    class = { "though {their} own trainers have kept {them} busy too",
+      "though {they've} made time for the tests of {their} own calling",
+      "though {their} teachers have sent {them} on more than one errand",
+      "though {they've} also done what {their} own order asked" },
+    profession = { "though {their} trade has sent {them} on a few errands of its own",
+      "though {they've} also taken on work for {their} craft",
+      "though the masters of {their} trade have had a few jobs for {them}",
+      "though some of it has been for {their} craft" },
+    holiday = { "though the festivals have had {them} running about too",
+      "though {they've} done {their} share of festival errands",
+      "though every festival seems to find a job for {them}",
+      "though {they} rarely miss{es} a festival's odd jobs" },
+  },
+  -- Escorts seen through and lost: {n} home safely, {lost} lost, the last lost in {zone}.
+  ESCORTS = {
+    done = { "Has seen {n} escorts home safely", "Has walked {n} travellers safely to where they were going",
+      "Has brought {n} people safely through on escort work", "Has seen {n} charges home without losing one",
+      "Has guarded {n} travellers on the road and got every one of them there" },
+    mixed = { "Has seen {n} escorts home safely and lost {lost} on the road out of {zone}",
+      "Has brought {n} travellers safely through, though {lost} never made it out of {zone}",
+      "Of the people {they've} escorted, {n} got where they were going; {lost} didn't make it out of {zone}",
+      "Has seen {n} escorts through and lost {lost} along the way in {zone}" },
+    lost = { "Has tried escort work, and lost {lost} on the road out of {zone}",
+      "Has yet to see an escort through; the last was lost on the road out of {zone}",
+      "Took on escort work and lost {lost} in {zone}",
+      "Has lost {lost} on escort work, the last on the road out of {zone}" },
+  },
+  -- History's news, past tense after the name.
+  EV = {
+    escort = { "saw an escort safely through {zone}", "brought a traveller safely across {zone}",
+      "walked someone safely through {zone}", "got a charge safely to the end of the road in {zone}" },
+    escort_lost = { "lost someone in {their} care on the road in {zone}", "failed to see an escort through {zone}",
+      "lost the one {they} guarded on the road through {zone}", "couldn't keep a charge alive on the road in {zone}" },
+  },
+  -- The one worked for most (History's people).
+  GIVER = { "Does a lot of work for {who}", "Has taken more jobs from {who} than from anyone else",
+    "Is often to be found doing some job or other for {who}", "Is one of the people {who} sends when something needs doing",
+    "Has done more work for {who} than for anyone" },
+  -- Personality, once the counts back them.
+  HABIT = {
+    courier = { "Takes every courier job going", "Never turns down a letter that needs carrying",
+      "Will carry a parcel anywhere for anyone", "Is quick to say yes when something needs delivering" },
+    coin = { "Prefers coin to kit when a job pays out", "Takes the reward that sells best, not the one that fits",
+      "When a job offers a choice, picks whatever fetches the best price",
+      "Would rather be paid in something to sell than something to wear" },
+    kit = { "Picks the piece {they} can use when a job offers a choice", "Takes the reward {they} can wear over the one that sells",
+      "Chooses whatever reward suits {them} best, never mind its price", "Has an eye for the reward {they} can put to use" },
+    escort = { "Doesn't mind walking at someone else's pace", "Will take on an escort when others won't",
+      "Is often the one walking beside a slow traveller", "Has a patience for escort work that most people lack" },
+    slaying = { "Goes for the jobs that need something killed", "Prefers work with a clear enemy at the end of it",
+      "Picks the job with the fight in it, given the choice", "Takes to the killing jobs more readily than the errands" },
+    gathering = { "Doesn't mind the jobs that mean filling a sack", "Will happily spend a day collecting for someone else",
+      "Takes on the gathering jobs others find tedious", "Doesn't mind picking things up one at a time for someone else" },
+    investigation = { "Volunteers for the jobs that mean poking about where others won't", "Likes the work that starts with a question",
+      "Goes looking when something's gone quiet or gone wrong", "Takes the scouting jobs first" },
+    bounty = { "Reads the wanted posters wherever {they} go{es}", "Keeps an eye on the bounty boards",
+      "Likes a job with a name and a price on it", "Is drawn to the bounty boards in every town" },
+    ["repeat"] = { "Keeps going back for the same steady work", "Turns in the same jobs again and again",
+      "Will do the same useful job as often as it's asked for", "Has a few jobs {they} come{s} back to time after time" },
+    shared = { "Is happy to take on work a companion passes along", "Takes up whatever job the group is on",
+      "Will share the work when a companion has some going", "Rarely says no to a job a companion offers" },
+  },
+  -- Lately.
+  LATELY = {
+    escort = { "Has just seen an escort through {zone}.", "Has just brought someone safely across {zone}.",
+      "Is fresh from seeing a traveller safely through {zone}.", "Has only just got a traveller safely to the end of the road in {zone}." },
+    escort_lost = { "Has just lost someone in {their} care on the road through {zone}.",
+      "Couldn't keep {their} charge alive on the road through {zone}.", "Is back from a failed escort in {zone}.",
+      "Lost the one {they} guarded on the road in {zone}, and hasn't shaken it yet." },
+    run_delivery = { "Has been running errands all over {zone}.", "Has spent the last hour carrying messages around {zone}.",
+      "Is partway through a round of deliveries in {zone}.", "Has been back and forth across {zone} with parcels and letters." },
+    run_slaying = { "Has been taking on one hunting job after another in {zone}.",
+      "Has been clearing out trouble around {zone} for whoever's paying.", "Has done {n} killing jobs in {zone} in the last hour.",
+      "Has spent the last hour thinning out what troubles {zone}." },
+    run_gathering = { "Has been filling sacks for people around {zone}.", "Has spent the last hour fetching things for folk in {zone}.",
+      "Has handed in {n} collecting jobs in {zone} in the last hour.", "Has been gathering for half of {zone}." },
+    run_investigation = { "Has been poking about {zone} for answers.", "Has spent the last hour scouting {zone}.",
+      "Has been looking into one thing after another in {zone}.", "Has been all over {zone}, finding things out." },
+    run = { "Has been taking on one job after another in {zone}.", "Has handed in {n} jobs in {zone} in the last hour.",
+      "Has spent the last hour on one job after another in {zone}.", "Has been busy with odd jobs around {zone}." },
+  },
+  RUN_TITLE = { delivery = "On the Errand Run", slaying = "Hired Help", gathering = "Fetching and Carrying",
+    investigation = "Asking Around" },
+}
+
+-- HOW THEY FIGHT 0.22.0 (Sources/Style.lua): role, style, school and habits in a fight, each
+-- said only once the counts back it.
+W.STYLE = {
+  -- The Role statistic.
+  ROLE = { healer = "Healer", tank = "Defender", melee = "Striker", ranged = "Sharpshooter", spell = "Spellcaster" },
+  -- Personality.
+  TEMPER = {
+    healer = {
+      "Fights from the back of a group, mending more than striking",
+      "In company, would sooner keep someone on {their} feet than land a blow",
+      "Watches {their} companions more closely than the foe, and heals before {they} strike{s}",
+      "Leaves the striking to others when there are others to do it, and keeps them standing",
+      "Spends a group's fights with an eye on everyone's wounds",
+    },
+    tank = {
+      "Steps in front when a group runs into trouble",
+      "Draws a foe's anger and holds it, so the others can work",
+      "Takes the blows in a group fight so that nobody else has to",
+      "Is the first one a foe turns on, and means to be",
+      "Stands at the front of a group and lets the trouble come",
+    },
+    hybrid = {
+      "Turns from mending to striking and back as a fight needs",
+      "Heals in one breath and strikes in the next",
+      "Switches between keeping others up and putting foes down",
+      "Is as ready to mend as to strike, and does both in most fights",
+    },
+    melee = {
+      "Fights up close, near enough to hear a foe breathe",
+      "Would rather close the distance than trade blows from afar",
+      "Goes in close and stays there until the fight is done",
+      "Likes a foe within arm's reach",
+      "Does {their} fighting at arm's length or nearer",
+    },
+    ranged = {
+      "Keeps {their} distance in a fight and picks foes off from afar",
+      "Prefers a foe at the far end of a long shot",
+      "Fights from range, and seldom lets anything get close",
+      "Likes plenty of open ground between {them} and a foe",
+    },
+    spell = {
+      "Fights with spells rather than steel",
+      "Settles most fights with spellwork",
+      "Trusts a spell over a strong arm",
+      "Would rather end a fight with a word of power than a swing",
+    },
+    Fire = { "Reaches for fire first", "Burns most of {their} foes", "Answers trouble with fire",
+      "Has a habit of setting {their} foes alight", "Favours fire over every other school" },
+    Frost = { "Reaches for frost first", "Slows a foe with cold before finishing it", "Leaves most of {their} foes frozen to the spot",
+      "Favours frost over every other school" },
+    Shadow = { "Reaches for shadow first", "Fights with shadow, and lets it eat at a foe", "Wears foes down with shadow",
+      "Leans on the dark arts in a fight" },
+    Holy = { "Fights with the Light as well as for it", "Turns holy fire on {their} foes",
+      "Brings the Light down on whatever stands in the way", "Strikes with holy power more than anything else" },
+    Nature = { "Calls on nature's own fury in a fight", "Fights with lightning, thorn and venom",
+      "Lets the wilds do most of {their} fighting", "Favours the powers of nature over any other" },
+    Arcane = { "Reaches for raw arcane power first", "Fights with pure arcane force", "Hurls arcane power at most of {their} foes",
+      "Favours the arcane over every other school" },
+    interrupt = { "Is quick to cut off a spellcaster mid-word", "Rarely lets an enemy caster finish a spell",
+      "Listens for a foe's chanting, and stops it", "Has a sharp ear for a spell being woven, and a sharper answer",
+      "Breaks a caster's concentration as a matter of habit" },
+    opener = { "Is usually first into a fight", "Strikes first more often than not", "Starts most of {their} group's fights",
+      "Seldom waits for anyone else to start a fight", "Tends to open the fight before the rest are ready" },
+    cc = { "Takes one foe out of a fight before dealing with the rest", "Would sooner put one foe out of action than fight two at once",
+      "Likes to thin a fight out before it starts", "Has a habit of taking the most dangerous foe out of the fight first" },
+    cleanse = { "Lifts curses and sickness from others without being asked", "Keeps watch for poisons and curses on the people around {them}",
+      "Is quick to clear an affliction from a companion", "Notices when someone nearby is ailing, and does something about it" },
+    quick = { "Ends most fights quickly", "Doesn't let a fight drag on", "Fights in short, sharp bursts",
+      "Finishes things fast once a fight starts" },
+    long = { "Wears a foe down over a long fight", "Is patient in a fight, and outlasts most foes",
+      "Lets a fight run long, and is still standing at the end", "Settles in for a long fight without fuss" },
+    often = { "Seldom goes long without a fight", "Finds a fight, or is found by one, every few minutes",
+      "Spends a good part of every hour fighting", "Rarely has a quiet hour on the road" },
+    seldom = { "Picks {their} fights sparingly", "Goes long stretches without raising a hand to anyone", "Fights only now and then",
+      "Keeps {their} fights few and far between" },
+  },
+  -- About: Physical, how they carry themselves in a fight.
+  PHYSICAL = {
+    healer = { "In a fight {they} keep{s} to the back, where {they} can see everyone",
+      "Stands a step behind {their} companions in a fight, watching more than striking",
+      "Keeps half an eye on the foe in a fight and the rest on {their} friends' wounds",
+      "Hangs back in a fight, light on {their} feet and ready to go to whoever needs {them}" },
+    tank = { "Stands square and low in a fight, hard to move", "Squares up to a foe and doesn't give ground",
+      "Fights with {their} weight forward, braced for the next blow", "Leans into a fight rather than away from it" },
+    melee = { "Moves in close in a fight, quick on {their} feet", "Fights close and low, always pressing forward",
+      "Closes on a foe fast and keeps moving", "Circles a foe in a fight, looking for an opening" },
+    ranged = { "Keeps moving in a fight, always putting ground between {them} and a foe",
+      "Fights from a distance with a steady, unhurried aim", "Holds still at range in a fight, then lets fly",
+      "Watches a fight from afar, eyes narrowed" },
+    spell = { "Stands still and intent in a fight while {they} work{s} {their} spells",
+      "Fights with {their} hands more than {their} feet, weaving one spell after another",
+      "Hangs back in a fight, lips moving", "Keeps out of reach in a fight and lets {their} spells do the work" },
+  },
+  -- History's older record: clauses after "{they've}".
+  HISTORY = {
+    healer = { "spent most of {their} fights keeping others standing", "done more mending than striking in {their} group fights",
+      "kept {their} companions on their feet through most of {their} fights",
+      "been the one holding a group together in most of its fights" },
+    tank = { "taken the blows meant for others in most of {their} group fights",
+      "stood at the front of most of the groups {they've} fought with",
+      "held the enemy's attention through most of {their} group fights",
+      "been the one the foe went for in most of {their} group fights" },
+    damage = { "done most of {their} group's striking", "been one of the hands that ends a group's fights",
+      "spent {their} group fights bringing foes down", "put most of {their} effort in a group into the killing" },
+    interrupt = { "cut off {n} spells before they were finished", "stopped {n} enemy spells mid-cast",
+      "broken off {n} enemy castings", "silenced {n} spells halfway through" },
+    cleanse = { "lifted {n} curses, poisons and sicknesses from others", "cleared {n} afflictions from the people around {them}",
+      "drawn the poison or the curse out of others {n} times", "rid {their} companions of {n} afflictions" },
+    foe = { "fought {foes} more often than anything else", "faced {foes} in more fights than any other kind of foe",
+      "spent more of {their} fights against {foes} than against anything else", "made {foes} {their} most common foe" },
+    weapons = { "trained {their} hand with {list} as far as {their} years allow",
+      "kept {their} skill with {list} as sharp as it can be for now",
+      "worked {their} skill with {list} up to the limit of {their} experience",
+      "brought {their} skill with {list} as far as it will go for now" },
+  },
+  -- The kinds of creature (UnitCreatureType), as History says them.
+  FOES = { Humanoid = "two-legged foes", Beast = "beasts", Undead = "the undead", Demon = "demons", Elemental = "elementals",
+    Dragonkin = "dragonkin", Giant = "giants", Mechanical = "machines", Aberration = "aberrations" },
+  -- The Company glance: the part they play in the group they're in now.
+  COMPANY = {
+    healer = { "the group's healer", "the one keeping them all on their feet", "doing the group's mending",
+      "the one they look to when the wounds pile up" },
+    tank = { "out in front, taking the blows", "the one standing between the group and the trouble", "the group's front line",
+      "the one the trouble goes for first" },
+    melee = { "doing the close work", "fighting at the front with the rest", "getting in close when it comes to blows",
+      "doing a share of the striking" },
+    ranged = { "covering the rest from range", "picking foes off from the back", "keeping the far foes busy",
+      "striking from a distance" },
+    spell = { "bringing the spellwork", "the one with the spells", "casting from the back of the group",
+      "doing the group's spellwork" },
+  },
+  -- Mood: why a well-played fight left them satisfied.
+  MOOD = { "cut off {n} spells in one fight", "stopped {n} casters mid-word in a single fight",
+    "broke {n} castings in one fight" },
+}
+
+---------------------------------------------------------------------------
+-- TRADES IN DEPTH 0.22.0 (Sources/Trade.lua): recipes known and learned, the finest work,
+-- specialisations, work done for others, where the gathering is done, tools carried.
+-- History lines are facts only; other players are only ever counted. {known} {item}
+-- {aspec} {spec} {n} {times} {list} {zone} {trade} are filled in; pronouns as everywhere.
+---------------------------------------------------------------------------
+W.TRADE = {
+  -- What a trade's recipes are called: "112 tailoring patterns".
+  RECIPE = {
+    Tailoring = "tailoring patterns", Leatherworking = "leatherworking patterns", Blacksmithing = "smithing plans",
+    Engineering = "engineering schematics", Alchemy = "alchemy recipes", Enchanting = "enchanting formulae",
+    Cooking = "cooking recipes", ["First Aid"] = "first aid recipes", Jewelcrafting = "jewelcrafting designs",
+    Poisons = "poison recipes", Mining = "smelting methods",
+  },
+  -- The trade as a word in a sentence ("{their} tailoring").
+  TRADE_WORD = {
+    Tailoring = "tailoring", Leatherworking = "leatherworking", Blacksmithing = "smithing", Engineering = "engineering",
+    Alchemy = "alchemy", Enchanting = "enchanting", Cooking = "cooking", ["First Aid"] = "first aid",
+    Jewelcrafting = "jewelcrafting",
+  },
+  ICON = {
+    Tailoring = "Trade_Tailoring", Leatherworking = "Trade_LeatherWorking", Blacksmithing = "Trade_BlackSmithing",
+    Engineering = "Trade_Engineering", Alchemy = "Trade_Alchemy", Enchanting = "Trade_Engraving",
+    Cooking = "INV_Misc_Food_15", ["First Aid"] = "Spell_Holy_SealOfSacrifice", Mining = "Trade_Mining",
+  },
+  -- Specialisations, by the spell the game knows (masters before their school).
+  SPECS = {
+    { id = 17039, key = "swordsmith", noun = "master swordsmith", prof = "Blacksmithing" },
+    { id = 17040, key = "hammersmith", noun = "master hammersmith", prof = "Blacksmithing" },
+    { id = 17041, key = "axesmith", noun = "master axesmith", prof = "Blacksmithing" },
+    { id = 9787, key = "weaponsmith", noun = "weaponsmith", prof = "Blacksmithing" },
+    { id = 9788, key = "armorsmith", noun = "armorsmith", prof = "Blacksmithing" },
+    { id = 20219, key = "gnomish", noun = "gnomish engineer", prof = "Engineering" },
+    { id = 20222, key = "goblin", noun = "goblin engineer", prof = "Engineering" },
+    { id = 10656, key = "dragonscale", noun = "dragonscale leatherworker", prof = "Leatherworking" },
+    { id = 10658, key = "elemental", noun = "elemental leatherworker", prof = "Leatherworking" },
+    { id = 10660, key = "tribal", noun = "tribal leatherworker", prof = "Leatherworking" },
+  },
+  -- Said after a specialisation now and then (the empty one leaves it plain).
+  SPEC_TAIL = {
+    gnomish = { ", for better or worse", "" },
+    goblin = { ", and keeps the explosives that come with it", "" },
+  },
+  -- First Aid's bandages and anti-venoms, by spell.
+  BANDAGE_IDS = {
+    [746] = true, [1159] = true, [3267] = true, [3268] = true, [7926] = true, [7927] = true, [10838] = true,
+    [10839] = true, [18608] = true, [18610] = true, [23567] = true, [23568] = true, [23569] = true, [23696] = true,
+    [24412] = true, [24413] = true, [24414] = true, [7932] = true, [7933] = true, [23786] = true,
+  },
+  -- Tools of a trade, by item; a group keeps only the best of its kind (the first listed).
+  TOOLS = {
+    { id = 2901, phrase = "a mining pick", icon = "INV_Pick_02" },
+    { id = 7005, phrase = "a skinning knife", icon = "INV_Weapon_ShortBlade_01" },
+    { id = 5956, phrase = "a blacksmith's hammer", icon = "INV_Hammer_20" },
+    { id = 10498, phrase = "a gyromatic micro-adjustor", icon = "INV_Gizmo_02", group = "wrench" },
+    { id = 6219, phrase = "an arclight spanner", icon = "INV_Misc_Wrench_01", group = "wrench" },
+    { id = 16207, phrase = "a runed arcanite rod", icon = "INV_Staff_Medivh", group = "rod" },
+    { id = 11145, phrase = "a runed truesilver rod", icon = "INV_Staff_Goldfeathered_01", group = "rod" },
+    { id = 11130, phrase = "a runed golden rod", icon = "INV_Staff_10", group = "rod" },
+    { id = 6339, phrase = "a runed silver rod", icon = "INV_Staff_01", group = "rod" },
+    { id = 6218, phrase = "a runed copper rod", icon = "INV_Misc_Flute_01", group = "rod" },
+    { id = 9149, phrase = "a philosopher's stone", icon = "INV_Misc_StoneTablet_07" },
+    { id = 5060, phrase = "a set of thieves' tools", icon = "INV_Misc_Bag_11" },
+    { id = 4471, phrase = "flint and tinder", icon = "INV_Misc_Bag_10" },
+  },
+  -- Well-known pieces whose first making is news even when they aren't rare.
+  NOTABLE = {
+    ["Arcanite Bar"] = true, ["Flask of the Titans"] = true, ["Flask of Distilled Wisdom"] = true,
+    ["Flask of Supreme Power"] = true, ["Flask of Chromatic Resistance"] = true, ["Elixir of the Mongoose"] = true,
+    ["Elixir of Giants"] = true, ["Mooncloth"] = true, ["Mooncloth Bag"] = true, ["Runecloth Bag"] = true,
+    ["Thorium Grenade"] = true, ["Dark Iron Bomb"] = true, ["Field Repair Bot 74A"] = true, ["Goblin Rocket Boots"] = true,
+    ["Gnomish Cloaking Device"] = true, ["Goblin Jumper Cables"] = true, ["Dirge's Kickin' Chimaerok Chops"] = true,
+    ["Smoked Desert Dumplings"] = true, ["Runn Tum Tuber Surprise"] = true, ["Heavy Runecloth Bandage"] = true,
+    ["Bolt of Runecloth"] = true, ["Rugged Armor Kit"] = true, ["Dense Sharpening Stone"] = true,
+    ["Elemental Sharpening Stone"] = true, ["Truesilver Bar"] = true, ["Thorium Bar"] = true,
+  },
+  -- The smell a long stretch at a trade leaves (cooking, fishing and gathering are Life's).
+  MARK = {
+    Blacksmithing = { title = "Forge Soot", icon = "Trade_BlackSmithing", text = { "Smells of the forge.",
+      "Has forge soot on {their} hands.", "Carries the heat and smell of the anvil.", "Smells of hot iron and coal smoke." } },
+    Alchemy = { title = "Alchemist's Fingers", icon = "Trade_Alchemy", text = { "Smells sharply of something just brewed.",
+      "{their} fingers are stained from the alchemy table.", "Smells of bitter herbs and boiled reagents.",
+      "Carries the sour smell of the alchemy table." } },
+    Leatherworking = { title = "Smells of Tanning", icon = "Trade_LeatherWorking", text = { "Smells of tanning salts.",
+      "Smells of fresh-worked leather.", "Has the smell of the tanning rack about {them}.", "Leather dust clings to {their} hands." } },
+    Tailoring = { title = "Loose Threads", icon = "Trade_Tailoring", text = { "Loose threads cling to {their} clothes.",
+      "Has a needle-prick or two on {their} fingers.", "Bits of cloth and thread cling to {them}.",
+      "Smells of new cloth." } },
+    Engineering = { title = "Black Powder", icon = "Trade_Engineering", text = { "Smells of black powder and machine oil.",
+      "Has grease on {their} fingers from some contraption.", "Smells of scorched metal.",
+      "Has a smudge of black powder on {their} face." } },
+    Enchanting = { title = "Arcane Dust", icon = "Trade_Engraving", text = { "A faint glitter of arcane dust clings to {their} hands.",
+      "Smells of ozone, from the enchanting.", "Arcane dust glints on {their} clothes.",
+      "Has the sheen of enchanting dust on {their} fingers." } },
+    ["First Aid"] = { title = "Smells of Salve", icon = "Spell_Holy_SealOfSacrifice", text = { "Smells of clean linen and salve.",
+      "Has bandage lint on {their} clothes.", "Smells of the salves used on bandages.", "Carries the clean smell of fresh bandages." } },
+    Mining = { title = "Smelter's Smoke", icon = "Trade_Mining", text = { "Smells of the smelter.",
+      "Smells of molten ore and smoke.", "Has smelter soot on {their} hands.", "Carries the heat of the smelter about {them}." } },
+    Jewelcrafting = { title = "Gem Dust", icon = "INV_Misc_Gem_01", text = { "Gem dust glints on {their} fingertips.",
+      "Has fine stone dust on {their} hands.", "Squints a little, after close work at the gems.", "Smells of polishing oil." } },
+    Poisons = { title = "Something Bitter", icon = "Trade_BrewPoison", text = { "Smells bitter, from mixing poisons.",
+      "Has stained fingertips, and doesn't offer to shake hands.", "Smells of something nobody should taste.",
+      "Carries a faint, bitter smell." } },
+  },
+  SAY = {
+    -- History, the longer record: what they know and the finest thing they've made.
+    know_made = { "Knows {known} and has made {item}", "Knows {known}, and {their} finest work so far is {item}",
+      "Has learned {known}, and the best of what {they've} made is {item}", "Has {known} to work from, and has made {item}",
+      "Has picked up {known}, and has turned out {item}" },
+    know = { "Knows {known}", "Has learned {known}", "Has {known} to work from", "Has picked up {known} so far",
+      "Can work from {known}" },
+    made = { "Has made {item}", "Has turned out {item}", "Counts {item} among the things {they've} made",
+      "{their} finest work so far is {item}", "Has {item} to {their} name" },
+    spec_after = { "is {aspec}", "trained as {aspec}", "is {aspec} by training", "took {their} training as {aspec}" },
+    spec = { "Is {aspec}", "Trained as {aspec}", "Is {aspec} by training", "Took {their} training as {aspec}" },
+    transmutes = { "knows {n} transmutations", "can carry out {n} transmutations", "has {n} transmutations to {their} name",
+      "has learned {n} transmutations" },
+    -- Done for other people (counted, never who): predicates after "{they've}".
+    ev_bandage = { "bandaged other people's wounds {times}", "dressed someone else's wounds {times}",
+      "put bandages on other people {times}", "patched up other people {times}" },
+    ev_enchant = { "enchanted other people's gear {times}", "put enchantments on gear for others {times}",
+      "enchanted things for other people {times}", "worked enchantments for others {times}" },
+    ev_lock = { "opened {n} locked boxes for other people", "picked the locks on {n} boxes for others",
+      "opened {n} lockboxes for whoever asked", "got {n} locked boxes open for other people" },
+    ev_meals = { "cooked {n} meals in company", "made {n} meals while in a group", "cooked {n} meals with others about",
+      "cooked {n} meals for a group" },
+    served = { "{they've} {list}", "Along the way {they've} {list}", "So far {they've} {list}", "Over time {they've} {list}",
+      "Now and then {they've} {list}" },
+    -- Where the gathering is done.
+    gather_herbs = { "Picks most of {their} herbs in {zone}", "Does most of {their} herb-picking in {zone}",
+      "Knows the herb patches of {zone} best", "Gathers {their} herbs mostly in {zone}", "Has picked more herbs in {zone} than anywhere" },
+    gather_mining = { "Does most of {their} mining in {zone}", "Knows the seams of {zone} best", "Mines mostly in {zone}",
+      "Takes most of {their} ore out of {zone}", "Has dug more ore in {zone} than anywhere" },
+    gather_skinning = { "Does most of {their} skinning in {zone}", "Takes most of {their} hides in {zone}",
+      "Has skinned more beasts in {zone} than anywhere", "Skins mostly in {zone}", "Gets most of {their} leather from {zone}" },
+    -- Personality: what the counts back.
+    habit_bandage = { "Is quick to bandage other people's wounds", "Stops to patch up whoever needs it",
+      "Has bandaged a good many people in {their} time", "Rarely lets someone else's wound go untended" },
+    habit_enchant = { "Is generous with {their} enchanting", "Enchants other people's gear when asked",
+      "Puts {their} enchanting at other people's service", "Will enchant a stranger's gear if asked" },
+    habit_lock = { "Opens locked boxes for anyone who asks", "Puts {their} lockpicks at other people's service",
+      "Is often asked to open a lockbox, and obliges", "Will pick a lock for whoever asks" },
+    habit_meals = { "Likes to cook when there's company", "Cooks for the group more often than not",
+      "Is usually the one who cooks when travelling with others", "Feeds whoever {they're} travelling with" },
+    habit_learned = { "Has learned {their} {trade} thoroughly", "Takes {their} {trade} seriously",
+      "Has put real time into {their} {trade}", "Knows {their} {trade} inside out" },
+    habit_learning = { "Keeps learning new recipes", "Is always after another recipe", "Collects recipes",
+      "Seeks out new recipes wherever {they} go{es}" },
+    -- History, the last three weeks (past-tense predicates).
+    ev_learned = { "learned to make {item}", "learned how to make {item}", "picked up the recipe for {item}",
+      "learned the making of {item}" },
+    ev_learned_spell = { "learned {item}", "picked up {item}", "learned how to do {item}", "was taught {item}" },
+    ev_learned_many = { "learned {n} new recipes, {item} the latest", "picked up {n} new recipes, the latest {item}",
+      "learned {n} new recipes, most recently {item}", "added {n} recipes to {their} trade, {item} the last" },
+    ev_first = { "made {their} first {item}", "turned out {their} first {item}", "made {item} for the first time",
+      "finished {their} first {item}" },
+    -- Lately glance
+    lately_learned = { "Learned to make {item} a short while back.", "Has only just learned to make {item}.",
+      "Learned how to make {item} within the day.", "Has a new recipe: {item}.", "Picked up the recipe for {item} today." },
+    lately_learned_spell = { "Learned {item} in the last day.", "Has only just learned {item}.", "Picked up {item} within the day.",
+      "Was taught {item} today." },
+    lately_learned_many = { "Learned {n} new recipes in the last day, {item} the latest.",
+      "Has picked up {n} new recipes today, the last of them {item}.", "Learned {n} recipes within the day, most recently {item}.",
+      "Added {n} recipes to {their} trade today, {item} the last." },
+    lately_finest = { "Made {item} lately, the finest thing {they've} made yet.", "Has just finished {item}, {their} best work so far.",
+      "Turned out {item} lately, and nothing {they've} made is finer.", "Finished {item} within the last day or two: {their} finest work." },
+    lately_first = { "Made {their} first {item} a short while back.", "Has only just made {item} for the first time.",
+      "Turned out {their} first {item} lately.", "Finished {their} first {item} within the last day or two." },
+    lately_enchant = { "Enchanted someone's gear within the hour.", "Put an enchantment on someone else's gear just now.",
+      "Did some enchanting for someone a short while ago.", "Has just enchanted something for someone." },
+    lately_lock = { "Opened a locked box for someone within the hour.", "Picked a lock for someone just now.",
+      "Got someone's lockbox open a short while ago.", "Has just opened a locked box for someone." },
+    lately_bandage = { "Bandaged someone's wounds a short while ago.", "Has just patched someone up.",
+      "Dressed someone else's wounds just now.", "Put a bandage on someone a few minutes ago." },
+    -- Marks glance: the tools carried.
+    mark_tools = { "Carries {list}.", "Has {list} close at hand.", "Keeps {list} in {their} bags.",
+      "Never goes far without {list}.", "Has {list} packed away." },
+  },
+}
+
+---------------------------------------------------------------------------
+-- THE BESTIARY (0.22.0, Sources/Bestiary.lua): what the character has fought and seen, by
+-- the game's own creature kinds (UnitCreatureType) and families (UnitCreatureFamily), for
+-- History's older record, Personality, the Lately glance and the statistics. Facts only:
+-- each line is told when the counts back it. {kind} {family} {one} {aone} {who} {what}
+-- {zone} {list} {n} {how} {times} are filled in; pronouns as everywhere else.
+---------------------------------------------------------------------------
+W.BESTIARY = {
+  -- Each kind, as prose says many of them.
+  TYPE = {
+    Beast = { "beasts", "wild beasts", "the beasts of the wilds", "animals of the wild", "creatures of fang and hoof" },
+    Humanoid = { "humanoids", "foes on two legs", "people of one kind or another", "armed foes who walk upright" },
+    Undead = { "the undead", "the walking dead", "the risen dead", "the restless dead" },
+    Demon = { "demons", "demonkind", "fel creatures", "things out of the Twisting Nether" },
+    Elemental = { "elementals", "elemental spirits", "living stone, flame and storm", "creatures of the raw elements" },
+    Dragonkin = { "dragonkin", "dragons and their kin", "the brood of the dragonflights", "creatures of dragon blood" },
+    Giant = { "giants", "giants and their kind", "towering giants", "the great giants of the wilds" },
+    Mechanical = { "machines", "clockwork and constructs", "mechanical constructs", "contraptions of gears and steam" },
+    Critter = { "small creatures", "critters", "harmless little creatures", "rabbits, rats and the like" },
+  },
+  -- One of each kind ("the first demon to fall to them").
+  ONE = { Beast = "beast", Humanoid = "humanoid foe", Undead = "undead creature", Demon = "demon", Elemental = "elemental",
+    Dragonkin = "dragon", Giant = "giant", Mechanical = "machine", Critter = "critter" },
+  -- The kinds, as the statistics count them.
+  PLAIN = { Beast = "beasts", Humanoid = "humanoids", Undead = "undead", Demon = "demons", Elemental = "elementals",
+    Dragonkin = "dragonkin", Giant = "giants", Mechanical = "machines", Critter = "critters" },
+  -- Kinds whose first kill is worth a line of History.
+  FIRST_TOLD = { Demon = true, Dragonkin = true, Giant = true, Undead = true, Elemental = true },
+  -- How strong the game calls a creature, for prose ("a rare elite") and the statistics.
+  CLASS = { elite = "elite", rareelite = "rare elite", rare = "rare", worldboss = "world boss" },
+  -- Each family, as prose says many of them.
+  FAMILY = {
+    Wolf = { "wolves", "wolf packs", "prowling wolves", "the wolves of the wilds" },
+    Cat = { "big cats", "the great cats", "lions, tigers and their like", "prowling cats" },
+    Spider = { "spiders", "great spiders", "web-spinners", "the spiders of the deep woods" },
+    Bear = { "bears", "great bears", "bears of the hills and forests", "shaggy bears" },
+    Boar = { "boars", "wild boars", "tusked boars", "the boars of the scrublands" },
+    Crocolisk = { "crocolisks", "river crocolisks", "the crocolisks of the shallows", "snapping crocolisks" },
+    ["Carrion Bird"] = { "carrion birds", "vultures and buzzards", "the birds that circle the dead", "scavenging birds" },
+    Crab = { "crabs", "shore crabs", "the crabs of the coast", "armoured crabs" },
+    Gorilla = { "gorillas", "great apes", "jungle gorillas", "the gorillas of the jungle" },
+    Raptor = { "raptors", "the raptor packs", "sickle-clawed raptors", "the raptors of the plains" },
+    Tallstrider = { "tallstriders", "long-legged striders", "the striders of the plains", "plainstriders" },
+    Scorpid = { "scorpids", "desert scorpids", "stinging scorpids", "the scorpids of the dry lands" },
+    Turtle = { "turtles", "snapping turtles", "shelled turtles", "the great turtles of the shore" },
+    Bat = { "bats", "cave bats", "the bats of the caves", "leathery-winged bats" },
+    Hyena = { "hyenas", "laughing hyenas", "the hyena packs", "scavenging hyenas" },
+    Owl = { "owls", "great owls", "night owls", "the owls of the old forests" },
+    ["Wind Serpent"] = { "wind serpents", "winged serpents", "the serpents of the high winds", "crackling wind serpents" },
+    Felhunter = { "felhunters", "fel hounds", "the Legion's hunting hounds", "magic-eating felhunters" },
+    Imp = { "imps", "fel imps", "cackling imps", "the Legion's little fire-starters" },
+    Voidwalker = { "voidwalkers", "creatures of the void", "hulking voidwalkers", "things of living shadow" },
+    Succubus = { "succubi", "the Legion's temptresses", "whip-wielding succubi", "the succubi of the Legion" },
+    Infernal = { "infernals", "burning infernals", "fallen infernals", "the Legion's living siege stones" },
+    Doomguard = { "doomguards", "the Legion's doomguard", "winged doomguards", "the Legion's great warriors" },
+  },
+  -- Notable people and creatures met (targeted) by name: leaders and figures of the world
+  -- ("leader"), or a creature with a name to it ("foe"). A leader met goes into History;
+  -- a foe only counts when it is brought down.
+  NOTABLE = {
+    ["Highlord Bolvar Fordragon"] = "leader", ["Lady Katrana Prestor"] = "leader", ["Anduin Wrynn"] = "leader",
+    ["King Magni Bronzebeard"] = "leader", ["High Tinker Mekkatorque"] = "leader", ["Tyrande Whisperwind"] = "leader",
+    ["Fandral Staghelm"] = "leader", ["Lady Jaina Proudmoore"] = "leader", ["Thrall"] = "leader",
+    ["Cairne Bloodhoof"] = "leader", ["Lady Sylvanas Windrunner"] = "leader", ["Vol'jin"] = "leader",
+    ["Varimathras"] = "leader", ["Eitrigg"] = "leader", ["Rexxar"] = "leader", ["Tirion Fordring"] = "leader",
+    ["Archbishop Benedictus"] = "leader",
+    ["Hogger"] = "foe", ["Princess"] = "foe", ["Mor'Ladim"] = "foe", ["Stitches"] = "foe", ["Gath'Ilzogg"] = "foe",
+    ["Bellygrub"] = "foe", ["Mother Fang"] = "foe", ["Old Murk-Eye"] = "foe", ["Mazzranache"] = "foe",
+    ["Gazz'uz"] = "foe", ["Sarkoth"] = "foe", ["Azuregos"] = "foe", ["Lord Kazzak"] = "foe", ["Ysondre"] = "foe",
+    ["Lethon"] = "foe", ["Emeriss"] = "foe", ["Taerar"] = "foe", ["Rak'shiri"] = "foe", ["Fenros"] = "foe",
+    ["Morgaine the Sly"] = "foe",
+  },
+}
+
+for k, v in pairs({
+  -- History, the older record: what they've fought.
+  bst_lead = { "Has fought mostly {list} so far", "Most of {their} fights so far have been with {list}",
+    "Has spent most of {their} fights on {list}", "Has mostly taken on {list} so far" },
+  bst_lately = { "{kind} in {zone} since", "lately, {kind} in {zone}", "with {kind} in {zone} taking over of late",
+    "{kind} in {zone} more often of late" },
+  bst_family = { "{family} more than any", "{family} above all", "most of all {family}", "{family} most often" },
+  bst_greatest = { "The greatest thing {they've} brought down is {who}{how}", "{their} greatest kill so far is {who}{how}",
+    "The hardest foe {they've} put down is {who}{how}", "Of everything {they've} felled, {who} stands out{how}" },
+  bst_again = { "; {they've} done it {times}", ", and not just the once: {times} in all" },
+  bst_first = { "{their} first {one} was {who}, in {zone}", "The first {one} to fall to {them} was {who}, in {zone}",
+    "{they} brought down {their} first {one}, {who}, in {zone}", "{their} first {one} fell in {zone}: {who}" },
+  bst_leaders = { "Has stood before {list}", "Has been in the presence of {list}", "Has seen {list} in person",
+    "Has come face to face with {list}" },
+  bst_worldboss = { "Has laid eyes on {list}, out in the open", "Has seen {list} in the open world",
+    "Has seen {list} up close", "Has seen {list} with {their} own eyes" },
+  bst_named = { "Has put an end to {list}", "Counts {list} among {their} kills", "Has brought down {list}, among others",
+    "Has seen the end of {list}" },
+  -- Personality, from the counts.
+  bst_left = { "Has let more than one rare creature go by without a fight", "Tends to leave rare quarry be",
+    "Has walked away from several rare creatures rather than take them on", "Lets rare creatures pass more often than not" },
+  bst_hunts = { "Goes after rare quarry whenever it turns up", "Has a habit of chasing down rare creatures",
+    "Is quick to go after anything rare", "Rarely lets a rare creature get away" },
+  bst_bigger = { "Picks fights with things bigger than {them}, and has won a fair few", "Takes on elites more readily than most",
+    "Has a habit of taking on foes stronger than {them}", "Doesn't shy from an elite, and has the kills to show for it" },
+  -- Lately glance.
+  lately_rare_left = { "Saw a rare {what} in {zone} and left it be.", "Came across a rare {what} in {zone}, and let it go.",
+    "Spotted a rare {what} in {zone}, and chose not to start anything.", "Crossed paths with a rare {what} in {zone} and walked on." },
+  lately_worldboss = { "Saw {who} in {zone}, out in the open.", "Has lately laid eyes on {who}, in {zone}.",
+    "Came near enough to {who} in {zone} to see it plainly.", "Saw {who} with {their} own eyes in {zone}." },
+  lately_first = { "Brought down {their} first {one} in {zone}: {who}.", "Put down {aone} for the first time, in {zone}.",
+    "Felled {aone} in {zone}, {their} first.", "Has just brought down {their} first {one}, in {zone}." },
+  lately_greatest = { "Brought down {who} in {zone}, the greatest kill of {their} road so far.",
+    "Has just put down {who} in {zone}, the strongest foe {they've} beaten.",
+    "Felled {who} in {zone}, and nothing {they've} beaten before compares.",
+    "Came out of {zone} having felled {who}, {their} hardest kill yet." },
+  lately_leader = { "Stood before {who} in {zone} lately.", "Was lately in {zone}, in the presence of {who}.",
+    "Has lately seen {who} in person, in {zone}.", "Met {who} in {zone} within the last day." },
+  lately_dragon = { "Saw a dragon for the first time lately, in {zone}.", "Has lately set eyes on dragonkin for the first time, in {zone}.",
+    "Met {their} first dragon in {zone}.", "Saw a dragon in {zone}, the first {they've} seen." },
+}) do W.SAY[k] = v end
+
+-- Personality from the bestiary: a kind hunted far more than any other, and a kind that has
+-- killed them often.
+W.BESTIARY.FOE = {
+  Undead = { "Has no patience for the walking dead, and has put down a great many", "Is a sworn enemy of the undead, by the count of them {they've} put down",
+    "Has put more of the undead back in the ground than most" },
+  Demon = { "Has hunted demons far more than anything else", "Is an enemy of demonkind, by the count of them {they've} killed",
+    "Has killed more demons than most will ever see" },
+  Humanoid = { "Has fought far more people than beasts", "Has spent most of {their} fights on foes who could fight back with a blade",
+    "Has made foes on two legs {their} usual quarry" },
+  Beast = { "Has spent most of {their} fights among the beasts of the wilds", "Knows the beasts of the wilds better than most, from fighting them",
+    "Has hunted the wilds far more than anything else" },
+  Elemental = { "Has fought more elementals than most will ever meet", "Has spent a great many fights against living stone and flame",
+    "Has a long count of elementals behind {them}" },
+  Dragonkin = { "Has fought more dragonkin than most will ever see", "Has a long count of dragonkin behind {them}",
+    "Has made dragonkin {their} quarry more than anything else" },
+  Giant = { "Has felled more giants than most would dare face", "Has a long count of giants behind {them}",
+    "Has made a habit of bringing down giants" },
+  Mechanical = { "Has broken a great many machines", "Has taken apart more constructs than most", "Has a long count of machines behind {them}" },
+}
+W.BESTIARY.WARY = {
+  Undead = { "Is warier of the undead than of most things, having died to them {times}", "Has died to the undead {times}, and keeps a closer watch for them now" },
+  Demon = { "Is uneasy around demons, having died to them {times}", "Has died to demons {times}, and keeps well clear of them now" },
+  Humanoid = { "Is wary of armed strangers, having died to them {times}", "Has died to foes on two legs {times}, and watches them closely now" },
+  Beast = { "Watches the undergrowth closely, having died to beasts {times}", "Has died to the beasts of the wilds {times}, and is warier of them for it" },
+  Elemental = { "Is wary of elementals, having died to them {times}", "Has died to elementals {times}, and keeps clear of them now" },
+  Dragonkin = { "Is wary of dragonkin, having died to them {times}", "Has died to dragonkin {times}, and gives them room" },
+  Giant = { "Is wary of giants, having died under them {times}", "Has died to giants {times}, and gives them room" },
+  Mechanical = { "Is wary of machines, having died to them {times}", "Has died to machines {times}, and trusts none of them" },
+}

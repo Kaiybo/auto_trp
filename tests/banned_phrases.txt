@@ -166,3 +166,6 @@ before any of this
 steady, patient
 patient bearing | max 1
 as {list} instead
+
+# Fame, from the reputation hearsay (0.22.0)
+famed
