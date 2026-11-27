@@ -78,11 +78,18 @@ GetZonePVPInfo = function() return "friendly" end
 UnitExists = function() return false end
 state.buffs = { "Power Word: Fortitude", "Divine Spirit", "Mark of the Wild", "Arcane Intellect" }
 UnitBuff = function(_, i) return state.buffs[i] end
-UnitDebuff = function() return nil end
+state.debuffs = {}
+UnitDebuff = function(_, i) local d = state.debuffs[i]; if d then return d[1], "", 1, d[2] end end
 local GEAR = { [5] = { "Robe of the Moccasin", 2, "Cloth" }, [16] = { "Staff of Westfall", 3, "Staves" },
   [19] = { "Stormwind Tabard", 1, "Miscellaneous" }, [1] = { "Crown of the Lost", 4, "Cloth" } }
-GetInventoryItemLink = function(_, slot) return GEAR[slot] and ("item:" .. slot) end
-GetItemInfo = function(link) local g = GEAR[tonumber(link:match("%d+"))]; if g then return g[1], link, g[2], 20, 1, "Armor", g[3] end end
+-- A piece: { name, quality, subType, ilvl, equipLoc, setID, enchantID }
+GetInventoryItemLink = function(_, slot) local g = GEAR[slot]; return g and ("item:" .. slot .. ":" .. (g[7] or 0)) end
+GetItemInfo = function(link)
+  local g = GEAR[tonumber(link:match("%d+"))]
+  if g then return g[1], link, g[2], g[4] or 20, 1, "Armor", g[3], 1, g[5], nil, 0, 0, 0, 0, 0, g[6] end
+end
+local SETS = { [81] = "Battlegear of Valor", [82] = "Defias Leather" }
+GetItemSetInfo = function(id) return SETS[id] end
 GetInventoryItemDurability = function() return 40, 50 end
 date = function(fmt, t) return os.date(fmt, t or NOW) end
 GetNumFactions = function() return 3 end
@@ -966,6 +973,18 @@ do
   for _, l in pairs(W.RACE_LOOK) do add(l) end
   for _, l in pairs(W.CLASS_LOOK) do add(l) end
   for _, l in pairs(W.PHYSIQUE) do add(l) end
+  -- About: Physical's own looks: race bearing, stance, health, auras, drink, sickness
+  for _, l in pairs(W.RACE_BEARING) do add(l) end
+  for _, t in pairs(W.PHYS_STANCE) do for _, l in pairs(t) do add(l) end end
+  for _, b in ipairs(W.PHYS_HEALTH) do add(b.text) end
+  for _, b in ipairs(W.PHYS_DRUNK) do add(b.text) end
+  for _, a in pairs(W.PHYS_AILMENT) do add(a.text) end
+  for _, a in ipairs(W.AURA_LOOK) do add(a.text) end
+  for _, l in pairs(W.PHYS_QUALITY) do add(l) end
+  for _, l in pairs(W.PHYS_FIT) do add(l) end
+  for _, l in pairs(W.PHYS_ARMOUR) do add(l) end
+  for _, k in ipairs({ "PHYS_RESTED", "PHYS_UNRESTED", "PHYS_UNHURT", "PHYS_RESSICK", "PHYS_STEALTH", "PHYS_GHOST",
+    "PHYS_FORM", "PHYS_MOUNT", "PHYS_ARMOUR_MIX", "PHYS_ARMOUR_LIGHT" }) do add(W[k]) end
   -- Personality lines are dispositions: they name nothing a character holds either.
   for _, l in pairs(W.CLASS_TEMPER) do add(l) end
   for _, l in pairs(W.RACE_TEMPER) do add(l) end
@@ -1019,6 +1038,161 @@ do
   g.durability = 1
   check(ns.Compose.Wear(ns.cache.world).text:find("well kept"), "whole gear is well kept")
   g.durability, g.worstName = d, w
+end
+
+-- About: Physical and the Marks glance, from the live game alone: armour by type, weapons by
+-- how they're carried, matched sets, enchantments, jewellery, auras, drink, shapes, health.
+do
+  local C = ns.Compose
+  local keepGear, keepBuffs = {}, state.buffs
+  for k, v in pairs(GEAR) do keepGear[k] = v end
+  local keepClass, keepLevel, keepHealth, keepStat = UnitClass, UnitLevel, UnitHealth, UnitStat
+  local keepAddons = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  C.SourcesChanged()
+  local function wear(pieces, class, level)
+    for k in pairs(GEAR) do GEAR[k] = nil end
+    for k, v in pairs(pieces) do GEAR[k] = v end
+    UnitClass = function() return class, class end
+    UnitLevel = function() return level end
+    ns.World.Invalidate(); C.Refresh()
+    return C.Physical(), C.MarksGlance()
+  end
+  local plain = function(s) return (s:gsub("{col:%x+}", ""):gsub("{/col}", "")) end
+
+  -- A warrior in plate, with a great axe, a matched set and an enchanted weapon
+  state.buffs = {}
+  UnitStat = function(_, i) return 0, ({ 120, 60, 90, 20, 30 })[i] end
+  local ph, mk = wear({
+    [1] = { "Helm of Valor", 3, "Plate", 58, "INVTYPE_HEAD", 81 },
+    [3] = { "Spaulders of Valor", 3, "Plate", 58, "INVTYPE_SHOULDER", 81 },
+    [5] = { "Breastplate of Valor", 3, "Plate", 58, "INVTYPE_CHEST", 81 },
+    [7] = { "Legplates of Valor", 3, "Plate", 58, "INVTYPE_LEGS", 81 },
+    [10] = { "Gauntlets of Valor", 3, "Plate", 58, "INVTYPE_HAND", 81 },
+    [8] = { "Sabatons of Valor", 3, "Plate", 58, "INVTYPE_FEET", 81 },
+    [6] = { "Ironbark Belt", 2, "Mail", 52, "INVTYPE_WAIST" },
+    [16] = { "Arcanite Reaper", 3, "Two-Handed Axes", 63, "INVTYPE_2HWEAPON", nil, 1900 },
+    [11] = { "Band of Accuria", 4, "Miscellaneous", 78, "INVTYPE_FINGER" },
+    [15] = { "Cape of the Black Baron", 3, "Cloth", 63, "INVTYPE_CLOAK" },
+  }, "WARRIOR", 58)
+  print("\nPhysical (warrior, plate):\n" .. ph .. "\nMarks: " .. mk.TI .. ": " .. mk.TX)
+  local txt = plain(ph)
+  check(select(2, ph:gsub("\n\n", "")) == 2, "Physical is three paragraphs")
+  check(txt:find("plate"), "armour by type: plate")
+  check(txt:find("Arcanite Reaper, a great axe") , "a two-hander by name and kind: " .. txt)
+  check(txt:find("Battlegear of Valor") and txt:lower():find("six"), "matched set by name and count")
+  check(txt:find("Reaper[^.]*%. [^.]*enchant"), "an enchanted weapon, told after it")
+  check(txt:find("Band of Accuria"), "an epic ring is told")
+  check(txt:find("Cape of the Black Baron"), "the cloak is told")
+  check(not txt:find("Ironbark Belt"), "an ordinary belt isn't")
+  check(txt:find("broad%-shouldered") or txt:find("heavy with muscle") or txt:find("powerfully built") or txt:find("brawny"), "build from live stats with no addons")
+  check(mk.TI == "Matched Set" and mk.TX:find("Battlegear of Valor"), "a matched set is the mark: " .. mk.TI)
+
+  -- A rogue in leather with two daggers; and the same in a mix of leather and mail
+  ph, mk = wear({
+    [5] = { "Cutthroat's Vest", 2, "Leather", 30 }, [7] = { "Cutthroat's Pants", 2, "Leather", 30 },
+    [8] = { "Cutthroat's Boots", 2, "Leather", 30 }, [10] = { "Cutthroat's Gloves", 2, "Leather", 30 },
+    [16] = { "Assassin's Blade", 3, "Daggers", 30, "INVTYPE_WEAPON" }, [17] = { "Kris of Orgrimmar", 2, "Daggers", 30, "INVTYPE_WEAPON" },
+  }, "ROGUE", 30)
+  txt = plain(ph)
+  check(txt:find("leather"), "armour by type: leather")
+  check(txt:find("Assassin's Blade and Kris of Orgrimmar"), "dual wield names both: " .. txt)
+  check(mk.TI == "Two Weapons", "two weapons are the mark: " .. mk.TI)
+  ph = wear({
+    [5] = { "Cutthroat's Vest", 2, "Leather", 30 }, [7] = { "Chainmail Pants", 2, "Mail", 30 },
+    [8] = { "Chainmail Boots", 2, "Mail", 30 }, [10] = { "Cutthroat's Gloves", 2, "Leather", 30 },
+  }, "ROGUE", 30)
+  check(plain(ph):find("mix of leather and mail") or plain(ph):find("patchwork of leather and mail"), "mixed armour is told as a mix")
+  check(plain(ph):find("Carries no weapon") or plain(ph):find("Goes unarmed"), "no weapon, unarmed")
+
+  -- A paladin with a sword and shield; a hunter with a bow; a mage with a wand and an off-hand
+  ph = wear({ [5] = { "Ornate Breastplate", 2, "Mail", 30 }, [16] = { "Sword of Serenity", 3, "One-Handed Swords", 30, "INVTYPE_WEAPON" },
+    [17] = { "Aegis of Stormwind", 3, "Shields", 30, "INVTYPE_SHIELD" } }, "PALADIN", 30)
+  check(plain(ph):find("Aegis of Stormwind") and plain(ph):find("Sword of Serenity"), "sword and shield: " .. plain(ph))
+  ph = wear({ [5] = { "Scaled Vest", 2, "Mail", 40 }, [18] = { "Ironwood Longbow", 3, "Bows", 40, "INVTYPE_RANGED" } }, "HUNTER", 40)
+  check(plain(ph):find("Ironwood Longbow, a bow"), "a bow by name: " .. plain(ph))
+  ph = wear({ [5] = { "Robe of Power", 3, "Cloth", 40 }, [16] = { "Dagger of Wisdom", 2, "Daggers", 40, "INVTYPE_WEAPON" },
+    [17] = { "Tome of Knowledge", 2, "Miscellaneous", 40, "INVTYPE_HOLDABLE" }, [18] = { "Wand of Fire", 2, "Wands", 40, "INVTYPE_RANGEDRIGHT" } }, "MAGE", 40)
+  check(plain(ph):find("Tome of Knowledge held in the other hand") or plain(ph):find("Tome of Knowledge in the other hand"), "an off-hand held: " .. plain(ph))
+  check(plain(ph):find("Wand of Fire, a wand"), "a wand by name")
+  -- Gear long outgrown
+  ph = wear({ [5] = { "Old Robe", 2, "Cloth", 15 }, [7] = { "Old Pants", 2, "Cloth", 15 }, [8] = { "Old Boots", 2, "Cloth", 15 },
+    [10] = { "Old Gloves", 2, "Cloth", 15 } }, "MAGE", 40)
+  check(plain(ph):find("outgrown") or plain(ph):find("could do better"), "outgrown gear is told")
+  -- A plate class in cloth at fifty
+  ph = wear({ [5] = { "Old Robe", 2, "Cloth", 50 }, [7] = { "Old Pants", 2, "Cloth", 50 }, [8] = { "Old Boots", 2, "Cloth", 50 } }, "WARRIOR", 50)
+  check(plain(ph):find("calling would choose") or plain(ph):find("for one of"), "light armour for the class")
+
+  -- Auras: a spell on them is the mark; sickness and drink outrank it; wounds outrank all
+  wear({ [5] = { "Robe of Power", 3, "Cloth", 40 } }, "PRIEST", 40)
+  state.buffs = { "Power Word: Fortitude", "Inner Fire" }
+  C.Refresh()
+  ph, mk = C.Physical(), C.MarksGlance()
+  check(mk.TI == "Inner Fire" and ph:find("holy fire"), "Inner Fire shows: " .. mk.TI)
+  check(not ph:find("Mark of the Wild"), "a blessing that isn't on them isn't told")
+  state.buffs = { "Lightning Shield" }; C.Refresh()
+  check(C.MarksGlance().TI == "Crackling", "Lightning Shield shows")
+  state.buffs = { "Demon Armor" }; C.Refresh()
+  check(C.MarksGlance().TI == "Fel-Warded", "Demon Armor shows")
+  state.buffs = { "Frost Armor" }; C.Refresh()
+  check(C.MarksGlance().TI == "Rimed in Frost", "Frost Armor shows")
+  state.buffs = { "Greater Blessing of Kings" }; C.Refresh()
+  check(C.Physical():find("paladin's blessing"), "a blessing by its prefix")
+  state.buffs = { "Inner Fire" }
+  state.debuffs = { { "Plague", "Disease" } }; C.Refresh()
+  check(C.MarksGlance().TI == "Sickly" and C.Physical():find("disease"), "a disease outranks a spell: " .. C.MarksGlance().TI)
+  state.debuffs = { { "Venom Sting", "Poison" } }; C.Refresh()
+  check(C.MarksGlance().TI == "Poisoned", "a poison shows")
+  state.debuffs = { { "Curse of Weakness", "Curse" } }; C.Refresh()
+  check(C.MarksGlance().TI == "Cursed", "a curse shows")
+  state.debuffs = {}
+  DRUNK_MESSAGE_SELF1, DRUNK_MESSAGE_SELF3 = "You feel sober again.", "You feel drunk."
+  event("CHAT_MSG_SYSTEM", "You feel drunk.")
+  C.Refresh()
+  check(C.MarksGlance().TI == "Smells of Ale", "drink from the game's own line, no RPG Dialogue: " .. C.MarksGlance().TI)
+  event("CHAT_MSG_SYSTEM", "You feel sober again.")
+  C.Refresh()
+  check(C.MarksGlance().TI == "Inner Fire", "sober again")
+  UnitHealth = function() return 20 end
+  C.Refresh()
+  check(C.MarksGlance().TI == "Badly Hurt" and (C.Physical():find("Badly hurt") or C.Physical():find("Hurt badly")), "badly hurt outranks everything")
+  UnitHealth = keepHealth
+  state.buffs = { "Bear Form" }; C.Refresh()
+  check(C.MarksGlance().TI == "Bear-Shaped" and C.Physical():find("great bear"), "a druid's shape shows")
+  state.buffs = { "Well Fed" }; C.Refresh()
+  check(C.Physical():find("eaten well") or C.Physical():find("Well fed"), "Well Fed shows")
+  state.buffs = {}; C.Refresh()
+  ph = C.Physical()
+  check(select(2, ph:gsub("\n\n", "")) == 2, "three paragraphs with nothing on them")
+  -- Not a catalogue: no two sentences in a row open the same way ("Wears X. Wears Y.")
+  local repeats = {}
+  for _, pieces in ipairs({
+    { [1] = { "Helm of Valor", 3, "Plate", 58 }, [3] = { "Spaulders of Valor", 3, "Plate", 58 }, [5] = { "Breastplate of Valor", 3, "Plate", 58 },
+      [15] = { "Cape", 2, "Cloth", 50 }, [19] = { "Tabard", 1, "Miscellaneous" }, [16] = { "Axe", 3, "One-Handed Axes", 50 },
+      [17] = { "Shield", 3, "Shields", 50 }, [18] = { "Bow", 2, "Bows", 50 }, [11] = { "Ring", 4, "Miscellaneous" }, [2] = { "Neck", 4, "Miscellaneous" } },
+  }) do
+    for _, class in ipairs({ "WARRIOR", "PALADIN", "HUNTER" }) do
+      local text = plain(wear(pieces, class, 50))
+      local last
+      for first in text:gmatch("([%a']+)[^.]*%.%s*") do
+        if first == last then repeats[#repeats + 1] = class .. ": " .. first end
+        last = first
+      end
+    end
+  end
+  check(#repeats == 0, "Physical sentences don't open alike back to back: " .. table.concat(repeats, ", "))
+
+  -- Everything named is really worn: no item from the list above survives a change of gear
+  ph = wear({ [5] = { "Robe of Power", 3, "Cloth", 40 } }, "MAGE", 40)
+  check(not ph:find("Reaper") and not ph:find("Valor") and not ph:find("Longbow"), "only what is worn now is named")
+
+  for k in pairs(GEAR) do GEAR[k] = nil end
+  for k, v in pairs(keepGear) do GEAR[k] = v end
+  state.buffs, state.debuffs = keepBuffs, {}
+  UnitClass, UnitLevel, UnitHealth, UnitStat = keepClass, keepLevel, keepHealth, keepStat
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keepAddons[1], keepAddons[2], keepAddons[3]
+  C.SourcesChanged()
+  ns.World.Invalidate(); C.Refresh()
 end
 
 -- A coin pouch only when they carry coin.
