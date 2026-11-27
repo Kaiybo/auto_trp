@@ -277,6 +277,8 @@ function Compose.LatelyGlance()
       return { TI = "Lately", IC = "INV_Letter_15", TX = say("lastseen", { who = last.name }, last.last) }
     end
   end
+  local journal = ns.Journal and ns.Journal.LatelyGlance()   -- the latest journal entry (Journal.lua)
+  if journal then return journal end
   local where = world.zone and U.Mid(world.zone) or "these parts"
   return { TI = "Lately", IC = "INV_Misc_Map_01", TX = say("around", { where = where }, world.zone) }
 end
@@ -298,11 +300,11 @@ function Compose.CompanyGlance()
     local f = sd.friends[1]
     local tx
     if f.relationship then
-      tx = "Often seen with " .. f.name .. ", " .. U.Pron("{their} ") .. f.relationship:lower() .. "."
+      tx = U.Pron(say("seenwith_rel", { who = f.name, rel = f.relationship:lower() }, f.name))
     else
       local names = {}
       for i = 1, math.min(2, #sd.friends) do names[i] = sd.friends[i].name end
-      tx = "Often seen in the company of " .. U.Join(names) .. "."
+      tx = say("seenwith", { list = U.Join(names) }, names[1])
     end
     return { TI = "Keeps Company", IC = "Spell_Holy_PrayerOfSpirit", TX = tx }
   end
@@ -310,11 +312,11 @@ function Compose.CompanyGlance()
   local friend = rpgd and rpgd.friends[1]
   if town and town.value >= 10 then
     local tx = U.Cap((ns.Sources.RPGD.Tier(town.value).phrase:gsub("{town}", town.name)))
-    if friend then tx = tx .. ", and gets on well with " .. friend.name end
+    if friend then tx = tx .. ", and " .. say("getson", { who = friend.name }, friend.name) end
     return { TI = "Local Ties", IC = "INV_Misc_Bag_11", TX = tx .. "." }
   end
   if friend then
-    return { TI = "Local Ties", IC = "INV_Misc_Bag_11", TX = "Gets on well with " .. friend.name .. "." }
+    return { TI = "Local Ties", IC = "INV_Misc_Bag_11", TX = U.Cap(say("getson", { who = friend.name }, friend.name)) .. "." }
   end
   if world.pet and (world.class == "HUNTER" or world.class == "WARLOCK") then
     local mood = world.petHappy and W.PET_HAPPY[world.petHappy]
@@ -428,16 +430,16 @@ function Compose.MarksGlance()
   local marks = {}
   local function mark(prio, title, text, icon) marks[#marks + 1] = { prio = prio, TI = title, TX = U.Cap(U.Pron(text)), IC = icon } end
   if world.health and world.health < 0.5 and not world.combat and not world.dead then
-    mark(9, "Bloodied", "Freshly wounded, and moving carefully.", "Ability_Rogue_FeignDeath")
+    mark(9, "Bloodied", say("mark_wounded", nil, world.zone), "Ability_Rogue_FeignDeath")
   end
   if rpgd and (rpgd.drunk or 0) > 0 and U.Now() - (rpgd.drunkAt or 0) < 1800 then
-    mark(8, "Smells of Ale", "Unsteady on {their} feet, and smelling of drink.", "INV_Drink_05")
+    mark(8, "Smells of Ale", say("mark_drunk", nil, rpgd.drunkAt), "INV_Drink_05")
   end
   if rpgd and (rpgd.insanity or 0) >= 30 then
-    mark(7, "Haunted Eyes", "{their} eyes never settle on anything for long.", "Spell_Shadow_Possession")
+    mark(7, "Haunted Eyes", say("mark_mad"), "Spell_Shadow_Possession")
   end
   if rpgd and (rpgd.align.taint or 0) >= 30 then
-    mark(6, "Something Wrong", "Something about {them} is off, in a way that's hard to name.", "Spell_Shadow_ShadowWordPain")
+    mark(6, "Something Wrong", say("mark_taint"), "Spell_Shadow_ShadowWordPain")
   end
   local g = world.gear or {}
   local wear = Compose.Wear(world)
@@ -529,9 +531,20 @@ local function prose(s)
 end
 
 -- A paragraph from sentences; empty ones are skipped.
+-- Two sentences in a row that open on a bare "Has" (or "Is") read like a list; the second
+-- gets its pronoun back ("Has risen to Templar. He has done good work for Stormwind.").
 local function paragraph(list)
   local out = {}
-  for _, s in ipairs(list) do if s and s ~= "" then out[#out + 1] = sentence(s) end end
+  local last
+  for _, s in ipairs(list) do
+    if s and s ~= "" then
+      local w = s:match("^(%a+) ")
+      if w == last and w == "Has" then s = "{they} {have} " .. s:sub(5); w = nil
+      elseif w == last and w == "Is" then s = "{they} {are} " .. s:sub(4); w = nil end
+      last = w
+      out[#out + 1] = sentence(s)
+    end
+  end
   if #out == 0 then return nil end
   return prose(table.concat(out, " "))
 end
@@ -613,6 +626,37 @@ function Compose.FavouriteSpell()
   return say("favspell", { spell = top.name, noun = noun }, top.name)
 end
 
+-- The first word of a line, to keep a paragraph from starting every sentence the same way.
+local function opener(line)
+  return (type(line) == "string" and line:match("^%s*([%w{}']+)") or ""):lower()
+end
+
+-- A line from the pool (picked by seed) that isn't already said and doesn't open with a
+-- word already used; the word is then marked used. Any unused line if none opens freshly.
+local function freshLine(pool, s, used)
+  if type(pool) ~= "table" or #pool == 0 then return nil end
+  local start = U.Hash(s)
+  local fallback
+  for k = 0, #pool - 1 do
+    local line = pool[(start + k) % #pool + 1]
+    if not used[line] then
+      if not used[opener(line)] then
+        used[line], used[opener(line)] = true, true
+        return line
+      end
+      fallback = fallback or line
+    end
+  end
+  if fallback then used[fallback] = true end
+  return fallback
+end
+
+-- How this race and class carry themselves together (nil for a pair the lore doesn't have).
+function Compose.RaceClassTemper(world)
+  local byRace = W.RACE_CLASS_TEMPER and W.RACE_CLASS_TEMPER[world.race or ""]
+  return byRace and byRace[world.class or ""] or nil
+end
+
 function Compose.Bearing()
   local c = ns.cache
   local rpgd, world = c.rpgd, c.world
@@ -621,21 +665,19 @@ function Compose.Bearing()
 
   -- Without RPG Dialogue there are no choices to read a character from: only the habit the
   -- game itself records.
+  local classPool = W.CLASS_TEMPER[world.class or ""]
+  local racePool = W.RACE_TEMPER[world.race or ""]
+  local pairPool = Compose.RaceClassTemper(world)
   if not rpgd then
-    -- Two of the class's dispositions, different ones.
-    local pool = W.CLASS_TEMPER[world.class or ""] or {}
-    local a = U.Pick(pool, seed("temper"))
-    local lines = { a }
-    for k = 1, #pool do
-      local b = pool[(U.Hash(seed("temper2")) + k) % #pool + 1]
-      if b ~= a then lines[2] = b; break end
+    -- What this race and class are like together, then the class, the race and the class
+    -- again: four different dispositions, no two starting with the same word.
+    local used = {}
+    local lines = {}
+    for _, p in ipairs({ { pairPool, "rctemper" }, { classPool, "temper" }, { racePool, "racetemper" }, { classPool, "temper2" } }) do
+      lines[#lines + 1] = freshLine(p[1], seed(p[2]), used)
     end
-    local r = U.Pick(W.RACE_TEMPER[world.race or ""] or {}, seed("racetemper"))
-    if type(r) == "string" then table.insert(lines, 2, r) end
-    if type(lines[1]) ~= "string" then table.remove(lines, 1) end
-    lines[#lines + 1] = habit
-    lines[#lines + 1] = Compose.WeekTone()
-    return paragraph(lines)
+    local after = { habit, Compose.WeekTone() }
+    return pages({ paragraph(lines), paragraph(after) })
   end
 
   -- Temperament and conscience
@@ -684,6 +726,14 @@ function Compose.Bearing()
       .. (extra > 0 and (", and " .. U.Number(extra) .. " " .. U.Plural(extra, "other book") .. " besides") or "")
   end
   if habit then more[#more + 1] = habit end
+  -- Little recorded about the inner life yet: how this race and class carry themselves.
+  local said = #first + #views + #more
+  if said < 5 then
+    local used = {}
+    for _, l in ipairs(first) do used[opener(l)] = true end
+    first[#first + 1] = freshLine(pairPool or classPool, seed("rctemper"), used)
+    if said < 3 then first[#first + 1] = freshLine(racePool, seed("racetemper"), used) end
+  end
   local hooks = Compose.Hooks()
   local stories = #hooks > 0 and paragraph({ say("stories", { list = U.Join(hooks) }) }) or nil
 
@@ -856,7 +906,7 @@ function Compose.History()
     roots[#roots + 1] = say("setout", { name = name })
   end
   if rpgd and rpgd.homeInn and not (rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and recent(rpgd.homeSince)) then
-    roots[#roots + 1] = "Home these days is " .. placeName(rpgd.homeInn)
+    roots[#roots + 1] = say("home", { inn = placeName(rpgd.homeInn) }, rpgd.homeInn)
   end
   -- Little recorded yet: say what can be seen of them now (rank, where they are, how
   -- seasoned they look) so History is never just one line.
@@ -1033,7 +1083,7 @@ function Compose.History()
     local pn = W.PROF_NOUN[pr.name:lower()]
     if pr.rank >= 50 and pn then crafts[#crafts + 1] = profWord(pr.rank) .. " " .. pn end
   end
-  if #crafts > 0 then record[#record + 1] = "Between roads {they're} " .. U.Join(crafts) end
+  if #crafts > 0 then record[#record + 1] = say("crafts", { list = U.Join(crafts) }, crafts[1]) end
   local oldFinds = {}
   for k = #finds, 1, -1 do
     local fd = finds[k]
@@ -1068,7 +1118,7 @@ function Compose.History()
     people[#people + 1] = name .. " travels with " .. partner
   end
   if sd and sd.recentPeople >= 4 then
-    people[#people + 1] = "Has fought beside " .. U.Number(sd.recentPeople) .. " others this past week"
+    people[#people + 1] = say("fought", { n = U.Number(sd.recentPeople) }, sd.recentPeople)
   end
   if rpgd then
     local good, bad = {}, nil
@@ -1094,7 +1144,7 @@ function Compose.History()
   end
   local serve = #served > 0 and ("has done good work for " .. U.Join(served)) or nil
   if world.guild then
-    people[#people + 1] = "Wears the colours of " .. guildName(world.guild)
+    people[#people + 1] = say("guild", { guild = guildName(world.guild) }, world.guild)
       .. (world.guildRank and (" and holds the rank of " .. world.guildRank:lower() .. " there") or "")
       .. (serve and (", and " .. serve) or "")
   elseif serve then
@@ -1107,7 +1157,7 @@ function Compose.History()
     people[#people + 1] = say("rival", { who = rpgd.rivals[1].name }, rpgd.rivals[1].name)
   end
   if sd and #sd.foes > 0 then
-    people[#people + 1] = "Has made " .. (#sd.foes == 1 and "an enemy" or (U.Number(#sd.foes) .. " enemies")) .. " on the road"
+    people[#people + 1] = say("foes", { what = #sd.foes == 1 and "an enemy" or (U.Number(#sd.foes) .. " enemies") }, #sd.foes)
   end
   paras[#paras + 1] = paragraph(people)
 
@@ -1125,7 +1175,9 @@ function Compose.History()
   local wb = Compose.WealthBand(world)
   if wb and not toldRecent.wealth then nowLines[#nowLines + 1] = wb.flair end
   if rpgd and ns.db.diaryExcerpt and rpgd.lastEntry and rpgd.lastEntry.text then
-    nowLines[#nowLines + 1] = "{their} latest journal entry reads " .. quote(U.Truncate(rpgd.lastEntry.text, 280))
+    nowLines[#nowLines + 1] = say("diary", { q = quote(U.Truncate(rpgd.lastEntry.text, 280)) }, rpgd.lastEntry.text)
+  elseif ns.Journal then
+    nowLines[#nowLines + 1] = ns.Journal.LatestLine(quote)   -- Auto TRP's own journal (Journal.lua)
   end
   paras[#paras + 1] = paragraph(nowLines)
 
@@ -1177,9 +1229,9 @@ function Compose.Physical()
 
   -- How they are right now
   local marks = {}
-  if world.health and world.health < 0.5 and not world.dead then marks[#marks + 1] = "Freshly wounded, and moving carefully" end
-  if c.rpgd and (c.rpgd.insanity or 0) >= 30 then marks[#marks + 1] = "{their} eyes never settle on anything for long" end
-  if c.rpgd and (c.rpgd.align.taint or 0) >= 30 then marks[#marks + 1] = "Something about {them} is off, in a way that's hard to name" end
+  if world.health and world.health < 0.5 and not world.dead then marks[#marks + 1] = say("mark_wounded", nil, world.zone) end
+  if c.rpgd and (c.rpgd.insanity or 0) >= 30 then marks[#marks + 1] = say("mark_mad") end
+  if c.rpgd and (c.rpgd.align.taint or 0) >= 30 then marks[#marks + 1] = say("mark_taint") end
   local wear = Compose.Wear(world)
   if wear then marks[#marks + 1] = wear.text end
 

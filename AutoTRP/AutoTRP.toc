@@ -24,6 +24,7 @@ Sources\SocialDiary.lua
 Sources\Chronicle.lua
 Sources\Deeds.lua
 Mood.lua
+Journal.lua
 Compose.lua
 TRP.lua
 UI.lua
