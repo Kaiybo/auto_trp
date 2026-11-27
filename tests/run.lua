@@ -3017,7 +3017,7 @@ do
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
     mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", guild = "x", rel = "x",
-    span = "x", akind = "x", faction = "x", races = "x", times = "x",
+    span = "x", akind = "x", faction = "x", races = "x", times = "x", family = "x", one = "x", aone = "x",
     away = "x", from = "x", stay = "x", rest = "", a = "x", b = "x", story = "x", town = "x", dungeon = "x", boss = "x", sub = "" }
   local bad, seen = {}, {}
   local function scan(v, path)
@@ -6145,6 +6145,150 @@ do
   state.zone, state.sub, GetNumFactions, GetFactionInfo, GetTitleText = keep[3], keep[4], keep[5], keep[6], keep[7]
   ns.char.seedName = keep[11]
   NOW = keepNow
+  C.SourcesChanged(); C.Refresh()
+end
+
+-- The bestiary (Sources/Bestiary.lua): creatures sized up at engage, kills joined by name,
+-- and the writing it feeds. Other players and their pets are never taken in.
+do
+  local C, Be = ns.Compose, ns.Sources.Bestiary
+  local names = { "UnitName", "UnitLevel", "UnitIsPlayer", "UnitExists", "UnitCanAttack", "UnitClassification",
+    "UnitCreatureType", "UnitCreatureFamily", "UnitPlayerControlled", "UnitGUID", "CombatLogGetCurrentEventInfo",
+    "InCombatLockdown", "IsInInstance" }
+  local keepAPI = {}
+  for _, k in ipairs(names) do keepAPI[k] = _G[k] end
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.bestiary, ns.char.lastFight }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  ns.char.deeds, ns.char.bestiary, ns.char.lastFight = nil, nil, nil
+  local keepZone = state.zone
+  local level = 3
+  local tg = {}
+  UnitName = function(u) if u == "target" then return tg.name end return "Aldric" end
+  UnitLevel = function(u) if u == "target" then return tg.level end return level end
+  UnitIsPlayer = function(u) return u == "player" or (u == "target" and tg.player) or false end
+  UnitPlayerControlled = function(u) return u == "target" and tg.pet or false end
+  UnitExists = function(u) return u == "player" or (u == "target" and tg.name ~= nil) end
+  UnitCanAttack = function(_, u) return u == "target" and tg.name ~= nil and not tg.friendly end
+  UnitClassification = function() return tg.class or "normal" end
+  UnitCreatureType = function() return tg.type end
+  UnitCreatureFamily = function() return tg.family end
+  UnitGUID = function() return "Player-1-0001" end
+  local fighting = false
+  InCombatLockdown = function() return fighting end
+  IsInInstance = function() return false, "none" end
+  local log
+  CombatLogGetCurrentEventInfo = function() return unpack(log) end
+  Be.Store()   -- the record starts at level 3: firsts can be claimed
+  local function fight(t, kill)
+    tg = t
+    event("PLAYER_TARGET_CHANGED")
+    fighting = true
+    event("PLAYER_REGEN_DISABLED")
+    if kill then
+      log = { 0, "PARTY_KILL", false, "Player-1-0001", "Aldric", 0, 0, "Creature-0-1-" .. t.name, t.name }
+      event("COMBAT_LOG_EVENT_UNFILTERED")
+    end
+    fighting = false
+    event("PLAYER_REGEN_ENABLED")
+  end
+  state.zone = "Elwynn Forest"
+  for _ = 1, 40 do fight({ name = "Young Wolf", level = 3, type = "Beast", family = "Wolf" }, true) end
+  for _ = 1, 12 do fight({ name = "Kobold Vermin", level = 3, type = "Humanoid" }, true) end
+  level = 10
+  fight({ name = "Hogger", level = 11, type = "Humanoid", class = "elite" }, true)
+  local b = ns.char.bestiary
+  check(b.types.Beast.kills == 40 and b.families.Wolf.kills == 40 and b.types.Humanoid.kills == 13,
+    "kills counted by kind and family: " .. tostring(b.types.Beast.kills) .. "/" .. tostring(b.types.Humanoid.kills))
+  check(b.types.Beast.firstName == "Young Wolf" and b.types.Beast.firstZone == "Elwynn Forest", "the first of a kind, with where")
+  check(b.greatest and b.greatest.name == "Hogger" and b.greatest.class == "elite", "the greatest kill: " .. tostring(b.greatest and b.greatest.name))
+  check(b.notable.Hogger ~= nil, "a notable creature met by name")
+  -- Duskwood: the undead, lately, and a rare left be.
+  level = 25
+  state.zone = "Duskwood"
+  for _ = 1, 15 do fight({ name = "Rotting Horror", level = 25, type = "Undead" }, true) end
+  fight({ name = "Mor'Ladim", level = 35, type = "Undead", class = "rareelite" }, true)
+  tg = { name = "Naraxis", level = 27, type = "Beast", family = "Spider", class = "rare" }
+  event("PLAYER_TARGET_CHANGED")
+  tg = {}
+  event("PLAYER_TARGET_CHANGED")
+  b.seen.Naraxis.last = NOW - 600
+  -- A leader met; a world boss seen; another player and a player's pet are never kept.
+  tg = { name = "Highlord Bolvar Fordragon", level = 63, type = "Humanoid", class = "elite", friendly = true }
+  event("PLAYER_TARGET_CHANGED")
+  tg = { name = "Gankalot", level = 25, player = true, type = "Humanoid" }
+  event("PLAYER_TARGET_CHANGED")
+  tg = { name = "Fluffy", level = 25, pet = true, type = "Beast", family = "Cat" }
+  event("PLAYER_TARGET_CHANGED")
+  check(not b.names.Gankalot and not b.names.Fluffy and not b.seen.Gankalot, "other players and their pets are never taken in")
+  state.zone = "Azshara"
+  local wonder = ns.char.mood and ns.char.mood.emo and ns.char.mood.emo.wonder or 0
+  tg = { name = "Azuregos", level = -1, type = "Dragonkin", class = "worldboss" }
+  event("PLAYER_TARGET_CHANGED")
+  tg = {}
+  check(b.seen.Azuregos and b.seen.Azuregos.world and (ns.char.mood.emo.wonder or 0) > wonder, "a world boss seen in the open is something to see")
+  check(b.dragonSeen and b.dragonSeen.name == "Azuregos", "a first dragon sighted")
+  state.zone = "Duskwood"
+  -- Deaths to a kind.
+  for _ = 1, 3 do
+    tg = { name = "Rotting Horror", level = 25, type = "Undead" }
+    event("PLAYER_REGEN_DISABLED")
+    event("PLAYER_DEAD")
+  end
+  tg = {}
+  check(b.types.Undead.deaths == 3, "deaths counted by the kind that did it: " .. tostring(b.types.Undead.deaths))
+  -- Bounded.
+  for i = 1, 120 do Be.Note({ name = "Thing " .. i, type = "Beast", hostile = true }, false) end
+  Be.Trim()
+  check(ns.U.Count(b.names) <= Be.KEEP_NAMES, "creatures kept by name stay bounded: " .. ns.U.Count(b.names))
+  -- The wolves and kobolds were weeks ago; the undead are lately.
+  b.types.Beast.recent.since, b.types.Humanoid.recent.since = NOW - 20 * 86400, NOW - 20 * 86400
+
+  C.SourcesChanged(); C.Refresh()
+  local hist = C.History()
+  print("\nHistory with a bestiary:\n" .. hist)
+  local fought = table.concat(C.FoughtLines(), ". ")
+  print("\nWhat they've fought: " .. fought)
+  if os.getenv("SAMPLES") then
+    local keepSeed = ns.char.seedName
+    for i = 1, 4 do
+      ns.char.seedName = "bestiary" .. i
+      print("  " .. ns.U.Pron(table.concat(C.FoughtLines(), ". ")) .. ".")
+      print("  " .. ns.U.Pron(table.concat(C.BestiaryTraits(3), ". ")) .. ".")
+    end
+    ns.char.seedName = keepSeed
+  end
+  check(fought:find("Mor'Ladim", 1, true) and fought:find("far beyond", 1, true), "the greatest kill, told with its gap: " .. fought)
+  local anyKind = false
+  for _, w in ipairs(ns.Words.BESTIARY.TYPE.Beast) do if fought:find(w, 1, true) then anyKind = true end end
+  check(anyKind, "the kind fought most, in words")
+  local undead = false
+  for _, w in ipairs(ns.Words.BESTIARY.TYPE.Undead) do if fought:find(w .. " in Duskwood", 1, true) then undead = true end end
+  check(undead, "the undead of Duskwood, lately")
+  check(fought:find("Highlord Bolvar Fordragon", 1, true) or fought:find("Azuregos", 1, true), "a leader met or a world boss seen")
+  check(hist:find("Mor'Ladim", 1, true) ~= nil, "History tells what they've fought")
+  check(not hist:find("Gankalot", 1, true) and not hist:find("Fluffy", 1, true), "History names no other player")
+  local bearing = C.Bearing()
+  print("\nPersonality with a bestiary:\n" .. bearing)
+  local wary = false
+  for _, l in ipairs(ns.Words.BESTIARY.WARY.Undead) do if bearing:find((l:gsub("{times}", "three times")):sub(1, 30), 1, true) then wary = true end end
+  check(wary, "Personality: wary of the kind that has killed them")
+  local lately = C.BestiaryLately()
+  local tis = {}
+  for _, l in ipairs(lately) do tis[#tis + 1] = l.g.TI .. ": " .. l.g.TX end
+  print("\nLately from the bestiary:\n  " .. table.concat(tis, "\n  "))
+  local left = false
+  for _, l in ipairs(lately) do if l.g.TI == "Left Be" and l.g.TX:find("spider", 1, true) and l.g.TX:find("Duskwood", 1, true) then left = true end end
+  check(left, "Lately: a rare seen and left be")
+  local st = C.Stats()
+  check(st.kinds and st.kinds:find("beasts", 1, true) and st.kinds:find("undead", 1, true), "statistic: foes by kind: " .. tostring(st.kinds))
+  check(st.greatest and st.greatest:find("Mor'Ladim, rare elite, level 35", 1, true), "statistic: greatest kill: " .. tostring(st.greatest))
+  for _, k in ipairs({ "kinds", "greatest" }) do
+    check(ns.TRP.FIELDS["stat_" .. k] ~= nil and ns.db.fields["stat_" .. k] == true, "statistic " .. k .. " has its own switch, on by default")
+  end
+  for _, k in ipairs(names) do _G[k] = keepAPI[k] end
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  ns.char.deeds, ns.char.bestiary, ns.char.lastFight = keep[4], keep[5], keep[6]
+  state.zone = keepZone
   C.SourcesChanged(); C.Refresh()
 end
 
