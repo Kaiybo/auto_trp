@@ -1607,7 +1607,7 @@ do
             if not v or not v.TX or v.TX == "" or not v.TI or not v.IC then missing[#missing + 1] = "glance " .. g end
           end
           for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "wealth", "crafts", "standing", "books", "names", "spell",
-            "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "keepsake" }) do
+            "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "renown", "keepsake" }) do
             if not sh.stats[k] then missing[#missing + 1] = "stat " .. k end
           end
         end
@@ -2248,7 +2248,7 @@ do
 end
 
 -- 0.21.0, more of Total RP 3 (Register.lua): name colour, profile music, the Faction, Guild,
--- Level and Talents entries, and the out-of-character line. Each is written, becomes the
+-- Level and Speciality entries, and the out-of-character line. Each is written, becomes the
 -- player's when they edit it, comes off when switched off, and /atrp restore puts it back.
 do
   local C, T = ns.Compose, ns.TRP
@@ -2278,9 +2278,10 @@ do
   check(info("Faction") == "Alliance", "Faction entry: " .. tostring(info("Faction")))
   check(info("Guild") == "Lamplighter of the Silver Lanterns", "Guild entry, with rank: " .. tostring(info("Guild")))
   check(info("Level") == "22, Cleric of the Light", "Level entry, with the rank title: " .. tostring(info("Level")))
-  check(info("Talents") == "Holy, 5/21/0", "Talents entry from the talent trees: " .. tostring(info("Talents")))
+  check(info("Speciality") == "Holy, 21 points", "Speciality entry from the talent trees: " .. tostring(info("Speciality")))
+  check(info("Talents") == nil, "the retired Talents entry isn't written")
   local _, iDeaths = info("Deaths")
-  local _, iF = info("Faction"); local _, iG = info("Guild"); local _, iL = info("Level"); local _, iT = info("Talents")
+  local _, iF = info("Faction"); local _, iG = info("Guild"); local _, iL = info("Level"); local _, iT = info("Speciality")
   check(iDeaths and iDeaths < iF and iF < iG and iG < iL and iL < iT, "and they follow the statistics, in order")
   check(char.CO == nil or char.CO == "", "the OOC line stays off by default: " .. tostring(char.CO))
   -- Without a fitting piece for home, the music of where you are; with none at all, as it was.
@@ -2294,14 +2295,17 @@ do
   GetBindLocation = bindWas
   -- Wrath-style talent API (id, name, description, icon, points).
   GetTalentTabInfo = function(i) local t = TALENTS[i]; return i, t[1], "desc", "icon", t[2] end
-  check(C.Stats().talents == "Holy, 5/21/0", "talents read on either talent API")
+  check(C.Stats().speciality == "Holy, 21 points", "talents read on either talent API")
+  TALENTS[1][2] = 12
+  check(C.Stats().speciality == "Holy, 21 points, and 12 in Discipline", "a second tree worth saying: " .. tostring(C.Stats().speciality))
+  TALENTS[1][2] = 5
   GetTalentTabInfo = function(i) local t = TALENTS[i]; return t[1], "icon", t[2], "bg" end
   -- No talents spent, no guild: no entry.
   local guildWas = GetGuildInfo
   GetGuildInfo = function() return nil end
   TALENTS[2][2], TALENTS[1][2] = 0, 0
   C.SourcesChanged(); ns.World.slow = nil; ns.UI.Update(true)
-  check(info("Guild") == nil and info("Talents") == nil, "no guild and no talents: no entries")
+  check(info("Guild") == nil and info("Speciality") == nil, "no guild and no talents: no entries")
   GetGuildInfo, TALENTS[2][2], TALENTS[1][2] = guildWas, 21, 5
   C.SourcesChanged(); ns.UI.Update(true)
 
@@ -2350,7 +2354,7 @@ do
   -- Edited by the player: theirs, left alone.
   ch.CH = "C0FFEE"
   about.MU = 99999
-  local _, iTal = info("Talents")
+  local _, iTal = info("Speciality")
   ch.MI[iTal].VA = "Holy, and proud of it"
   ns.db.fields.ooc_doing = true
   ns.UI.Update(true)
@@ -2358,7 +2362,7 @@ do
   ns.UI.Update(true)
   check(ch.CH == "C0FFEE" and T.Status("namecolour") == "yours", "a name colour the player chose is theirs")
   check(about.MU == 99999 and T.Status("music") == "yours", "music the player chose is theirs")
-  check(info("Talents") == "Holy, and proud of it" and T.Status("stat_talents") == "yours", "an edited Talents entry is theirs")
+  check(info("Speciality") == "Holy, and proud of it" and T.Status("stat_speciality") == "yours", "an edited Speciality entry is theirs")
   check(char.CO == "Back in ten." and T.Status("ooc") == "yours", "an OOC line the player wrote is theirs")
   ns.db.fields.namecolour, ns.db.fields.ooc_doing = false, false
   ns.UI.Update(true)
@@ -2372,15 +2376,15 @@ do
   check(ch.CH == "ffffff" and about.MU == 53210 and char.CO == "Levelling in Duskwood.", "claimed back, all written again")
   SlashCmdList.AUTOTRP("restore")
   check(ch.CH == nil and about.MU == nil and info("Faction") == nil and info("Guild") == nil and info("Level") == nil
-    and info("Talents") == nil and char.CO == nil, "restore puts the new fields back as they were")
-  check(T.Status("namecolour") == "yours" and T.Status("music") == "yours" and T.Status("stat_talents") == "yours",
+    and info("Speciality") == nil and char.CO == nil, "restore puts the new fields back as they were")
+  check(T.Status("namecolour") == "yours" and T.Status("music") == "yours" and T.Status("stat_speciality") == "yours",
     "and hands them to the player")
   ns.db.fields.ooc_doing = false
   SlashCmdList.AUTOTRP("claim all")
   ns.UI.Update(true)
 
   -- Every new switch is one of ns.db.fields, so All on / All off pick them up.
-  for _, k in ipairs({ "namecolour", "music", "ooc_doing", "stat_faction", "stat_guild", "stat_level", "stat_talents" }) do
+  for _, k in ipairs({ "namecolour", "music", "ooc_doing", "stat_faction", "stat_guild", "stat_level", "stat_role", "stat_speciality" }) do
     check(ns.db.fields[k] ~= nil and (T.FIELDS[k] or k == "ooc_doing"), "a switch for " .. k)
   end
   ns.db.quiet = quietWas
@@ -4064,6 +4068,433 @@ do
   end
   GetContainerNumSlots, GetContainerItemInfo, GetContainerItemQuestInfo = nil, nil, nil
   GetItemInfo, state.zone = saved.GetItemInfo, saved.zone
+  C.SourcesChanged(); C.Refresh()
+end
+
+-- 0.22.0, how they fight (Sources/Style.lua): fake combat-log lines for a healer, a tank, a
+-- caster and a melee fighter; the role, style, school and habits each gives, and the words.
+do
+  local C, Style, W = ns.Compose, ns.Sources.Style, ns.Words
+  local KEYS = { "IsInGroup", "GetNumGroupMembers", "UnitExists", "UnitCanAttack", "UnitIsPlayer", "UnitCreatureType",
+    "GetNumSkillLines", "GetSkillLineInfo", "UnitClass", "GetNumTalentTabs", "GetTalentTabInfo", "UnitIsAFK" }
+  local saved = {}
+  for _, k in ipairs(KEYS) do saved[k] = _G[k] end
+  local ME, ALLY, FOE = "Player-1-0001", "Player-2-0002", "Creature-0-1-0-1-1-0001"
+  local FRIEND_FLAGS, FOE_FLAGS = 0x511, 0xa48
+  local log
+  CombatLogGetCurrentEventInfo = function() return unpack(log, 1, 21) end
+  local function cl(...) log = { ... }; event("COMBAT_LOG_EVENT_UNFILTERED") end
+  local function hit(amount, school, spell)   -- the player strikes the foe
+    if spell then cl(0, "SPELL_DAMAGE", false, ME, "Aldric", 0x511, 0, FOE, "Foe", FOE_FLAGS, 0, 1, spell, school, amount)
+    else cl(0, "SWING_DAMAGE", false, ME, "Aldric", 0x511, 0, FOE, "Foe", FOE_FLAGS, 0, amount) end
+  end
+  local function struck(amount) cl(0, "SWING_DAMAGE", false, FOE, "Foe", FOE_FLAGS, 0, ME, "Aldric", 0x511, 0, amount) end
+  local function healAlly(amount, over) cl(0, "SPELL_HEAL", false, ME, "Aldric", 0x511, 0, ALLY, "Someone", FRIEND_FLAGS, 0, 2061, "Flash Heal", 2, amount, over or 0) end
+  local function cast(spell) cl(0, "SPELL_CAST_SUCCESS", false, ME, "Aldric", 0x511, 0, FOE, "Foe", FOE_FLAGS, 0, 1, spell, 1) end
+  local function kick() cl(0, "SPELL_INTERRUPT", false, ME, "Aldric", 0x511, 0, FOE, "Foe", FOE_FLAGS, 0, 1766, "Kick", 1, 116, "Frostbolt", 16) end
+  local grouped, foeKind = false, "Beast"
+  IsInGroup = function() return grouped end
+  GetNumGroupMembers = function() return grouped and 3 or 0 end
+  UnitExists = function(u) return u == "target" or (grouped and (u == "party1" or u == "party2")) end
+  UnitCanAttack = function(_, u) return u == "target" end
+  UnitIsPlayer = function() return false end
+  UnitCreatureType = function() return foeKind end
+  UnitIsAFK = function() return false end
+  local function fight(fn, secs)
+    event("PLAYER_REGEN_DISABLED")
+    fn()
+    NOW = NOW + (secs or 8)
+    event("PLAYER_REGEN_ENABLED")
+  end
+  local function find(t, s) for k, v in pairs(t) do if v == s or k == s or (type(v) == "table" and find(v, s)) then return true end end end
+  local function read() return Style.Read() end
+  local function fresh() ns.char.style = nil; Style.party.fights = 0; Style.party.roles = {} end
+  local function words(list, text)
+    for _, l in ipairs(list) do if text:find(ns.U.Pron(l), 1, true) then return l end end
+  end
+
+  -- Nothing about the player: two comparisons and out, nothing counted.
+  fresh()
+  Style.Store()
+  event("PLAYER_REGEN_DISABLED")
+  cl(0, "SPELL_HEAL", false, ALLY, "Someone", FRIEND_FLAGS, 0, "Player-3-0003", "Other", FRIEND_FLAGS, 0, 1, "Heal", 2, 900, 0)
+  cl(0, "SWING_DAMAGE", false, ALLY, "Someone", FRIEND_FLAGS, 0, FOE, "Foe", FOE_FLAGS, 0, 300)
+  cl(0, "SPELL_INTERRUPT", false, ALLY, "Someone", FRIEND_FLAGS, 0, FOE, "Foe", FOE_FLAGS, 0, 1, "Kick", 1, 116, "Frostbolt", 16)
+  event("PLAYER_REGEN_ENABLED")
+  local st = read()
+  check(st.fights == 0 and st.heal == 0 and st.dmg == 0 and st.interrupts == 0, "other people's lines count for nothing")
+  check(not find(ns.char.style, "Someone") and not find(ns.char.style, "Player-2"), "and nobody is kept")
+
+  -- A healer: group fights spent mending others, with a little holy damage.
+  fresh()
+  grouped = true
+  event("GROUP_ROSTER_UPDATE")
+  for _ = 1, 24 do
+    fight(function()
+      hit(120, 2, "Smite"); healAlly(900, 150); healAlly(600, 0); struck(80)
+      cl(0, "SPELL_DISPEL", false, ME, "Aldric", 0x511, 0, ALLY, "Someone", FRIEND_FLAGS, 0, 528, "Cure Disease", 2, 1, "Plague", 8, "DEBUFF")
+      cl(0, "SPELL_HEAL", false, ME, "Aldric", 0x511, 0, ME, "Aldric", 0x511, 0, 2061, "Flash Heal", 2, 5000, 0)
+    end)
+  end
+  st = read()
+  check(st.role == "healer" and st.roles.healer == 24 and st.group == 24, "healer: every group fight read as healing: " .. tostring(st.role))
+  check(st.heal == 24 * 1350, "healing counts what landed on others, not overhealing or self-healing: " .. st.heal)
+  check(Style.RoleStat(st) == "Healer, nearly always", "Role: " .. tostring(Style.RoleStat(st)))
+  check(st.cleanse == 24, "cleansing others counted")
+  C.SourcesChanged(); C.Refresh()
+  local stats = C.Stats()
+  check(stats.role == "Healer, nearly always", "the Role statistic: " .. tostring(stats.role))
+  local bearing = C.Bearing()
+  check(words(W.STYLE.TEMPER.healer, bearing) ~= nil, "Personality: a healer's line: " .. bearing)
+  check(words(W.STYLE.PHYSICAL.healer, C.Physical()) == nil, "Physical waits for thirty fights")
+  check(Style.PartyClause(ns.cache.style) and words(W.STYLE.COMPANY.healer, C.CompanyGlance().TX), "Company: the group's healer: " .. C.CompanyGlance().TX)
+  check(words(W.STYLE.HISTORY.healer, C.History()) == nil, "History waits for more fights before telling the role")
+  for _ = 1, 6 do fight(function() healAlly(900, 0) end) end
+  C.SourcesChanged(); C.Refresh()
+  local history = C.History()
+  check(words(W.STYLE.HISTORY.healer, history) ~= nil, "History: the role in the older record: " .. history:sub(-300))
+  check(words(W.STYLE.PHYSICAL.healer, C.Physical()) ~= nil, "Physical: how a healer carries themselves in a fight")
+
+  -- A tank: taunts and sunders, the foe's blows on them.
+  fresh()
+  for _ = 1, 20 do
+    fight(function() cast("Sunder Armor"); cast("Taunt"); hit(150); hit(90, 1, "Heroic Strike"); struck(400); struck(350) end)
+  end
+  st = read()
+  check(st.role == "tank" and st.style == "melee", "tank: taunts and sunders read as holding the foe: " .. tostring(st.role))
+  check(Style.RoleStat(st) == "Defender, nearly always", "Role: " .. tostring(Style.RoleStat(st)))
+  check(st.taken == 20 * 750, "the blows taken counted")
+  C.SourcesChanged(); C.Refresh()
+  check(words(W.STYLE.TEMPER.tank, C.Bearing()) ~= nil, "Personality: a tank's line")
+  check(words(W.STYLE.COMPANY.tank, C.CompanyGlance().TX) ~= nil, "Company: out in front: " .. C.CompanyGlance().TX)
+  -- A dps fight in the same group moves the current group's reading only when it's most of them.
+  for _ = 1, 2 do fight(function() hit(500) end) end
+  check(Style.Read().party.role == "tank", "the group they're in now: still the tank")
+
+  -- A caster: fire spells, alone and in company, short fights; the school and the style.
+  fresh()
+  grouped = false
+  event("GROUP_ROSTER_UPDATE")
+  UnitClass = function() return "Mage", "MAGE" end
+  for i = 1, 40 do
+    fight(function()
+      hit(400, 4, "Fireball"); hit(250, 4, "Fire Blast"); if i % 4 == 0 then hit(200, 16, "Frostbolt") end
+      if i % 2 == 0 then cl(0, "SPELL_AURA_APPLIED", false, ME, "Aldric", 0x511, 0, FOE, "Foe", FOE_FLAGS, 0, 118, "Polymorph", 64, "DEBUFF") end
+    end, 6)
+  end
+  st = read()
+  check(st.style == "spell" and st.school == "Fire" and st.schoolShare > 0.8, "caster: spells, mostly fire: " .. tostring(st.school))
+  check(st.group == 0 and Style.RoleStat(st) == nil, "no group fights: no Role")
+  check(st.cc == 20 and st.ccTop == "sheep", "crowd control counted by kind")
+  C.SourcesChanged(); C.Refresh()
+  bearing = C.Bearing()
+  check(words(W.STYLE.TEMPER.Fire, bearing) ~= nil, "Personality: reaches for fire: " .. bearing)
+  check(words(W.STYLE.PHYSICAL.spell, C.Physical()) ~= nil, "Physical: a caster in a fight")
+
+  -- A melee fighter: a rogue who cuts off casters, opens the group's fights, mostly against undead.
+  fresh()
+  grouped = true
+  event("GROUP_ROSTER_UPDATE")
+  UnitClass = function() return "Rogue", "ROGUE" end
+  foeKind = "Undead"
+  local moodWas = ns.char.mood.emo.satisfied or 0
+  for i = 1, 120 do
+    hit(60)       -- the opening blow lands just before the fight starts
+    fight(function()
+      hit(110); hit(180, 1, "Sinister Strike"); struck(60)
+      if i % 6 == 0 then kick() end
+      if i == 60 then kick(); kick(); kick() end
+    end, 9)
+  end
+  st = read()
+  check(st.role == "damage" and st.style == "melee" and st.school == "Physical", "melee: striking, up close: " .. tostring(st.style))
+  check(Style.RoleStat(st) == "Striker, nearly always", "Role: " .. tostring(Style.RoleStat(st)))
+  check(st.interrupts == 23 and st.kickTop == "Kick" and st.bestKicks == 4, "interrupts counted, the most in one fight kept: " .. st.interrupts)
+  check(st.opened == 120 and st.openShare == 1, "opening the group's fights: " .. st.opened)
+  check(st.foe == "Undead" and st.foeN == 120, "the kind of foe, read as each fight starts")
+  check(math.abs(st.avgSecs - 9) < 0.01, "fight length: " .. st.avgSecs)
+  check((ns.char.mood.emo.satisfied or 0) > moodWas and tostring(ns.char.mood.why.satisfied):find("four", 1, true),
+    "a well-played fight (four casters cut off) is satisfying: " .. tostring(ns.char.mood.why.satisfied))
+  -- Weapon skills, at their best for the level.
+  GetNumSkillLines = function() return 3 end
+  local SK = { { "Weapon Skills", true, 0, 0 }, { "Daggers", false, 108, 110 }, { "Swords", false, 90, 110 } }
+  GetSkillLineInfo = function(i) local s = SK[i]; return s[1], s[2], false, s[3], 0, 0, s[4] end
+  C.SourcesChanged(); C.Refresh()
+  bearing = C.Bearing()
+  check(words(W.STYLE.TEMPER.interrupt, bearing) or words(W.STYLE.TEMPER.opener, bearing), "Personality: cutting casters off or striking first: " .. bearing)
+  history = C.History()
+  check(words(W.STYLE.HISTORY.damage, history) and history:find("the undead", 1, true) and history:find("daggers", 1, true),
+    "History: the striking, the undead, the daggers: " .. history:sub(-400))
+  check(not history:find("swords", 1, true), "a weapon skill below the level's best isn't told")
+  check(words(W.STYLE.COMPANY.melee, C.CompanyGlance().TX) ~= nil, "Company: doing the close work: " .. C.CompanyGlance().TX)
+
+  -- Speciality: the main tree, the second when it's worth saying.
+  local TREES = { { "Assassination", 0 }, { "Combat", 21 }, { "Subtlety", 10 } }
+  GetNumTalentTabs = function() return 3 end
+  GetTalentTabInfo = function(i) return TREES[i][1], "icon", TREES[i][2], "bg" end
+  check(C.Stats().speciality == "Combat, 21 points, and 10 in Subtlety", "Speciality: " .. tostring(C.Stats().speciality))
+  TREES[3][2] = 0
+  check(C.Stats().speciality == "Combat, 21 points", "Speciality, one tree: " .. tostring(C.Stats().speciality))
+
+  -- Bounded: a hundred kinds of foe and spell still keep a handful.
+  for i = 1, 100 do
+    foeKind = "Kind" .. i
+    fight(function() hit(10); cl(0, "SPELL_INTERRUPT", false, ME, "Aldric", 0x511, 0, FOE, "Foe", FOE_FLAGS, 0, 1, "Kick" .. i, 1, 116, "Frostbolt", 16) end, 1)
+  end
+  check(ns.U.Count(ns.char.style.foes) <= Style.CAP_FOES and ns.U.Count(ns.char.style.kicked) <= Style.CAP, "every list is bounded")
+
+  -- Tooltips for the new switches, and the Role and Speciality entries in the TRP fields.
+  check(ns.TRP.FIELDS.stat_role and ns.TRP.FIELDS.stat_speciality and ns.UI.TIPS["fields.stat_role"] and ns.UI.TIPS["fields.stat_speciality"],
+    "Role and Speciality have fields, switches and tooltips")
+  -- No banned phrase or unbacked noun in the new words.
+  local banned = {}
+  for l in io.lines("tests/banned_phrases.txt") do
+    if not l:match("^%s*#") and l:match("%S") then banned[#banned + 1] = (l:match("^(.-)%s*|") or l):gsub("^%s+", ""):gsub("%s+$", ""):lower() end
+  end
+  local nouns = {}
+  for l in io.lines("tests/unbacked_nouns.txt") do if not l:match("^%s*#") and l:match("%S") then nouns[#nouns + 1] = l:gsub("%s+$", ""):lower() end end
+  local bad, n = {}, 0
+  local function scan(t, checkNouns)
+    for _, v in pairs(t) do
+      if type(v) == "table" then scan(v, checkNouns)
+      elseif type(v) == "string" then
+        n = n + 1
+        local low = v:lower()
+        for _, b in ipairs(banned) do if low:find(b, 1, true) then bad[#bad + 1] = b .. ": " .. v end end
+        if checkNouns then
+          local plain = " " .. low:gsub("{%l+}", ""):gsub("[^%a' ]", " ") .. " "
+          for _, nn in ipairs(nouns) do if plain:find(" " .. nn .. "s? ") then bad[#bad + 1] = nn .. ": " .. v end end
+        end
+        for tag in v:gmatch("{([%a']+)}") do
+          local ok = ({ they = 1, them = 1, their = 1, ["they've"] = 1, ["they're"] = 1, s = 1, es = 1, n = 1, foes = 1, list = 1 })[tag]
+          if not ok then bad[#bad + 1] = "tag {" .. tag .. "}: " .. v end
+        end
+      end
+    end
+  end
+  scan(W.STYLE.TEMPER, true); scan(W.STYLE.PHYSICAL, true); scan(W.STYLE.COMPANY, true)
+  scan(W.STYLE.HISTORY, false); scan(W.STYLE.MOOD, false)
+  check(#bad == 0 and n > 100, "the fighting words: " .. n .. " lines, no banned phrase, unbacked noun or stray tag: " .. table.concat(bad, " | "))
+  for k, list in pairs(W.STYLE.TEMPER) do check(#list >= 4, "four or more ways to say " .. k) end
+
+  if os.getenv("SAMPLES") then
+    print("\n=== How they fight (a melee rogue, the last scenario) ===")
+    print("Role: " .. tostring(C.Stats().role) .. " | Speciality: " .. tostring(C.Stats().speciality))
+    print("Company: " .. C.CompanyGlance().TX)
+    print("\n-- Personality --\n" .. C.Bearing())
+    print("\n-- Physical --\n" .. C.Physical())
+    print("\n-- History --\n" .. C.History())
+    for _, role in ipairs({ "healer", "tank", "melee", "ranged", "spell" }) do
+      print(role .. ": " .. ns.U.Pron(W.STYLE.TEMPER[role][1]) .. " / " .. ns.U.Pron(W.STYLE.PHYSICAL[role][1]) .. " / " .. W.STYLE.COMPANY[role][1])
+    end
+  end
+
+  fresh()
+  grouped = false
+  for _, k in ipairs(KEYS) do _G[k] = saved[k] end
+  CombatLogGetCurrentEventInfo = nil
+  event("GROUP_ROSTER_UPDATE")
+  C.SourcesChanged(); C.Refresh()
+end
+
+-- Reputation as people would see it (Sources/Renown.lua): standing over time, what caused
+-- each change, guards and the war, and the hearsay built from it, every line traced.
+do
+  local C, R, W = ns.Compose, ns.Sources.Renown, ns.Words
+  local keep = { ns.char.renown, ns.char.self and ns.char.self.towns, state.zone, state.sub, GetNumFactions, GetFactionInfo,
+    GetTitleText, UnitExists, UnitCanAttack, UnitIsPlayer, ns.char.seedName, ns.char.honours, UnitName }
+  ns.char.renown, ns.char.honours = nil, nil
+  local function rep(msg) event("CHAT_MSG_COMBAT_FACTION_CHANGE", msg) end
+  -- Pirates killed on the Stranglethorn coast: Bloodsail standing lost, Booty Bay's gained.
+  state.zone, state.sub = "Stranglethorn Vale", "Wild Shore"
+  for _ = 1, 10 do
+    ns.Sources.Deeds.Kill("Bloodsail Swashbuckler")
+    rep("Reputation with Bloodsail Buccaneers decreased by 25.")
+    rep("Reputation with Booty Bay increased by 5.")
+  end
+  local r = ns.char.renown
+  local bs = r.f["Bloodsail Buccaneers"]
+  check(bs and bs.down == 250 and bs.why["k:Bloodsail Swashbuckler"] and bs.why["k:Bloodsail Swashbuckler"].down == 250
+    and bs.why["k:Bloodsail Swashbuckler"].zone == "Stranglethorn Vale", "a loss is kept with the kill that caused it, and where")
+  check(r.f["Booty Bay"].up == 50 and r.f["Booty Bay"].days[1].up == 50, "a gain is kept, by day")
+  -- A quest whose standing is announced just before the turn-in still owns the change.
+  local keepNow = NOW
+  NOW = NOW + 30
+  state.sub = "Booty Bay"
+  GetTitleText = function() return "Avast Ye, Admiral!" end
+  event("QUEST_COMPLETE")
+  rep("Reputation with Booty Bay decreased by 150.")
+  rep("Reputation with Bloodsail Buccaneers increased by 50.")
+  event("QUEST_TURNED_IN", 4621)
+  local bb = r.f["Booty Bay"]
+  check(bb.down == 150 and bb.why["q:Avast Ye, Admiral!"] and bb.why["q:Avast Ye, Admiral!"].down == 150 and not bb.why.other,
+    "a change just before the turn-in belongs to the quest")
+  -- Argent Dawn tokens turned in, four times over.
+  state.zone, state.sub = "Western Plaguelands", "Chillwind Camp"
+  GetTitleText = function() return "Minion's Scourgestones" end
+  for _ = 1, 4 do
+    event("QUEST_COMPLETE"); event("QUEST_TURNED_IN", 5401)
+    rep("Reputation with Argent Dawn increased by 75.")
+  end
+  local ad = r.f["Argent Dawn"].why["q:Minion's Scourgestones"]
+  check(ad and ad.up == 300 and ad.n == 4, "tokens turned in are counted with their quest")
+  -- Guards killed in Booty Bay; the war in Ashenvale.
+  state.zone, state.sub = "Stranglethorn Vale", "Booty Bay"
+  ns.Sources.Deeds.Kill("Booty Bay Bruiser"); ns.Sources.Deeds.Kill("Booty Bay Bruiser"); ns.Sources.Deeds.Kill("Kurzen Medicine Man")
+  check(r.guards["Booty Bay"] and r.guards["Booty Bay"].k == 2, "guards killed are counted where it happened, nobody else")
+  UnitExists = function() return true end
+  UnitCanAttack = function() return true end
+  UnitIsPlayer = function() return false end
+  UnitName = function(u) if u == "target" then return "Booty Bay Bruiser" end return "Aldric" end
+  R.Died()
+  check(r.guards["Booty Bay"].d == 1, "killed by a guard")
+  UnitIsPlayer = function() return true end
+  UnitName = function(u) if u == "target" then return "Gankalot" end return "Aldric" end
+  state.zone, state.sub = "Ashenvale", "Splintertree Post"
+  R.Died()
+  for _ = 1, 4 do event("CHAT_MSG_COMBAT_HONOR_GAIN", "Someone dies, honorable kill") end
+  UnitName, UnitExists, UnitCanAttack, UnitIsPlayer = keep[13], keep[8], keep[9], keep[10]
+  check(r.honour.Ashenvale and r.honour.Ashenvale.k == 4 and r.honour.Ashenvale.d == 1, "honour kills and deaths to the other side, by land")
+  local stored = {}
+  local function scanAll(t) for k, v in pairs(t) do stored[#stored + 1] = tostring(k); if type(v) == "table" then scanAll(v) elseif type(v) == "string" then stored[#stored + 1] = v end end end
+  scanAll(r)
+  check(not table.concat(stored, "|"):find("Gankalot", 1, true), "an enemy player is never kept by name")
+
+  -- Standings over time: read twice, a step down is seen, and felt.
+  local REPS = { { "Booty Bay", 5, 3500 }, { "Bloodsail Buccaneers", 2, -5000 }, { "Argent Dawn", 6, 1000 } }
+  GetNumFactions = function() return #REPS end
+  GetFactionInfo = function(i) local x = REPS[i]; return x[1], "", x[2], 0, 0, x[3], false, false, false, false, true end
+  R.Scan()
+  check(#r.steps == 0 and r.f["Booty Bay"].st == 5, "the first look only remembers")
+  local mood = ns.char.mood
+  mood.emo.ashamed, mood.why.ashamed = 0, nil
+  REPS[1][2] = 4
+  R.Scan()
+  check(#r.steps == 1 and r.steps[1].from == 5 and r.steps[1].to == 4, "a step down between standings is kept")
+  check((mood.emo.ashamed or 0) >= 10 and mood.why.ashamed == "fell out with Booty Bay", "falling out is felt: " .. tostring(mood.why.ashamed))
+
+  C.SourcesChanged(); C.Refresh()
+  -- The rumours: every one built from a stored record.
+  ns.char.self.towns = { Goldshire = { quests = 6, zone = "Elwynn Forest", min = 300, n = 300 } }
+  for _, q in ipairs({ "Riverpaw Gnoll Bounty", "Protect the Frontier", "Find the Lost Guards" }) do ns.Sources.Deeds.Quest(q, nil, "Elwynn Forest") end
+  C.SourcesChanged(); C.Refresh()
+  local all = R.Rumours(ns.cache, 6)
+  local kinds, untraced = {}, {}
+  local finished = C.Finished()
+  for _, x in ipairs(all) do
+    kinds[x.kind] = true
+    local f, ok = x.from, false
+    if f.kind == "faction" then
+      local fr = r.f[f.faction]
+      ok = fr ~= nil and (not f.cause or (fr.why[f.cause] and ((f.down and fr.why[f.cause].down > 0) or (f.up and fr.why[f.cause].up > 0))))
+        and (f.cause ~= nil or (f.down or 0) > 0)
+    elseif f.kind == "guards" then ok = r.guards[f.place] and ((f.killed and r.guards[f.place].k == f.killed) or (f.killedBy and r.guards[f.place].d == f.killedBy)) and true
+    elseif f.kind == "honour" then ok = r.honour[f.zone] and ((f.kills and r.honour[f.zone].k == f.kills) or (f.deaths and r.honour[f.zone].d == f.deaths)) and true
+    elseif f.kind == "town" then
+      local t = ns.char.self.towns[f.town]
+      ok = t and t.quests >= 4
+      if ok and f.story then
+        local beats = 0
+        for _, st in ipairs(W.SELF_STORIES) do
+          if st.id == f.story and st.zone == t.zone then
+            for _, q in ipairs(st.quests) do if finished[q] then beats = beats + 1 end end
+            for _, q in ipairs(st.ends or {}) do if finished[q] then beats = beats + 2 end end
+          end
+        end
+        ok = beats >= 2
+      end
+    end
+    if not ok then untraced[#untraced + 1] = x.text end
+    print("     rumour (" .. x.kind .. "): " .. ns.U.Pron(x.text))
+  end
+  check(#all == 6 and kinds.fallout and kinds.town and kinds.guards and kinds.good and kinds.honour and kinds.cooling,
+    "six kinds of hearsay from six kinds of record: " .. #all)
+  check(#untraced == 0, "every rumour traces to a stored record: " .. table.concat(untraced, " | "))
+  local fac = {}
+  local dup = false
+  for _, x in ipairs(all) do if x.from.faction then if fac[x.from.faction] then dup = true end fac[x.from.faction] = true end end
+  check(not dup, "a faction is talked of once")
+  local text = ""
+  for _, x in ipairs(all) do text = text .. x.text .. "\n" end
+  check(text:find("the Bloodsail Buccaneers", 1, true) and text:find("Stranglethorn Vale", 1, true) and not text:find("Wild Shore", 1, true),
+    "the Bloodsail grudge says where, by the land (a stretch of shore isn't a town)")
+  check(text:find("Goldshire", 1, true) and text:find("gnoll", 1, true), "the town's talk is of the story its land saw")
+  check(text:find("Minion's Scourgestones", 1, true) and text:find("four times", 1, true), "the Argent Dawn's good word is for the tokens")
+  check(text:find("Booty Bay", 1, true) and text:find("two", 1, true), "the guards of Booty Bay")
+  check(text:find("Horde", 1, true) and text:find("Ashenvale", 1, true), "the war in Ashenvale, against the other side")
+  local rest = text:gsub("{col:%x+}", ""):gsub("{/col}", ""):gsub("{they've}", ""):gsub("{they're}", ""):gsub("{they}", ""):gsub("{them}", ""):gsub("{their}", "")
+  check(not rest:find("[{}]"), "rumours leave only pronoun tags: " .. rest)
+  local h = C.History()
+  local three = C.Rumours()
+  check(#three == 3, "History tells three at most")
+  local inHistory = true
+  for _, s in ipairs(three) do if not h:find(ns.U.Pron(s):sub(8, 40), 1, true) then inHistory = false end end
+  check(inHistory, "the rumours are in History's people paragraph")
+  print("\n--- History, with what's said ---\n" .. h)
+  check(h:find("fell out with Booty Bay", 1, true) or h:find("Booty Bay turned against", 1, true) or h:find("goodwill of Booty Bay", 1, true)
+    or h:find("welcome with Booty Bay", 1, true) or h:find("favour with Booty Bay", 1, true), "falling out is History's news")
+  local fame = {}
+  for _, w in ipairs({ "hero", "legend", "renowned", "famed", "famous", "known in", "people know the name" }) do
+    if text:lower():find(w, 1, true) then fame[#fame + 1] = w end
+  end
+  check(#fame == 0, "hearsay stays local and modest: " .. table.concat(fame, ", "))
+
+  -- SAMPLES=1 prints the same records said other ways, and the news.
+  if os.getenv("SAMPLES") then
+    for i = 1, 4 do
+      ns.char.seedName = "rumour" .. i
+      print("\n=== What's said, sample " .. i .. " ===")
+      for _, x in ipairs(R.Rumours(ns.cache, 6)) do print("  " .. ns.U.Cap(ns.U.Pron(x.text)) .. ".") end
+      for _, e in ipairs(C.StandingNews()) do print("  news: " .. ns.U.Pron(e.text)) end
+      print("  title: " .. tostring(R.Title({ factions = { { name = "Argent Dawn", standing = 7 + i % 2, word = "x" } } })))
+    end
+    ns.char.seedName = keep[11]
+  end
+
+  -- Nothing recorded, nothing said.
+  local full = ns.char.renown
+  ns.char.renown, ns.char.self.towns = nil, {}
+  C.SourcesChanged(); C.Refresh()
+  check(#R.Rumours(ns.cache, 6) == 0 and #C.StandingNews() == 0, "no record, no rumour and no news")
+  ns.char.renown = full
+  C.SourcesChanged(); C.Refresh()
+
+  -- The statistic, and the Full title from real standing.
+  local stat = C.Stats().renown
+  check(stat == "Revered with 1, Honored with 1, out of favour with 1", "the Standing statistic: " .. tostring(stat))
+  check(ns.TRP.FIELDS.stat_renown ~= nil and ns.db.fields.stat_renown == true, "the Standing statistic has its own switch, on by default")
+  local tip = ns.UI.TipFor({ path = { "fields", "stat_renown" } })
+  check(tip and tip:find("Standing", 1, true), "and a tooltip: " .. tostring(tip))
+  local t8 = R.Title({ factions = { { name = "Argent Dawn", standing = 8, word = "Exalted" } } })
+  local t7 = R.Title({ factions = { { name = "Cenarion Circle", standing = 7, word = "Revered" } } })
+  check(t8 and t8:find("the Argent Dawn$") and t7 and t7:find("the Cenarion Circle$") and not R.Title({ factions = { { name = "X", standing = 6 } } }),
+    "a Full title from Revered or Exalted standing only: " .. tostring(t8) .. " / " .. tostring(t7))
+
+  -- Kept small: factions and causes are capped.
+  for i = 1, 100 do R.Change("Faction " .. i, -1, { kind = "kill", name = "Foe " .. i }) end
+  for i = 1, 20 do R.Change("Argent Dawn", 1, { kind = "kill", name = "Scourge " .. i }) end
+  check(ns.U.Count(r.f) <= R.KEEP_FACTIONS and ns.U.Count(r.f["Argent Dawn"].why) <= R.KEEP_CAUSES and #r.f["Argent Dawn"].days <= R.KEEP_DAYS,
+    "the record stays bounded: " .. ns.U.Count(r.f))
+  check(r.f["Argent Dawn"].why["q:Minion's Scourgestones"] ~= nil, "the biggest causes are the ones kept")
+
+  -- The words: four to six ways of saying each, and only the pronoun tags allowed.
+  local short, badTag = {}, {}
+  local OK = { they = 1, them = 1, their = 1, ["they've"] = 1, ["they're"] = 1, s = 1, es = 1, town = 1, story = 1, n = 1, people = 1,
+    why = 1, foes = 1, where = 1, quest = 1, times = 1, place = 1, zone = 1, enemy = 1, faction = 1, word = 1 }
+  for key, list in pairs(W.RENOWN) do
+    if type(list) == "table" and type(list[1]) == "string" and key ~= "STANDING" and key ~= "GUARDS" then
+      if #list < 4 or #list > 6 then short[#short + 1] = key .. " " .. #list end
+      for _, l in ipairs(list) do for tag in l:gmatch("{([%a']+)}") do if not OK[tag] then badTag[#badTag + 1] = tag end end end
+    end
+  end
+  check(#short == 0, "four to six variants per line: " .. table.concat(short, ", "))
+  check(#badTag == 0, "only the allowed tags: " .. table.concat(badTag, ", "))
+
+  ns.char.renown, ns.char.honours = keep[1], keep[12]
+  if ns.char.self then ns.char.self.towns = keep[2] or {} end
+  state.zone, state.sub, GetNumFactions, GetFactionInfo, GetTitleText = keep[3], keep[4], keep[5], keep[6], keep[7]
+  ns.char.seedName = keep[11]
+  NOW = keepNow
   C.SourcesChanged(); C.Refresh()
 end
 
