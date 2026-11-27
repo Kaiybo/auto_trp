@@ -676,7 +676,7 @@ function World.Moment(s, seed)
   local subThe = sub
   if sub and World.IsInn(sub) and not sub:find("^The ") then subThe = "the " .. sub end
   local where = U.Mid(s.zone) or "the wilds"
-  local place = subThe and (U.Mid(subThe) .. ", " .. (s.zone or "")) or s.zone or "the road"
+  local place = subThe and (U.Mid(subThe) .. (s.zone and s.zone ~= sub and (" in " .. U.Mid(s.zone)) or "")) or s.zone or "the road"
   local spot = U.Mid(subThe) or where
   local ctx = s.context
   local tags = {

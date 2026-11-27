@@ -157,3 +157,10 @@ weighs nothing
 on the edge of | max 12
 in the thick of | max 2
 endless | max 2
+
+# Stock phrasing in the short fields (glances, Currently, journal): fine once or twice, not as a habit.
+has the look of someone | max 2
+only lately | max 4
+the best thing i've come by
+grew into my strength
+band of three

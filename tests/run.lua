@@ -1641,7 +1641,7 @@ do
     C.SourcesChanged(); C.Refresh()
     local st = C.Stats()
     check(st.slain == "12, 12 of them Defias Bandits", "kills from the combat log, only the player's: " .. tostring(st.slain))
-    check(st.deaths == "1, the first to Hogger", "a death, with who did it: " .. tostring(st.deaths))
+    check(st.deaths == "1, to Hogger", "a death, with who did it: " .. tostring(st.deaths))
     check(st.dungeons == "1", "a dungeon entered: " .. tostring(st.dungeons))
     ns.char.seen.zones = ns.char.seen.zones or {}
     ns.char.seen.zones["The Deadmines"] = NOW - 5 * 86400
@@ -2160,7 +2160,7 @@ do
   check(marks.TI == "Sore", "Marks: a fall just now: " .. tostring(marks.TI) .. ": " .. tostring(marks.TX))
   life().env.Falling.t = NOW - 3600
   C.SourcesChanged(); C.Refresh()
-  check(C.MarksGlance().TI == "Fresh From a Duel", "Marks: a duel just now: " .. C.MarksGlance().TI)
+  check(C.MarksGlance().TI == "Fresh from a Duel", "Marks: a duel just now: " .. C.MarksGlance().TI)
   for _, d in ipairs(life().duels.log) do d.t = NOW - 3600 end
   C.SourcesChanged(); C.Refresh()
   check(C.MarksGlance().TI == "Smells of Fish", "Marks: an afternoon's fishing: " .. C.MarksGlance().TI .. ": " .. C.MarksGlance().TX)
@@ -2170,11 +2170,11 @@ do
   for z in pairs(ns.char.seen.zones or {}) do ns.char.seen.zones[z] = NOW - 30 * 86400 end
   C.SourcesChanged(); C.Refresh()
   local lately = C.LatelyGlance()
-  local LATELY = { ["A Fresh Catch"] = true, ["Back From Battle"] = true, ["A New Mount"] = true, ["Fresh Kit"] = true,
+  local LATELY = { ["A Fresh Catch"] = true, ["Back from Battle"] = true, ["A New Mount"] = true, ["Fresh Kit"] = true,
     Reading = true, ["At Work"] = true, ["A New Inn"] = true, Fishing = true, ["Duel Won"] = true, ["Duel Lost"] = true }
   check(LATELY[lately.TI], "Lately: from Auto TRP's own record: " .. tostring(lately.TI) .. ": " .. tostring(lately.TX))
   local function latelyAfter(fn) fn(); C.SourcesChanged(); C.Refresh(); return C.LatelyGlance() end
-  check(latelyAfter(function() life().pvp.last.t = NOW + 1 end).TI == "Back From Battle", "Lately: back from a battle")
+  check(latelyAfter(function() life().pvp.last.t = NOW + 1 end).TI == "Back from Battle", "Lately: back from a battle")
   check(latelyAfter(function() life().fish.new.t = NOW + 2 end).TX:find("Slitherskin Mackerel", 1, true), "Lately: a fresh catch")
   check(latelyAfter(function() life().mounts.seen["Brown Horse"].t = NOW + 3 end).TX:find("a Brown Horse", 1, true), "Lately: a new mount")
   check(latelyAfter(function() life().books["The Fall of Ameth'Aran"].t = NOW + 4 end).TI == "Reading", "Lately: a book")
@@ -3820,6 +3820,154 @@ do
   end
   scan(ns.Words, 0)
   check(not any, "no \"{they} mean\" without {s}: " .. tostring(any))
+end
+
+-- The short fields read well at a glance: every mood beside others, in many places and
+-- shapes, and the five glances side by side (tests/run.lua prose checks).
+do
+  local W, C, M, World = ns.Words, ns.Compose, ns.Mood, ns.World
+  local realScores = M.Scores
+  local keepAPI = { UnitRace = UnitRace, UnitClass = UnitClass, GetGameTime = GetGameTime, IsInGroup = IsInGroup,
+    GetNumGroupMembers = GetNumGroupMembers, UnitHealth = UnitHealth }
+  local keepState = { zone = state.zone, sub = state.sub, resting = state.resting, debuffs = state.debuffs }
+  local keepSeed = ns.char.seedName
+  local moods = {}
+  for k in pairs(W.MOODS) do moods[#moods + 1] = k end
+  table.sort(moods)
+  local spots = { { "Elwynn Forest", "Goldshire", true }, { "Duskwood", "Darkshire" }, { "Stranglethorn Vale", "Booty Bay" },
+    { "Ironforge", "The Commons", true }, { "The Barrens", "The Crossroads" }, { "Westfall", nil }, { "Orgrimmar", "Valley of Strength", true },
+    { "Thunder Bluff", "Elder Rise", true }, { "Wetlands", "Menethil Harbor" }, { "Eastern Plaguelands", nil } }
+  local combos = { { "Human", "PRIEST" }, { "Scourge", "ROGUE" }, { "Dwarf", "HUNTER" }, { "Tauren", "WARRIOR" },
+    { "NightElf", "DRUID" }, { "Troll", "SHAMAN" }, { "Gnome", "MAGE" }, { "Orc", "WARLOCK" } }
+  local SMALL = { ["of"] = true, ["the"] = true, ["a"] = true, ["an"] = true, ["from"] = true, ["in"] = true, ["on"] = true,
+    ["to"] = true, ["with"] = true, ["at"] = true, ["and"] = true, ["for"] = true, ["but"] = true }
+  local long, listy, joined, repeated, lower, titles, ideas = {}, {}, {}, {}, {}, {}, {}
+  local function opener(s) return (s:match("^%A*(%a+)") or ""):lower() end
+  local n = 0
+  for mi, a in ipairs(moods) do
+    for rep = 1, 4 do
+      n = n + 1
+      local b = rep < 4 and moods[(mi * 7 + rep * 5) % #moods + 1] or nil
+      M.Scores = function(world)
+        local s, why = realScores(world)
+        for k in pairs(s) do s[k] = 0 end
+        s[a] = 50
+        if b and b ~= a then s[b] = 40 end
+        return s, why
+      end
+      local spot = spots[(mi + rep) % #spots + 1]
+      state.zone, state.sub, state.resting = spot[1], spot[2], spot[3] or false
+      local combo = combos[(mi * 3 + rep) % #combos + 1]
+      UnitRace = function() return combo[1], combo[1] end
+      UnitClass = function() return combo[2], combo[2] end
+      GetGameTime = function() return ({ 6, 13, 19, 23 })[(mi + rep) % 4 + 1], 0 end
+      IsInGroup = function() return rep == 2 end
+      GetNumGroupMembers = function() return rep == 2 and 3 or 0 end
+      UnitHealth = function() return rep == 3 and 30 or 100 end
+      ns.char.seedName = "prose" .. n
+      World.Invalidate(); C.SourcesChanged(); C.Refresh()
+      local mood = M.Current()
+      local sh = C.Sheet(true, mood)
+      local cu = sh.currently
+      local _, commas = cu:gsub(",", "")
+      if #cu > C.CURRENTLY_MAX then long[#long + 1] = cu end
+      if commas > 3 then listy[#listy + 1] = cu end
+      -- Opposite feelings never joined with a plain "and"; no word on both sides of a comma.
+      local va, vb = W.VALENCE[mood.key or ""], W.VALENCE[mood.alsoKey or ""]
+      if mood.also and va and vb and va * vb < 0 and cu:find(" and " .. mood.also, 1, true) then joined[#joined + 1] = cu end
+      for w1, w2 in cu:gmatch("(%a+), (%a+)") do if w1:lower() == w2:lower() then repeated[#repeated + 1] = cu end end
+      -- The glances: a capital to start, titles cased alike, no idea told twice.
+      local seen = {}
+      for _, k in ipairs({ "mood", "lately", "company", "ambition", "marks" }) do
+        local g = sh.glances[k]
+        if g.TX:find("^%l") then lower[#lower + 1] = k .. ": " .. g.TX end
+        local first = true
+        for w in g.TI:gmatch("%S+") do
+          local bare = w:gsub("%A", "")
+          if not first and SMALL[bare:lower()] and bare:find("^%u") then titles[#titles + 1] = g.TI end
+          if (first or not SMALL[bare:lower()]) and bare:find("^%l") then titles[#titles + 1] = g.TI end
+          first = false
+        end
+        for idea in pairs(C.Ideas(g.TI .. " " .. g.TX, ns.cache.world)) do
+          if seen[idea] then ideas[#ideas + 1] = idea .. ": " .. seen[idea] .. " / " .. k .. " " .. g.TX end
+          seen[idea] = seen[idea] or (k .. " " .. g.TX)
+        end
+      end
+    end
+  end
+  M.Scores = realScores
+  check(#long == 0, "Currently stays within " .. C.CURRENTLY_MAX .. " characters for every mood: " .. (long[1] or ""))
+  check(#listy == 0, "Currently never runs to a list of four commas: " .. (listy[1] or ""))
+  check(#joined == 0, "feelings that pull apart are joined with \"but\": " .. (joined[1] or ""))
+  check(#repeated == 0, "no word on both sides of a comma: " .. (repeated[1] or ""))
+  check(#lower == 0, "every glance starts with a capital: " .. (lower[1] or ""))
+  check(#titles == 0, "glance titles cased alike (\"Back from the Depths\"): " .. (titles[1] or ""))
+  check(#ideas == 0, "no two glances say the same thing at once: " .. (ideas[1] or ""))
+
+  -- A party of three is them and two others, not "a band of three".
+  IsInGroup = function() return true end
+  GetNumGroupMembers = function() return 3 end
+  ns.char.seedName = "prose-party"
+  World.Invalidate(); C.SourcesChanged(); C.Refresh()
+  local co = C.CompanyGlance()
+  check(co.TI ~= "In Company" or not co.TX:find("three", 1, true), "Company counts the others, not the whole party: " .. co.TX)
+  check(not (co.TI:find("Company") and co.TX:lower():find("company", 1, true)), "Company's title and text don't repeat a word: " .. co.TI .. ": " .. co.TX)
+  check(ns.U.Mid("Wetlands") == "the Wetlands" and ns.U.Mid("Eastern Plaguelands") == "the Eastern Plaguelands"
+    and ns.U.Mid("Duskwood") == "Duskwood", "lands that take \"the\" mid-sentence get it")
+  for _, l in ipairs(W.SAY.around) do check(not l:lower():find("lately", 1, true), "under the title Lately, the text doesn't say lately: " .. l) end
+
+  for k, v in pairs(keepAPI) do _G[k] = v end
+  for k, v in pairs(keepState) do state[k] = v end
+  ns.char.seedName = keepSeed
+  World.Invalidate(); C.SourcesChanged(); C.Refresh()
+end
+
+-- The journal reads like someone writing, not a log: no three sentences in a row open with
+-- the same word, and no way of saying a thing comes twice in one day.
+do
+  local J = ns.Journal
+  local function z(zone, o) local e = { k = "zone", zone = zone }; for k, v in pairs(o or {}) do e[k] = v end; return e end
+  local days = {
+    { start = { zone = "Elwynn Forest", sub = "Goldshire", hour = 6 }, last = { zone = "Duskwood", sub = "Scarlet Raven Tavern", inn = true, hour = 22 },
+      money = 1200, ev = { z("Westfall", { first = true }), { k = "quest", title = "The Killing Fields" }, z("Redridge Mountains", { first = true }),
+        z("Deadwind Pass"), z("Duskwood", { first = true, flew = true }), { k = "level" } } },
+    { start = { zone = "Durotar", sub = "Razor Hill", hour = 9 }, last = { zone = "The Barrens", sub = "The Crossroads", hour = 14 }, money = -500,
+      ev = { z("The Barrens"), { k = "quest", title = "Plainstrider Menace" }, { k = "death", foe = { name = "Razormane Hunter" }, zone = "The Barrens" },
+        z("Wailing Caverns", { instance = "party", first = true, size = 5 }), { k = "boss", name = "Lord Cobrahn", grouped = true },
+        z("The Barrens", { again = true }), z("Stonetalon Mountains", { first = true }), z("Ashenvale", { first = true }),
+        z("Blackfathom Deeps", { instance = "party", size = 5 }), z("Ashenvale", { again = true }), { k = "skill", name = "Skinning" } } },
+    { start = { zone = "Westfall", sub = "Sentinel Hill", hour = 10 }, last = { zone = "Elwynn Forest", sub = "Goldshire", hour = 18 }, money = 4000,
+      ev = { z("Elwynn Forest"), z("Stormwind City"), z("Redridge Mountains"), z("Elwynn Forest", { again = true }),
+        { k = "loot", item = "Ring of Precision", q = 2 }, { k = "loot", item = "Hand of Edward the Odd", q = 4 }, { k = "group", friends = {} } } },
+  }
+  local j = ns.char.journal or {}
+  ns.char.journal = j
+  j.days = j.days or {}
+  local key, runs, twice, sample = "2099-01-01", {}, {}, nil
+  for v = 1, 30 do
+    for i, d in ipairs(days) do
+      ns.char.seedName = "jprose" .. v .. ":" .. i
+      j.days[key] = { start = d.start, last = d.last, money = d.money, ev = d.ev, first = 0 }
+      local e = J.Compose(key)
+      local text = e and e.text or ""
+      sample = sample or text
+      local prev, streak = nil, 0
+      for s in text:gmatch("[^%.!%?]+[%.!%?]") do
+        local w = (s:match("^%s*(%a+)") or ""):lower()
+        if w == prev then streak = streak + 1 else streak = 1 end
+        if streak >= 3 and w ~= "i" then runs[#runs + 1] = text end
+        prev = w
+      end
+      for _, tail in ipairs({ "new ground for me", "somewhere I hadn't been", "for the first time", "my first sight", "without stopping long" }) do
+        local _, c = text:gsub(tail, "")
+        if c > 1 then twice[#twice + 1] = tail .. ": " .. text end
+      end
+    end
+  end
+  j.days[key] = nil
+  ns.char.seedName = "Aldric-Forever"
+  check(#runs == 0, "journal: no three sentences running open alike: " .. (runs[1] or ""))
+  check(#twice == 0, "journal: no way of saying a thing twice in one day: " .. (twice[1] or ""))
 end
 
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.

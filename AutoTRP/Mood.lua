@@ -389,6 +389,20 @@ function Mood.Current(world)
   return out
 end
 
+-- Every line the mood could show as its glance, from all three pools, pronouns filled:
+-- for when the one picked says what another glance already does.
+function Mood.Tells(key, world)
+  world = world or (ns.cache and ns.cache.world) or {}
+  local calm = type(key) == "string" and key:match("^calm:(.+)$")
+  local d = calm and (W.CALM[calm] or W.CALM.default) or def(key, world)
+  local out = {}
+  local rt, ct = W.RACE_TELLS[world.race or ""], W.CLASS_TELLS[world.class or ""]
+  for _, list in ipairs({ d and d.tells or {}, rt and rt[key] or {}, ct and ct[key] or {} }) do
+    for _, l in ipairs(U.BackedList(list, world)) do out[#out + 1] = U.Pron(l) end
+  end
+  return out
+end
+
 -- /atrp feel <mood>: the player decides, for an hour.
 function Mood.SetManual(name)
   local st = state()

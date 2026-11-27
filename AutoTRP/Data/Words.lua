@@ -62,7 +62,7 @@ W.MOODS = {
       "Bruised, tired and grinning anyway.",
       "Speaks louder than usual, with a winner's ease.",
       "Carries {their} {mainhand} like a trophy today.",
-      "Has the look of someone already telling the story of the fight in {their} head.",
+      "Seems to be telling {themselves} the story of the fight already.",
     },
   },
   satisfied = {
@@ -98,7 +98,7 @@ W.MOODS = {
       "Breathing slow and even. Nothing to prove today.",
       "Smiles easily and lets the world go by.",
       "Loose-limbed and unhurried.",
-      "Has the look of someone who slept well and ate better.",
+      "Slept well and ate better, by the look of {them}.",
       "Quiet, comfortable, content to listen.",
     },
   },
@@ -138,7 +138,7 @@ W.MOODS = {
       "Asks the locals the names of things.",
       "Eyes wide, missing nothing.",
       "Stops mid-step to stare at whatever caught {their} eye.",
-      "Has the look of someone seeing all this for the first time, and liking it.",
+      "Plainly seeing all this for the first time, and liking it.",
     },
   },
   homecoming = {
@@ -167,7 +167,7 @@ W.MOODS = {
   },
   uneasy = {
     title = "Uneasy", icon = "Spell_Shadow_Twilight",
-    adj = { "Uneasy", "Jumpy", "Keeping to the light", "Ill at ease", "On edge", "Looking over {their} shoulder" },
+    adj = { "Uneasy", "Jumpy", "Keeping out of the shadows", "Ill at ease", "On edge", "Looking over {their} shoulder" },
     tells = {
       "Keeps {their} back to a wall.",
       "Doesn't like this place, and doesn't pretend to.",
@@ -201,14 +201,14 @@ W.MOODS = {
       "Mutters half-sentences, then nods to {themselves}.",
       "Asks pointed questions, and remembers the answers.",
       "Taps a finger against {their} chin, thinking.",
-      "Has the look of someone who almost has it worked out.",
+      "Seems close to working something out.",
     },
   },
   determined = {
     title = "Determined", icon = "Ability_Warrior_BattleShout",
     adj = { "Determined", "Set on a purpose", "Resolute", "Single-minded", "Purposeful", "Not to be put off" },
     tells = {
-      "Has the look of someone with somewhere to be.",
+      "Plainly has somewhere to be.",
       "Jaw set, eyes forward.",
       "Walks fast and doesn't stop to chat.",
       "Answers short, eyes already on the road ahead.",
@@ -225,7 +225,7 @@ W.MOODS = {
       "Keeps checking that everyone's keeping up.",
       "Easier in the shoulders with others around.",
       "Talks more than usual, and listens too.",
-      "Has the look of someone glad not to be alone.",
+      "Seems glad not to be alone today.",
     },
   },
   sorrowful = {
@@ -289,7 +289,7 @@ W.MOODS = {
   },
   downcast = {
     title = "Downcast", icon = "Spell_Shadow_GatherShadows",
-    adj = { "Downcast", "Quiet and grim", "Carrying a bad day on {their} shoulders", "Low", "Glum", "Dispirited" },
+    adj = { "Downcast", "Quiet and grim", "Carrying a bad day on {their} shoulders", "Crestfallen", "Glum", "Dispirited" },
     tells = {
       "Has the hollow, quiet look of someone who has died recently and hasn't made peace with it.",
       "Moves carefully, like someone not yet sure the ground will hold.",
@@ -422,7 +422,7 @@ W.MOODS = {
     adj = { "Conflicted", "Troubled by a choice", "Second-guessing {themselves}", "Torn", "Wrestling with {themselves}" },
     tells = {
       "Turns something over and over in {their} head, and doesn't like the answer.",
-      "Has the look of someone who did a thing they're not proud of.",
+      "Wears a guilty face, and doesn't explain it.",
       "Starts to speak, then stops.",
       "Frowns down at {their} own hands.",
       "Can't meet anyone's eyes for long.",
@@ -442,7 +442,7 @@ W.MOODS = {
   },
   proud = {
     title = "Proud", icon = "INV_Misc_Ribbon_01",
-    adj = { "Proud", "Standing tall", "Head held high", "Chest out" },
+    adj = { "Proud", "Standing tall", "Head held high", "Quietly proud" },
     tells = {
       "Has earned some goodwill lately, and walks like it.",
       "Chin up, back straight.",
@@ -2382,7 +2382,7 @@ moreClass("DRUID", {
 
 ---------------------------------------------------------------------------
 -- Currently: how they're getting about, with the place filled in. {where} is the zone,
--- {place} the spot ("the Lion's Pride Inn, Elwynn Forest"), {around} "around <spot>" or
+-- {place} the spot ("the Lion's Pride Inn in Elwynn Forest"), {around} "around <spot>" or
 -- "in <zone>", {beast} the flight's mount, {mount} what they ride.
 ---------------------------------------------------------------------------
 W.TRAVEL = {
@@ -2651,7 +2651,7 @@ W.SAY = {
   boss = { "Was there when {who} fell{where}.", "Helped bring down {who}{where}.", "Stood in the fight that finished {who}{where}.",
     "Has just seen {who} beaten{where}.", "Was one of those who put an end to {who}{where}." },
   cleared = { "Has just come back up out of {place}.", "Is fresh out of {place}.", "Has only just climbed back out of {place}.",
-    "Is back from {place}, and glad of the daylight.", "Came up out of {place} only lately." },
+    "Is back from {place}, and glad of the daylight.", "Is newly back up out of {place}." },
   fight = { "Fresh from a fight with {who}.", "Has just seen off {who}.", "Still breathing hard after a fight with {who}.",
     "Has only just finished with {who}.", "Got the better of {who} a moment ago." },
   fight_long = { "Fresh from a long, hard fight with {who}.", "Has just come through a long fight with {who}.",
@@ -2667,9 +2667,9 @@ W.SAY = {
   talk = { "Was just talking {how}with {who}{where}.", "Has just been speaking {how}with {who}{where}.",
     "Has been talking {how}with {who}{where} just now.", "Spoke {how}with {who}{where} only a moment ago." },
   lastseen = { "Was last seen in conversation with {who}.", "Was last seen talking with {who}.",
-    "Spent some time talking with {who} lately.", "Has spent time with {who} in the last day." },
-  around = { "Has been around {where} lately.", "Has been spending time around {where}.", "Has been keeping to {where} lately.",
-    "Has been seen about {where} these last days.", "Has mostly been around {where} these last days." },
+    "Spent some time talking with {who}.", "Has spent time with {who} in the last day." },
+  around = { "Has been around {where} for a while.", "Has been spending time around {where}.", "Has been keeping to {where}.",
+    "Has been seen about {where} these last days.", "Hasn't strayed far from {where}." },
   -- Company: see W.COMPANY at the end of this file.
   -- Ambition and Marks
   nextrank = { "Working toward the rank of {rank}.", "Aims to rise to {rank}.", "Has {their} sights on the rank of {rank}.",
@@ -2928,7 +2928,7 @@ for k, v in pairs({
   lately_wear = { "Has only just started wearing {item}.", "Wears {item} now, and not for long yet." },
   lately_book = { "Was reading {item} only a short while ago.", "Has lately been reading {item}." },
   lately_made = { "Has been busy at {what} in {zone}.", "Spent the last while at {what} in {zone}." },
-  lately_inn = { "Rested at {inn} for the first time in the last day.", "Has only lately found {inn}." },
+  lately_inn = { "Rested at {inn} for the first time in the last day.", "Has just found {inn}, and stayed." },
   -- Marks glance
   mark_fish = { "Smells of fish.", "Smells strongly of fish, and of the water." },
   mark_cook = { "Smells of cooking smoke.", "Carries the smell of a cooking fire." },
@@ -2961,11 +2961,11 @@ W.GUILD_ONLINE = {
 }
 W.COMPANY = {
   -- The group
-  party = { "Travelling with {party}", "On the road with {party}", "In the company of {party}",
-    "Keeping company with {party}", "Out and about with {party}",
+  party = { "Travelling with {party}", "On the road with {party}", "Alongside {party}",
+    "Side by side with {party}", "Out and about with {party}",
     "Sharing the road with {party}" },
   party_lead = { "Leading {party}", "Setting the pace for {party}", "Out in front of {party}",
-    "Calling the turns for {party}", "At the head of a small band: {party}" },
+    "Calling the turns for {party}", "Showing {party} the way" },
   host = { "Marching with a host of {n}", "One of a host of {n}", "Part of a company {n} strong",
     "One of {n} gathered under the same banner", "Among a host {n} strong",
     "Travelling in a great company, {n} strong", "One of {n} under the same banner today" },
@@ -3059,7 +3059,7 @@ W.COMPANY = {
     "Has braved a dungeon on {their} own {times}", "Has taken on a dungeon unaccompanied {times}" },
   h_pet = { "{pet}, {their} {kind}, has been at {their} side for {span}", "{name} has had {pet} the {kind} for {span}",
     "For {span} now, {pet} the {kind} has gone where {name} goes", "{pet}, {akind}, has kept at {name}'s heel for {span}" },
-  h_pet_new = { "{name} has only lately taken on {pet}, {akind}", "{pet} the {kind} is a new companion",
+  h_pet_new = { "{name} has only just taken on {pet}, {akind}", "{pet} the {kind} is a new companion",
     "{pet}, {akind}, is newly at {name}'s side", "{name} has not had {pet} the {kind} long" },
   h_pets_before = { "Before {pet}, there was {list}", "{list} came before {pet}", "{pet} isn't the first: {list} came before",
     "{they've} kept {list} as well, at one time or another" },
@@ -3139,7 +3139,7 @@ local NEW_MOODS = {
     tells = {
       "A small, private smile that refuses to go away.",
       "Chin a notch higher than it needs to be.",
-      "Has the look of someone waiting to be asked how it went.",
+      "Plainly waiting to be asked how it went.",
       "Hums to {themselves}, unbearably cheerful.",
       "Raises an eyebrow at anyone who doubts {them}.",
       "Struts more than walks today.",
@@ -3174,7 +3174,7 @@ local NEW_MOODS = {
   },
   bitter = {
     title = "Bitter", icon = "Spell_Shadow_UnholyFrenzy",
-    adj = { "Bitter", "Sour", "Nursing a grudge", "In a black mood", "Sore about something", "Sharp-tongued today" },
+    adj = { "Bitter", "Sour", "Nursing a grudge", "Resentful", "Sore about something", "Sharp-tongued today" },
     tells = {
       "Mouth set in a thin, sour line.",
       "Answers in short, clipped words, and doesn't look up.",
@@ -3750,7 +3750,7 @@ W.DRIVES = {
 ---------------------------------------------------------------------------
 W.JOURNAL = {
   tod = {
-    dawn = { "at first light", "early", "before the sun was well up", "at daybreak" },
+    dawn = { "at first light", "at sunrise", "before the sun was well up", "at daybreak" },
     morning = { "in the morning", "mid-morning", "while it was still morning" },
     noon = { "around midday", "at midday", "about noon" },
     afternoon = { "in the afternoon", "after midday", "some time after noon" },
@@ -3763,18 +3763,18 @@ W.JOURNAL = {
   open_stay = { "Kept to {zone} today", "Didn't stray far from {place} today", "Stayed in and around {place}",
     "Spent the day around {place}", "Never left {zone} today" },
   -- Reaching a land.
-  arrive_new = { "Went on to {zone}, which I'd never seen before", "Reached {zone} for the first time",
-    "Crossed into {zone}, new ground for me", "Saw {zone} for the first time", "Came to {zone}, somewhere I hadn't been" },
+  arrive_new = { "Pushed on into {zone}, which I'd never seen before", "Reached {zone} for the first time",
+    "Crossed into {zone}, new ground for me", "Got my first look at {zone}", "Came to {zone}, somewhere I hadn't been" },
   arrive_on = { "Went on to {zone}", "Moved on to {zone}", "Carried on into {zone}", "Made for {zone}", "Took the road to {zone}" },
-  arrive_back = { "Went back to {zone}", "Made my way back to {zone}", "Headed back into {zone}", "Was back in {zone} later on" },
+  arrive_back = { "Doubled back to {zone}", "Made my way back to {zone}", "Headed back into {zone}", "Was back in {zone} later on" },
   flew = { "Took a flight to {zone}", "Flew on to {zone}", "Caught a flight to {zone}" },
-  flew_new = { "Flew to {zone}, my first sight of the place", "Took a flight to {zone}, somewhere I'd never been",
-    "Caught a flight to {zone}, new ground for me" },
-  instance = { "Went down into {zone}{company}", "Went into {zone}{company}", "Spent a while inside {zone}{company}" },
-  instance_new = { "Went into {zone} for the first time{company}", "Saw the inside of {zone} for the first time{company}",
+  flew_new = { "Flew to {zone}, my first sight of the place", "Took a flight to {zone}, a land I didn't know yet",
+    "Caught a flight to {zone}, a first for me" },
+  instance = { "Went down into {zone}{company}", "Spent a while inside {zone}{company}", "Took on {zone}{company}" },
+  instance_new = { "Braved {zone} for the first time{company}", "Saw the inside of {zone} for the first time{company}",
     "Went down into {zone}{company}, my first time there" },
   raid = { "Went into {zone} with a raid", "Joined a raid into {zone}" },
-  pass = { "Passed through {list}", "Went by way of {list}", "Crossed {list} without stopping long" },
+  pass = { "Passed through {list}", "Came by way of {list}", "Crossed {list} without stopping long" },
   pass_end = { "Passed through {list} after that", "Then on through {list}", "Crossed {list} later on" },
   -- What was done there. {there}: " there", " before I left" or nothing.
   quest_one = { "Turned in \"{q}\"{there}", "Saw \"{q}\" through{there}", "Finished \"{q}\"{there}",
@@ -3800,7 +3800,7 @@ W.JOURNAL = {
       "I won't make that mistake twice if I can help it" },
     brave = { "Next time I'll be ready for it", "It won't go that way twice", "I'll be back for that one" },
     cautious = { "I should have seen it coming", "I'll give that place a wider berth", "I pushed my luck and paid for it" },
-    kind = { "Nobody else was hurt for it, at least", "Better me than someone with less sense" },
+    kind = { "Nobody else was hurt for it, at least", "Better me than someone who couldn't take it" },
     cruel = { "I'll pay that back with interest", "Someone will answer for it" },
     witty = { "A poor way to spend an afternoon", "I've had better days, and fewer deaths in them" },
     pious = { "Light grant me better judgement next time", "Light keep me steadier tomorrow" },
@@ -3833,10 +3833,10 @@ W.JOURNAL = {
   group_many = { "Joined up with others {times} over the day", "Was in {n} different groups over the day",
     "Fell in with one group or another {times}" },
   loot = { "Came away with {list}", "Found {list} today", "Picked up {list} along the way", "{list} came my way today" },
-  loot_epic = { "Came away with {list}, and I can hardly believe my luck", "Found {list} today, the best thing I've come by in a long while",
+  loot_epic = { "Came away with {list}, and I can hardly believe my luck", "Found {list} today, the best I've come by in a long while",
     "{list} came my way today, which made the whole day worth it" },
   level = { "Grew stronger", "Felt myself grow stronger", "I'm stronger now than when the day began",
-    "Grew into my strength a step further" },
+    "Came out of the day stronger than I went in" },
   level_many = { "Grew stronger {times} over", "Grew stronger {times} in one day", "Felt myself grow stronger {times}" },
   rank = { "I can call myself {rank} now", "I'm {rank} now, by any fair measure", "I've earned the name of {rank}" },
   skill = { "Got better at {list}", "Put some practice into {list}", "Made headway with {list}", "My {list} came along" },
@@ -3861,7 +3861,7 @@ W.JOURNAL = {
     company = { "glad of the company", "in good company" }, intrigued = { "turning things over", "curious what comes next" },
     determined = { "set on what comes next", "determined" }, sorrowful = { "heavy-hearted", "sad" },
     angry = { "angry", "still angry" }, smitten = { "with someone on my mind" }, devout = { "at peace", "prayerful" },
-    fed = { "well fed", "full and content" }, downcast = { "low", "out of sorts" }, frustrated = { "frustrated", "fed up" },
+    fed = { "well fed", "full and content" }, downcast = { "low in spirits", "out of sorts" }, frustrated = { "frustrated", "fed up" },
     bolstered = { "in fine fettle", "strong and well" }, glorious = { "fit to take on anything" }, ailing = { "feeling poorly", "sick" },
     drained = { "drained", "spent" }, wounded = { "sore", "nursing my hurts" }, festive = { "in a festive mood" },
     fierce = { "with my blood still up" }, worried = { "anxious", "worried about money" }, flush = { "pleased with my purse" },
@@ -4133,9 +4133,9 @@ extendAll(W.SAY, {
 })
 -- Company: friends from Social Diary, and local ties.
 W.SAY.seenwith_rel = { "Often seen with {who}, {their} {rel}.", "Seldom far from {who}, {their} {rel}.",
-  "Usually in the company of {who}, {their} {rel}.", "Keeps close to {who}, {their} {rel}." }
-W.SAY.seenwith = { "Often seen in the company of {list}.", "Often seen with {list}.", "Usually found with {list}.",
-  "Keeps company with {list}.", "Spends a good deal of time with {list}." }
+  "Usually at the side of {who}, {their} {rel}.", "Rarely seen without {who}, {their} {rel}." }
+W.SAY.seenwith = { "Most often seen alongside {list}.", "Often seen with {list}.", "Usually found with {list}.",
+  "Seldom far from {list}.", "Spends a good deal of time with {list}." }
 W.SAY.getson = { "gets on well with {who}", "is friendly with {who}", "is on good terms with {who}", "counts {who} a friend" }
 -- Marks: how they are right now.
 W.SAY.mark_wounded = { "Freshly wounded, and moving carefully.", "Hurt, and favouring the hurt side.",

@@ -271,8 +271,13 @@ function U.Humanize(id)
 end
 
 -- "The Deadmines" reads "the Deadmines" mid-sentence.
+-- Lands whose names take "the" mid-sentence though the game leaves it off: "in the
+-- Wetlands", never "in Wetlands".
+U.TAKES_THE = { ["Wetlands"] = true, ["Eastern Plaguelands"] = true, ["Western Plaguelands"] = true, ["Badlands"] = true,
+  ["Blasted Lands"] = true, ["Burning Steppes"] = true, ["Searing Gorge"] = true, ["Swamp of Sorrows"] = true }
 function U.Mid(name)
   if type(name) ~= "string" then return name end
+  if U.TAKES_THE[name] then return "the " .. name end
   return (name:gsub("^The ", "the "))
 end
 

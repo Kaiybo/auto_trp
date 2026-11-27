@@ -74,11 +74,13 @@ function D.Boss(name, where, t)
 end
 
 -- A death: when, where, and who did it if a fight was on (the last foe fought).
-function D.Death(killer)
+-- named: a boss, rare or elite, told by name; anything else is "a Defias Pillager".
+function D.Death(killer, named)
   local d = store()
   if not d then return end
   d.deathCount = (tonumber(d.deathCount) or 0) + 1
-  table.insert(d.deaths, { t = U.Now(), zone = zone(), killer = U.Plain(killer) })
+  killer = U.Plain(killer)
+  table.insert(d.deaths, { t = U.Now(), zone = zone(), killer = killer, common = (killer and not named) or nil })
   while #d.deaths > 20 do table.remove(d.deaths, 2) end   -- the first is kept, for "the first to"
   if ns.Compose then ns.Compose.SourcesChanged() end
 end
@@ -178,16 +180,23 @@ ns.On("PLAYER_DEAD", function()
   -- The last foe fought (Mood.lua keeps it as { name, named }); another player is never
   -- named, since this reaches the Deaths statistic and the Lately glance.
   local f = ns.char and ns.char.lastFight
-  local foe
+  local foe, named
   if f and U.Now() - (f.t or 0) < 20 then
-    if type(f.foe) == "table" then foe = not f.foe.player and f.foe.name or nil
-    elseif type(f.foe) == "string" then foe = f.foe end
+    if type(f.foe) == "table" then foe, named = not f.foe.player and f.foe.name or nil, f.foe.named
+    elseif type(f.foe) == "string" then foe, named = f.foe, true end
   end
   -- Still in the fight when it ended: the target is the likelier killer.
   if U.Call(UnitExists, "target") and U.Call(UnitCanAttack, "player", "target") then
-    if U.Call(UnitIsPlayer, "target") then foe = nil else foe = U.Call(UnitName, "target") or foe end
+    if U.Call(UnitIsPlayer, "target") then foe = nil
+    else
+      local name = U.Call(UnitName, "target")
+      if name then
+        local kind = U.Call(UnitClassification, "target")
+        foe, named = name, kind and kind ~= "normal" and kind ~= "minus" and kind ~= "trivial"
+      end
+    end
   end
-  D.Death(foe)
+  D.Death(foe, named)
 end)
 local function checkInstance()
   local inside, kind = U.Call(IsInInstance)

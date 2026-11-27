@@ -155,7 +155,7 @@ local function deathCount(c)
 end
 
 local function sentence(s)
-  s = U.Pron(U.Cap(s))
+  s = U.Cap(U.Pron(s))   -- after the pronouns: "{their} Crown" opens a sentence as "His Crown"
   local tail = s:gsub("{/col}$", "")
   if not (tail:find("[%.!%?]$") or tail:find("[%.!%?]\"$")) then s = s .. "." end
   return s
@@ -189,13 +189,15 @@ function Compose.Currently(mood)
   -- feeling that repeats one.
   local function words(text)
     local w = {}
-    for x in (text or ""):lower():gmatch("%a+") do if #x >= 4 then w[x] = true end end
+    for x in (text or ""):lower():gmatch("%a+") do if #x >= 4 then w[(#x > 4 and x:gsub("s$", "")) or x] = true end end
     return w
   end
+  -- A shared word, or one phrase ending on the word the next begins with ("Shaken up, up on Elder Rise").
   local function clash(a, b)
     local wa = words(a)
     for x in pairs(words(b)) do if wa[x] then return true end end
-    return false
+    local last, first = (a or ""):lower():match("(%a+)%A*$"), (b or ""):lower():match("^%A*(%a+)")
+    return last ~= nil and last == first
   end
   local adj, also = mood.adj, mood.also
   if adj and clash(adj, m.main) then
@@ -206,11 +208,35 @@ function Compose.Currently(mood)
     end
   end
   if also and clash(also, m.main) then also = nil end
+  -- Two feelings read best as a pair, "Weary and uneasy": so with a second one, each without
+  -- an "and" of its own where its mood has another way ("Full and content, friendly" no).
+  local function single(key, cur, other, lowerIt)
+    if not (cur and cur:find(" and ")) then return cur end
+    local def = W.MOODS[key or ""]
+    for _, a in ipairs(U.BackedList(def and def.adj, world)) do
+      a = U.Pron(a)
+      if lowerIt then a = a:lower() end
+      if not a:find(" and ") and not clash(a, m.main) and not clash(a, other) and not clash(other, a) then
+        if cur:find("^Still ") and not a:find("^Still") and not a:find("^Not") then a = "Still " .. a:gsub("^%u", string.lower) end
+        return a
+      end
+    end
+    return cur
+  end
+  if also and adj then
+    also = single(mood.alsoKey, also, adj, true)
+    adj = single(mood.key, adj, also)
+  end
+  -- Feelings that pull opposite ways are joined with "but": "Sickly but in high spirits".
+  local va, vb = W.VALENCE[mood.key or ""], W.VALENCE[mood.alsoKey or ""]
+  local contrast = va and vb and va * vb < 0
   local function build(withAlso, extras, withTod, withAside)
     local text = adj
     -- "Weary and uneasy", but "In no hurry, hale and hearty" rather than a run of ands.
     if withAlso and also then
-      text = text .. ((text:find(" and ") or also:find(" and ")) and ", " or " and ") .. also
+      local paired = text:find(" and ") or also:find(" and ")
+      if contrast then text = text .. (paired and ", but " or " but ") .. also
+      else text = text .. (paired and ", " or " and ") .. also end
     end
     text = text .. ", " .. m.main
     if withTod and tod then text = text .. " " .. tod end
@@ -236,7 +262,7 @@ end
 -- At first glance: five slots, always something in each.
 ---------------------------------------------------------------------------
 function Compose.MoodGlance(mood)
-  return { TI = mood.title, TX = mood.tell, IC = mood.icon }
+  return { TI = mood.title, TX = U.Cap(mood.tell), IC = mood.icon }
 end
 
 
@@ -259,7 +285,8 @@ function Compose.LatelyGlance()
   local cdeath = chron and chron.deaths[1]
   if cdeath and (not death or cdeath.t > death.t) then death = cdeath end
   if death and within(death.t, 2 * 86400) then
-    local tx = "Was badly hurt" .. (death.killer and (" by " .. death.killer) or "") .. (death.zone and (" in " .. death.zone) or "")
+    local killer = death.killer and (death.common and article(death.killer) or death.killer)
+    local tx = "Was badly hurt" .. (killer and (" by " .. killer) or "") .. (death.zone and (" in " .. U.Mid(death.zone)) or "")
       .. (within(death.t, 3 * 3600) and ", within the last few hours" or ", a day or two ago")
     add(death.t, 3, { TI = "Hurt", TX = tx .. ".", IC = "Spell_Holy_Resurrection" })
   end
@@ -270,7 +297,7 @@ function Compose.LatelyGlance()
   end
   local cleared = rpgd and rpgd.cleared[1]
   if cleared and within(cleared.t, 3 * 86400) then
-    add(cleared.t, 2, { TI = "Back From the Depths", IC = "INV_Misc_Key_14",
+    add(cleared.t, 2, { TI = "Back from the Depths", IC = "INV_Misc_Key_14",
       TX = say("cleared", { place = U.Mid(cleared.name) }, cleared.t) })
   end
   local thread = rpgd and rpgd.threads[1]
@@ -338,7 +365,7 @@ function Compose.LatelyGlance()
     end
     local bl = life.battleLast
     if bl and within(bl.t, 7200) then
-      add(bl.t, 2, { TI = "Back From Battle", IC = "INV_BannerPVP_02",
+      add(bl.t, 2, { TI = "Back from Battle", IC = "INV_BannerPVP_02",
         TX = say(bl.won and "lately_battle_won" or "lately_battle_lost", { place = U.Mid(bl.name) }, bl.t) })
     end
     local mount = life.mounts[1]
@@ -481,7 +508,8 @@ function Compose.CompanyGlance()
       return { TI = g.lead and "Leading a Host" or "Part of a Host", IC = "INV_BannerPVP_02",
         TX = join(s1 .. (clause and (", " .. clause) or ""), groupTail(g)) }
     end
-    local party = Compose.PartyWords(g) or (n == 2 and "a companion" or ("a band of " .. U.Number(n)))
+    -- n counts them too: a party of three is them and two others.
+    local party = Compose.PartyWords(g) or (n == 2 and "a companion" or (U.Number(n - 1) .. " others"))
     local s1 = cw(g.lead and "party_lead" or "party", { party = party }, party)
     return { TI = g.lead and "Leading the Way" or "In Company", IC = "Spell_Holy_PrayerOfSpirit",
       TX = join(s1 .. (clause and (", " .. clause) or ""), groupTail(g)) }
@@ -687,10 +715,48 @@ local function kit(world, short, fmt)
   return table.concat(parts, ". ") .. "."
 end
 
+-- The ideas a glance carries, so that two glances never say the same thing at once
+-- (Mood "Keeps touching an old wound" beside Marks "Bloodied"; Lately "Won a duel" beside
+-- Marks "Fresh from a duel"). Lua patterns, matched against the lowered text.
+Compose.IDEAS = {
+  hurt = { "%f[%a]wound", "%f[%a]hurt", "%f[%a]bloodied", "%f[%a]bleed", "%f[%a]limp", "%f[%a]injur", "%f[%a]favouring" },
+  death = { "%f[%a]death", "%f[%a]dead%f[%A]", "%f[%a]died", "%f[%a]dying", "%f[%a]killed", "the other side" },
+  duel = { "%f[%a]duel" },
+  fish = { "%f[%a]fish" },
+  fight = { "%f[%a]fight", "%f[%a]battle%f[%A]" },
+  closecall = { "close call", "%f[%a]barely survived", "%f[%a]narrowest" },
+  breath = { "%f[%a]breath" },
+  drink = { "%f[%a]drink", "%f[%a]drunk", "%f[%a]ale%f[%A]", "%f[%a]tipsy", "%f[%a]cups%f[%A]" },
+  prayer = { "%f[%a]pray" },
+  sick = { "%f[%a]fever", "%f[%a]sick", "%f[%a]cough", "%f[%a]ailing" },
+  meal = { "%f[%a]meal", "%f[%a]ate well", "%f[%a]eating", "%f[%a]stomach" },
+  smell = { "%f[%a]smell" },
+  tired = { "%f[%a]tired", "%f[%a]weary", "%f[%a]sleep", "%f[%a]yawn" },
+  coin = { "%f[%a]coin", "%f[%a]gold%f[%A]", "%f[%a]purse", "%f[%a]pouch" },
+  reading = { "%f[%a]reading", "%f[%a]book" },
+}
+function Compose.Ideas(text, world)
+  local out = {}
+  local low = (text or ""):lower()
+  for idea, pats in pairs(Compose.IDEAS) do
+    for _, p in ipairs(pats) do if low:find(p) then out[idea] = true; break end end
+  end
+  -- A piece of gear named twice ("Carries his Staff of Westfall like a trophy" beside it as a mark).
+  local g = world and world.gear
+  for _, name in pairs(g and g.names or {}) do
+    if type(name) == "string" and #name > 3 and (text or ""):find(name, 1, true) then out["item:" .. name] = true end
+  end
+  return out
+end
+function Compose.SharesIdea(text, ideas, world)
+  for k in pairs(Compose.Ideas(text, world)) do if ideas[k] then return true end end
+  return false
+end
+
 -- Marks: the most striking thing about them right now (a wound, drink, a spell on them, a
 -- shape), else the most striking thing they wear or carry, else their kit and bearing.
 -- Compose.NowMarks and Compose.GearParts are below, with About: Physical.
-function Compose.MarksGlance()
+function Compose.MarksGlance(avoid)
   local c = ns.cache
   local world = c.world
   local marks = {}
@@ -709,7 +775,7 @@ function Compose.MarksGlance()
     if fall and within(fall.t, 600) then mark(6, "Sore", say("mark_fall", nil, fall.t), "Spell_Magic_FeatherFall") end
     if world.swimming then mark(5.5, "Soaked", say("mark_swim", nil, world.zone), "Spell_Frost_SummonWaterElemental") end
     local du = life.duelLog[#life.duelLog]
-    if du and within(du.t, 600) then mark(4.6, "Fresh From a Duel", say("mark_duel", nil, du.t), "Ability_Warrior_Challange") end
+    if du and within(du.t, 600) then mark(4.6, "Fresh from a Duel", say("mark_duel", nil, du.t), "Ability_Warrior_Challange") end
     local fr = life.fishRun
     if fr and within(fr.last, 1800) and (fr.n or 0) >= 5 then mark(4.5, "Smells of Fish", say("mark_fish", nil, fr.start), "INV_Misc_Fish_02") end
     local mr = life.madeRun
@@ -735,9 +801,12 @@ function Compose.MarksGlance()
   elseif parts.armsKey == "dual" then mark(2.3, M.dual[1], parts.arms, M.dual[2]) end
   if parts.armourType == "Plate" and not parts.mixed then mark(2, M.plate[1], parts.armour, M.plate[2]) end
   table.sort(marks, function(a, b) if a.prio ~= b.prio then return a.prio > b.prio end return a.title < b.title end)
-  if marks[1] then
-    local m = marks[1]
-    return { TI = m.title, TX = sentence(m.text), IC = m.icon }
+  -- The strongest mark that doesn't say what another glance already says (avoid: ideas).
+  for _, m in ipairs(marks) do
+    local text = sentence(m.text)
+    if not (avoid and Compose.SharesIdea(m.title .. " " .. text, avoid, world)) then
+      return { TI = m.title, TX = text, IC = m.icon }
+    end
   end
   local k = kit(world, true)
   local cl = U.BackedList(noGear(W.CLASS_LOOK[world.class or ""]), world)
@@ -2209,7 +2278,8 @@ function Compose.Stats()
   local deaths = deathCount(c)
   if deaths > 0 then
     local first = rpgd and rpgd.deaths[1] or (chron and chron.deaths[#chron.deaths]) or (c.deeds and c.deeds.deaths[1])
-    out.deaths = figure(deaths) .. (first and first.killer and (", the first to " .. first.killer) or "")
+    local killer = first and first.killer and (first.common and article(first.killer) or first.killer)
+    out.deaths = figure(deaths) .. (killer and ((deaths == 1 and ", to " or ", the first to ") .. killer) or "")
   end
   local own = c.deeds or {}
   local lands = math.max(rpgd and #rpgd.zones or 0, chron and chron.zones or 0, own.zones and #own.zones or 0)
@@ -2554,6 +2624,34 @@ end
 local STORY = { "traits", "bearing", "history", "physical", "title", "fulltitle", "residence", "birthplace",
   "motto", "nickname", "icon", "relationship", "ooc", "glance_ambition" }
 for _, st in ipairs(Compose.STATS) do STORY[#STORY + 1] = "stat_" .. st.key end
+-- The five glances side by side: where two say the same thing, the one with other ways to
+-- say it gives way. Lately and the mood's own title stand; Marks takes its next mark; the
+-- mood's line takes another of the mood's lines.
+function Compose.Glances(mood, withAmbition)
+  local world = ns.cache.world
+  local gl = { mood = Compose.MoodGlance(mood), lately = Compose.LatelyGlance(), company = Compose.CompanyGlance(),
+    ambition = withAmbition and Compose.AmbitionGlance() or nil, marks = Compose.MarksGlance() }
+  local function ideasOf(g) return g and Compose.Ideas((g.TI or "") .. " " .. (g.TX or ""), world) or {} end
+  local held = ideasOf(gl.lately)
+  for k in pairs(Compose.Ideas(gl.mood.TI, world)) do held[k] = true end
+  if gl.marks and Compose.SharesIdea(gl.marks.TI .. " " .. gl.marks.TX, held, world) then
+    gl.marks = Compose.MarksGlance(held) or gl.marks
+  end
+  local others = {}
+  for _, k in ipairs({ "lately", "company", "ambition", "marks" }) do
+    for idea in pairs(ideasOf(gl[k])) do others[idea] = true end
+  end
+  if gl.mood.TX and Compose.SharesIdea(gl.mood.TX, others, world) and ns.Mood.Tells then
+    local list = ns.Mood.Tells(mood.key, world)
+    local start = U.Hash(seed("tell:" .. tostring(mood.key))) % math.max(1, #list)
+    for n = 0, #list - 1 do
+      local t = list[(start + n) % #list + 1]
+      if not Compose.SharesIdea(t, others, world) then gl.mood = { TI = gl.mood.TI, TX = U.Cap(t), IC = gl.mood.IC }; break end
+    end
+  end
+  return gl
+end
+
 function Compose.Sheet(fresh, mood, only)
   if not fresh then Compose.Refresh() end
   mood = mood or ns.Mood.Current(ns.cache.world)
@@ -2562,20 +2660,13 @@ function Compose.Sheet(fresh, mood, only)
   if not story then
     return {
       mood = mood, currently = Compose.Currently(mood), walkup = Compose.Walkup(mood),
-      glances = { mood = Compose.MoodGlance(mood), lately = Compose.LatelyGlance(), company = Compose.CompanyGlance(),
-        marks = Compose.MarksGlance() },
+      glances = Compose.Glances(mood, false),
     }
   end
   return {
     mood = mood,
     currently = Compose.Currently(mood),
-    glances = {
-      mood = Compose.MoodGlance(mood),
-      lately = Compose.LatelyGlance(),
-      company = Compose.CompanyGlance(),
-      ambition = Compose.AmbitionGlance(),
-      marks = Compose.MarksGlance(),
-    },
+    glances = Compose.Glances(mood, true),
     traits = Compose.Traits(),
     bearing = Compose.Bearing(),
     history = Compose.History(),

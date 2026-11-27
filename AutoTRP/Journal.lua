@@ -427,7 +427,48 @@ function J.Compose(key)
   end
   local ev = d.ev
   local lines = {}
-  local function line(text, kind) if text and text ~= "" then lines[#lines + 1] = { text = text, kind = kind } end end
+  -- No way of saying a thing is used twice in a day, and no sentence opens with a word
+  -- another has already opened with, while the list has another way ("Went on to ...
+  -- Went into ... Went by way of ..." reads like a log).
+  local opened, usedLine, usedRun = {}, {}, {}
+  local function opener(text) return ((text or ""):match("^%s*([%a']+)") or ""):lower() end
+  -- The three-word runs of a line's own words ("for the first time"), its {tags} aside.
+  local function runs(text)
+    local w, out = {}, {}
+    for x in text:gsub("{%a+}", " # "):lower():gmatch("[%a']+") do w[#w + 1] = x end
+    for i = 1, #w - 2 do out[#out + 1] = w[i] .. " " .. w[i + 1] .. " " .. w[i + 2] end
+    return out
+  end
+  local function pick(list, key, tag, vars)
+    if type(list) ~= "table" or #list == 0 then return nil end
+    local first = U.Pick(list, seedFor(key, tag))
+    local start = 1
+    for n, l in ipairs(list) do if l == first then start = n; break end end
+    -- Best: a way not used today, opening on a fresh word, with no run of words already told.
+    local best, bestScore
+    for n = 0, #list - 1 do
+      local cand = list[(start - 1 + n) % #list + 1]
+      if type(cand) == "string" then
+        local score = usedLine[cand] and 4 or 0
+        local w = opener(cand)
+        if w ~= "" and opened[w] then score = score + 1 end
+        for _, r in ipairs(runs(cand)) do if usedRun[r] then score = score + 2; break end end
+        if not bestScore or score < bestScore then best, bestScore = cand, score end
+        if score == 0 then break end
+      end
+    end
+    if type(best) ~= "string" then return nil end
+    usedLine[best] = true
+    for _, r in ipairs(runs(best)) do usedRun[r] = true end
+    return fill(best, vars or {})
+  end
+  local function line(text, kind)
+    if text and text ~= "" then
+      lines[#lines + 1] = { text = text, kind = kind }
+      local w = opener(text)
+      if w ~= "" and w ~= "i" then opened[w] = true end
+    end
+  end
 
   -- Split the day into stretches, one per land in the order entered.
   local segs = { { zone = d.start.zone, start = true, quests = {}, bosses = {}, deaths = {}, close = {}, inns = {} } }
@@ -761,7 +802,7 @@ function J.LatelyGlance()
   if not text then return nil end
   local first = text:match("^(.-[%.!%?])%s") or text
   local tx = fill(U.Pick(W.JOURNAL.glance, seedFor(key, "glance")), { when = whenWords(key), q = "\"" .. U.Truncate(first, 160) .. "\"" })
-  return { TI = "Lately", IC = "INV_Misc_Book_09", TX = U.Pron(U.Cap(tx)) }
+  return { TI = "Lately", IC = "INV_Misc_Book_09", TX = U.Cap(U.Pron(tx)) }
 end
 
 ---------------------------------------------------------------------------
