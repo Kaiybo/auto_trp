@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.22.0 (2026-11-27): What Changed
+
+- **`/atrp log`**: the last writes to your profile, each with when, what set it off (a new land, a fight over, loot...), your mood and why, and every field it changed, from what to what. `/atrp log 20` shows more; the newest thirty are kept.
+- **Firsts and milestones.** Going into a dungeon or raid for the first time leaves you **wide-eyed**. Winning a battleground is a **triumph**, losing one **frustrating**. A craft reaching a new rank (75, 150, 225, 300) feels **accomplished**. A long flight leaves you **weary**. Each first is kept for History's month-by-month paragraph: *"Went into the Deadmines for the first time."*, *"Became an expert angler."*, *"Won his first battleground, in Warsong Gulch."*
+- **Dozing at the inn.** Away while resting at an inn, *Currently* has you nodding off rather than lost in thought.
+
 ## 0.21.0 (2026-11-27): Along the Way
 
 - **Names within reach.** A quest in your log that would earn a name you don't have yet (a chain's last step, or a bounty) is now noticed. `/atrp names` lists them under *Within reach*, with the saying that comes with each, and the *Ambition* glance names the job when you have no Chronicle goal or unfinished story: *"Has taken on a job worth finishing: "Princess Must Die!"."* The quest log is read only when it has changed.

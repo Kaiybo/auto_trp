@@ -990,6 +990,7 @@ W.ACTIVITY = {
   talk = { "talking with {who} in {place}", "deep in conversation with {who} in {place}" },
   reading = { "reading {what} in {place}", "with {their} nose in {what}, in {place}" },
   duel = { "trading blows in a duel in {place}", "squaring off in a duel in {place}" },
+  away_rest = { "nodding off in {place}", "half asleep in {place}", "dozing in {place}" },
   away = { "lost in thought in {place}, not really listening", "staring into the middle distance in {place}" },
   sitting = { "sitting down for a rest in {place}", "taking a seat in {place}" },
   sleeping = { "asleep in {place}", "dozing in {place}" },

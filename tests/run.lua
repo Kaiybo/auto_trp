@@ -260,7 +260,7 @@ check(ns.Compose.Currently(ns.Mood.Current()):find("with Innkeeper Farley in the
 ns.World.SetContext("none")
 UnitIsAFK = function() return true end
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
-check(ns.Compose.Currently(ns.Mood.Current()):find("lost in thought") or ns.Compose.Currently(ns.Mood.Current()):find("middle distance") or ns.Compose.Currently(ns.Mood.Current()):find("miles away") or ns.Compose.Currently(ns.Mood.Current()):find("daydreaming"), "AFK reads as lost in thought")
+check(ns.Compose.Currently(ns.Mood.Current()):find("lost in thought") or ns.Compose.Currently(ns.Mood.Current()):find("middle distance") or ns.Compose.Currently(ns.Mood.Current()):find("miles away") or ns.Compose.Currently(ns.Mood.Current()):find("daydreaming") or ns.Compose.Currently(ns.Mood.Current()):find("nodding off") or ns.Compose.Currently(ns.Mood.Current()):find("half asleep") or ns.Compose.Currently(ns.Mood.Current()):find("dozing"), "AFK reads as lost in thought, or dozing at the inn")
 UnitIsAFK = function() return false end
 state.resting = false
 IsMounted = function() return true end
@@ -1277,6 +1277,60 @@ do
   check(not C.History():find("In " .. MONTHS[d.month] .. " " .. d.year, 1, true), "switched off, History leaves it out")
   ns.db.annals = true
   ns.char.milestones, ns.char.honours, ns.char.annals = ms, hon, nil
+  C.Refresh()
+end
+
+-- The change log: each write is kept with what changed, from and to, and why.
+do
+  ns.char.writeLog = nil
+  RPGDialogueCharDB.drunk, RPGDialogueCharDB.drunkAt = 2, NOW
+  ns.UI.Update(true)
+  local log = ns.char.writeLog
+  check(log and #log >= 1 and #log[#log].fields >= 1 and log[#log].fields[1].to, "a write is logged with its fields")
+  for i = 1, 40 do ns.UI.LogWrite({ "currently" }, { currently = { from = "a", to = "b" } }, { title = "Merry", reasons = { "drink" } }) end
+  check(#ns.char.writeLog == ns.UI.KEEP_LOG, "only the newest writes are kept")
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end
+  SlashCmdList.AUTOTRP("log 2")
+  DEFAULT_CHAT_FRAME.AddMessage = oldChat
+  local out = table.concat(said, "\n")
+  check(out:find("last 2 writes") and out:find("mood merry %(drink%)") and out:find("a|r %-> b"), "/atrp log shows what changed and why")
+  RPGDialogueCharDB.drunk, RPGDialogueCharDB.drunkAt = nil, nil
+end
+
+-- Firsts and milestones: a first dungeon, a battleground, a craft's new rank, dozing at the inn.
+do
+  local C = ns.Compose
+  ns.char.instances, ns.char.battles, ns.char.crafts, ns.char.annals = nil, nil, nil, nil
+  GetInstanceInfo = function() return "The Deadmines", "party" end
+  event("ZONE_CHANGED_NEW_AREA")
+  check(ns.char.instances["The Deadmines"], "the first time inside a dungeon is remembered")
+  local t = ns.char.instances["The Deadmines"].t
+  NOW = NOW + 5; event("ZONE_CHANGED_NEW_AREA"); NOW = NOW - 5
+  check(ns.char.instances["The Deadmines"].t == t, "only the first time")
+  GetInstanceInfo = nil
+  UnitFactionGroup = function() return "Alliance" end
+  GetBattlefieldWinner = function() return 1 end
+  event("UPDATE_BATTLEFIELD_STATUS"); event("UPDATE_BATTLEFIELD_STATUS")
+  check(ns.char.battles.won == 1, "a battleground won counts once")
+  GetBattlefieldWinner = function() return nil end; event("UPDATE_BATTLEFIELD_STATUS")
+  GetBattlefieldWinner = function() return 0 end; event("UPDATE_BATTLEFIELD_STATUS")
+  check(ns.char.battles.lost == 1, "and the next one lost")
+  GetBattlefieldWinner = nil
+  event("CHAT_MSG_SKILL", "Your skill in Fishing has increased to 150.")
+  event("CHAT_MSG_SKILL", "Your skill in Fishing has increased to 151.")
+  check(ns.char.crafts["fishing:150"] and not ns.char.crafts["fishing:151"], "a craft's new rank is remembered, not every point")
+  C.Refresh()
+  local h = C.History()
+  check(h:lower():find("went into the deadmines for the first time", 1, true), "History tells the first time inside")
+  check(h:find("became an expert angler", 1, true) or h:find("Became an expert angler", 1, true), "and the craft's rank")
+  check(h:find("first battleground", 1, true), "and the first battleground won")
+  local w = ns.World.Snapshot()
+  w.away, w.resting, w.subzone, w.context = true, true, "Lion's Pride Inn", nil
+  local a = ns.World.Activity(w, "x")
+  check(a:find("nodding off") or a:find("half asleep") or a:find("dozing"), "away at an inn, they doze: " .. a)
+  ns.char.instances, ns.char.battles, ns.char.crafts, ns.char.annals = nil, nil, nil, nil
   C.Refresh()
 end
 

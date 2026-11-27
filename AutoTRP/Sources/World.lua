@@ -495,7 +495,8 @@ function World.Activity(s, seed, terse)
   if ctx and ctx.kind == "craft" then
     text = U.Pick(W.CRAFT[ctx.detail], seed .. "craft") .. " in " .. (U.Mid(sub) or where)
   elseif s.away then
-    text = U.Pick(W.ACTIVITY.away, seed .. "away"):gsub("{place}", function() return U.Mid(sub) or where end)
+    local list = (s.resting and World.IsInn(s.subzone)) and W.ACTIVITY.away_rest or W.ACTIVITY.away
+    text = U.Pick(list, seed .. "away"):gsub("{place}", function() return U.Mid(sub) or where end)
   elseif ctx and W.ACTIVITY[ctx.kind] then
     text = U.Pick(W.ACTIVITY[ctx.kind], seed .. ctx.kind):gsub("{place}", function() return U.Mid(sub) or where end)
       :gsub("{who}", function() return ctx.detail or "someone" end):gsub("{dest}", function() return ctx.detail or "afar" end):gsub("{what}", function() return ctx.detail and ("\"" .. ctx.detail .. "\"") or "a book" end)

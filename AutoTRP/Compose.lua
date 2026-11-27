@@ -714,7 +714,8 @@ local function placeName(n)
 end
 
 -- The annals: the character's moments, kept as they happen so History builds up rather
--- than being rewritten. Taken from the records (ranks, names earned, standing), each
+-- than being rewritten. Taken from the records (ranks, names earned, standing, first times
+-- inside a dungeon or raid, a craft's new rank, the first battleground won), each
 -- once, and kept even after the record it came from has forgotten it.
 Compose.KEEP_ANNALS = 60
 local MONTHS = { "January", "February", "March", "April", "May", "June", "July", "August", "September",
@@ -740,6 +741,14 @@ function Compose.Annals()
     add({ k = "honour:" .. tostring(h.faction) .. ":" .. tostring(h.standing), t = h.t, kind = "honour",
       faction = h.faction, standing = h.standing })
   end
+  for name, v in pairs(ns.char.instances or {}) do
+    add({ k = "inside:" .. name, t = v.t, kind = "inside", name = name, raid = v.kind == "raid" })
+  end
+  for key, v in pairs(ns.char.crafts or {}) do
+    add({ k = "craft:" .. key, t = v.t, kind = "craft", skill = v.skill, rank = v.rank })
+  end
+  local fw = ns.char.battles and ns.char.battles.firstWin
+  if fw then add({ k = "battle:first", t = fw.t, kind = "battle", zone = fw.zone }) end
   table.sort(a, function(x, y) if x.t ~= y.t then return x.t < y.t end return x.k < y.k end)
   while #a > Compose.KEEP_ANNALS do table.remove(a, 1) end
   return a
@@ -760,6 +769,12 @@ local function annalsParagraph(name, told)
         text = rank and ("was made " .. rank .. (e.zone and (" in " .. U.Mid(e.zone)) or ""))
       elseif e.kind == "name" and e.deed then
         text = e.deed:gsub("^%u", string.lower) .. ", and has been called " .. quote(e.nick) .. " since"
+      elseif e.kind == "inside" and e.name then
+        text = "went into " .. U.Mid(e.name) .. " for the first time"
+      elseif e.kind == "craft" and e.skill and W.PROF_NOUN[e.skill:lower()] then
+        text = "became " .. profWord(e.rank) .. " " .. W.PROF_NOUN[e.skill:lower()]
+      elseif e.kind == "battle" then
+        text = "won {their} first battleground" .. (e.zone and (", in " .. U.Mid(e.zone)) or "")
       elseif e.kind == "honour" and e.standing and e.faction then
         text = "earned " .. e.standing:lower() .. " standing with " .. W.FactionName(e.faction)
       end
