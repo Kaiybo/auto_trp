@@ -23,6 +23,7 @@ Sources\SocialDiary.lua
 Sources\Chronicle.lua
 Sources\Deeds.lua
 Sources\Company.lua
+Sources\Goals.lua
 Mood.lua
 Journal.lua
 Compose.lua
