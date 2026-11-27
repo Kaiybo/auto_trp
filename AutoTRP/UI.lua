@@ -824,6 +824,10 @@ UI.TIPS = {
   ["fields.namecolour"] = "Shows your name in your class colour on your profile.",
   ["fields.music"] = "Sets your profile's music to your home's zone music, or where you are, when the game has a match.",
   ["fields.walkup"] = "Marks you open to walk-ups when your mood is sociable, and not when it isn't.",
+  ["fields.stat_calling"] = "The \"Calling\" statistic: your class's signature work, counted (charges, pockets picked, beasts tamed, portals, summonings, totems). Off, Auto TRP takes it down.",
+  ["fields.stat_escapes"] = "The \"Narrow escapes\" statistic: a Vanish, Feign Death, Blink, Shield Wall or the like used on low health, or a Reincarnation.",
+  ["fields.stat_given"] = "The \"Given to others\" statistic: resurrections, shields, blessings, soulstones, Innervates, conjured food and portals for other players (counted, never named).",
+  ["fields.stat_forms"] = "The \"Stances and forms\" statistic: time spent in each stance, shape or presence, for the classes that have them.",
   ["fields.stats"] = "The Statistics entries under Additional information. Your own entries there stay as they are.",
   ["sources.rpgd"] = "Your origin, alignment, choices, opinions, the people you've met, stories and diary.",
   ["sources.socialDiary"] = "The players you've marked as friends, a partner, and your recent groups.",
@@ -1398,7 +1402,7 @@ local HELP = {
   { "/atrp status", "which profile it writes to and which addons it reads" },
   { "/atrp welcome", "show the welcome window again" },
   { "/atrp on", "resume (/atrp off: pause; your profile stays as it is)" },
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, talents, fish, made, gathered, duels, battles, gold, inns, hit)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, talents, fish, made, gathered, duels, battles, gold, inns, hit, calling, escapes, given, forms)",
 }
 UI.HELP = HELP
 

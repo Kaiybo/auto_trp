@@ -933,7 +933,7 @@ do
     end
   end
   local source = {}
-  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Data/Places.lua", "AutoTRP/Compose.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua" }) do
+  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Data/Places.lua", "AutoTRP/Data/Calling.lua", "AutoTRP/Compose.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua" }) do
     for line in io.lines(f) do
       if not line:match("^%s*%-%-") then source[#source + 1] = (line:gsub("%-%-[^\"]*$", "")):lower() end
     end
@@ -3820,6 +3820,316 @@ do
   end
   scan(ns.Words, 0)
   check(not any, "no \"{they} mean\" without {s}: " .. tostring(any))
+end
+
+-- The calling (Sources/Calling.lua): each class's signature work fed fake game events, with no
+-- other addon, then what it writes: Personality, History, Lately, Marks and the statistics.
+do
+  local C, Cl, W, U = ns.Compose, ns.Sources.Calling, ns.Words, ns.U
+  local keepAPI = {}
+  local apiNames = { "C_Spell", "UnitClass", "CombatLogGetCurrentEventInfo", "UnitHealth", "GetNumGroupMembers", "GetShapeshiftForm",
+    "GetShapeshiftFormInfo", "UnitExists", "UnitName", "UnitCreatureFamily", "GetTradePlayerItemInfo", "GetItemCount",
+    "UnitIsDeadOrGhost", "GetServerTime" }
+  for _, k in ipairs(apiNames) do keepAPI[k] = _G[k] end
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones,
+    ns.char.calling, ns.char.seedName, deepcopy(ns.char.company), deepcopy(ns.char.casts) }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones = nil, nil, nil, nil
+  local clock = NOW
+  GetServerTime = function() return clock end
+  local SP, nextID = {}, 70000
+  local IDS = {}
+  local function id(name) if not IDS[name] then nextID = nextID + 1; IDS[name] = nextID; SP[nextID] = name end return IDS[name] end
+  C_Spell = { GetSpellName = function(i) return SP[i] end }
+  local hp = 100
+  UnitHealth = function() return hp end
+  local function cast(name, times, low)
+    hp = low and 20 or 100
+    for _ = 1, times or 1 do event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", id(name)) end
+    hp = 100
+  end
+  local log
+  CombatLogGetCurrentEventInfo = function() return unpack(log) end
+  -- flags: a player (0x400), a stranger (0x8) or in the group (0x2)
+  local function cl(sub, spell, times, stranger, dest)
+    for i = 1, times or 1 do
+      log = { 0, sub, false, "Player-1-0001", "Aldric", 0, 0, dest or ("Player-9-" .. i), "Wanderer" .. i,
+        0x400 + (stranger and 0x8 or 0x2), 0, 1, spell, 2, "BUFF" }
+      event("COMBAT_LOG_EVENT_UNFILTERED")
+    end
+  end
+  local function find(t, s) for k, v in pairs(t) do if v == s or k == s or (type(v) == "table" and find(v, s)) then return true end end end
+  local function as(class)
+    UnitClass = function() return class, class end
+    ns.char.calling, ns.char.deeds = nil, nil
+    Cl.Store().since = clock - 7200
+    ns.char.seedName = "calling-" .. class
+    ns.World.slow = nil
+  end
+  -- A long stretch in one shape, in five-hour sittings (one sitting counts six hours at most).
+  local function stretch(name, hrs)
+    while hrs > 0 do
+      local h = math.min(5, hrs)
+      cast(name); clock = clock + h * 3600; Cl.CloseForm()
+      hrs = hrs - h
+    end
+  end
+  local function refresh() C.SourcesChanged(); C.Refresh(); return ns.cache.calling end
+  local function habits() local t = {}; for _, h in ipairs(C.Habits(3)) do t[#t + 1] = h end return table.concat(t, " | ") end
+  local samples = {}
+  local function sample(class)
+    local st = C.Stats()
+    samples[#samples + 1] = ("=== %s ===\nHabits: %s\nLately: %s: %s\nMarks: %s: %s\nStats: calling=%s | escapes=%s | given=%s | forms=%s\nHistory:\n%s")
+      :format(class, habits(), C.LatelyGlance().TI, C.LatelyGlance().TX, C.MarksGlance().TI, C.MarksGlance().TX,
+        tostring(st.calling), tostring(st.escapes), tostring(st.given), tostring(st.forms), C.History())
+  end
+
+  -- Warrior: stances and the time in each, charges, a shield wall on the last legs.
+  as("WARRIOR")
+  cast("Battle Stance"); clock = clock + 3 * 3600
+  cast("Defensive Stance"); clock = clock + 6 * 3600
+  GetShapeshiftForm = function() return 0 end
+  event("UPDATE_SHAPESHIFT_FORM")
+  local o = refresh()
+  check(o.forms[1].name == "Defensive Stance" and o.forms[1].n == 6 * 3600 and o.forms[2].n == 3 * 3600, "warrior: time in each stance")
+  GetShapeshiftForm = function() return 2 end
+  GetShapeshiftFormInfo = function() return "icon", "Berserker Stance", true, true end
+  event("UPDATE_SHAPESHIFT_FORM"); clock = clock + 600
+  check(ns.char.calling.form.name == "Berserker Stance", "warrior: a stance read from the stance bar")
+  GetShapeshiftForm, GetShapeshiftFormInfo = nil, nil
+  cast("Charge", 90); cast("Intercept", 30); cast("Shield Wall", 12, true); cast("Last Stand", 3)
+  o = refresh()
+  check(o.n.charge == 90 and o.n.intercept == 30 and o.n.shieldwallSave == 12 and o.n.laststandSave == 0 and o.n.laststand == 3,
+    "warrior: charges and intercepts; a shield wall on low health is a save, a last stand at full health isn't")
+  local st = C.Stats()
+  check(st.calling == "90 charges; 30 intercepts" and st.escapes == "12 behind Shield Wall"
+    and st.forms == "Defensive Stance 6 hours, Battle Stance 3 hours, Berserker Stance 10 minutes",
+    "warrior statistics: " .. tostring(st.calling) .. " | " .. tostring(st.escapes) .. " | " .. tostring(st.forms))
+  check(st.given == nil, "warrior: no \"Given to others\" statistic")
+  check(habits():find("defensive stance", 1, true) or habits():find("guarded stance", 1, true) or habits():find("hold a line", 1, true)
+    or habits():find("defender's stance", 1, true) or habits():find("covering", 1, true), "warrior Personality: the stance most used: " .. habits())
+  check(C.MarksGlance().TI == "Hard Pressed", "warrior Marks: just through a stand: " .. C.MarksGlance().TI)
+  check(C.LatelyGlance().TI == "A Narrow Escape" and C.LatelyGlance().TX:find("shield wall", 1, true), "warrior Lately: " .. C.LatelyGlance().TX)
+  local h = C.History()
+  check(h:find("charge", 1, true) and h:find("shield wall", 1, true), "warrior History: charges and the shield wall")
+  sample("WARRIOR")
+
+  -- Rogue: pockets picked (with the coin), locks, a Vanish in time, poisons (not those mixed at the trade).
+  as("ROGUE")
+  for _ = 1, 60 do
+    cast("Pick Pocket"); event("LOOT_OPENED")
+    event("CHAT_MSG_MONEY", "You loot 3 Silver, 40 Copper")
+    event("CHAT_MSG_LOOT", "You receive loot: |cffffffff|Hitem:1::|h[Shiny Bauble]|h|r.")
+  end
+  cast("Pick Lock", 30); cast("Vanish", 6, true); cast("Vanish", 4)
+  cast("Instant Poison II", 55)
+  event("TRADE_SKILL_SHOW"); cast("Deadly Poison", 10); event("TRADE_SKILL_CLOSE")
+  o = refresh()
+  check(o.n.pockets == 60 and o.n.pocketCoin == 60 * 340 and o.n.pocketItems == 60, "rogue: pockets picked, coin and things lifted")
+  check(o.n.locks == 30 and o.n.vanishSave == 6 and o.n.poisons == 55, "rogue: locks, vanishings in time, poisons (not those mixed at the trade)")
+  st = C.Stats()
+  check(st.calling == "60 pockets picked for 2 gold; 30 locks picked; 55 poisons applied" and st.escapes == "6 by Vanish" and st.forms == nil,
+    "rogue statistics: " .. tostring(st.calling) .. " | " .. tostring(st.escapes))
+  check(#C.Habits(3) >= 2, "rogue Personality: habits from the counts: " .. habits())
+  local h1, h2 = C.Habits(3)[1], C.Habits(3)[2]
+  check(h1:match("^(%a+)") ~= h2:match("^(%a+)"), "the calling's two habits don't open the same way: " .. habits())
+  local mk = C.MarksGlance().TI
+  check(mk == "Light Fingers" or mk == "Poison-Stained", "rogue Marks: " .. mk)
+  sample("ROGUE")
+
+  -- Hunter: beasts tamed (by family), feigned deaths, traps, tracking.
+  as("HUNTER")
+  local pet = {}
+  UnitExists = function(u) return u == "pet" and pet.name ~= nil end
+  UnitName = function(u) if u == "pet" then return pet.name end return "Aldric" end
+  UnitCreatureFamily = function() return pet.family end
+  cast("Feign Death", 6, true); clock = clock + 60
+  for _, b in ipairs({ { "Grimtooth", "Wolf" }, { "Snort", "Boar" }, { "Shadow", "Cat" }, { "Clack", "Crab" }, { "Ash", "Cat" } }) do
+    cast("Tame Beast"); pet.name, pet.family = b[1], b[2]; event("UNIT_PET", "player")
+    clock = clock + 60
+  end
+  cast("Freezing Trap", 30); cast("Immolation Trap", 30); cast("Track Beasts", 70); cast("Track Humanoids", 5)
+  o = refresh()
+  check(o.n.tames == 5 and o.beasts[5].family == "Cat" and o.beasts[1].name == "Grimtooth" and o.n.traps == 60 and o.tracks[1].name == "Beasts",
+    "hunter: beasts tamed by family, traps, tracking")
+  st = C.Stats()
+  check(st.calling == "5 beasts tamed, the latest a cat; 60 traps laid" and st.escapes == "6 by Feign Death", "hunter statistics: " .. tostring(st.calling))
+  check(habits():find("beasts", 1, true) and not habits():find("{", 1, true), "hunter Personality: " .. habits())
+  check(C.LatelyGlance().TI == "A New Companion" and C.LatelyGlance().TX:find("a cat", 1, true), "hunter Lately: " .. C.LatelyGlance().TX)
+  h = C.History()
+  check(h:find(" a cat", 1, true) and (h:find("tamed five beasts of four different kinds", 1, true) or h:find("won over five wild beasts, the latest a cat", 1, true)),
+    "hunter History: the latest taming is news, the count is the record")
+  sample("HUNTER")
+  pet = {}
+
+  -- Mage: portals for a group, conjured food handed over, Polymorphs, Blinks out of trouble.
+  as("MAGE")
+  cast("Blink", 21, true); clock = clock + 60
+  GetNumGroupMembers = function() return 5 end
+  cast("Portal: Stormwind", 12)
+  GetNumGroupMembers = function() return 0 end
+  cast("Teleport: Ironforge", 3); cast("Conjure Water", 110); cast("Polymorph: Pig", 55)
+  local trade = { "Conjured Purified Water", "icon", 20 }
+  GetTradePlayerItemInfo = function(i) if i == 1 then return unpack(trade) end end
+  for _ = 1, 3 do event("TRADE_ACCEPT_UPDATE", 1, 1) end
+  event("TRADE_ACCEPT_UPDATE", 1, 0)
+  GetTradePlayerItemInfo = nil
+  o = refresh()
+  check(o.n.portals == 12 and o.n.portalOthers == 48 and o.dests[1].name == "Stormwind" and o.n.teleports == 3, "mage: portals and who went through")
+  check(o.n.feeds == 60 and o.n.conjured == 110 and o.n.polymorph == 55 and o.n.blinkSave == 21, "mage: conjured food given, Polymorphs, Blinks")
+  st = C.Stats()
+  check(st.calling == "12 portals; 3 teleports; 55 Polymorphs" and st.given == "48 travellers sent; 60 conjured meals" and st.escapes == "21 by Blink",
+    "mage statistics: " .. tostring(st.calling) .. " | " .. tostring(st.given))
+  check(C.LatelyGlance().TI == "Opened the Way" or C.LatelyGlance().TI == "Bread and Water", "mage Lately: " .. C.LatelyGlance().TI)
+  check(C.MarksGlance().TI == "Freshly Conjured", "mage Marks: " .. C.MarksGlance().TI)
+  sample("MAGE")
+
+  -- Warlock: summonings, soulstones on others, demons by kind, healthstones made and handed over.
+  as("WARLOCK")
+  cast("Ritual of Summoning", 12); cast("Summon Voidwalker", 25); cast("Summon Imp", 3); cast("Create Healthstone (Major)", 22)
+  trade = { "Major Healthstone", "icon", 1 }
+  GetTradePlayerItemInfo = function(i) if i == 1 then return unpack(trade) end end
+  for _ = 1, 6 do event("TRADE_ACCEPT_UPDATE", 1, 1) end
+  GetTradePlayerItemInfo = nil
+  cl("SPELL_AURA_APPLIED", "Soulstone Resurrection", 6)
+  cl("SPELL_AURA_APPLIED", "Soulstone Resurrection", 1, false, "Player-1-0001")   -- on themselves: not counted
+  o = refresh()
+  check(o.n.rituals == 12 and o.demons[1].name == "Voidwalker" and o.n.healthstones == 22 and o.n.stonesGiven == 6 and o.n.soulstone == 6,
+    "warlock: summonings, demons, healthstones, soulstones on others only")
+  st = C.Stats()
+  check(st.calling == "12 summonings; 22 healthstones; 28 demons called, most often the Voidwalker" and st.given == "6 soulstones; 6 healthstones handed over",
+    "warlock statistics: " .. tostring(st.calling) .. " | " .. tostring(st.given))
+  check(C.MarksGlance().TI == "Brimstone", "warlock Marks: " .. C.MarksGlance().TI)
+  check(not find(ns.char.calling, "Wanderer1") and not find(ns.char.calling, "Player-9-1"), "no other player is kept, by name or ID")
+  sample("WARLOCK")
+
+  -- Priest: strangers raised, shields and Fortitude on others, Mind Control.
+  as("PRIEST")
+  cl("SPELL_RESURRECT", "Resurrection", 8, true)
+  cl("SPELL_AURA_APPLIED", "Power Word: Shield", 120)
+  cl("SPELL_AURA_APPLIED", "Power Word: Fortitude", 40, true)
+  log = { 0, "SPELL_AURA_APPLIED", false, "Player-1-0001", "Aldric", 0, 0, "Creature-1", "Kobold", 0xa48, 0, 1, "Power Word: Shield", 2, "BUFF" }
+  event("COMBAT_LOG_EVENT_UNFILTERED")
+  cast("Mind Control", 25)
+  o = refresh()
+  check(o.n.rez == 8 and o.n.rezStrangers == 8 and o.n.pws == 120 and o.n.fort == 40 and o.n.mindcontrol == 25, "priest: strangers raised, shields, Fortitude, Mind Control (not on a creature)")
+  st = C.Stats()
+  check(st.given == "8 raised, all of them strangers; 120 shields; 40 Fortitudes, all of them strangers" and st.calling == "25 Mind Controls", "priest statistics: " .. tostring(st.given))
+  local hb = habits()
+  local said = false
+  for _, l in ipairs(W.CALLING.HABIT.rez_strangers) do if hb:find((U.Pron(l:gsub("{strangers}", "eight"))), 1, true) then said = true end end
+  check(said, "priest Personality: strangers raised: " .. hb)
+  check(C.LatelyGlance().TI == "Raised the Fallen", "priest Lately: " .. C.LatelyGlance().TX)
+  check(C.History():find("eight strangers", 1, true), "priest History: strangers raised")
+  sample("PRIEST")
+
+  -- Shaman: totems by element, Ghost Wolf time, Reincarnation (an ankh gone), Ancestral Spirit.
+  as("SHAMAN")
+  cast("Searing Totem", 50); cast("Stoneskin Totem", 120); cast("Healing Stream Totem", 40)
+  stretch("Ghost Wolf", 11)
+  local ankh, dead = 5, false
+  GetItemCount = function() return ankh end
+  UnitIsDeadOrGhost = function() return dead end
+  for _ = 1, 3 do
+    dead = true; event("PLAYER_DEAD"); ankh = ankh - 1; dead = false; event("PLAYER_ALIVE"); clock = clock + 120
+  end
+  dead = true; event("PLAYER_DEAD"); event("RESURRECT_REQUEST", "x"); dead = false; event("PLAYER_ALIVE")   -- raised by someone: not counted
+  UnitIsDeadOrGhost = keepAPI.UnitIsDeadOrGhost
+  cl("SPELL_RESURRECT", "Ancestral Spirit", 20)
+  o = refresh()
+  check(o.n.totems == 210 and o.totems[1].name == "earth" and o.n.reincarnation == 3 and o.n.ancestral == 20, "shaman: totems by element, Reincarnation, Ancestral Spirit")
+  st = C.Stats()
+  check(st.calling == "210 totems (120 earth, 50 fire, 40 water)" and st.escapes == "3 by Reincarnation" and st.forms == "Ghost Wolf 11 hours",
+    "shaman statistics: " .. tostring(st.calling) .. " | " .. tostring(st.forms))
+  check(habits():find("earth", 1, true) or habits():find("ghost wolf", 1, true) or habits():find("spirits", 1, true), "shaman Personality: " .. habits())
+  sample("SHAMAN")
+  GetItemCount = keepAPI.GetItemCount
+
+  -- Paladin: blessings on others (strangers among them), Redemption, Lay on Hands, Divine Intervention.
+  as("PALADIN")
+  cl("SPELL_AURA_APPLIED", "Blessing of Might", 170)
+  cl("SPELL_AURA_APPLIED", "Greater Blessing of Kings", 40, true)
+  cl("SPELL_RESURRECT", "Redemption", 22)
+  cl("SPELL_HEAL", "Lay on Hands", 3); cl("SPELL_HEAL", "Flash of Light", 50)
+  cast("Lay on Hands", 3); cast("Divine Intervention")
+  o = refresh()
+  check(o.n.blessing == 210 and o.n.blessingStrangers == 40 and o.n.redemption == 22 and o.n.lohOthers == 3 and o.n.intervention == 1,
+    "paladin: blessings, Redemption, Lay on Hands on others, Divine Intervention")
+  st = C.Stats()
+  check(st.given == "22 raised; 210 blessings, 40 of them strangers; 3 Lays on Hands" and st.calling == "3 Lays on Hands; 1 Divine Intervention",
+    "paladin statistics: " .. tostring(st.given) .. " | " .. tostring(st.calling))
+  check(C.LatelyGlance().TI == "A Sacrifice" or C.LatelyGlance().TI == "Laid on Hands", "paladin Lately: " .. C.LatelyGlance().TI)
+  check(C.History():find("Divine Intervention", 1, true) or C.History():find("laid down", 1, true), "paladin History: the sacrifice")
+  sample("PALADIN")
+
+  -- Druid: time in each shape, Rebirth, Innervate and Thorns on others.
+  as("DRUID")
+  stretch("Cat Form", 12); stretch("Bear Form", 2); stretch("Dire Bear Form", 1)
+  cl("SPELL_RESURRECT", "Rebirth", 6); cl("SPELL_AURA_APPLIED", "Innervate", 22); cl("SPELL_AURA_APPLIED", "Thorns", 110)
+  o = refresh()
+  check(o.n.rebirth == 6 and o.n.innervate == 22 and o.n.thorns == 110 and o.forms[1].name == "Cat Form", "druid: shapes, Rebirth, Innervate, Thorns")
+  st = C.Stats()
+  check(st.forms == "Cat Form 12 hours, Bear Form 2 hours, Dire Bear Form 1 hour" and st.given == "6 Rebirths; 22 Innervates; 110 Thorns" and st.calling == nil,
+    "druid statistics: " .. tostring(st.forms) .. " | " .. tostring(st.given))
+  check(habits():find("cat", 1, true) or habits():find("Rebirth", 1, true) or habits():find("Innervate", 1, true), "druid Personality: " .. habits())
+  sample("DRUID")
+
+  -- Death knight: Death Grip, ghouls, presences.
+  as("DEATHKNIGHT")
+  stretch("Blood Presence", 11)
+  cast("Death Grip", 110); cast("Raise Dead", 60)
+  o = refresh()
+  st = C.Stats()
+  check(st.calling == "110 Death Grips; 60 ghouls raised" and st.forms == "Blood Presence 11 hours", "death knight statistics: " .. tostring(st.calling))
+  check(#C.Habits(3) >= 1, "death knight Personality: " .. habits())
+  sample("DEATHKNIGHT")
+
+  -- Another class's work isn't told: a priest's record read as a warrior's says nothing.
+  as("PRIEST")
+  cl("SPELL_RESURRECT", "Resurrection", 8, true); cast("Portal: Stormwind", 3)
+  UnitClass = function() return "WARRIOR", "WARRIOR" end
+  ns.World.slow = nil
+  refresh()
+  local wl = C.LatelyGlance().TI
+  check(wl ~= "Raised the Fallen" and wl ~= "Opened the Way" and not C.History():find("strangers", 1, true), "another class's acts aren't told as this one's: " .. wl)
+
+  -- Every line fills its tags with any pronouns, and none is banned.
+  local fillers = { n = "two", times = "twice", beast = "a wolf", kinds = "wolves", demon = "an imp", track = "beasts", dest = "Stormwind",
+    zone = "Westfall", others = "four", form = "Cat Form", hours = "two hours", strangers = "two", given = "two", escape = "Vanished", kindsN = "two", latest = "a cat" }
+  local bad = {}
+  for _, pron in ipairs({ "she/her", "they/them", "he/him" }) do
+    ns.TRP.CustomPronouns = function() return pron end
+    local function scan(v, path)
+      if type(v) == "string" then
+        local line = U.Pron((v:gsub("{(%a+)}", function(k) return fillers[k] end)))
+        if line:find("[{}]") then bad[#bad + 1] = path .. ": " .. line end
+      elseif type(v) == "table" then for k, x in pairs(v) do scan(x, path .. "." .. tostring(k)) end end
+    end
+    scan(W.CALLING, "CALLING")
+  end
+  ns.TRP.CustomPronouns = nil
+  check(#bad == 0, "every calling line fills its tags: " .. table.concat(bad, " | "))
+  local thin = {}
+  for _, part in ipairs({ "HABIT", "EVENT" }) do
+    for k, list in pairs(W.CALLING[part]) do if #list < 4 then thin[#thin + 1] = part .. "." .. k end end
+  end
+  for k, spec in pairs(W.CALLING.LATELY) do if #spec[3] < 4 then thin[#thin + 1] = "LATELY." .. k end end
+  for k, spec in pairs(W.CALLING.MARK) do if #spec[3] < 4 then thin[#thin + 1] = "MARK." .. k end end
+  check(#thin == 0, "every calling line has four ways or more: " .. table.concat(thin, ", "))
+  for _, st2 in ipairs(Cl.STATS) do
+    check(ns.UI.TIPS["fields.stat_" .. st2.key] and ns.db.fields["stat_" .. st2.key] == true and ns.TRP.FIELDS["stat_" .. st2.key],
+      "the " .. st2.label .. " statistic has a switch, a tooltip and a field")
+  end
+
+  if os.getenv("SAMPLES") then print("\n" .. table.concat(samples, "\n\n")) end
+
+  for _, k in ipairs(apiNames) do _G[k] = keepAPI[k] end
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones, ns.char.calling, ns.char.seedName = keep[4], keep[5], keep[6], keep[7], keep[8], keep[9]
+  ns.char.company, ns.char.casts = keep[10], keep[11]
+  ns.World.SetContext("none")
+  ns.World.slow = nil
+  C.SourcesChanged(); C.Refresh()
 end
 
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.

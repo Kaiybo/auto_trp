@@ -72,6 +72,7 @@ function Compose.Refresh()
     c.deeds = S.Deeds.Read()
     c.self = S.Self and S.Self.Read(c) or nil
     c.life = S.Life and S.Life.Read() or nil
+    c.calling = S.Calling and S.Calling.Read() or nil   -- the class's signature work (Sources/Calling.lua)
     sourcesAt, c.read = now, true
   end
   -- The company is the game's own (cheap: a party is five units, a raid forty); Social
@@ -364,6 +365,9 @@ function Compose.LatelyGlance()
       add(inn.t, 0, { TI = "A New Inn", IC = "INV_Drink_05", TX = say("lately_inn", { inn = innName }, inn.t) })
     end
   end
+
+  -- The calling: a beast tamed, a portal opened, a narrow escape (Sources/Calling.lua).
+  for _, e in ipairs(ns.Sources.Calling and ns.Sources.Calling.Lately(c) or {}) do add(e.t, e.prio, e.g) end
 
   -- A day-old hurt outranks everything; otherwise the newest, then the weightiest. (A strict
   -- order: table.sort may compare an entry with itself.)
@@ -723,6 +727,7 @@ function Compose.MarksGlance()
       mark(4.4, GATHER_MARK[gr.kind][1], say("mark_" .. gr.kind, nil, gr.start), GATHER_MARK[gr.kind][2])
     end
   end
+  for _, m in ipairs(ns.Sources.Calling and ns.Sources.Calling.Marks(c) or {}) do mark(m.prio, m.title, m.text, m.icon) end
   local finest = g.finest or (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
   if finest and finest.name and finest.quality >= 4 then
     mark(4, "Remarkable Gear", say("remarkable", { item = finest.name }, finest.name), "INV_Misc_Gem_Pearl_04")
@@ -993,6 +998,8 @@ function Compose.Habits(k)
   if #life.inns >= 10 then add(1, "inns") end
   if life.falls >= 10 then add(1.2, "falls") end
   if life.closeCalls >= 10 then add(1.1, "close") end
+  -- How they practise their calling (Sources/Calling.lua).
+  for _, h in ipairs(ns.Sources.Calling and ns.Sources.Calling.Habits(c) or {}) do cands[#cands + 1] = h end
   table.sort(cands, function(a, b) if a.score ~= b.score then return a.score > b.score end return a.key < b.key end)
   local out = {}
   for i = 1, math.min(k or 2, #cands) do out[i] = cands[i].text end
@@ -1475,6 +1482,8 @@ function Compose.History()
       event(cl.t, 6, say("ev_close", { who = cl.foe and (" with " .. (cl.named and cl.foe or article(cl.foe))) or "", zone = U.Mid(cl.zone) }, cl.t), "close")
     end
   end
+  -- The calling's news: a beast tamed, a portal opened, the fallen raised (Sources/Calling.lua).
+  for _, e in ipairs(ns.Sources.Calling and ns.Sources.Calling.Events(c, recent) or {}) do event(e.t, e.rank, e.text, e.key) end
 
   local groups, order = {}, {}
   for _, e in ipairs(events) do
@@ -1537,6 +1546,7 @@ function Compose.History()
     older[#older + 1] = "helped bring down " .. oldBosses[1].name
   end
   if chron and chron.rares >= 5 then older[#older + 1] = "tracked down " .. U.Number(chron.rares) .. " rare beasts" end
+  for _, s in ipairs(ns.Sources.Calling and ns.Sources.Calling.Older(c, toldRecent) or {}) do older[#older + 1] = s end
   local questsDone = Compose.QuestsDone(c)
   if questsDone >= 25 then older[#older + 1] = "seen " .. U.Roughly(questsDone) .. " jobs through" end
   local own = c.deeds or {}
@@ -2179,6 +2189,8 @@ Compose.STATS = {
   { key = "hit", label = "Hardest hit", icon = "Ability_Warrior_Rampage" },
   { key = "letters", label = "Letters received", icon = "INV_Letter_15", retired = true },
 }
+-- The class's own work (Sources/Calling.lua): what a class has none of is left off.
+for _, st in ipairs(ns.Sources.Calling and ns.Sources.Calling.STATS or {}) do Compose.STATS[#Compose.STATS + 1] = st end
 
 -- How well off, against what's usual at their level.
 function Compose.WealthBand(world)
@@ -2279,6 +2291,7 @@ function Compose.Stats()
     if taken then parts[#parts + 1] = figure(taken.n) .. " taken" .. (taken.from and (" from " .. taken.from) or "") end
     if #parts > 0 then out.hit = table.concat(parts, "; ") end
   end
+  for k, v in pairs(ns.Sources.Calling and ns.Sources.Calling.Stats(c) or {}) do out[k] = v end
   -- Every name earned, the one worn first ("Mine-Warden, Defias-Breaker and Hogger's Bane").
   local names, worn = {}, Compose.Earned()
   if worn then names[1] = worn.nick end
