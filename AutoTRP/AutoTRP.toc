@@ -31,6 +31,7 @@ Sources\Company.lua
 Sources\Goals.lua
 Sources\Calling.lua
 Sources\Delves.lua
+Sources\Seasons.lua
 Sources\Style.lua
 Sources\Renown.lua
 Sources\Pack.lua
