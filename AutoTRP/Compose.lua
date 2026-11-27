@@ -451,9 +451,23 @@ end
 ---------------------------------------------------------------------------
 -- Personality bars (TRP3 psycho traits; V2 runs 0..20, 20 = all the left word)
 ---------------------------------------------------------------------------
+-- With no choices recorded, the class's mild leans fill the bars.
+local function classTraits()
+  local leans = W.CLASS_LEANS[ns.cache.world and ns.cache.world.class or ""]
+  if not leans then return nil end
+  local out = {}
+  local function bar(left, right, li, ri)
+    local v = leans[left]
+    if v then out[#out + 1] = { LT = left, RT = right, LI = li, RI = ri, V2 = U.Clamp(10 + v, 1, 19) } end
+  end
+  for _, b in ipairs(W.AXIS_BARS) do bar(b.left, b.right, b.li, b.ri) end
+  for _, b in ipairs(W.TRAIT_BARS) do bar(b[1], b[2], b[5], b[6]) end
+  return #out > 0 and out or nil
+end
+
 function Compose.Traits()
   local rpgd = ns.cache.rpgd
-  if not rpgd then return nil end
+  if not rpgd then return classTraits() end
   local out = {}
   for _, b in ipairs(W.AXIS_BARS) do
     local v = rpgd.align[b.axis] or 0
@@ -467,7 +481,7 @@ function Compose.Traits()
       out[#out + 1] = { LT = b[1], RT = b[2], LI = b[5], RI = b[6], V2 = U.Clamp(math.floor(10 + (l - r) * 1.5 + 0.5), 1, 19) }
     end
   end
-  if #out == 0 then return nil end
+  if #out == 0 then return classTraits() end
   return out
 end
 

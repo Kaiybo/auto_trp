@@ -1224,6 +1224,8 @@ do
   C.SourcesChanged(); C.Refresh()
   check((C.Bearing() or ""):find("Power Word: Shield", 1, true), "without RPG Dialogue, the habit: " .. tostring(C.Bearing()))
   check(#(C.Bearing() or "") > 60, "and a class's disposition, so Personality isn't bare")
+  local tr = C.Traits()
+  check(tr and #tr == 3 and tr[1].LT == "Kind" and tr[1].V2 == 14, "without RPG Dialogue, the traits lean by class")
   check(select(2, C.History():gsub("%. ", "")) >= 2, "a sparse History still says rank and where: " .. C.History():match("^[^\n]*"))
   RPGDialogueCharDB = rpgd
   UnitClass = function() return "Warrior", "WARRIOR" end

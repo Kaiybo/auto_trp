@@ -576,6 +576,21 @@ W.TRAIT_BARS = {
   { "Playful", "Serious", "witty", "stern", "INV_Misc_Toy_07", "Ability_Warrior_CommandingShout" },
 }
 
+-- Mild leans by class, for the trait bars when there are no choices to read them from.
+-- Keyed by the left word of a TRAIT_BARS or AXIS_BARS bar; positive leans left (+4 is a
+-- gentle lean, never an extreme).
+W.CLASS_LEANS = {
+  WARRIOR = { Brave = 4, Playful = -3, Lawful = 2 },
+  PALADIN = { Religious = 5, Good = 4, Lawful = 4 },
+  HUNTER = { Outgoing = -3, Brave = 2, Playful = 1 },
+  ROGUE = { Honest = -3, Outgoing = -2, Lawful = -3 },
+  PRIEST = { Religious = 5, Kind = 4, Generous = 2 },
+  SHAMAN = { Religious = 3, Kind = 2, Playful = -2 },
+  MAGE = { Brave = -2, Playful = -2, Religious = -3 },
+  WARLOCK = { Good = -3, Outgoing = -3, Generous = -2 },
+  DRUID = { Kind = 3, Outgoing = -2, Lawful = -2 },
+}
+
 -- Alignment axes: positive is the left word.
 W.AXIS_BARS = {
   { axis = "light", left = "Good", right = "Evil", li = "Spell_Holy_HolyBolt", ri = "Spell_Shadow_ShadowBolt" },
