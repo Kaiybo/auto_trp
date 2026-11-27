@@ -69,9 +69,13 @@ end
 
 -- "Holy, 31 points" (", and 20 in Discipline" when a second tree has a share worth saying).
 -- Read from the talent trees each time, so a new point shows at once.
+-- Where the client won't say how talents are spent, the tree their casting leans on.
 function More.Speciality()
   local S = ns.Sources.Style
-  return S and S.SpecStat({ spec = S.Spec() }) or nil
+  local stat = S and S.SpecStat({ spec = S.Spec() }) or nil
+  if stat then return stat end
+  local habit = Compose.HabitSpec and Compose.HabitSpec()
+  return habit and (habit.name .. ", by the spells most cast") or nil
 end
 
 -- A player who had switched the Talents entry off has Speciality off too.

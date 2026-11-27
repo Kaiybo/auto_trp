@@ -1407,6 +1407,25 @@ function Compose.TopSpells(k)
   return list
 end
 
+-- The talent tree their casting leans on, for clients that won't say how talents are spent:
+-- { index, name, n, share } once 40 casts of one tree's own spells make up most of them.
+Compose.HABIT_MIN, Compose.HABIT_SHARE = 40, 0.55
+function Compose.HabitSpec()
+  local class = ns.cache.world and ns.cache.world.class or ""
+  local trees, names = W.SPEC_SPELLS[class], W.SPEC_TREES[class]
+  local casts = ns.char and ns.char.casts and ns.char.casts.n
+  if not trees or not names or type(casts) ~= "table" then return nil end
+  local sums, total, best = {}, 0, nil
+  for i, spells in ipairs(trees) do
+    local n = 0
+    for _, s in ipairs(spells) do n = n + (tonumber(casts[s]) or 0) end
+    sums[i], total = n, total + n
+    if n > 0 and (not best or n > sums[best]) then best = i end
+  end
+  if not best or sums[best] < Compose.HABIT_MIN or sums[best] / total < Compose.HABIT_SHARE then return nil end
+  return { index = best, name = names[best], n = sums[best], share = sums[best] / total }
+end
+
 -- The most cast spell, said plainly, once it has been cast often enough to mean something.
 function Compose.FavouriteSpell()
   local top = Compose.TopSpells(1)[1]
@@ -4101,7 +4120,8 @@ function Compose.Nickname()
 end
 
 -- The profile icon: who they are, by class, race and talents. The tree they've put the most
--- into (a Balance druid's Starfall, a Fury warrior's rage), with a clear lead; before that,
+-- into (a Balance druid's Starfall, a Fury warrior's rage), with a clear lead (where the client
+-- won't say, the tree their casting leans on); before that,
 -- the face of their people (Total RP 3's own portrait), where this client has it; else
 -- their class crest.
 function Compose.Icon()
@@ -4113,6 +4133,13 @@ function Compose.Icon()
     local name = trees and trees[spec.index]
     if name and U.IconKnown(name) then return name end
     if spec.icon then return spec.icon end   -- the game's own icon for the tree
+  end
+  -- A client that won't say how talents are spent: the tree their casting leans on.
+  if not spec then
+    local habit = Compose.HabitSpec()
+    local trees = habit and W.SPEC_ICON[world.class or ""]
+    local name = trees and trees[habit.index]
+    if name and U.IconKnown(name) then return name end
   end
   local face = W.RACE_PORTRAIT[world.race or ""]
   local sex = world.sex == 3 and "Female" or world.sex == 2 and "Male" or nil

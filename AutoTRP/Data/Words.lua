@@ -876,6 +876,50 @@ W.SPEC_ICON = {
   DRUID = { "Spell_Nature_StarFall", "Ability_Racial_BearForm", "Spell_Nature_HealingTouch" },
   DEATHKNIGHT = { "Spell_Deathknight_BloodPresence", "Spell_Deathknight_FrostPresence", "Spell_Deathknight_UnholyPresence" },
 }
+-- Where a client won't say how talents are spent, the tree is read from the spells cast most
+-- (the casts Auto TRP counts): each tree's own spells, in the game's tree order. A spell every
+-- tree uses (a buff, a cleanse) is in none of them.
+W.SPEC_TREES = {
+  WARRIOR = { "Arms", "Fury", "Protection" }, PALADIN = { "Holy", "Protection", "Retribution" },
+  HUNTER = { "Beast Mastery", "Marksmanship", "Survival" }, ROGUE = { "Assassination", "Combat", "Subtlety" },
+  PRIEST = { "Discipline", "Holy", "Shadow" }, SHAMAN = { "Elemental", "Enhancement", "Restoration" },
+  MAGE = { "Arcane", "Fire", "Frost" }, WARLOCK = { "Affliction", "Demonology", "Destruction" },
+  DRUID = { "Balance", "Feral Combat", "Restoration" }, DEATHKNIGHT = { "Blood", "Frost", "Unholy" },
+}
+W.SPEC_SPELLS = {
+  WARRIOR = { { "Mortal Strike", "Overpower", "Rend", "Sweeping Strikes", "Thunder Clap" },
+    { "Bloodthirst", "Whirlwind", "Berserker Rage", "Rampage", "Cleave", "Slam" },
+    { "Shield Slam", "Shield Block", "Revenge", "Sunder Armor", "Taunt", "Shield Bash", "Devastate", "Shield Wall" } },
+  PALADIN = { { "Holy Light", "Flash of Light", "Holy Shock", "Lay on Hands", "Beacon of Light" },
+    { "Holy Shield", "Righteous Defense", "Avenger's Shield", "Hammer of the Righteous", "Righteous Fury" },
+    { "Crusader Strike", "Seal of Command", "Judgement", "Repentance", "Divine Storm", "Seal of Righteousness", "Exorcism" } },
+  HUNTER = { { "Bestial Wrath", "Intimidation", "Mend Pet", "Kill Command", "Call Pet" },
+    { "Aimed Shot", "Arcane Shot", "Multi-Shot", "Steady Shot", "Trueshot Aura", "Auto Shot" },
+    { "Raptor Strike", "Mongoose Bite", "Wing Clip", "Explosive Trap", "Freezing Trap", "Wyvern Sting", "Counterattack", "Immolation Trap" } },
+  ROGUE = { { "Envenom", "Mutilate", "Cold Blood", "Rupture", "Garrote", "Deadly Throw" },
+    { "Sinister Strike", "Blade Flurry", "Adrenaline Rush", "Riposte", "Killing Spree" },
+    { "Backstab", "Ambush", "Hemorrhage", "Premeditation", "Preparation", "Shadowstep", "Sap" } },
+  PRIEST = { { "Power Word: Shield", "Penance", "Power Infusion", "Pain Suppression", "Inner Focus" },
+    { "Heal", "Greater Heal", "Flash Heal", "Renew", "Prayer of Healing", "Holy Fire", "Smite", "Lesser Heal", "Circle of Healing" },
+    { "Shadow Word: Pain", "Mind Blast", "Mind Flay", "Vampiric Embrace", "Shadowform", "Devouring Plague", "Vampiric Touch" } },
+  SHAMAN = { { "Lightning Bolt", "Chain Lightning", "Flame Shock", "Elemental Mastery", "Thunderstorm", "Lava Burst" },
+    { "Stormstrike", "Rockbiter Weapon", "Windfury Weapon", "Flametongue Weapon", "Lava Lash", "Shamanistic Rage", "Feral Spirit" },
+    { "Healing Wave", "Lesser Healing Wave", "Chain Heal", "Earth Shield", "Riptide", "Mana Tide Totem", "Healing Stream Totem" } },
+  MAGE = { { "Arcane Missiles", "Arcane Explosion", "Arcane Blast", "Arcane Power", "Presence of Mind", "Arcane Barrage" },
+    { "Fireball", "Fire Blast", "Scorch", "Pyroblast", "Flamestrike", "Blast Wave", "Combustion", "Living Bomb" },
+    { "Frostbolt", "Frost Nova", "Cone of Cold", "Blizzard", "Ice Barrier", "Ice Lance", "Icy Veins" } },
+  WARLOCK = { { "Corruption", "Curse of Agony", "Drain Life", "Drain Soul", "Siphon Life", "Unstable Affliction", "Haunt" },
+    { "Summon Voidwalker", "Summon Succubus", "Summon Felhunter", "Summon Felguard", "Soul Link", "Metamorphosis", "Health Funnel" },
+    { "Shadow Bolt", "Immolate", "Incinerate", "Searing Pain", "Conflagrate", "Shadowburn", "Rain of Fire", "Chaos Bolt", "Soul Fire" } },
+  DRUID = { { "Wrath", "Moonfire", "Starfire", "Insect Swarm", "Hurricane", "Moonkin Form", "Starfall" },
+    { "Cat Form", "Bear Form", "Dire Bear Form", "Shred", "Claw", "Rake", "Rip", "Ferocious Bite", "Maul", "Swipe",
+      "Mangle (Cat)", "Mangle (Bear)", "Tiger's Fury", "Prowl" },
+    { "Healing Touch", "Rejuvenation", "Regrowth", "Tranquility", "Swiftmend", "Lifebloom", "Wild Growth", "Nourish" } },
+  DEATHKNIGHT = { { "Heart Strike", "Blood Strike", "Rune Tap", "Vampiric Blood", "Dancing Rune Weapon", "Blood Boil" },
+    { "Frost Strike", "Howling Blast", "Obliterate", "Icy Touch", "Hungering Cold" },
+    { "Scourge Strike", "Death Coil", "Corpse Explosion", "Raise Dead", "Summon Gargoyle", "Plague Strike", "Bone Shield" } },
+}
+
 -- What Total RP 3 asks of a character and the game doesn't keep (age, eyes, height, body
 -- shape), by race, in the words a profile would use. Eyes: the race's own where it has one
 -- (and matches what About: Physical says), else one of a few, fixed for the character.

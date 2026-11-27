@@ -35,7 +35,17 @@ local function scrub(...)
   return unpack(t, 1, n)
 end
 
+-- Events a client won't let an addon register. Asking anyway is refused, and the game puts
+-- up its "blocked from an action only available to the Blizzard UI" warning on every load.
+-- Clients with secret values (the Midnight era) keep the combat log to themselves: what
+-- Auto TRP reads from it is simply not counted there.
+ns.RESTRICTED_EVENTS = { COMBAT_LOG_EVENT_UNFILTERED = true, COMBAT_LOG_EVENT = true }
+function ns.Restricted(event)
+  return ns.RESTRICTED_EVENTS[event] and type(_G.issecretvalue) == "function" or false
+end
+
 function ns.On(event, fn)
+  if ns.Restricted(event) then return false end
   local list = handlers[event]
   if not list then
     if not pcall(frame.RegisterEvent, frame, event) then return false end
@@ -223,6 +233,27 @@ ns.On("ADDON_LOADED", function(_, loaded)
 end)
 
 ns.On("PLAYER_LOGIN", function() ns.Fire("LOGIN") end)
+
+-- The game refusing one of Auto TRP's calls (a Blizzard-only or protected function): said
+-- once a session in chat, by name, and kept (AutoTRPDB.blocked) so it can be reported.
+local refused = {}
+local function onRefused(event, addon, fn)
+  if addon ~= "AutoTRP" then return end
+  fn = tostring(fn or "?")
+  local db = type(AutoTRPDB) == "table" and AutoTRPDB or nil
+  if db then
+    if type(db.blocked) ~= "table" then db.blocked = {} end
+    local b = db.blocked[fn] or { n = 0 }
+    b.n, b.t, b.event = (tonumber(b.n) or 0) + 1, (type(GetServerTime) == "function" and GetServerTime()) or 0, event
+    db.blocked[fn] = b
+  end
+  if not refused[fn] then
+    refused[fn] = true
+    ns.Print("the game refused a call to " .. fn .. "() (" .. event .. "). Please report it.")
+  end
+end
+ns.On("ADDON_ACTION_FORBIDDEN", onRefused)
+ns.On("ADDON_ACTION_BLOCKED", onRefused)
 
 ---------------------------------------------------------------------------
 -- Helpers

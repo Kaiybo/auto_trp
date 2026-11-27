@@ -7419,6 +7419,21 @@ do
   check(icon() == "ClassIcon_Druid", "a portrait this client hasn't got: the class crest: " .. tostring(C.Icon()))
   GetFileIDFromPath = nil
   check(icon() == "ClassIcon_Druid", "a client that can't be asked: no portrait, the crest")
+  -- A client with no talent functions at all (C_SpecializationInfo's one spec per class):
+  -- the tree their casting leans on.
+  GetNumTalentTabs, GetTalentTabInfo = nil, nil
+  UnitSex = function() return 3 end
+  UnitRace, UnitClass = function() return "Night Elf", "NightElf" end, function() return "Druid", "DRUID" end
+  local castsWas = ns.char.casts
+  ns.char.casts = { n = { Wrath = 1839, Moonfire = 126, Regrowth = 89, Rejuvenation = 44, ["Healing Touch"] = 8, ["Abolish Poison"] = 6 } }
+  GetFileIDFromPath = nil
+  check(icon() == "Spell_Nature_StarFall", "no talent functions: Starfall for a druid who casts Wrath most: " .. tostring(C.Icon()))
+  check(ns.More.Speciality() == "Balance, by the spells most cast", "and Speciality says so: " .. tostring(ns.More.Speciality()))
+  ns.char.casts = { n = { Wrath = 12, Regrowth = 10 } }
+  check(C.HabitSpec() == nil, "too few casts to tell: no tree")
+  ns.char.casts = { n = { Wrath = 300, Regrowth = 200, Rejuvenation = 150, Shred = 200 } }
+  check(C.HabitSpec() == nil, "no tree with most of them: none")
+  ns.char.casts = castsWas
   -- Age, eyes, height and body shape: never blank, in the race's terms.
   UnitSex, UnitRace = function() return 3 end, function() return "Night Elf", "NightElf" end
   UnitClass = function() return "Druid", "DRUID" end
@@ -7445,6 +7460,18 @@ do
   check(pc.AG and pc.AG ~= "" and pc.EC and pc.EH and pc.HE and pc.WE, "written to Total RP 3: AG, EC (with EH), HE, WE")
   for k, v in pairs(was) do _G[k] = v end
   C.SourcesChanged(); C.Refresh()
+end
+
+-- 0.24.0: a client with secret values keeps the combat log to itself; asking for it would
+-- bring up the game's "blocked from an action" warning on every load.
+do
+  local was = issecretvalue
+  check(ns.Restricted("COMBAT_LOG_EVENT_UNFILTERED") == false, "without secret values the combat log is asked for as before")
+  issecretvalue = function() return false end
+  check(ns.Restricted("COMBAT_LOG_EVENT_UNFILTERED") == true and ns.On("COMBAT_LOG_EVENT_UNFILTERED", function() end) == false,
+    "with them it isn't asked for at all")
+  check(ns.Restricted("PLAYER_LEVEL_UP") == false, "and every other event still is")
+  issecretvalue = was
 end
 
 -- 0.24.0: one faction honoured is what Best standing says; Standing counts the friendly too.
