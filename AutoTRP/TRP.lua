@@ -549,7 +549,7 @@ function TRP.Apply(values, only)
   if not profile then return nil, id end
   if U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") then return nil, "in combat" end
   local mine, theirs, prev = owned(id), released(id), previous(id)
-  local dirty, changed, left = {}, {}, {}
+  local dirty, changed, left, diff = {}, {}, {}, {}
   local editing = TRP.Editing()
   local bk = TRP.BackupFor(id)
 
@@ -572,6 +572,7 @@ function TRP.Apply(values, only)
           prev[key] = have
           def.write(profile, nil)
           mine[key] = def.read(profile)
+          diff[key] = { from = have, to = mine[key] }
           bump(sub(profile, def.section))
           dirty[def.section] = true
           changed[#changed + 1] = key
@@ -605,6 +606,7 @@ function TRP.Apply(values, only)
           prev[key] = have
           def.write(profile, value)
           mine[key] = def.read(profile)
+          diff[key] = { from = have, to = mine[key] }
           bump(sub(profile, def.section))
           dirty[def.section] = true
           changed[#changed + 1] = key
@@ -626,7 +628,7 @@ function TRP.Apply(values, only)
     ns.Print("Leaving your own words alone in: " .. table.concat(names, ", ")
       .. ". |cffffd100/atrp claim <field>|r (or |cffffd100/atrp claim all|r) hands them to Auto TRP.")
   end
-  return changed
+  return changed, nil, diff
 end
 
 ---------------------------------------------------------------------------

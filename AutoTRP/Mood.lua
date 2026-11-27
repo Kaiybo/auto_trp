@@ -768,3 +768,70 @@ function Mood.Note(current)
   local why = current.reasons and current.reasons[1]
   ns.Print("|cffd0d0ffYou feel " .. current.title:lower() .. (why and (": " .. why) or "") .. ".|r")
 end
+
+---------------------------------------------------------------------------
+-- Firsts and milestones: a dungeon or raid entered for the first time, a battleground won
+-- or lost, a new rank in a craft, a long flight. Each is remembered for History's annals.
+---------------------------------------------------------------------------
+-- The first time inside: { [instance name] = { t, kind } }.
+function Mood.CheckInstance()
+  if not ns.char then return end
+  local name, kind = U.Call(GetInstanceInfo)
+  name = U.Plain(name)
+  if not name or (kind ~= "party" and kind ~= "raid") then return end
+  ns.char.instances = ns.char.instances or {}
+  if ns.char.instances[name] then return end
+  ns.char.instances[name] = { t = U.Now(), kind = kind }
+  Mood.Push("wonder", kind == "raid" and 40 or 30, "the first time inside " .. U.Mid(name))
+end
+ns.On("PLAYER_ENTERING_WORLD", function() Mood.CheckInstance() end)
+ns.On("ZONE_CHANGED_NEW_AREA", function() Mood.CheckInstance() end)
+
+-- A battleground's end, once each: won or lost, by the winner the game names.
+local bgDone = false
+ns.On("UPDATE_BATTLEFIELD_STATUS", function()
+  if not ns.char then return end
+  local winner = U.Call(GetBattlefieldWinner)
+  if winner == nil then bgDone = false; return end
+  if bgDone then return end
+  bgDone = true
+  local faction = U.Call(UnitFactionGroup, "player")
+  local mine = (faction == "Horde" and 0) or (faction == "Alliance" and 1) or nil
+  if mine == nil then return end
+  local bg = ns.char.battles or { won = 0, lost = 0 }
+  ns.char.battles = bg
+  local where = U.Plain(U.Call(GetRealZoneText))
+  if winner == mine then
+    bg.won = (bg.won or 0) + 1
+    if not bg.firstWin then bg.firstWin = { t = U.Now(), zone = where } end
+    Mood.Push("triumphant", 45, "a battleground won")
+  else
+    bg.lost = (bg.lost or 0) + 1
+    Mood.Push("frustrated", 30, "a battleground lost")
+  end
+  if ns.UI then ns.UI.Poke(true) end
+end)
+
+-- A craft reaching a new rank ("Your skill in Fishing has increased to 150.").
+Mood.CRAFT_STEPS = { [75] = true, [150] = true, [225] = true, [300] = true }
+ns.On("CHAT_MSG_SKILL", function(_, msg)
+  if not ns.char or type(msg) ~= "string" then return end
+  local skill, rank = msg:match("[Yy]our skill in (.-) has increased to (%d+)")
+  rank = tonumber(rank)
+  if not skill or not rank or not Mood.CRAFT_STEPS[rank] or not W.PROF_NOUN[skill:lower()] then return end
+  ns.char.crafts = ns.char.crafts or {}
+  local key = skill:lower() .. ":" .. rank
+  if ns.char.crafts[key] then return end
+  ns.char.crafts[key] = { t = U.Now(), skill = skill, rank = rank }
+  Mood.Push("accomplished", 30, "better at " .. skill:lower())
+end)
+
+-- A long flight: stiff and tired on landing.
+local flightStart
+ns.On("PLAYER_CONTROL_LOST", function() ns.After(1, function() if U.Call(UnitOnTaxi, "player") then flightStart = U.Now() end end) end)
+ns.On("PLAYER_CONTROL_GAINED", function()
+  if not flightStart then return end
+  local took = U.Now() - flightStart
+  flightStart = nil
+  if took >= 180 then Mood.Push("weary", math.min(25, 8 + took / 30), "a long flight") end
+end)

@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.20.0"
+ns.VERSION = "0.22.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -144,6 +144,7 @@ ns.DEFAULTS = {
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },
+  annals = true,           -- History tells the character's moments month by month, and keeps them
   diaryExcerpt = true,     -- quote your latest RPG Dialogue diary entry in History
   richText = true,         -- colour quotes and item names on the About page
   chronicleGoals = true,   -- your open Chronicle goals as an ambition
