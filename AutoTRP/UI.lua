@@ -418,6 +418,23 @@ local function getPath(path)
   return t, path[#path]
 end
 
+-- Every option at once, on or off ("Keep my profile up to date" is left as it is).
+function UI.SetAllOptions(on)
+  for _, opt in ipairs(OPTIONS) do
+    if opt.path then
+      local t, k = getPath(opt.path)
+      t[k] = on and true or false
+    end
+  end
+  -- And every field switch, including each statistic's own (letters and people met are
+  -- retired and stay off).
+  for k in pairs(ns.db.fields) do
+    ns.db.fields[k] = on and k ~= "stat_met" and k ~= "stat_letters" or false
+  end
+  for _, opt in ipairs(OPTIONS) do if opt.path and opt.after then opt.after() end end
+  for _, cb in ipairs(UI.boxes or {}) do cb:SetChecked(on) end
+end
+
 function UI.BuildPanel()
   local panel = CreateFrame("Frame")
   panel.name = "Auto TRP"
@@ -475,6 +492,18 @@ function UI.BuildPanel()
     lowest = math.min(lowest, y)
   end
   content:SetHeight(-lowest + 16)
+
+  UI.boxes = boxes
+  local function topButton(text, fn, anchor)
+    local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    b:SetSize(80, 22)
+    if anchor then b:SetPoint("RIGHT", anchor, "LEFT", -6, 0) else b:SetPoint("TOPRIGHT", -36, -74) end
+    b:SetText(text)
+    b:SetScript("OnClick", fn)
+    return b
+  end
+  local allOff = topButton("All off", function() UI.SetAllOptions(false) end)
+  topButton("All on", function() UI.SetAllOptions(true) end, allOff)
 
   local function button(text, w, anchorX, fn)
     local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
@@ -842,6 +871,10 @@ SlashCmdList.AUTOTRP = function(msg)
     UI.Update(true)
   elseif cmd == "days" then
     UI.ListDays()
+  elseif cmd == "all" and (arg == "on" or arg == "off") then
+    UI.SetAllOptions(arg == "on")
+    ns.Print(arg == "on" and "Every option switched on." or "Every option switched off.")
+    UI.Update(true)
   elseif cmd == "badge" then
     ns.db.showBadge = not ns.db.showBadge
     UI.UpdateBadge()

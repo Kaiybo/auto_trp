@@ -108,6 +108,7 @@ Copy the `AutoTRP` folder into `World of Warcraft/<your Forever folder>/Interfac
 | `/atrp name <number\|auto>` | wear one of your earned names (`auto`: the greatest deed's) |
 | `/atrp slot <glance> <1-5\|0>` | move a glance (mood, lately, company, ambition, marks) to another slot, or drop it |
 | `/atrp restore` | put your profile back as it was before Auto TRP |
+| `/atrp all on` / `all off` | switch every option, field and statistic on or off at once (also two buttons in the settings) |
 | `/atrp badge` | show or hide the mood badge |
 | `/atrp on` / `off` | resume or pause |
 

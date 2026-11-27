@@ -1316,6 +1316,23 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- Every option at once, from the slash command (the panel's buttons call the same).
+do
+  local before = {}
+  for k, v in pairs(ns.db.fields) do before[k] = v end
+  local quiet, badge = ns.db.quiet, ns.db.showBadge
+  SlashCmdList.AUTOTRP("all off")
+  local anyOn = false
+  for k, v in pairs(ns.db.fields) do if v then anyOn = k end end
+  check(not anyOn and ns.db.quiet == false and ns.db.showBadge == false and ns.db.enabled ~= false, "all off: every option off, the addon itself still on: " .. tostring(anyOn) .. tostring(ns.db.quiet) .. tostring(ns.db.showBadge) .. tostring(ns.db.enabled))
+  SlashCmdList.AUTOTRP("all on")
+  local anyOff = false
+  for k, v in pairs(ns.db.fields) do if not v and k ~= "stat_met" and k ~= "stat_letters" then anyOff = true end end
+  check(not anyOff and ns.db.quiet == true, "all on: every option on")
+  for k, v in pairs(before) do ns.db.fields[k] = v end
+  ns.db.quiet, ns.db.showBadge = quiet, badge
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
