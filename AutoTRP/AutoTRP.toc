@@ -24,6 +24,7 @@ Sources\Chronicle.lua
 Sources\Deeds.lua
 Sources\Self.lua
 Sources\Company.lua
+Sources\Goals.lua
 Mood.lua
 Journal.lua
 Compose.lua
