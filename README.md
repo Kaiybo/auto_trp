@@ -56,6 +56,18 @@ Dozens of signals feed it, and each feeling remembers why (`/atrp mood` shows th
 
 **The mood journal** keeps each day's main feeling and place for two weeks. History sums up the last few days (*"These past days: downcast in Duskwood today and wide-eyed in Westfall yesterday."*), and `/atrp days` lists the week.
 
+## The journal
+
+Auto TRP keeps a journal for your character, written in the first person from what actually happened each day you play. It needs nothing but the game: it listens for the lands you enter (and whether it's your first time), the jobs you turn in, dungeons and the masters you bring down, levels, deaths and close calls (and what did it, never a player's name), rare and epic finds, the coin you came out ahead or behind, the groups you joined (counted; only your Social Diary friends are named, and only if you let Auto TRP name them), inns, flights and crafts. Your mood that day colours how it ends, and how your character takes a death or a near miss follows their RPG Dialogue temperament when there is one, else their race and class.
+
+> Was on the road out of Goldshire before the sun was well up. Went on to Westfall, which I'd never seen before, and turned in "The Killing Fields", "The People's Militia" and "Westfall Stew" there. A Defias Pillager killed me near Moonbrook; I'll go more carefully next time. Went into the Deadmines for the first time with Mirelle and one other. Between us we brought down Edwin VanCleef. Went by way of Westfall, and flew to Duskwood, my first sight of the place.
+>
+> Found Cruel Barb today, the best thing I've come by in a long while, and felt myself grow stronger. My herbalism came along. Ended the day at the Scarlet Raven Tavern, worn out, though eight silver the richer.
+
+The day's entry is written when you log out (and whenever you open it), from that day's record and nothing else, and the last 30 days are kept. `/atrp journal` opens it; `/atrp journal today` prints today's in your chat. Nothing is worked out in combat.
+
+On your profile: when RPG Dialogue has no diary entry for you, History's last paragraph quotes the first sentence or two of your latest entry (deaths and near misses stay out, as they do everywhere in History), and the *Lately* glance quotes it when nothing fresher is going on. The setting "Quote your Auto TRP journal..." turns that off; the journal itself is always kept.
+
 ## Only what the game backs up
 
 Auto TRP can draw conclusions from what the game records (a kind character from kind choices, a broad build from high strength, "gets by" from your coin against your level), but it never invents what your character did, holds or went through. Mood lines describe a face, a posture or a voice, not an action you weren't doing (no sitting under trees, reading scripture or polishing a helm), and there are no made-up backstories or "the road has made them..." lines.
@@ -103,6 +115,8 @@ Copy the `AutoTRP` folder into `World of Warcraft/<your Forever folder>/Interfac
 | `/atrp feel <mood>` | choose a mood for the next hour (`/atrp feel` lists them, `/atrp feel clear` lets it go) |
 | `/atrp intent <text>` | add what you're up to to Currently for two hours (*"Looking for passage to Theramore."*) |
 | `/atrp days` | the mood journal: the last week of feelings and places |
+| `/atrp journal` | your character's journal, a day's entry for each day you played, newest first |
+| `/atrp journal today` | today's entry, in your own chat (never sent to anyone) |
 | `/atrp spells` | the spells and abilities you cast most |
 | `/atrp names` | every name you've earned, what for, and which one you wear |
 | `/atrp name <number\|auto>` | wear one of your earned names (`auto`: the greatest deed's) |
@@ -123,6 +137,7 @@ Auto TRP writes in English. Zones are recognised by their map ID, so zone touche
 - `lua5.1 tests/run.lua` runs an offline test against a mock of the game, Total RP 3 and sample data from all three addons, and prints the profile it writes.
 - Releasing: bump `## Version` in `AutoTRP/AutoTRP.toc` and add a matching `## <version> (date): Title` section to `CHANGELOG.md` in your pull request. When it merges into `main`, the release workflow tests, builds `AutoTRP-<version>.zip` and publishes the release with that changelog section as its notes. A merge that doesn't change the version releases nothing.
 - `TRP.ORDER` (TRP.lua) is the order fields are written in, so new entries land the same way every time; statistics keep the order of `Compose.STATS`, and `tidyStats` gathers Auto TRP's own into one ordered run.
+- `AutoTRP/Journal.lua` keeps the journal (`AutoTRPCharDB.journal`: a few days of raw records in `days`, written entries for 30 days in `entries`). Its wording is `W.JOURNAL` in `Words.lua`, a list of ways to say each beat; `Journal.LatestLine` and `Journal.LatelyGlance` are the only places the profile uses it.
 - `AutoTRP/Sources/Deeds.lua` is Auto TRP's own record (quests turned in, masters felled), merged with Chronicle's in `Compose.Finished` and `Compose.Bosses`. Earned-name data (`W.EARNED_STORY`, `W.EARNED_QUEST`, `W.EARNED_BOSS`, `W.EARNED_BOUNTY`) is in `Words.lua`; quest titles and boss names are matched in English.
 - `python3 tools/gen_rpgd_names.py /path/to/rpg-dialogue` regenerates `AutoTRP/Data/RPGDNames.lua` (town and story names; RPG Dialogue keeps those inside its private namespace, and its saved data only holds ids).
 - All wording lives in `AutoTRP/Data/Words.lua`. Most of it is lists: one line is picked per character (and per hour, event or place), so adding a line adds variety. `W.SAY` holds the ways the glances and About phrase the facts they report. After `{they}`, write verb endings as `{s}`, `{es}` or `{ies}` (`{they} walk{s}`, `{they} carr{ies}`) so lines read right with he, she or they.

@@ -265,6 +265,8 @@ function Compose.LatelyGlance()
       return { TI = "Lately", IC = "INV_Letter_15", TX = say("lastseen", { who = last.name }, last.last) }
     end
   end
+  local journal = ns.Journal and ns.Journal.LatelyGlance()   -- the latest journal entry (Journal.lua)
+  if journal then return journal end
   local where = world.zone and U.Mid(world.zone) or "these parts"
   return { TI = "Lately", IC = "INV_Misc_Map_01", TX = say("around", { where = where }, world.zone) }
 end
@@ -1114,6 +1116,8 @@ function Compose.History()
   if wb and not toldRecent.wealth then nowLines[#nowLines + 1] = wb.flair end
   if rpgd and ns.db.diaryExcerpt and rpgd.lastEntry and rpgd.lastEntry.text then
     nowLines[#nowLines + 1] = "{their} latest journal entry reads " .. quote(U.Truncate(rpgd.lastEntry.text, 280))
+  elseif ns.Journal then
+    nowLines[#nowLines + 1] = ns.Journal.LatestLine(quote)   -- Auto TRP's own journal (Journal.lua)
   end
   paras[#paras + 1] = paragraph(nowLines)
 

@@ -1419,5 +1419,171 @@ do
   ns.TRP.CustomPronouns = oldPron
 end
 
+-- The journal: a session played through the game's own events, written down at logout.
+do
+  local J, C = ns.Journal, ns.Compose
+  local saved = { deeds = ns.char.deeds, days = ns.char.days, milestones = ns.char.milestones, finds = ns.char.finds,
+    GetGameTime = GetGameTime, GetMoney = GetMoney, UnitName = UnitName, UnitExists = UnitExists, UnitCanAttack = UnitCanAttack,
+    UnitIsPlayer = UnitIsPlayer, UnitClassification = UnitClassification, UnitHealth = UnitHealth, IsInGroup = IsInGroup,
+    GetNumGroupMembers = GetNumGroupMembers, IsInInstance = IsInInstance, GetInstanceInfo = GetInstanceInfo }
+  local banned = {}
+  for l in io.lines("tests/banned_phrases.txt") do
+    if not l:match("^%s*#") and l:match("%S") then banned[#banned + 1] = (l:match("^(.-)%s*|") or l):gsub("^%s+", ""):gsub("%s+$", ""):lower() end
+  end
+  local function noBanned(text)
+    local bad = {}
+    for _, b in ipairs(banned) do if text:lower():find(b, 1, true) then bad[#bad + 1] = b end end
+    return bad
+  end
+  ns.char.journal, ns.char.days = nil, {}
+  ns.char.seen.zones.Westfall, ns.char.seen.zones.Duskwood, ns.char.seen.zones["The Deadmines"] = nil, nil, nil
+  local hour, money = 7, 250000
+  GetGameTime = function() return hour, 0 end
+  GetMoney = function() return money end
+  local names = { target = "Defias Pillager", party1 = "Mirelle", party2 = "Thorvald" }
+  UnitName = function(u) return names[u] or "Aldric" end
+  state.zone, state.sub, state.resting, state.combat = "Elwynn Forest", "Goldshire", false, false
+  event("PLAYER_ENTERING_WORLD")
+  event("PLAYER_MONEY")
+  J.Today().money = 0
+  -- Westfall for the first time; three jobs; a close call and a death near Moonbrook.
+  NOW = NOW + 600
+  state.zone, state.sub = "Westfall", "Sentinel Hill"
+  event("ZONE_CHANGED_NEW_AREA")
+  for i, title in ipairs({ "The Killing Fields", "The People's Militia", "Westfall Stew" }) do
+    GetTitleText = function() return title end
+    GetQuestID = function() return 900 + i end
+    event("QUEST_COMPLETE"); event("QUEST_TURNED_IN", 900 + i, 0, 0)
+  end
+  UnitExists = function(u) return u == "target" or u == "party1" or u == "party2" end
+  UnitCanAttack = function(_, u) return u == "target" end
+  UnitIsPlayer = function() return false end
+  UnitClassification = function() return "normal" end
+  state.sub = "Moonbrook"
+  event("PLAYER_REGEN_DISABLED")
+  UnitHealth = function() return 10 end
+  event("UNIT_HEALTH", "player")
+  UnitHealth = function() return 100 end
+  event("PLAYER_REGEN_ENABLED")
+  NOW = NOW + 300
+  event("PLAYER_REGEN_DISABLED")
+  event("PLAYER_DEAD")
+  UnitExists = function(u) return u == "party1" or u == "party2" end
+  -- A friend from Social Diary and a stranger join; the Deadmines and its master.
+  IsInGroup = function() return true end
+  GetNumGroupMembers = function() return 3 end
+  C.SourcesChanged(); C.Refresh()
+  event("GROUP_ROSTER_UPDATE")
+  NOW = NOW + 600
+  IsInInstance = function() return true, "party" end
+  GetInstanceInfo = function() return "The Deadmines", "party" end
+  state.zone, state.sub = "The Deadmines", nil
+  event("ZONE_CHANGED_NEW_AREA")
+  event("ENCOUNTER_END", 1, "Edwin VanCleef", 1, 5, 1)
+  event("CHAT_MSG_LOOT", "You receive loot: |cffa335ee|Hitem:1|h[Cruel Barb]|h|r.")
+  event("CHAT_MSG_LOOT", "You receive loot: |cff9d9d9d|Hitem:2|h[Broken Tooth]|h|r.")
+  IsInInstance = function() return false, "none" end
+  IsInGroup = function() return false end
+  GetNumGroupMembers = function() return 0 end
+  event("GROUP_ROSTER_UPDATE")
+  state.zone, state.sub = "Westfall", "Moonbrook"
+  event("ZONE_CHANGED_NEW_AREA")
+  event("PLAYER_LEVEL_UP", 23)
+  event("CHAT_MSG_SKILL", "Your skill in Herbalism has increased to 124.")
+  event("CHAT_MSG_SKILL", "Your skill in Herbalism has increased to 125.")
+  money = 250000 + 812
+  event("PLAYER_MONEY")
+  -- A flight to Duskwood (new ground), and the night at the inn in Darkshire.
+  UnitOnTaxi = function() return true end
+  event("PLAYER_CONTROL_LOST")
+  state.zone = "Redridge Mountains"; event("ZONE_CHANGED_NEW_AREA")   -- flown over: not "entered"
+  state.zone, state.sub = "Duskwood", "Darkshire"
+  event("ZONE_CHANGED_NEW_AREA")
+  UnitOnTaxi = function() return false end
+  event("PLAYER_CONTROL_GAINED")
+  hour = 22
+  state.sub, state.resting = "Scarlet Raven Tavern", true
+  event("ZONE_CHANGED")
+  ns.char.days[ns.Mood.Day()] = { moods = { weary = 5, shaken = 2 }, zones = { Westfall = 4 } }
+  -- In combat nothing is written; at logout, the day is.
+  state.combat = true
+  event("PLAYER_LOGOUT")
+  check(J.Entry() == nil, "journal: nothing is written in combat")
+  state.combat = false
+  event("PLAYER_LOGOUT")
+  local e = J.Entry()
+  local text = e and e.text or ""
+  print("\nJournal entry:\n" .. text)
+  for _, want in ipairs({ "Goldshire", "Westfall", "The Killing Fields", "Defias Pillager", "Moonbrook", "the Deadmines",
+    "Edwin VanCleef", "Cruel Barb", "Mirelle", "herbalism", "eight silver", "Duskwood", "the Scarlet Raven Tavern" }) do
+    check(text:find(want, 1, true), "journal mentions " .. want)
+  end
+  local tiredWords = false
+  for _, w in ipairs(ns.Words.JOURNAL.feel.weary) do if text:find(w, 1, true) then tiredWords = true end end
+  check(tiredWords, "journal: the day's mood (weary) ends it")
+  check(not text:find("Thorvald", 1, true) and not text:find("Broken Tooth", 1, true) and not text:find("Redridge", 1, true),
+    "journal: no stranger named, no junk loot, no land only flown over")
+  check(not text:find("{", 1, true) and not text:find("}", 1, true), "journal: no tags left")
+  check(#noBanned(text) == 0, "journal: no banned phrases: " .. table.concat(noBanned(text), ", "))
+  check(text:find("for the first time", 1, true) or text:find("never seen", 1, true) or text:find("new ground", 1, true)
+    or text:find("hadn't been", 1, true) or text:find("first sight", 1, true) or text:find("never been", 1, true), "journal: a first visit is told as one")
+  -- /atrp journal today prints it, in the player's own chat.
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end
+  SlashCmdList.AUTOTRP("journal today")
+  DEFAULT_CHAT_FRAME.AddMessage = oldChat
+  check(table.concat(said, " "):find("Cruel Barb", 1, true), "/atrp journal today prints today's entry")
+  local ok = pcall(SlashCmdList.AUTOTRP, "journal")
+  check(ok and J.Text():find("Cruel Barb", 1, true), "/atrp journal opens the journal, newest first")
+  -- On the profile: the first lines, never the deaths.
+  local line = J.LatestLine()
+  check(line and line:find("Goldshire", 1, true) and not line:find("Pillager", 1, true), "the profile quotes the start, not the deaths: " .. tostring(line))
+  -- Every pick reads cleanly, for many characters.
+  local leftovers = {}
+  for i = 1, 40 do
+    ns.char.seedName = "journal" .. i
+    local t = J.Compose(ns.Mood.Day()).text
+    if t:find("[{}]") or t:find('""', 1, true) or #noBanned(t) > 0 or t:find("  ", 1, true) or t:find(" ,", 1, true) or t:find("%.%.") then leftovers[#leftovers + 1] = t end
+    if i <= 2 then print("\nJournal, another voice:\n" .. t) end
+  end
+  ns.char.seedName = "Aldric-Forever"
+  check(#leftovers == 0, "journal: every variant reads cleanly: " .. (leftovers[1] or ""))
+
+  -- Without RPG Dialogue, Social Diary or Chronicle: the journal still works, names no one,
+  -- and History and Lately quote it.
+  local rpgdDB, sdDB, chronDB = RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  C.SourcesChanged(); C.Refresh()
+  check(C.Sheet() ~= nil, "a whole profile is written with none of the three addons")
+  local hist = C.History()
+  check(hist:find("journal", 1, true) and hist:find("Goldshire", 1, true), "History quotes the journal when there's no diary")
+  local g = J.LatelyGlance()
+  check(g and g.TX:find("journal", 1, true) and not g.TX:find("{", 1, true), "Lately can quote it: " .. tostring(g and g.TX))
+  ns.char.journal = nil
+  event("PLAYER_ENTERING_WORLD")
+  IsInGroup = function() return true end
+  GetNumGroupMembers = function() return 3 end
+  ns.Sources.Deeds.Read()
+  event("GROUP_ROSTER_UPDATE")
+  GetQuestID = function() return 999 end
+  event("QUEST_COMPLETE"); event("QUEST_TURNED_IN", 999, 0, 0)
+  NOW = NOW + 700
+  event("PLAYER_LOGOUT")
+  local bare = J.Entry() and J.Entry().text or ""
+  print("\nJournal without the other addons:\n" .. bare)
+  check(bare:find('"Westfall Stew"', 1, true) and not bare:find('""', 1, true) and not bare:find("Mirelle", 1, true) and not bare:find("Thorvald", 1, true),
+    "journal without the addons: written from the game alone, nobody named")
+  ns.db.journalInProfile = false
+  check(J.LatestLine() == nil and J.LatelyGlance() == nil, "switched off, the profile doesn't quote it")
+  ns.db.journalInProfile = true
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = rpgdDB, sdDB, chronDB
+  for k, v in pairs(saved) do if k == "deeds" or k == "days" or k == "milestones" or k == "finds" then ns.char[k] = v else _G[k] = v end end
+  GetTitleText, GetQuestID = nil, nil
+  state.zone, state.sub, state.resting, state.combat = "Duskwood", "Raven Hill", false, false
+  C.SourcesChanged(); C.Refresh()
+  check(C.History():find("latest journal entry reads", 1, true), "with RPG Dialogue's diary back, History quotes that instead")
+end
+
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))
 os.exit(fails == 0 and 0 or 1)
