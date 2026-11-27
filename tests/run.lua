@@ -1607,7 +1607,7 @@ do
             if not v or not v.TX or v.TX == "" or not v.TI or not v.IC then missing[#missing + 1] = "glance " .. g end
           end
           for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "wealth", "crafts", "standing", "books", "names", "spell",
-            "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit" }) do
+            "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "keepsake" }) do
             if not sh.stats[k] then missing[#missing + 1] = "stat " .. k end
           end
         end
@@ -3820,6 +3820,251 @@ do
   end
   scan(ns.Words, 0)
   check(not any, "no \"{they} mean\" without {s}: " .. tostring(any))
+end
+
+-- Possessions and keepsakes (Sources/Pack.lua, Keepsakes.lua): mock bags read through the
+-- game's container API, then everything the bags give the profile, and nothing they don't.
+do
+  local C, P, K = ns.Compose, ns.Sources.Pack, ns.Keepsakes
+  local saved = { GetItemInfo = GetItemInfo, GetInventoryItemLink = GetInventoryItemLink, zone = state.zone }
+  -- id -> { name, quality, type, subType, sell price }
+  local ITEMS = {
+    [1001] = { "Cat Carrier (Siamese)", 1, "Miscellaneous", "Junk", 0 },
+    [1002] = { "Toy Train Set", 1, "Miscellaneous", "Junk", 0 },
+    [1003] = { "Strong Fishing Pole", 1, "Weapon", "Fishing Poles", 100 },
+    [1004] = { "Workshop Key", 1, "Key", "Key", 0 },
+    [1005] = { "Silver Skeleton Key", 1, "Key", "Key", 0 },
+    [1006] = { "Recipe: Westfall Stew", 1, "Recipe", "Cooking", 50 },
+    [1007] = { "Plain Letter", 1, "Miscellaneous", "Junk", 0 },
+    [1008] = { "Letter from Mirelle", 1, "Miscellaneous", "Junk", 0 },
+    [1009] = { "The Story of Morgan Ladimore", 1, "Miscellaneous", "Junk", 0 },
+    [1010] = { "Tattered Ribbon", 0, "Miscellaneous", "Junk", 0 },
+    [1011] = { "Linen Bandage", 1, "Consumable", "Consumable", 10 },
+    [6948] = { "Hearthstone", 1, "Miscellaneous", "Junk", 0 },
+    [1013] = { "An Old History Book", 1, "Quest", "Quest", 0 },
+    [1014] = { "Mechanical Squirrel Box", 1, "Miscellaneous", "Junk", 0 },
+    [1015] = { "Gold Pickup Schedule", 1, "Miscellaneous", "Junk", 0 },
+    [1016] = { "Aldric's Diary", 1, "Miscellaneous", "Junk", 0 },
+    [1020] = { "Light Quiver", 1, "Quiver", "Quiver", 10 },
+    [1021] = { "Rough Arrow", 1, "Projectile", "Arrow", 1 },
+  }
+  local BAGS = {}
+  local function fill(list)
+    BAGS = { [0] = {}, [-2] = {} }
+    local n = 0
+    for _, e in ipairs(list) do
+      if e.bag == -2 then BAGS[-2][#BAGS[-2] + 1] = e
+      else n = n + 1; BAGS[0][n] = e end
+    end
+  end
+  GetContainerNumSlots = function(bag) if bag == 0 then return 16 elseif bag == -2 then return 32 end return 0 end
+  GetContainerItemInfo = function(bag, slot)
+    local e = BAGS[bag] and BAGS[bag][slot]
+    if not e then return nil end
+    local it = ITEMS[e.id]
+    return "icon", e.n or 1, false, it[2], e.readable or false, false,
+      "|cffffffff|Hitem:" .. e.id .. "::::|h[" .. it[1] .. "]|h|r", false, it[5] == 0, e.id
+  end
+  GetContainerItemQuestInfo = function(bag, slot)
+    local e = BAGS[bag] and BAGS[bag][slot]
+    if e and e.quest then return true, e.quest, false end
+    return false, nil, false
+  end
+  GetItemInfo = function(link)
+    local it = type(link) == "number" and ITEMS[link]
+    if it then return it[1], "link", it[2], 10, 1, it[3], it[4], 20, "", "icon", it[5] end
+    return saved.GetItemInfo(link)
+  end
+  local everything = {
+    { id = 1001 }, { id = 1002 }, { id = 1003 }, { id = 1004, bag = -2 }, { id = 1005, bag = -2 }, { id = 1006 },
+    { id = 1007, readable = true }, { id = 1008, readable = true }, { id = 1009, readable = true }, { id = 1010 },
+    { id = 1011, n = 20 }, { id = 6948 }, { id = 1013, quest = 337 }, { id = 1016, readable = true },
+  }
+  local function rescan() local ok = P.Scan(); C.SourcesChanged(); C.Refresh(); return ok end
+  local function pack() return ns.char.pack end
+
+  -- Before the bags have been read there's nothing to say.
+  ns.char.pack = nil
+  BAGS = {}
+  local saveNum = GetContainerNumSlots
+  GetContainerNumSlots = function() return 0 end
+  check(rescan() == false and ns.cache.pack == nil, "no bags read yet: nothing kept, nothing told")
+  check(not C.Physical():find("hearthstone"), "no bags, no hearthstone in Physical")
+  GetContainerNumSlots = saveNum
+
+  -- The first read: everything already carried was there before the record began.
+  fill(everything)
+  check(rescan() == true, "the bags are read out of combat")
+  local pk = ns.cache.pack
+  local kinds = {}
+  for _, it in ipairs(pk.carried) do kinds[it.name] = it.kind end
+  check(kinds["Cat Carrier (Siamese)"] == "pet" and kinds["Toy Train Set"] == "toy" and kinds["Strong Fishing Pole"] == "pole"
+    and kinds["Workshop Key"] == "key" and kinds["Silver Skeleton Key"] == "key" and kinds["Recipe: Westfall Stew"] == "recipe"
+    and kinds["Plain Letter"] == "letter" and kinds["The Story of Morgan Ladimore"] == "book" and kinds["Tattered Ribbon"] == "keepsake"
+    and kinds["Hearthstone"] == "hearth", "each notable thing is known for what it is")
+  check(pk.byKind.starts and pk.byKind.starts[1].name == "An Old History Book", "a thing that starts a job is noticed")
+  check(not kinds["Letter from Mirelle"] and not kinds["Aldric's Diary"], "letters and books whose titles carry a name are skipped")
+  check(pk.hearth == "Goldshire", "the hearthstone's town, only with a hearthstone in the bags")
+  check(pk.stacks[1] and pk.stacks[1].name == "Linen Bandage" and pk.stacks[1].n == 20, "the biggest stack: " .. tostring(pk.stacks[1] and pk.stacks[1].name))
+  check(#pk.events == 0, "what was there at the first read isn't news")
+  local function allText()
+    local sh = C.Sheet(true)
+    local t = { sh.bearing or "", sh.history or "", sh.physical or "", sh.currently or "" }
+    for _, g in pairs(sh.glances) do t[#t + 1] = g.TX or "" end
+    for _, v in pairs(sh.stats) do t[#t + 1] = v end
+    return table.concat(t, "\n")
+  end
+  local all = allText()
+  check(not all:find("Letter from Mirelle", 1, true) and not all:find("Aldric's Diary", 1, true), "no other player's name reaches the profile from a letter")
+  local carry = K.Carry(function(n) return n end)
+  check(#carry > 0 and #carry <= 3, "Physical: a few sentences of what they carry: " .. table.concat(carry, ". "))
+  local named = 0
+  for _, line in ipairs(carry) do
+    for _, it in pairs(ITEMS) do if line:find(it[1], 1, true) or line:find((it[1]:gsub("^%a+: ", "")), 1, true) then named = named + 1 end end
+  end
+  check(named >= 1, "what they carry is named by the items' own names")
+  check(C.Physical():find("{col:", 1, true), "item names in their quality's colour in Physical")
+  check(C.Physical():find("an Old History Book", 1, true), "Physical: the thing that starts a job: " .. C.Physical())
+
+  -- Long kept: the ribbon carried three weeks and more, from before the record.
+  for _, it in pairs(pack().items) do it.first = NOW - 25 * 86400 end
+  pack().items[1010].first = NOW - 40 * 86400
+  C.SourcesChanged(); C.Refresh()
+  check(C.Stats().keepsake == "Tattered Ribbon, carried for at least five weeks", "statistic: treasured keepsake: " .. tostring(C.Stats().keepsake))
+  check(C.History():find("Tattered Ribbon", 1, true), "History: the keepsake kept longest")
+  local marks = K.Marks()
+  local mk = {}
+  for _, m in ipairs(marks) do mk[m.title] = m.text end
+  check(mk["A Keepsake"] and mk["A Keepsake"]:find("Tattered Ribbon", 1, true), "Marks: a keepsake carried a long time")
+  check(mk["A Small Companion"] and mk["Something Fun"] and mk["Something to Deliver"], "Marks: a pet, a toy, a job to deliver")
+  local lt = K.Lately()
+  local long
+  for _, l in ipairs(lt) do if l.g.TI == "Long Carried" then long = l end end
+  check(long and long.g.TX:find("Tattered Ribbon", 1, true) and long.t < NOW - 86400, "Lately: long carried, as an older moment")
+  check(ns.TRP.FIELDS.stat_keepsake ~= nil and ns.db.fields.stat_keepsake == true, "the keepsake statistic has its own switch, on by default")
+  check(ns.UI.TipFor({ path = { "fields", "stat_keepsake" } }) ~= nil, "the keepsake statistic's switch has a tooltip")
+
+  -- Something new picked up in Westfall, kept a month, then sold.
+  state.zone = "Westfall"
+  local withPet = { { id = 1014 } }
+  for _, e in ipairs(everything) do withPet[#withPet + 1] = e end
+  fill(withPet)
+  rescan()
+  local ev = ns.cache.pack.events[1]
+  check(ev and ev.kind == "new" and ev.name == "Mechanical Squirrel Box" and ev.zone == "Westfall", "a new pet in the bags is news")
+  local newPet
+  for _, l in ipairs(K.Lately()) do if l.g.TI == "A New Companion" then newPet = l end end
+  check(newPet and newPet.g.TX:find("Mechanical Squirrel Box", 1, true), "Lately: a new companion")
+  state.zone = saved.zone
+  pack().items[1014].first = NOW - 50 * 86400
+  C.SourcesChanged(); C.Refresh()
+  check(C.Stats().keepsake == "Mechanical Squirrel Box, carried for seven weeks, from Westfall", "keepsake statistic says where from: " .. tostring(C.Stats().keepsake))
+  check(table.concat(K.Carry(), " "):find("Westfall", 1, true), "Physical: carried since Westfall")
+  check(C.History():find("Westfall", 1, true), "History: kept since Westfall")
+  P.SetWindow("merchant", true)
+  fill(everything)
+  rescan()
+  P.SetWindow("merchant", false)
+  ev = ns.cache.pack.events[1]
+  check(ev and ev.kind == "sold" and ev.name == "Mechanical Squirrel Box" and ev.held >= 49 * 86400, "a thing sold is a change, with how long it was kept")
+  local sold
+  for _, l in ipairs(K.Lately()) do if l.g.TI == "Let Go" then sold = l end end
+  check(sold and sold.g.TX:find("seven weeks", 1, true), "Lately: let go after seven weeks: " .. tostring(sold and sold.g.TX))
+  check(not pack().items[1014], "a thing let go is no longer kept")
+
+  -- Into the bank and back: not lost, and still kept from when it was first seen.
+  P.SetWindow("bank", true)
+  local noToy = {}
+  for _, e in ipairs(everything) do if e.id ~= 1002 then noToy[#noToy + 1] = e end end
+  fill(noToy)
+  rescan()
+  check(pack().items[1002] and pack().items[1002].banked and #ns.cache.pack.events == 2, "banked is not lost")
+  local carriedToy = false
+  for _, it in ipairs(ns.cache.pack.carried) do if it.name == "Toy Train Set" then carriedToy = true end end
+  check(not carriedToy, "a banked thing isn't told as carried")
+  P.SetWindow("bank", false)
+  fill(everything)
+  rescan()
+  check(pack().items[1002].here and pack().items[1002].first == NOW - 25 * 86400, "back from the bank, kept since it was first seen")
+
+  -- Thrown away.
+  event("DELETE_ITEM_CONFIRM", "Tattered Ribbon")
+  local noRibbon = {}
+  for _, e in ipairs(everything) do if e.id ~= 1010 then noRibbon[#noRibbon + 1] = e end end
+  fill(noRibbon)
+  rescan()
+  ev = ns.cache.pack.events[1]
+  check(ev and ev.kind == "destroyed" and ev.name == "Tattered Ribbon", "a thing destroyed is a change")
+  fill(everything)
+  rescan()
+
+  -- Nothing is read in a fight; the read waits for it to end.
+  state.combat = true
+  fill({ { id = 6948 } })
+  check(P.Scan() == false and pack().items[1001].here, "the bags aren't read in combat")
+  state.combat = false
+  fill(everything)
+  rescan()
+
+  -- Habits: a stack kept well stocked for days, not one seen once.
+  local function habits() return table.concat(C.Habits(9), " | ") end
+  check(not habits():find("Linen Bandages", 1, true), "no hoarding habit from a stack seen just now")
+  pack().hoard["Linen Bandage"].first = NOW - 4 * 86400
+  C.SourcesChanged(); C.Refresh()
+  check(habits():find("Linen Bandages", 1, true), "Personality: a habit from bandages kept for days: " .. habits())
+  local few = {}
+  for _, e in ipairs(everything) do few[#few + 1] = e.id == 1011 and { id = 1011, n = 4 } or e end
+  fill(few)
+  rescan()
+  check(not habits():find("Linen Bandages", 1, true), "no habit when the counts don't back it")
+  fill(everything)
+  rescan()
+
+  -- Full bags, a quiver, and a big stack of arrows.
+  local full = {}
+  for i = 1, 16 do full[i] = { id = 1021, n = 200 } end
+  full[16] = { id = 6948 }
+  fill(full)
+  GetContainerNumSlots = function(bag) if bag == 0 then return 16 elseif bag == 1 then return 0 end return 0 end
+  rescan()
+  local fm = {}
+  for _, m in ipairs(K.Marks()) do fm[m.title] = true end
+  check(fm["Heavy Pack"] and fm["Well Stocked"], "Marks: full bags, and a big stack")
+  GetInventoryItemLink = function(u, slot) if slot == 20 then return "item:1020" end return saved.GetInventoryItemLink(u, slot) end
+  GetContainerNumSlots = function(bag) if bag == 0 or bag == 1 then return 16 end return 0 end
+  rescan()
+  local qv = table.concat(K.Carry(), ". ")
+  check(qv:find("Light Quiver", 1, true) and qv:find("3,000 Rough Arrows", 1, true) and qv:find("Goldshire", 1, true),
+    "Physical: the quiver, the arrows, the hearthstone: " .. qv)
+  GetInventoryItemLink = saved.GetInventoryItemLink
+
+  -- Bounded storage.
+  for i = 1, 200 do pack().items[50000 + i] = { name = "Old thing " .. i, kind = "keepsake", first = NOW - i, last = NOW - i } end
+  GetContainerNumSlots = saveNum
+  fill(withPet)
+  rescan()
+  check(ns.U.Count(pack().items) <= P.CAP and #pack().events <= P.CAP_EVENTS, "what's kept stays bounded: " .. ns.U.Count(pack().items))
+  for i = 1, 200 do pack().items[50000 + i] = nil end
+
+  if os.getenv("SAMPLES") then
+    ns.char.pack = nil
+    fill(everything); rescan()
+    for _, it in pairs(pack().items) do it.first = NOW - 12 * 86400 end
+    local rb = pack().items[1010]
+    rb.first, rb.before, rb.zone = NOW - 23 * 86400, nil, "Westfall"
+    pack().hoard["Linen Bandage"].first = NOW - 5 * 86400
+    C.SourcesChanged(); C.Refresh()
+    print("\n=== what they carry ===")
+    print("Carry: " .. table.concat(K.Carry(), ". "))
+    for _, m in ipairs(K.Marks()) do print("Mark: " .. m.title .. ": " .. m.text) end
+    for _, l in ipairs(K.Lately()) do print("Lately: " .. l.g.TI .. ": " .. l.g.TX) end
+    print("Habits: " .. habits())
+    print("History: " .. tostring(K.History()))
+    print("Stat: " .. tostring(C.Stats().keepsake))
+  end
+  GetContainerNumSlots, GetContainerItemInfo, GetContainerItemQuestInfo = nil, nil, nil
+  GetItemInfo, state.zone = saved.GetItemInfo, saved.zone
+  C.SourcesChanged(); C.Refresh()
 end
 
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
