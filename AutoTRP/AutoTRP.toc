@@ -28,6 +28,7 @@ Sources\Life.lua
 Sources\Company.lua
 Sources\Goals.lua
 Sources\Style.lua
+Sources\Renown.lua
 Mood.lua
 Journal.lua
 Compose.lua
