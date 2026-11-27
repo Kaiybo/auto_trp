@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.22.0 (2026-11-27): Second Wind
+
+- **The bestiary: what they've fought and seen.** A new record (`Sources/Bestiary.lua`) notes what each creature you target or fight is: its kind (beast, humanoid, undead, demon, elemental, dragonkin, giant, machine), its family (wolf, spider, raptor...), how rare or strong the game calls it and its level against yours. Kills are counted by kind and family, with the first of each kind, the greatest thing you've brought down, the rares and elites you saw and left be, world bosses seen in the open, the kind that has killed you most, and the leaders and named creatures you've met. Other players and their pets are never taken in; a few reads at a target change or a fight's start, nothing looped in combat, and the record is bounded (80 creatures, 40 families, 30 sightings).
+- **History** tells what they've fought in the older record (*"Has fought mostly wild beasts, wolves above all, and humanoids so far; the undead in Duskwood since. Of everything he's felled, Mor'Ladim stands out, a rare elite undead creature, far beyond him at the time."*), named creatures brought down, leaders met in person and world bosses seen. Firsts are only claimed when the record began near level one.
+- **Personality** from the counts: a kind hunted far more than any other (*"Has put more of the undead back in the ground than most"*), a kind that has killed you three times or more (*"Is uneasy around demons, having died to them four times"*), rares chased down or let pass, elites taken on often.
+- **Lately**: *Left Be* (*"Saw a rare spider in Duskwood and left it be."*), *A Sight to See* (a world boss), *Greatest Kill*, *A First*, *A Dragon*, *Met in Person*. **Mood**: a world boss in the open or a first dragon brings wonder; a rare spotted, a moment's intrigue.
+- **Two statistics**: *Foes by kind* (*"412 beasts, 230 humanoids, 41 undead"*) and *Greatest kill* (*"Mor'Ladim, rare elite, level 35 (slain at 31)"*), each with its own switch and tooltip.
+
 ## 0.21.0 (2026-11-27): Lately
 
 ### With Total RP 3 alone

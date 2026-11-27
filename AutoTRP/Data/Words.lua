@@ -4261,3 +4261,149 @@ if W.JOURNAL and W.JOURNAL.feel then
     bitter = { "sour about it all", "nursing a grudge" },
   }) do W.JOURNAL.feel[k] = W.JOURNAL.feel[k] or v end
 end
+
+---------------------------------------------------------------------------
+-- THE BESTIARY (0.22.0, Sources/Bestiary.lua): what the character has fought and seen, by
+-- the game's own creature kinds (UnitCreatureType) and families (UnitCreatureFamily), for
+-- History's older record, Personality, the Lately glance and the statistics. Facts only:
+-- each line is told when the counts back it. {kind} {family} {one} {aone} {who} {what}
+-- {zone} {list} {n} {how} {times} are filled in; pronouns as everywhere else.
+---------------------------------------------------------------------------
+W.BESTIARY = {
+  -- Each kind, as prose says many of them.
+  TYPE = {
+    Beast = { "beasts", "wild beasts", "the beasts of the wilds", "animals of the wild", "creatures of fang and hoof" },
+    Humanoid = { "humanoids", "foes on two legs", "people of one kind or another", "armed foes who walk upright" },
+    Undead = { "the undead", "the walking dead", "the risen dead", "the restless dead" },
+    Demon = { "demons", "demonkind", "fel creatures", "things out of the Twisting Nether" },
+    Elemental = { "elementals", "elemental spirits", "living stone, flame and storm", "creatures of the raw elements" },
+    Dragonkin = { "dragonkin", "dragons and their kin", "the brood of the dragonflights", "creatures of dragon blood" },
+    Giant = { "giants", "giants and their kind", "towering giants", "the great giants of the wilds" },
+    Mechanical = { "machines", "clockwork and constructs", "mechanical constructs", "contraptions of gears and steam" },
+    Critter = { "small creatures", "critters", "harmless little creatures", "rabbits, rats and the like" },
+  },
+  -- One of each kind ("the first demon to fall to them").
+  ONE = { Beast = "beast", Humanoid = "humanoid foe", Undead = "undead creature", Demon = "demon", Elemental = "elemental",
+    Dragonkin = "dragon", Giant = "giant", Mechanical = "machine", Critter = "critter" },
+  -- The kinds, as the statistics count them.
+  PLAIN = { Beast = "beasts", Humanoid = "humanoids", Undead = "undead", Demon = "demons", Elemental = "elementals",
+    Dragonkin = "dragonkin", Giant = "giants", Mechanical = "machines", Critter = "critters" },
+  -- Kinds whose first kill is worth a line of History.
+  FIRST_TOLD = { Demon = true, Dragonkin = true, Giant = true, Undead = true, Elemental = true },
+  -- How strong the game calls a creature, for prose ("a rare elite") and the statistics.
+  CLASS = { elite = "elite", rareelite = "rare elite", rare = "rare", worldboss = "world boss" },
+  -- Each family, as prose says many of them.
+  FAMILY = {
+    Wolf = { "wolves", "wolf packs", "prowling wolves", "the wolves of the wilds" },
+    Cat = { "big cats", "the great cats", "lions, tigers and their like", "prowling cats" },
+    Spider = { "spiders", "great spiders", "web-spinners", "the spiders of the deep woods" },
+    Bear = { "bears", "great bears", "bears of the hills and forests", "shaggy bears" },
+    Boar = { "boars", "wild boars", "tusked boars", "the boars of the scrublands" },
+    Crocolisk = { "crocolisks", "river crocolisks", "the crocolisks of the shallows", "snapping crocolisks" },
+    ["Carrion Bird"] = { "carrion birds", "vultures and buzzards", "the birds that circle the dead", "scavenging birds" },
+    Crab = { "crabs", "shore crabs", "the crabs of the coast", "armoured crabs" },
+    Gorilla = { "gorillas", "great apes", "jungle gorillas", "the gorillas of the jungle" },
+    Raptor = { "raptors", "the raptor packs", "sickle-clawed raptors", "the raptors of the plains" },
+    Tallstrider = { "tallstriders", "long-legged striders", "the striders of the plains", "plainstriders" },
+    Scorpid = { "scorpids", "desert scorpids", "stinging scorpids", "the scorpids of the dry lands" },
+    Turtle = { "turtles", "snapping turtles", "shelled turtles", "the great turtles of the shore" },
+    Bat = { "bats", "cave bats", "the bats of the caves", "leathery-winged bats" },
+    Hyena = { "hyenas", "laughing hyenas", "the hyena packs", "scavenging hyenas" },
+    Owl = { "owls", "great owls", "night owls", "the owls of the old forests" },
+    ["Wind Serpent"] = { "wind serpents", "winged serpents", "the serpents of the high winds", "crackling wind serpents" },
+    Felhunter = { "felhunters", "fel hounds", "the Legion's hunting hounds", "magic-eating felhunters" },
+    Imp = { "imps", "fel imps", "cackling imps", "the Legion's little fire-starters" },
+    Voidwalker = { "voidwalkers", "creatures of the void", "hulking voidwalkers", "things of living shadow" },
+    Succubus = { "succubi", "the Legion's temptresses", "whip-wielding succubi", "the succubi of the Legion" },
+    Infernal = { "infernals", "burning infernals", "fallen infernals", "the Legion's living siege stones" },
+    Doomguard = { "doomguards", "the Legion's doomguard", "winged doomguards", "the Legion's great warriors" },
+  },
+  -- Notable people and creatures met (targeted) by name: leaders and figures of the world
+  -- ("leader"), or a creature with a name to it ("foe"). A leader met goes into History;
+  -- a foe only counts when it is brought down.
+  NOTABLE = {
+    ["Highlord Bolvar Fordragon"] = "leader", ["Lady Katrana Prestor"] = "leader", ["Anduin Wrynn"] = "leader",
+    ["King Magni Bronzebeard"] = "leader", ["High Tinker Mekkatorque"] = "leader", ["Tyrande Whisperwind"] = "leader",
+    ["Fandral Staghelm"] = "leader", ["Lady Jaina Proudmoore"] = "leader", ["Thrall"] = "leader",
+    ["Cairne Bloodhoof"] = "leader", ["Lady Sylvanas Windrunner"] = "leader", ["Vol'jin"] = "leader",
+    ["Varimathras"] = "leader", ["Eitrigg"] = "leader", ["Rexxar"] = "leader", ["Tirion Fordring"] = "leader",
+    ["Archbishop Benedictus"] = "leader",
+    ["Hogger"] = "foe", ["Princess"] = "foe", ["Mor'Ladim"] = "foe", ["Stitches"] = "foe", ["Gath'Ilzogg"] = "foe",
+    ["Bellygrub"] = "foe", ["Mother Fang"] = "foe", ["Old Murk-Eye"] = "foe", ["Mazzranache"] = "foe",
+    ["Gazz'uz"] = "foe", ["Sarkoth"] = "foe", ["Azuregos"] = "foe", ["Lord Kazzak"] = "foe", ["Ysondre"] = "foe",
+    ["Lethon"] = "foe", ["Emeriss"] = "foe", ["Taerar"] = "foe", ["Rak'shiri"] = "foe", ["Fenros"] = "foe",
+    ["Morgaine the Sly"] = "foe",
+  },
+}
+
+for k, v in pairs({
+  -- History, the older record: what they've fought.
+  bst_lead = { "Has fought mostly {list} so far", "Most of {their} fights so far have been with {list}",
+    "Has spent most of {their} fights on {list}", "Has mostly taken on {list} so far" },
+  bst_lately = { "{kind} in {zone} since", "lately, {kind} in {zone}", "with {kind} in {zone} taking over of late",
+    "{kind} in {zone} more often of late" },
+  bst_family = { "{family} more than any", "{family} above all", "most of all {family}", "{family} most often" },
+  bst_greatest = { "The greatest thing {they've} brought down is {who}{how}", "{their} greatest kill so far is {who}{how}",
+    "The hardest foe {they've} put down is {who}{how}", "Of everything {they've} felled, {who} stands out{how}" },
+  bst_again = { "; {they've} done it {times}", ", and not just the once: {times} in all" },
+  bst_first = { "{their} first {one} was {who}, in {zone}", "The first {one} to fall to {them} was {who}, in {zone}",
+    "{they} brought down {their} first {one}, {who}, in {zone}", "{their} first {one} fell in {zone}: {who}" },
+  bst_leaders = { "Has stood before {list}", "Has been in the presence of {list}", "Has seen {list} in person",
+    "Has come face to face with {list}" },
+  bst_worldboss = { "Has laid eyes on {list}, out in the open", "Has seen {list} in the open world",
+    "Has seen {list} up close", "Has seen {list} with {their} own eyes" },
+  bst_named = { "Has put an end to {list}", "Counts {list} among {their} kills", "Has brought down {list}, among others",
+    "Has seen the end of {list}" },
+  -- Personality, from the counts.
+  bst_left = { "Has let more than one rare creature go by without a fight", "Tends to leave rare quarry be",
+    "Has walked away from several rare creatures rather than take them on", "Lets rare creatures pass more often than not" },
+  bst_hunts = { "Goes after rare quarry whenever it turns up", "Has a habit of chasing down rare creatures",
+    "Is quick to go after anything rare", "Rarely lets a rare creature get away" },
+  bst_bigger = { "Picks fights with things bigger than {them}, and has won a fair few", "Takes on elites more readily than most",
+    "Has a habit of taking on foes stronger than {them}", "Doesn't shy from an elite, and has the kills to show for it" },
+  -- Lately glance.
+  lately_rare_left = { "Saw a rare {what} in {zone} and left it be.", "Came across a rare {what} in {zone}, and let it go.",
+    "Spotted a rare {what} in {zone}, and chose not to start anything.", "Crossed paths with a rare {what} in {zone} and walked on." },
+  lately_worldboss = { "Saw {who} in {zone}, out in the open.", "Has lately laid eyes on {who}, in {zone}.",
+    "Came near enough to {who} in {zone} to see it plainly.", "Saw {who} with {their} own eyes in {zone}." },
+  lately_first = { "Brought down {their} first {one} in {zone}: {who}.", "Put down {aone} for the first time, in {zone}.",
+    "Felled {aone} in {zone}, {their} first.", "Has just brought down {their} first {one}, in {zone}." },
+  lately_greatest = { "Brought down {who} in {zone}, the greatest kill of {their} road so far.",
+    "Has just put down {who} in {zone}, the strongest foe {they've} beaten.",
+    "Felled {who} in {zone}, and nothing {they've} beaten before compares.",
+    "Came out of {zone} having felled {who}, {their} hardest kill yet." },
+  lately_leader = { "Stood before {who} in {zone} lately.", "Was lately in {zone}, in the presence of {who}.",
+    "Has lately seen {who} in person, in {zone}.", "Met {who} in {zone} within the last day." },
+  lately_dragon = { "Saw a dragon for the first time lately, in {zone}.", "Has lately set eyes on dragonkin for the first time, in {zone}.",
+    "Met {their} first dragon in {zone}.", "Saw a dragon in {zone}, the first {they've} seen." },
+}) do W.SAY[k] = v end
+
+-- Personality from the bestiary: a kind hunted far more than any other, and a kind that has
+-- killed them often.
+W.BESTIARY.FOE = {
+  Undead = { "Has no patience for the walking dead, and has put down a great many", "Is a sworn enemy of the undead, by the count of them {they've} put down",
+    "Has put more of the undead back in the ground than most" },
+  Demon = { "Has hunted demons far more than anything else", "Is an enemy of demonkind, by the count of them {they've} killed",
+    "Has killed more demons than most will ever see" },
+  Humanoid = { "Has fought far more people than beasts", "Has spent most of {their} fights on foes who could fight back with a blade",
+    "Has made foes on two legs {their} usual quarry" },
+  Beast = { "Has spent most of {their} fights among the beasts of the wilds", "Knows the beasts of the wilds better than most, from fighting them",
+    "Has hunted the wilds far more than anything else" },
+  Elemental = { "Has fought more elementals than most will ever meet", "Has spent a great many fights against living stone and flame",
+    "Has a long count of elementals behind {them}" },
+  Dragonkin = { "Has fought more dragonkin than most will ever see", "Has a long count of dragonkin behind {them}",
+    "Has made dragonkin {their} quarry more than anything else" },
+  Giant = { "Has felled more giants than most would dare face", "Has a long count of giants behind {them}",
+    "Has made a habit of bringing down giants" },
+  Mechanical = { "Has broken a great many machines", "Has taken apart more constructs than most", "Has a long count of machines behind {them}" },
+}
+W.BESTIARY.WARY = {
+  Undead = { "Is warier of the undead than of most things, having died to them {times}", "Has died to the undead {times}, and keeps a closer watch for them now" },
+  Demon = { "Is uneasy around demons, having died to them {times}", "Has died to demons {times}, and keeps well clear of them now" },
+  Humanoid = { "Is wary of armed strangers, having died to them {times}", "Has died to foes on two legs {times}, and watches them closely now" },
+  Beast = { "Watches the undergrowth closely, having died to beasts {times}", "Has died to the beasts of the wilds {times}, and is warier of them for it" },
+  Elemental = { "Is wary of elementals, having died to them {times}", "Has died to elementals {times}, and keeps clear of them now" },
+  Dragonkin = { "Is wary of dragonkin, having died to them {times}", "Has died to dragonkin {times}, and gives them room" },
+  Giant = { "Is wary of giants, having died under them {times}", "Has died to giants {times}, and gives them room" },
+  Mechanical = { "Is wary of machines, having died to them {times}", "Has died to machines {times}, and trusts none of them" },
+}

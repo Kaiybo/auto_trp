@@ -72,6 +72,7 @@ function Compose.Refresh()
     c.deeds = S.Deeds.Read()
     c.self = S.Self and S.Self.Read(c) or nil
     c.life = S.Life and S.Life.Read() or nil
+    c.bestiary = S.Bestiary and S.Bestiary.Read() or nil
     sourcesAt, c.read = now, true
   end
   -- The company is the game's own (cheap: a party is five units, a raid forty); Social
@@ -364,6 +365,9 @@ function Compose.LatelyGlance()
       add(inn.t, 0, { TI = "A New Inn", IC = "INV_Drink_05", TX = say("lately_inn", { inn = innName }, inn.t) })
     end
   end
+
+  -- The bestiary: a rare let be, a world boss seen, the greatest kill, a first, a leader met.
+  for _, b in ipairs(Compose.BestiaryLately()) do add(b.t, b.prio, b.g) end
 
   -- A day-old hurt outranks everything; otherwise the newest, then the weightiest. (A strict
   -- order: table.sort may compare an entry with itself.)
@@ -1054,6 +1058,7 @@ function Compose.Bearing()
   if not rpgd then
     local after = { habit }
     for _, h in ipairs(Compose.Habits(2)) do after[#after + 1] = h end
+    for _, h in ipairs(Compose.BestiaryTraits(2)) do after[#after + 1] = h end
     after[#after + 1] = Compose.BooksLine()
     after[#after + 1] = Compose.WeekTone()
     return pages({ paragraph(temperLines()), paragraph(after) })
@@ -1100,6 +1105,7 @@ function Compose.Bearing()
   more[#more + 1] = Compose.BooksLine()
   if habit then more[#more + 1] = habit end
   for _, h in ipairs(Compose.Habits(2)) do more[#more + 1] = h end
+  for _, h in ipairs(Compose.BestiaryTraits(2)) do more[#more + 1] = h end
   -- Little recorded about the inner life yet: how this race and class carry themselves.
   local said = #first + #views + #more
   if said < 5 then
@@ -1262,6 +1268,226 @@ local function guildName(g) return g:find("^The ") and U.Mid(g) or g end
 -- came from and the road, the people, how things stand. The second is the news (the last
 -- three weeks, newest first, and what has changed). The third is the longer record: the
 -- deed behind their name, then everything older, told briefly.
+---------------------------------------------------------------------------
+-- The bestiary (Sources/Bestiary.lua): what they've fought and seen, for History's older
+-- record, Personality, the Lately glance and the statistics. Only what the counts back.
+---------------------------------------------------------------------------
+local function kindWord(kind, key)
+  local pool = W.BESTIARY.TYPE[kind or ""]
+  return pool and U.Pick(pool, seed("bst:" .. key .. ":" .. kind)) or (kind and kind:lower()) or "creatures"
+end
+local function familyWord(family, key)
+  local pool = W.BESTIARY.FAMILY[family or ""]
+  return pool and U.Pick(pool, seed("bstf:" .. key .. ":" .. family)) or Compose.Plural(family:lower())
+end
+-- A creature by name, as prose says it: a rare, a world boss or a notable one by its own
+-- name, anything else with an article ("an elite Mosshide Mistweaver").
+local function proper(class, name)
+  return class == "rare" or class == "rareelite" or class == "worldboss" or (W.BESTIARY.NOTABLE[name] and true) or false
+end
+local function creature(name, class)
+  if proper(class, name) then return name end
+  return article(((class == "elite") and "elite " or "") .. name)
+end
+-- How far above them it stood when they brought it down.
+local function gapWords(g)
+  local diff = tonumber(g.diff) or 0
+  if diff >= 10 then return ", far beyond {them} at the time" end
+  if g.level and g.mine and g.mine >= 5 and g.level >= 2 * g.mine then return ", twice {their} level at the time" end
+  if diff >= 5 then return ", well above {them} at the time" end
+  if diff >= 2 then return ", a good deal stronger than {them} at the time" end
+  return ""
+end
+
+-- The kinds fought (non-critters with prose words), most killed first.
+local function foughtKinds(be)
+  local list = {}
+  for _, t in ipairs(be.types) do
+    if t.kills > 0 and t.type ~= "Critter" and W.BESTIARY.TYPE[t.type] then list[#list + 1] = t end
+  end
+  return list
+end
+
+-- The kind that has had them lately, when it isn't the one they've always fought.
+local function latelyKind(kinds)
+  local top = kinds[1]
+  local best
+  for k = 2, #kinds do
+    local t = kinds[k]
+    if t.recent >= 10 and t.recent * 2 >= t.kills and t.recentZone and (not top or t.recent > (top.recent or 0))
+      and (not best or t.recent > best.recent) then best = t end
+  end
+  return best
+end
+
+-- "Has fought mostly beasts, wolves above all, and humanoids so far, and the undead in
+-- Duskwood since. The greatest thing they've brought down is Mor'Ladim, a rare elite undead
+-- creature, well above them at the time." At most three sentences.
+function Compose.FoughtLines(c)
+  c = c or ns.cache
+  local be = c.bestiary
+  local B = W.BESTIARY
+  local out = {}
+  if not be or (be.kills or 0) < 10 then return out end
+  local kinds = foughtKinds(be)
+  local top = kinds[1]
+  local byName = c.deeds and c.deeds.killsByName or {}
+  local lately = latelyKind(kinds)
+  if top and top.kills >= 5 then
+    local second = kinds[2] ~= lately and kinds[2] or kinds[3]
+    if second and (second.kills < 5 or second.kills * 4 < top.kills) then second = nil end
+    local list = kindWord(top.type, "lead")
+    for _, f in ipairs(be.families) do
+      if f.type == top.type then
+        if B.FAMILY[f.family] and f.kills >= 5 and f.kills * 10 >= top.kills * 3 then
+          list = list .. ", " .. say("bst_family", { family = familyWord(f.family, "lead") }, f.family)
+          if second then list = list .. "," end
+        end
+        break
+      end
+    end
+    if second then list = list .. " and " .. kindWord(second.type, "second") end
+    local line = say("bst_lead", { list = list }, top.type)
+    if lately then
+      line = line .. (second and "; " or ", and ") .. say("bst_lately", { kind = kindWord(lately.type, "lately"), zone = U.Mid(lately.recentZone) }, lately.type)
+    end
+    out[#out + 1] = line
+  end
+  local g = be.greatest
+  if g and g.name and ((tonumber(g.w) or 0) >= 5 or B.CLASS[g.class or ""]) then
+    local how = ""
+    if proper(g.class, g.name) and B.CLASS[g.class or ""] and g.class ~= "worldboss" then
+      how = ", " .. article(B.CLASS[g.class] .. " " .. (B.ONE[g.type or ""] or "creature"))
+    end
+    how = how .. gapWords(g)
+    local times = math.max(tonumber(byName[g.name]) or 0, tonumber(g.kills) or 1)
+    if times >= 2 then how = how .. say("bst_again", { times = U.Times(times) }, g.name) end
+    out[#out + 1] = say("bst_greatest", { who = creature(g.name, g.class), how = how }, g.name)
+  end
+  -- The first of a kind worth telling (only when the record goes back to the start).
+  if be.fromStart and #out < 3 then
+    for _, kind in ipairs({ "Dragonkin", "Demon", "Giant", "Undead", "Elemental" }) do
+      local t
+      for _, ty in ipairs(be.types) do if ty.type == kind then t = ty end end
+      if t and t ~= top and t ~= lately and t.firstName and t.firstZone and not (g and g.name == t.firstName) then
+        local s = be.seenBy[t.firstName]
+        out[#out + 1] = say("bst_first", { one = B.ONE[kind], who = creature(t.firstName, s and s.class), zone = U.Mid(t.firstZone) }, kind)
+        break
+      end
+    end
+  end
+  -- Named creatures brought down, leaders met, world bosses seen.
+  local named, leaders = {}, {}
+  for _, m in ipairs(be.notable) do
+    if m.kind == "foe" and (tonumber(byName[m.name]) or 0) > 0 and not (g and g.name == m.name) and #named < 2 then named[#named + 1] = m.name
+    elseif m.kind == "leader" and #leaders < 3 then leaders[#leaders + 1] = m.name end
+  end
+  if #named > 0 and #out < 3 then out[#out + 1] = say("bst_named", { list = U.Join(named) }, named[1]) end
+  local bosses = {}
+  for _, w in ipairs(be.worldBosses) do if #bosses < 2 then bosses[#bosses + 1] = w.name end end
+  if #leaders > 0 and #out < 4 then out[#out + 1] = say("bst_leaders", { list = U.Join(leaders) }, leaders[1]) end
+  if #bosses > 0 and #out < 4 then out[#out + 1] = say("bst_worldboss", { list = U.Join(bosses) }, bosses[1]) end
+  return out
+end
+
+-- Personality lines the bestiary backs, strongest first: at most `k`.
+function Compose.BestiaryTraits(k)
+  local be = ns.cache.bestiary
+  local B = W.BESTIARY
+  if not be then return {} end
+  local cands = {}
+  local function add(score, key, pool, vars)
+    if type(pool) == "table" and #pool > 0 then
+      local line = U.Pick(pool, seed("bsttrait:" .. key))
+      line = line:gsub("{(%a+)}", function(v) if vars and vars[v] then return vars[v] end end)
+      cands[#cands + 1] = { score = score, key = key, text = line }
+    end
+  end
+  local kinds = foughtKinds(be)
+  local total = 0
+  for _, t in ipairs(kinds) do total = total + t.kills end
+  local top = kinds[1]
+  if top then
+    local common = top.type == "Beast" or top.type == "Humanoid"
+    local need, share = common and 300 or 150, common and 0.6 or 0.4
+    if top.kills >= need and top.kills >= total * share then add(2.4, "foe:" .. top.type, B.FOE[top.type]) end
+  end
+  -- A kind that has killed them again and again.
+  local worst
+  for _, t in ipairs(be.types) do if B.WARY[t.type] and (t.deaths or 0) >= 3 and (not worst or t.deaths > worst.deaths) then worst = t end end
+  if worst and worst.deaths * 2 >= (be.deaths or 0) then
+    add(2.6, "wary:" .. worst.type, B.WARY[worst.type], { times = U.Times(worst.deaths) })
+  end
+  local left, hunted = 0, 0
+  for _, s in ipairs(be.seen) do
+    if s.class == "rare" or s.class == "rareelite" then
+      if s.killed > 0 then hunted = hunted + 1 elseif not s.fought then left = left + 1 end
+    end
+  end
+  if hunted >= 5 and hunted >= left then add(1.6, "hunts", W.SAY.bst_hunts)
+  elseif left >= 4 then add(1.5, "left", W.SAY.bst_left) end
+  if (be.strongKills or 0) >= 25 then add(1.4, "bigger", W.SAY.bst_bigger) end
+  table.sort(cands, function(a, b) if a.score ~= b.score then return a.score > b.score end return a.key < b.key end)
+  local out = {}
+  for i = 1, math.min(k or 2, #cands) do out[i] = cands[i].text end
+  return out
+end
+
+-- The Lately glance's candidates from the bestiary: { t, prio, g }.
+function Compose.BestiaryLately()
+  local be = ns.cache.bestiary
+  local B = W.BESTIARY
+  local out = {}
+  if not be then return out end
+  local now = U.Now()
+  local function add(t, prio, ti, ic, key, vars)
+    out[#out + 1] = { t = t, prio = prio, g = { TI = ti, IC = ic, TX = say(key, vars, t) } }
+  end
+  -- A rare seen, a little while ago, and never fought.
+  for _, s in ipairs(be.seen) do
+    if (s.class == "rare" or s.class == "rareelite") and not s.fought and within(s.last, 7200) and now - s.last >= 120 and s.zone then
+      local what = s.family and s.family:lower() or B.ONE[s.type or ""] or "creature"
+      add(s.last, 1, "Left Be", "Ability_Hunter_BeastCall", "lately_rare_left", { what = what, zone = U.Mid(s.zone) })
+      break
+    end
+  end
+  local wb = be.worldBosses[#be.worldBosses]
+  if wb and within(wb.t, 7200) and wb.zone then
+    add(wb.t, 2, "A Sight to See", "INV_Misc_Head_Dragon_01", "lately_worldboss", { who = wb.name, zone = U.Mid(wb.zone) })
+  end
+  local g = be.greatest
+  if g and g.zone and within(g.t, 86400) and ((tonumber(g.w) or 0) >= 5 or B.CLASS[g.class or ""]) then
+    add(g.t, 2, "Greatest Kill", "INV_Misc_Bone_HumanSkull_01", "lately_greatest", { who = creature(g.name, g.class), zone = U.Mid(g.zone) })
+  end
+  local ft = be.freshType
+  if be.fromStart and ft and B.FIRST_TOLD[ft.type] and ft.zone and within(ft.t, 86400) then
+    local s = be.seenBy[ft.name]
+    add(ft.t, 1, "A First", "Ability_DualWield", "lately_first",
+      { one = B.ONE[ft.type], aone = article(B.ONE[ft.type]), who = creature(ft.name, s and s.class), zone = U.Mid(ft.zone) })
+  end
+  local ds = be.dragonSeen
+  if be.fromStart and ds and ds.zone and within(ds.t, 86400) and not (wb and wb.name == ds.name) then
+    add(ds.t, 1, "A Dragon", "INV_Misc_Head_Dragon_Black", "lately_dragon", { zone = U.Mid(ds.zone) })
+  end
+  for _, m in ipairs(be.notable) do
+    if m.kind == "leader" and m.zone and within(m.t, 86400) then
+      add(m.t, 1, "Met in Person", "INV_Misc_Book_11", "lately_leader", { who = m.name, zone = U.Mid(m.zone) })
+    end
+  end
+  return out
+end
+
+-- The statistic: "Mor'Ladim, rare elite, level 35 (slain at 31)".
+function Compose.GreatestStat(g)
+  if not g or not g.name then return nil end
+  local parts = { g.name }
+  local class = W.BESTIARY.CLASS[g.class or ""]
+  if class then parts[#parts + 1] = class end
+  if g.level and g.mine then parts[#parts + 1] = "level " .. g.level .. " (slain at " .. g.mine .. ")"
+  elseif g.mine then parts[#parts + 1] = "far above (slain at level " .. g.mine .. ")" end
+  return table.concat(parts, ", ")
+end
+
 function Compose.History()
   local c = ns.cache
   local rpgd, chron, sd, world = Compose.Persona(c), c.chronicle, c.sd, c.world
@@ -1586,6 +1812,8 @@ function Compose.History()
     record[#record + 1] = lead .. " {they've} " .. U.Join(a)
     if #b > 0 then record[#record + 1] = "{they've} also " .. U.Join(b) end
   end
+  -- What they've fought (Sources/Bestiary.lua): the kinds, the greatest, the notable.
+  for _, s in ipairs(Compose.FoughtLines(c)) do record[#record + 1] = s end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
   local crafts = {}
   for k = 1, math.min(2, #profs) do
@@ -2178,6 +2406,9 @@ Compose.STATS = {
   { key = "inns", label = "Inns stayed at", icon = "INV_Drink_05" },
   { key = "hit", label = "Hardest hit", icon = "Ability_Warrior_Rampage" },
   { key = "letters", label = "Letters received", icon = "INV_Letter_15", retired = true },
+  -- From the bestiary (Sources/Bestiary.lua).
+  { key = "kinds", label = "Foes by kind", icon = "Ability_Hunter_BeastTaming" },
+  { key = "greatest", label = "Greatest kill", icon = "INV_Misc_Bone_HumanSkull_01" },
 }
 
 -- How well off, against what's usual at their level.
@@ -2279,6 +2510,16 @@ function Compose.Stats()
     if taken then parts[#parts + 1] = figure(taken.n) .. " taken" .. (taken.from and (" from " .. taken.from) or "") end
     if #parts > 0 then out.hit = table.concat(parts, "; ") end
   end
+  -- The bestiary: the kinds fought most, and the greatest thing brought down.
+  local be = c.bestiary
+  if be then
+    local kinds = {}
+    for _, t in ipairs(be.types) do
+      if t.kills > 0 and #kinds < 3 then kinds[#kinds + 1] = figure(t.kills) .. " " .. (W.BESTIARY.PLAIN[t.type] or t.type:lower()) end
+    end
+    if #kinds > 0 then out.kinds = table.concat(kinds, ", ") end
+    out.greatest = Compose.GreatestStat(be.greatest)
+  end
   -- Every name earned, the one worn first ("Mine-Warden, Defias-Breaker and Hogger's Bane").
   local names, worn = {}, Compose.Earned()
   if worn then names[1] = worn.nick end
@@ -2294,7 +2535,7 @@ function Compose.Stats()
   if not out.road and days == 0 then out.road = "Less than a day" end
   if not out.lands and world.zone then out.lands = "1" end
   for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "crafts", "standing", "books", "names", "spell",
-    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit" }) do
+    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "kinds", "greatest" }) do
     out[k] = out[k] or "None yet"
   end
   return out
