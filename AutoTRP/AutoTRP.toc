@@ -42,6 +42,7 @@ Sources\Road.lua
 Sources\Work.lua
 Sources\Bestiary.lua
 Sources\War.lua
+Sources\Trade.lua
 Mood.lua
 Journal.lua
 Compose.lua
