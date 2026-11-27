@@ -28,5 +28,6 @@ Sources\Goals.lua
 Mood.lua
 Journal.lua
 Compose.lua
+Register.lua
 TRP.lua
 UI.lua
