@@ -291,7 +291,7 @@ ns.char.days = {
 }
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 local hist = ns.Compose.History()
-check(hist:find("Wears the colours of the Silver Lanterns and holds the rank of lamplighter there"), "history: guild")
+check(hist:find("the Silver Lanterns and holds the rank of lamplighter there"), "history: guild")
 check(hist:find("done good work for Stormwind and the Argent Dawn"), "history: reputations")
 check(hist:find("Felt downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
 -- History favours what's recent: news within three weeks leads, older deeds join the record.
@@ -442,7 +442,7 @@ for _, d in ipairs(RPGDialogueCharDB.deaths) do if d.t > NOW - 300000 then d.t =
 ns.char.finds = nil
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 local lg = ns.Compose.LatelyGlance()
-check(lg.TX:find("Was just talking warmly with Innkeeper Farley in Elwynn Forest"), "Lately: a conversation just now: " .. lg.TX)
+check(lg.TX:find("warmly with Innkeeper Farley in Elwynn Forest"), "Lately: a conversation just now: " .. lg.TX)
 RPGDialogueCharDB.deaths[1].t = savedDeath
 
 -- Dungeon atmosphere; meeting a friend
@@ -540,7 +540,7 @@ check(ns.Compose.CompanyGlance().TX:find("with a priest and two warriors%.$") or
 IsInRaid = function() return true end
 GetNumGroupMembers = function() return 20 end
 ns.Compose.Refresh()
-check(ns.Compose.CompanyGlance().TX:find("host of twenty") or ns.Compose.CompanyGlance().TX:find("host of 20"), "a raid is a host")
+check(ns.Compose.CompanyGlance().TI == "Part of a Host" and (ns.Compose.CompanyGlance().TX:find("twenty") or ns.Compose.CompanyGlance().TX:find("20")), "a raid is a host: " .. ns.Compose.CompanyGlance().TX)
 IsInRaid = function() return false end
 IsInGroup = function() return state.grouped end
 state.grouped = false
@@ -691,6 +691,10 @@ do
   for _, l in pairs(W.RACE_LOOK) do add(l) end
   for _, l in pairs(W.CLASS_LOOK) do add(l) end
   for _, l in pairs(W.PHYSIQUE) do add(l) end
+  -- Personality lines are dispositions: they name nothing a character holds either.
+  for _, l in pairs(W.CLASS_TEMPER) do add(l) end
+  for _, l in pairs(W.RACE_TEMPER) do add(l) end
+  for _, t in pairs(W.RACE_CLASS_TEMPER) do for _, l in pairs(t) do add(l) end end
   local bad = {}
   for _, list in ipairs(lists) do
     for _, line in ipairs(list) do
@@ -1517,6 +1521,33 @@ if os.getenv("SAMPLES") then
     print("\n-- History --\n" .. sh.history)
     print("\n-- Physical --\n" .. sh.physical)
   end
+  -- The same with no other addon and nothing earned: what race and class alone give.
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds = nil, nil, nil, nil
+  local bare = { { "Dwarf", "PALADIN", "Alliance", 34 }, { "Scourge", "PRIEST", "Horde", 22 }, { "Troll", "SHAMAN", "Horde", 47 },
+    { "Human", "WARLOCK", "Alliance", 15 }, { "Goblin", "ROGUE", "Horde", 28 }, { "NightElf", "DRUID", "Alliance", 52 },
+    { "Orc", "DEATHKNIGHT", "Horde", 58 }, { "Gnome", "WARRIOR", "Alliance", 8 } }
+  local lvl = UnitLevel
+  for i, c in ipairs(bare) do
+    UnitRace = function() return c[1], c[1] end
+    UnitClass = function() return c[2], c[2] end
+    UnitFactionGroup = function() return c[3] end
+    UnitLevel = function() return c[4] end
+    ns.char.seedName = "bare" .. i
+    ns.World.slow = nil
+    ns.Compose.SourcesChanged()
+    local sh = ns.Compose.Sheet()
+    print(("\n=== bare %s %s (%d): %s / %s | %s | %s ==="):format(c[1], c[2], c[4], sh.title, sh.fulltitle, tostring(sh.nickname), tostring(sh.motto)))
+    for _, g in ipairs({ "mood", "lately", "company", "ambition", "marks" }) do print(g .. ": " .. sh.glances[g].TX) end
+    print("\n-- Personality --\n" .. sh.bearing)
+    print("\n-- History --\n" .. sh.history)
+    print("\n-- Physical --\n" .. sh.physical)
+  end
+  UnitLevel = lvl
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds = keep[4], keep[5], keep[6], keep[7]
+  ns.Compose.SourcesChanged()
 end
 
 -- Secret values (Midnight-era clients): testing one taints the add-on, so they must read as unknown.
@@ -1536,6 +1567,90 @@ do
   UnitIsAFK, issecretvalue = oldAFK, nil
 end
 
+-- Race x class temperament: every pair the lore has gets a line of its own in Personality,
+-- with no other addon and with a thin RPG Dialogue record; and no paragraph opens two
+-- sentences in a row on a bare "Has".
+do
+  local W, U, C = ns.Words, ns.U, ns.Compose
+  local RACES = { Human = "Alliance", Dwarf = "Alliance", NightElf = "Alliance", Gnome = "Alliance",
+    Orc = "Horde", Scourge = "Horde", Tauren = "Horde", Troll = "Horde", Goblin = "Horde" }
+  local CLASSES = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID", "DEATHKNIGHT" }
+  local LORE = {
+    Human = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "MAGE", "WARLOCK", "DEATHKNIGHT" },
+    Dwarf = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "DEATHKNIGHT" },
+    Gnome = { "WARRIOR", "HUNTER", "ROGUE", "PRIEST", "MAGE", "WARLOCK", "DEATHKNIGHT" },
+    NightElf = { "WARRIOR", "HUNTER", "ROGUE", "PRIEST", "MAGE", "DRUID", "DEATHKNIGHT" },
+    Orc = { "WARRIOR", "HUNTER", "ROGUE", "SHAMAN", "MAGE", "WARLOCK", "DEATHKNIGHT" },
+    Troll = { "WARRIOR", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID", "DEATHKNIGHT" },
+    Tauren = { "WARRIOR", "PALADIN", "HUNTER", "PRIEST", "SHAMAN", "DRUID", "DEATHKNIGHT" },
+    Scourge = { "WARRIOR", "HUNTER", "ROGUE", "PRIEST", "MAGE", "WARLOCK", "DEATHKNIGHT" },
+    Goblin = { "WARRIOR", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DEATHKNIGHT" },
+  }
+  local missing, thin = {}, {}
+  for race, list in pairs(LORE) do
+    for _, class in ipairs(list) do
+      local pool = W.RACE_CLASS_TEMPER[race] and W.RACE_CLASS_TEMPER[race][class]
+      if not pool then missing[#missing + 1] = race .. "/" .. class elseif #pool < 2 then thin[#thin + 1] = race .. "/" .. class end
+    end
+  end
+  check(#missing == 0 and #thin == 0, "every lore pair has race x class lines, two at least: "
+    .. table.concat(missing, ", ") .. " " .. table.concat(thin, ", "))
+  for k, pool in pairs(W.CLASS_TEMPER) do if #pool < 6 then thin[#thin + 1] = "class " .. k end end
+  for k, pool in pairs(W.RACE_TEMPER) do if #pool < 5 then thin[#thin + 1] = "race " .. k end end
+  for k, pool in pairs(W.CLASS_MOTTO) do if #pool < 6 then thin[#thin + 1] = "class motto " .. k end end
+  for k, pool in pairs(W.RACE_MOTTO) do if #pool < 6 then thin[#thin + 1] = "race motto " .. k end end
+  check(#thin == 0, "six or more class tempers and mottos, five or more race tempers: " .. table.concat(thin, ", "))
+
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds }
+  local function has(text, pool)
+    for _, l in ipairs(pool) do if text:find(U.Pron(l), 1, true) then return true end end
+    return false
+  end
+  local function hasRun(text)
+    for para in (text .. "\n\n"):gmatch("(.-)\n\n") do
+      local prev
+      for s in (para .. " "):gmatch("(.-[%.!%?]\"?) ") do
+        local w = s:match("^%s*(%a+)")
+        if w == "Has" and prev == "Has" then return s end
+        prev = w
+      end
+    end
+  end
+  local noPair, runs = {}, {}
+  for _, bare in ipairs({ true, false }) do
+    if bare then
+      RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+      ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds = nil, nil, nil, nil
+    else
+      -- A thin RPG Dialogue record: a temperament and nothing else to say.
+      RPGDialogueCharDB = { schema = 7, conversations = 2, align = { light = 40 }, traits = { kind = 3 } }
+    end
+    for race, faction in pairs(RACES) do
+      for _, class in ipairs(CLASSES) do
+        UnitRace = function() return race, race end
+        UnitClass = function() return class, class end
+        UnitFactionGroup = function() return faction end
+        ns.World.slow = nil
+        C.SourcesChanged(); C.Refresh()
+        local b = C.Bearing() or ""
+        local pool = W.RACE_CLASS_TEMPER[race] and W.RACE_CLASS_TEMPER[race][class]
+        if pool and not has(b, pool) then noPair[#noPair + 1] = (bare and "bare " or "thin ") .. race .. "/" .. class end
+        local run = hasRun(b) or hasRun(C.History() or "")
+        if run then runs[#runs + 1] = race .. "/" .. class .. ": " .. run end
+      end
+    end
+  end
+  check(#noPair == 0, "a race x class line in Personality for every pair that has one: " .. table.concat(noPair, ", "))
+  check(#runs == 0, "no two sentences in a row open on a bare Has: " .. table.concat(runs, " | "))
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds = keep[4], keep[5], keep[6], keep[7]
+  UnitRace = function() return "Human", "Human" end
+  UnitClass = function() return "Priest", "PRIEST" end
+  UnitFactionGroup = function() return "Alliance" end
+  ns.World.slow = nil
+  C.SourcesChanged(); C.Refresh()
+end
+
 -- Every line reads cleanly whoever the character is: no tag left unfilled with she/her or
 -- they/them pronouns and full gear, and every mood has lines enough to vary.
 do
@@ -1545,7 +1660,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", guild = "x", rel = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then
@@ -1563,7 +1678,8 @@ do
     ns.TRP.CustomPronouns = function() return pron end
     seen = {}
     for _, key in ipairs({ "MOODS", "CALM", "RACE_TELLS", "CLASS_TELLS", "FESTIVALS", "SAY", "TRAVEL", "ACTIVITY", "PET",
-      "AMBITIONS", "RACE_LOOK", "CLASS_LOOK", "PHYSIQUE", "WEEK_TONE", "WEALTH", "DURABILITY" }) do
+      "AMBITIONS", "RACE_LOOK", "CLASS_LOOK", "PHYSIQUE", "WEEK_TONE", "WEALTH", "DURABILITY", "CLASS_TEMPER", "RACE_TEMPER",
+      "RACE_CLASS_TEMPER", "CLASS_MOTTO", "RACE_MOTTO" }) do
       scan(W[key], key)
     end
   end
@@ -1582,6 +1698,172 @@ do
   ns.TRP.CustomPronouns = function() return "they/them" end
   check(U.Pron("{they} walk{s}, {they} watch{es}, {they} carr{ies}") == "they walk, they watch, they carry", "verb endings follow they")
   ns.TRP.CustomPronouns = oldPron
+end
+
+-- The journal: a session played through the game's own events, written down at logout.
+do
+  local J, C = ns.Journal, ns.Compose
+  local saved = { deeds = ns.char.deeds, days = ns.char.days, milestones = ns.char.milestones, finds = ns.char.finds,
+    GetGameTime = GetGameTime, GetMoney = GetMoney, UnitName = UnitName, UnitExists = UnitExists, UnitCanAttack = UnitCanAttack,
+    UnitIsPlayer = UnitIsPlayer, UnitClassification = UnitClassification, UnitHealth = UnitHealth, IsInGroup = IsInGroup,
+    GetNumGroupMembers = GetNumGroupMembers, IsInInstance = IsInInstance, GetInstanceInfo = GetInstanceInfo }
+  local banned = {}
+  for l in io.lines("tests/banned_phrases.txt") do
+    if not l:match("^%s*#") and l:match("%S") then banned[#banned + 1] = (l:match("^(.-)%s*|") or l):gsub("^%s+", ""):gsub("%s+$", ""):lower() end
+  end
+  local function noBanned(text)
+    local bad = {}
+    for _, b in ipairs(banned) do if text:lower():find(b, 1, true) then bad[#bad + 1] = b end end
+    return bad
+  end
+  ns.char.journal, ns.char.days = nil, {}
+  ns.char.seen.zones.Westfall, ns.char.seen.zones.Duskwood, ns.char.seen.zones["The Deadmines"] = nil, nil, nil
+  local hour, money = 7, 250000
+  GetGameTime = function() return hour, 0 end
+  GetMoney = function() return money end
+  local names = { target = "Defias Pillager", party1 = "Mirelle", party2 = "Thorvald" }
+  UnitName = function(u) return names[u] or "Aldric" end
+  state.zone, state.sub, state.resting, state.combat = "Elwynn Forest", "Goldshire", false, false
+  event("PLAYER_ENTERING_WORLD")
+  event("PLAYER_MONEY")
+  J.Today().money = 0
+  -- Westfall for the first time; three jobs; a close call and a death near Moonbrook.
+  NOW = NOW + 600
+  state.zone, state.sub = "Westfall", "Sentinel Hill"
+  event("ZONE_CHANGED_NEW_AREA")
+  for i, title in ipairs({ "The Killing Fields", "The People's Militia", "Westfall Stew" }) do
+    GetTitleText = function() return title end
+    GetQuestID = function() return 900 + i end
+    event("QUEST_COMPLETE"); event("QUEST_TURNED_IN", 900 + i, 0, 0)
+  end
+  UnitExists = function(u) return u == "target" or u == "party1" or u == "party2" end
+  UnitCanAttack = function(_, u) return u == "target" end
+  UnitIsPlayer = function() return false end
+  UnitClassification = function() return "normal" end
+  state.sub = "Moonbrook"
+  event("PLAYER_REGEN_DISABLED")
+  UnitHealth = function() return 10 end
+  event("UNIT_HEALTH", "player")
+  UnitHealth = function() return 100 end
+  event("PLAYER_REGEN_ENABLED")
+  NOW = NOW + 300
+  event("PLAYER_REGEN_DISABLED")
+  event("PLAYER_DEAD")
+  UnitExists = function(u) return u == "party1" or u == "party2" end
+  -- A friend from Social Diary and a stranger join; the Deadmines and its master.
+  IsInGroup = function() return true end
+  GetNumGroupMembers = function() return 3 end
+  C.SourcesChanged(); C.Refresh()
+  event("GROUP_ROSTER_UPDATE")
+  NOW = NOW + 600
+  IsInInstance = function() return true, "party" end
+  GetInstanceInfo = function() return "The Deadmines", "party" end
+  state.zone, state.sub = "The Deadmines", nil
+  event("ZONE_CHANGED_NEW_AREA")
+  event("ENCOUNTER_END", 1, "Edwin VanCleef", 1, 5, 1)
+  event("CHAT_MSG_LOOT", "You receive loot: |cffa335ee|Hitem:1|h[Cruel Barb]|h|r.")
+  event("CHAT_MSG_LOOT", "You receive loot: |cff9d9d9d|Hitem:2|h[Broken Tooth]|h|r.")
+  IsInInstance = function() return false, "none" end
+  IsInGroup = function() return false end
+  GetNumGroupMembers = function() return 0 end
+  event("GROUP_ROSTER_UPDATE")
+  state.zone, state.sub = "Westfall", "Moonbrook"
+  event("ZONE_CHANGED_NEW_AREA")
+  event("PLAYER_LEVEL_UP", 23)
+  event("CHAT_MSG_SKILL", "Your skill in Herbalism has increased to 124.")
+  event("CHAT_MSG_SKILL", "Your skill in Herbalism has increased to 125.")
+  money = 250000 + 812
+  event("PLAYER_MONEY")
+  -- A flight to Duskwood (new ground), and the night at the inn in Darkshire.
+  UnitOnTaxi = function() return true end
+  event("PLAYER_CONTROL_LOST")
+  state.zone = "Redridge Mountains"; event("ZONE_CHANGED_NEW_AREA")   -- flown over: not "entered"
+  state.zone, state.sub = "Duskwood", "Darkshire"
+  event("ZONE_CHANGED_NEW_AREA")
+  UnitOnTaxi = function() return false end
+  event("PLAYER_CONTROL_GAINED")
+  hour = 22
+  state.sub, state.resting = "Scarlet Raven Tavern", true
+  event("ZONE_CHANGED")
+  ns.char.days[ns.Mood.Day()] = { moods = { weary = 5, shaken = 2 }, zones = { Westfall = 4 } }
+  -- In combat nothing is written; at logout, the day is.
+  state.combat = true
+  event("PLAYER_LOGOUT")
+  check(J.Entry() == nil, "journal: nothing is written in combat")
+  state.combat = false
+  event("PLAYER_LOGOUT")
+  local e = J.Entry()
+  local text = e and e.text or ""
+  print("\nJournal entry:\n" .. text)
+  for _, want in ipairs({ "Goldshire", "Westfall", "The Killing Fields", "Defias Pillager", "Moonbrook", "the Deadmines",
+    "Edwin VanCleef", "Cruel Barb", "Mirelle", "herbalism", "eight silver", "Duskwood", "the Scarlet Raven Tavern" }) do
+    check(text:find(want, 1, true), "journal mentions " .. want)
+  end
+  local tiredWords = false
+  for _, w in ipairs(ns.Words.JOURNAL.feel.weary) do if text:find(w, 1, true) then tiredWords = true end end
+  check(tiredWords, "journal: the day's mood (weary) ends it")
+  check(not text:find("Thorvald", 1, true) and not text:find("Broken Tooth", 1, true) and not text:find("Redridge", 1, true),
+    "journal: no stranger named, no junk loot, no land only flown over")
+  check(not text:find("{", 1, true) and not text:find("}", 1, true), "journal: no tags left")
+  check(#noBanned(text) == 0, "journal: no banned phrases: " .. table.concat(noBanned(text), ", "))
+  check(text:find("for the first time", 1, true) or text:find("never seen", 1, true) or text:find("new ground", 1, true)
+    or text:find("hadn't been", 1, true) or text:find("first sight", 1, true) or text:find("never been", 1, true), "journal: a first visit is told as one")
+  -- /atrp journal today prints it, in the player's own chat.
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end
+  SlashCmdList.AUTOTRP("journal today")
+  DEFAULT_CHAT_FRAME.AddMessage = oldChat
+  check(table.concat(said, " "):find("Cruel Barb", 1, true), "/atrp journal today prints today's entry")
+  local ok = pcall(SlashCmdList.AUTOTRP, "journal")
+  check(ok and J.Text():find("Cruel Barb", 1, true), "/atrp journal opens the journal, newest first")
+  -- On the profile: the first lines, never the deaths.
+  local line = J.LatestLine()
+  check(line and line:find("Goldshire", 1, true) and not line:find("Pillager", 1, true), "the profile quotes the start, not the deaths: " .. tostring(line))
+  -- Every pick reads cleanly, for many characters.
+  local leftovers = {}
+  for i = 1, 40 do
+    ns.char.seedName = "journal" .. i
+    local t = J.Compose(ns.Mood.Day()).text
+    if t:find("[{}]") or t:find('""', 1, true) or #noBanned(t) > 0 or t:find("  ", 1, true) or t:find(" ,", 1, true) or t:find("%.%.") then leftovers[#leftovers + 1] = t end
+    if i <= 2 then print("\nJournal, another voice:\n" .. t) end
+  end
+  ns.char.seedName = "Aldric-Forever"
+  check(#leftovers == 0, "journal: every variant reads cleanly: " .. (leftovers[1] or ""))
+
+  -- Without RPG Dialogue, Social Diary or Chronicle: the journal still works, names no one,
+  -- and History and Lately quote it.
+  local rpgdDB, sdDB, chronDB = RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  C.SourcesChanged(); C.Refresh()
+  check(C.Sheet() ~= nil, "a whole profile is written with none of the three addons")
+  local hist = C.History()
+  check(hist:find("journal", 1, true) and hist:find("Goldshire", 1, true), "History quotes the journal when there's no diary")
+  local g = J.LatelyGlance()
+  check(g and g.TX:find("journal", 1, true) and not g.TX:find("{", 1, true), "Lately can quote it: " .. tostring(g and g.TX))
+  ns.char.journal = nil
+  event("PLAYER_ENTERING_WORLD")
+  IsInGroup = function() return true end
+  GetNumGroupMembers = function() return 3 end
+  ns.Sources.Deeds.Read()
+  event("GROUP_ROSTER_UPDATE")
+  GetQuestID = function() return 999 end
+  event("QUEST_COMPLETE"); event("QUEST_TURNED_IN", 999, 0, 0)
+  NOW = NOW + 700
+  event("PLAYER_LOGOUT")
+  local bare = J.Entry() and J.Entry().text or ""
+  print("\nJournal without the other addons:\n" .. bare)
+  check(bare:find('"Westfall Stew"', 1, true) and not bare:find('""', 1, true) and not bare:find("Mirelle", 1, true) and not bare:find("Thorvald", 1, true),
+    "journal without the addons: written from the game alone, nobody named")
+  ns.db.journalInProfile = false
+  check(J.LatestLine() == nil and J.LatelyGlance() == nil, "switched off, the profile doesn't quote it")
+  ns.db.journalInProfile = true
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = rpgdDB, sdDB, chronDB
+  for k, v in pairs(saved) do if k == "deeds" or k == "days" or k == "milestones" or k == "finds" then ns.char[k] = v else _G[k] = v end end
+  GetTitleText, GetQuestID = nil, nil
+  state.zone, state.sub, state.resting, state.combat = "Duskwood", "Raven Hill", false, false
+  C.SourcesChanged(); C.Refresh()
+  check(C.History():find("Back at the Lion's Pride", 1, true), "with RPG Dialogue's diary back, History quotes that instead")
 end
 
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))
