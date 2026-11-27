@@ -19,6 +19,7 @@ local function values(sheet)
     nickname = sheet.nickname, icon = sheet.icon, bearing = sheet.bearing, history = sheet.history,
     physical = sheet.physical, traits = sheet.traits, relationship = sheet.relationship, ooc = sheet.ooc,
     walkup = sheet.walkup,
+    namecolour = sheet.namecolour, music = sheet.music,   -- 0.21.0 (Register.lua)
     glance_mood = sheet.glances.mood, glance_lately = sheet.glances.lately,
     glance_company = sheet.glances.company, glance_ambition = sheet.glances.ambition,
     glance_marks = sheet.glances.marks,
@@ -50,6 +51,8 @@ function UI.Update(force, fresh, mood)
     for k in pairs(FAST) do only[k] = true end
     any = true
   end
+  -- The OOC line says what you're doing out of character, so it isn't paused with the rest.
+  if ns.db.fields.ooc_doing and (force or now - lastFast >= gap) then only.ooc, any = true, true end
   if force or (slowDue and now - lastSlow >= UI.STORY_GAP) or now - lastSlow >= UI.STORY_EVERY then
     for k in pairs(TRP.FIELDS) do if not FAST[k] then only[k] = true end end
     any = true
@@ -443,6 +446,8 @@ function UI.PreviewSections(s)
   add(3, "birthplace", s.birthplace)
   add(3, "relationship", s.relationship and ({ [2] = "Taken", [3] = "Married" })[s.relationship])
   add(3, "ooc", s.ooc)
+  add(3, "namecolour", s.namecolour and ("|cff" .. s.namecolour .. s.namecolour .. "|r"), { empty = "from your class colour" })
+  add(3, "music", s.music and (tostring(s.musicName) .. " (" .. tostring(s.music) .. ")"), { empty = "your home's music, or where you are" })
   add(3, "walkup", s.walkup == 2 and "Open to walk-ups" or s.walkup == 1 and "Not open to walk-ups" or nil, { empty = "no change" })
 
   -- Statistics.
@@ -735,6 +740,9 @@ local OPTIONS = {
   { path = { "fields", "birthplace" }, label = "Birthplace" },
   { path = { "fields", "relationship" }, label = "Relationship status, from a partner in Social Diary" },
   { path = { "fields", "ooc" }, label = "OOC note saying the profile updates itself" },
+  { path = { "fields", "ooc_doing" }, label = "OOC: what you're doing (\"Levelling in Duskwood\", \"Looking for a group\")" },
+  { path = { "fields", "namecolour" }, label = "Name colour: your class colour" },
+  { path = { "fields", "music" }, label = "Profile music: your home's music (else where you are)" },
   { path = { "fields", "walkup" }, label = "Open to walk-ups follows your mood" },
   { head = "Statistics (Additional information on the Characteristics tab)" },
   { path = { "fields", "stats" }, label = "Write statistics (all of them; the switches below pick which)" },
@@ -812,6 +820,9 @@ UI.TIPS = {
   ["fields.birthplace"] = "Your homeland, or the origin you chose in RPG Dialogue.",
   ["fields.relationship"] = "Married or Taken, if you've named a partner in Social Diary.",
   ["fields.ooc"] = "A short out-of-character note saying the profile updates itself.",
+  ["fields.ooc_doing"] = "An out-of-character line on what you're doing: levelling somewhere, looking for a group, in a dungeon, or away. Off by default.",
+  ["fields.namecolour"] = "Shows your name in your class colour on your profile.",
+  ["fields.music"] = "Sets your profile's music to your home's zone music, or where you are, when the game has a match.",
   ["fields.walkup"] = "Marks you open to walk-ups when your mood is sociable, and not when it isn't.",
   ["fields.stats"] = "The Statistics entries under Additional information. Your own entries there stay as they are.",
   ["sources.rpgd"] = "Your origin, alignment, choices, opinions, the people you've met, stories and diary.",
@@ -1387,7 +1398,7 @@ local HELP = {
   { "/atrp status", "which profile it writes to and which addons it reads" },
   { "/atrp welcome", "show the welcome window again" },
   { "/atrp on", "resume (/atrp off: pause; your profile stays as it is)" },
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, talents)",
 }
 UI.HELP = HELP
 
