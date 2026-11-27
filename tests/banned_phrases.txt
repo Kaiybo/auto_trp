@@ -82,7 +82,7 @@ grinning from ear
 smug as
 running on fumes
 dead tired
-spring in {their} step | max 1
+spring in {their} step | max 2
 
 # Fame: the profile is public, so the character isn't made out to be widely known
 a hero to
@@ -123,3 +123,13 @@ still thinks about it
 is not done yet
 above anything else
 makes a living
+
+# Clichés retired in 0.21.0
+strip paint
+storm about to break
+twice as hard
+easy grace
+da voodoo
+child at a fair
+reach the eyes
+weighs nothing
