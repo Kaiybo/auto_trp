@@ -767,13 +767,9 @@ function Compose.Bearing()
   local hooks = Compose.Hooks()
   local stories = #hooks > 0 and paragraph({ say("stories", { list = U.Join(hooks) }) }) or nil
 
-  -- Auto TRP's own reading (no RPG Dialogue): what the player has shown leads, and the
-  -- class and race fill in how they carry it.
-  if rpgd.own then
-    local t = temperLines()
-    for k = 1, #first == 0 and #t or 2 do first[#first + 1] = t[k] end
-    more[#more + 1] = Compose.WeekTone()
-  end
+  -- Auto TRP's own reading (no RPG Dialogue): what the player has shown leads; the class
+  -- and race fill in above, and how the week has gone closes it.
+  if rpgd.own then more[#more + 1] = Compose.WeekTone() end
 
   return pages({ paragraph(first), #views > 0 and paragraph({ name .. " " .. views[1], views[2] }) or nil, paragraph(more), stories })
 end
