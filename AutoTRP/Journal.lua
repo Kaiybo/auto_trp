@@ -90,6 +90,14 @@ local function add(e)
   d.last.t = e.t
   return e, d
 end
+-- A line another part of Auto TRP has for today (Sources/Seasons.lua: an anniversary, a
+-- return, a festival): { k = "season", text = "..." }, told with the day's other news.
+function J.Note(e)
+  if type(e) ~= "table" or type(e.text) ~= "string" then return nil end
+  local d = day()
+  if d then for _, v in ipairs(d.ev) do if v.k == e.k and v.text == e.text then return nil end end end
+  return add(e)
+end
 
 ---------------------------------------------------------------------------
 -- What's recorded
@@ -758,7 +766,7 @@ function J.Compose(key)
   end
   local segs = { seg({ zone = d.start.zone, start = true }) }
   local misc = { loot = {}, levels = {}, skills = {}, groups = {}, books = {}, mounts = {}, rolls = {}, standings = {},
-    guild = {}, pets = {}, abandons = {} }
+    guild = {}, pets = {}, abandons = {}, season = {} }
   local ms = {}   -- what makes the day one to mark
   local moved = false
   for _, e in ipairs(ev) do
@@ -788,7 +796,8 @@ function J.Compose(key)
     elseif e.k == "standing" then misc.standings[#misc.standings + 1] = e
     elseif e.k == "guild" then misc.guild[#misc.guild + 1] = e
     elseif e.k == "pet" then misc.pets[#misc.pets + 1] = e
-    elseif e.k == "abandon" then misc.abandons[#misc.abandons + 1] = e.title end
+    elseif e.k == "abandon" then misc.abandons[#misc.abandons + 1] = e.title
+    elseif e.k == "season" then misc.season[#misc.season + 1] = e end
   end
   local fish, made, duels = d.fish or {}, d.made or {}, d.duels or {}
   local busy = #ev > 0 or (fish.n or 0) > 0 or (made.n or 0) > 0 or (duels.won or 0) + (duels.lost or 0) > 0
@@ -1001,8 +1010,9 @@ function J.Compose(key)
     if doing and n >= 6 then put(work, pick(JW.emote, key, "emote", { doing = doing })) end
   end
 
-  -- 3. Company and fortune: groups, faces, help, finds, rolls, growing stronger, standing,
-  -- the guild, the pet, jobs given up.
+  -- 3. Company and fortune: an anniversary, a return or a festival (Sources/Seasons.lua);
+  -- groups, faces, help, finds, rolls, growing stronger, standing, the guild, the pet, jobs given up.
+  for _, e in ipairs(misc.season) do extra[#extra + 1] = { text = e.text, own = true, proper = true } end
   if #misc.groups > 0 then
     local names, seenName, familiar = {}, {}, 0
     for _, g in ipairs(misc.groups) do
