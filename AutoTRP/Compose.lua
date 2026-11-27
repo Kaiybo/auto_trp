@@ -70,10 +70,40 @@ function Compose.Refresh()
     c.sd = S.SocialDiary.Read()
     c.chronicle = S.Chronicle.Read()
     c.deeds = S.Deeds.Read()
+    c.self = S.Self and S.Self.Read(c) or nil
     sourcesAt, c.read = now, true
   end
   c.t = now
   return c
+end
+
+-- The character as a person: RPG Dialogue's reading (choices, stories, standing, people)
+-- where it has one, Auto TRP's own reading of what the player does (Sources/Self.lua)
+-- wherever it hasn't. Same shape either way; `own` is true when there's no RPG Dialogue.
+-- A choice made in RPG Dialogue outranks a habit, so each part is filled, never mixed.
+local persona = {}
+function Compose.Persona(c)
+  c = c or ns.cache
+  local r, s = c.rpgd, c.self
+  if not s or not r then return r or s end
+  if persona.r == r and persona.s == s then return persona.p end
+  local p = setmetatable({}, { __index = r })
+  local function empty(t) return type(t) ~= "table" or next(t) == nil end
+  local a = r.align or {}
+  if (a.light or 0) == 0 and (a.order or 0) == 0 and (a.honor or 0) == 0 then
+    p.align = { light = s.align.light, order = s.align.order, honor = s.align.honor, taint = a.taint or 0 }
+  end
+  local any = false
+  for _, v in pairs(r.traits or {}) do if v ~= 0 then any = true end end
+  if not any then p.traits, p.dominant = s.traits, s.dominant end
+  for _, k in ipairs({ "towns", "friends", "threads", "cleared", "books", "zones", "deaths" }) do
+    if empty(r[k]) then p[k] = s[k] end
+  end
+  if not r.lastTalk then p.lastTalk = s.lastTalk end
+  if (s.drunkAt or 0) > (r.drunkAt or 0) then p.drunk, p.drunkAt = s.drunk, s.drunkAt end
+  p.start = s.start
+  persona = { r = r, s = s, p = p }
+  return p
 end
 
 local function seed(key)
@@ -178,7 +208,7 @@ end
 
 function Compose.LatelyGlance()
   local c = ns.cache
-  local rpgd, chron, world = c.rpgd, c.chronicle, c.world
+  local rpgd, chron, world = Compose.Persona(c), c.chronicle, c.world
   local cands = {}
   local function add(t, prio, g) cands[#cands + 1] = { t = t or 0, prio = prio, g = g } end
 
@@ -271,7 +301,7 @@ end
 
 function Compose.CompanyGlance()
   local c = ns.cache
-  local world, sd, rpgd = c.world, c.sd, c.rpgd
+  local world, sd, rpgd = c.world, c.sd, Compose.Persona(c)
   local n = world.groupSize or 0
   if world.grouped and world.raid and n > 5 then
     return { TI = "Part of a Host", IC = "INV_BannerPVP_02",
@@ -412,7 +442,7 @@ end
 
 function Compose.MarksGlance()
   local c = ns.cache
-  local world, rpgd = c.world, c.rpgd
+  local world, rpgd = c.world, Compose.Persona(c)
   local marks = {}
   local function mark(prio, title, text, icon) marks[#marks + 1] = { prio = prio, TI = title, TX = U.Cap(U.Pron(text)), IC = icon } end
   if world.health and world.health < 0.5 and not world.combat and not world.dead then
@@ -472,7 +502,7 @@ local function classTraits()
 end
 
 function Compose.Traits()
-  local rpgd = ns.cache.rpgd
+  local rpgd = Compose.Persona()
   if not rpgd then return classTraits() end
   local out = {}
   for _, b in ipairs(W.AXIS_BARS) do
@@ -485,6 +515,15 @@ function Compose.Traits()
     local l, r = rpgd.traits[b[3]] or 0, rpgd.traits[b[4]] or 0
     if math.max(l, r) >= 2 and #out < 6 then
       out[#out + 1] = { LT = b[1], RT = b[2], LI = b[5], RI = b[6], V2 = U.Clamp(math.floor(10 + (l - r) * 1.5 + 0.5), 1, 19) }
+    end
+  end
+  -- Auto TRP's own reading: what the player has shown fills its bars, the class and race
+  -- lean the rest.
+  if rpgd.own then
+    local have = {}
+    for _, b in ipairs(out) do have[b.LT] = true end
+    for _, b in ipairs(classTraits() or {}) do
+      if not have[b.LT] and #out < 6 then out[#out + 1] = b end
     end
   end
   if #out == 0 then return classTraits() end
@@ -603,14 +642,13 @@ end
 
 function Compose.Bearing()
   local c = ns.cache
-  local rpgd, world = c.rpgd, c.world
+  local rpgd, world = Compose.Persona(c), c.world
   local name = firstName()
   local habit = Compose.FavouriteSpell()
 
-  -- Without RPG Dialogue there are no choices to read a character from: only the habit the
-  -- game itself records.
-  if not rpgd then
-    -- Two of the class's dispositions, different ones.
+  -- How the class and race carry themselves: two of the class's dispositions (different
+  -- ones) and the race's.
+  local function temperLines()
     local pool = W.CLASS_TEMPER[world.class or ""] or {}
     local a = U.Pick(pool, seed("temper"))
     local lines = { a }
@@ -621,6 +659,12 @@ function Compose.Bearing()
     local r = U.Pick(W.RACE_TEMPER[world.race or ""] or {}, seed("racetemper"))
     if type(r) == "string" then table.insert(lines, 2, r) end
     if type(lines[1]) ~= "string" then table.remove(lines, 1) end
+    return lines
+  end
+
+  -- Nothing to read a character from: only the habit the game itself records.
+  if not rpgd then
+    local lines = temperLines()
     lines[#lines + 1] = habit
     lines[#lines + 1] = Compose.WeekTone()
     return paragraph(lines)
@@ -675,6 +719,14 @@ function Compose.Bearing()
   local hooks = Compose.Hooks()
   local stories = #hooks > 0 and paragraph({ say("stories", { list = U.Join(hooks) }) }) or nil
 
+  -- Auto TRP's own reading (no RPG Dialogue): what the player has shown leads, and the
+  -- class and race fill in how they carry it.
+  if rpgd.own then
+    local t = temperLines()
+    for k = 1, #first == 0 and #t or 2 do first[#first + 1] = t[k] end
+    more[#more + 1] = Compose.WeekTone()
+  end
+
   return pages({ paragraph(first), #views > 0 and paragraph({ name .. " " .. views[1], views[2] }) or nil, paragraph(more), stories })
 end
 
@@ -710,7 +762,7 @@ end
 -- Things this character has a story about, for other players to ask after.
 function Compose.Hooks()
   local c = ns.cache
-  local rpgd, chron, world = c.rpgd, c.chronicle, c.world
+  local rpgd, chron, world = Compose.Persona(c), c.chronicle, c.world
   local hooks, seen = {}, {}
   local function add(text)
     if text and not seen[text] and #hooks < 4 then seen[text] = true; hooks[#hooks + 1] = text end
@@ -804,7 +856,7 @@ local function guildName(g) return g:find("^The ") and U.Mid(g) or g end
 -- deed behind their name, then everything older, told briefly.
 function Compose.History()
   local c = ns.cache
-  local rpgd, chron, sd, world = c.rpgd, c.chronicle, c.sd, c.world
+  local rpgd, chron, sd, world = Compose.Persona(c), c.chronicle, c.sd, c.world
   local name = firstName()
   local now = U.Now()
   local paras = {}
@@ -828,6 +880,11 @@ function Compose.History()
     if what then
       roots[#roots + 1] = name .. " is " .. what .. (home and (" who started out in " .. home) or "")
     end
+  end
+  -- The trainer it began with (Auto TRP saw it), or the one gone back to.
+  local start = rpgd and rpgd.start
+  if start and start.trainer and start.zone and not (rpgd.origin and rpgd.origin.name) then
+    roots[#roots + 1] = say(start.first and "trainer_first" or "trainer_usual", { who = start.trainer, place = placeName(start.zone) }, start.trainer)
   end
   local zones = (rpgd and #rpgd.zones > 0 and rpgd.zones) or (c.deeds and c.deeds.zones) or {}
   local zoneCount = math.max(#zones, chron and chron.zones or 0)
@@ -877,13 +934,23 @@ function Compose.History()
   if lastMs and rankOf(lastMs) then
     event(lastMs.t, 2, "rose to " .. rankOf(lastMs) .. (lastMs.zone and (" in " .. U.Mid(lastMs.zone)) or ""), "rank")
   end
+  -- Stories still going are told together ("got caught up in A and B"), the two newest.
+  local caught = {}
   for _, t in ipairs(rpgd and rpgd.threads or {}) do
     if earnedKey ~= "thread:" .. t.id then
-      local v = t.state == "resolved" and "saw " .. lowerFirst(t.title) .. " through to the end"
-        or t.state == "soured" and "watched " .. lowerFirst(t.title) .. " go sour"
-        or (t.state == "unfolding" or t.state == "stirring") and "got caught up in " .. lowerFirst(t.title)
-      event(t.t, 3, v, "thread:" .. t.id)
+      if t.state == "unfolding" or t.state == "stirring" then
+        if recent(t.t) and #caught < 2 then caught[#caught + 1] = t end
+      else
+        local v = t.state == "resolved" and "saw " .. lowerFirst(t.title) .. " through to the end"
+          or t.state == "soured" and "watched " .. lowerFirst(t.title) .. " go sour"
+        event(t.t, 3, v, "thread:" .. t.id)
+      end
     end
+  end
+  if caught[1] then
+    local titles = {}
+    for k, t in ipairs(caught) do titles[k] = lowerFirst(t.title) end
+    event(caught[1].t, 3, "got caught up in " .. U.Join(titles), "thread:" .. caught[1].id)
   end
   local bosses = Compose.Bosses(c)
   local nb = 0
@@ -1222,7 +1289,7 @@ end
 -- Plain counts, as figures ("1,240", "39"), only for what the game or the addons record.
 function Compose.Stats()
   local c = ns.cache
-  local rpgd, chron, world = c.rpgd, c.chronicle, c.world
+  local rpgd, chron, world = Compose.Persona(c), c.chronicle, c.world
   local function figure(n) return n >= 100 and U.Number(n) or tostring(n) end
   local out = {}
   local deaths = deathCount(c)
@@ -1303,7 +1370,7 @@ end
 -- The full title: alignment and standing, else what you are and where you're from.
 function Compose.FullTitle()
   local c = ns.cache
-  local rpgd, world = c.rpgd, c.world
+  local rpgd, world = Compose.Persona(c), c.world
   local align = rpgd and ns.Sources.RPGD.AlignTitle(rpgd.align, world.faction)
   local standing
   local best = rpgd and rpgd.towns[1]

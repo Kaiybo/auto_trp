@@ -1,8 +1,10 @@
 # Auto TRP
 
-A companion to [RPG Dialogue](https://github.com/Kaiybo/rpg-dialogue) for World of Warcraft: Forever. It keeps your **Total RP 3** profile in step with your character's story: what they feel, where they are, what they believe, who they know and what they've been through.
+For World of Warcraft: Forever, and a companion to [RPG Dialogue](https://github.com/Kaiybo/rpg-dialogue). It keeps your **Total RP 3** profile in step with your character's story: what they feel, where they are, what they believe, who they know and what they've been through.
 
-It reads three addons if you have them (all optional, and it never changes them), and keeps its own record of the quests you turn in and the dungeon and raid masters you bring down, so earned names work with none of them:
+**Everything works with Total RP 3 alone.** Auto TRP reads your character from what you actually do in the game: who you heal and resurrect (strangers count most), what you pick fights with, the gifts you hand over in trades and the auctions you post, your prayers and holy work, how often you speak up, dance or group, the quests you see through or give up on, the towns you rest and work in, the innkeepers, quest-givers and trainers you keep going back to, the books you read and the storylines your quests follow. From that come your alignment and trait bars, Personality, standing in towns (*"Is liked in Goldshire"*), the people in your History (NPCs only: other players are never named), your stories and the Full title (*Lightsworn, Friend of Goldshire*). It counts, it never reads what you say, and it never keeps who you healed or traded with. It also keeps its own record of the quests you turn in, the dungeon and raid masters you bring down, deaths, lands, kills and flights.
+
+Three other addons add more if you have them (all optional, and Auto TRP never changes them). Where one has something to say, its reading comes first and Auto TRP's own fills the gaps:
 
 - **RPG Dialogue**: your origin, alignment and traits, opinions you've voiced, standing in towns, the people you've met, the stories you've followed, your diary.
 - **Social Diary**: the players you've marked as friends (and the relationship you wrote down for them), your recent groups.

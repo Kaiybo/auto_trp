@@ -50,8 +50,11 @@ local BIAS = {
   reserved = { sociable = 0.6, lonely = 0.6, company = 0.8 },
 }
 
+-- RPG Dialogue's reading of the character, else Auto TRP's own (Compose.Persona).
+local function persona() return ns.Compose and ns.cache and ns.Compose.Persona(ns.cache) or nil end
+
 function Mood.Bias(name)
-  local rpgd = ns.cache and ns.cache.rpgd
+  local rpgd = persona()
   local traits = rpgd and rpgd.traits or {}
   local m = 1
   for trait, list in pairs(BIAS) do
@@ -296,7 +299,7 @@ function Mood.Current(world)
     key = ranked[1].name
     d = def(key, world)
   else
-    local rpgd = ns.cache and ns.cache.rpgd
+    local rpgd = persona()
     key = rpgd and rpgd.dominant and rpgd.dominant[1] or "default"
     d = W.CALM[key] or W.CALM.default
     key = "calm:" .. key
@@ -672,6 +675,19 @@ function Mood.Watch()
     watch(seen, "letters", rpgd.lettersArrived, function(d) if d > 0 then Mood.Push("newsy", 35, "a letter came") end end)
     watch(seen, "lies", rpgd.liesExposed, function(d) if d > 0 then Mood.Push("ashamed", 35, "caught in a lie") end end)
     watch(seen, "deathsRPGD", rpgd.deathCount, function() end)
+  end
+  -- Without RPG Dialogue, Auto TRP's own reading: a story moving on, a town warming to
+  -- you, someone you keep going back to, kindness to strangers.
+  local own = not rpgd and ns.cache and ns.cache.self
+  if own then
+    local beats = 0
+    for _, t in ipairs(own.threads) do beats = beats + t.beats end
+    watch(seen, "ownBeats", beats, function(d) if d > 0 then Mood.Push("intrigued", 20, "a story moved on") end end)
+    watch(seen, "ownResolved", (function() local n = 0 for _, t in ipairs(own.threads) do if t.state == "resolved" then n = n + 1 end end return n end)(),
+      function(d) if d > 0 then Mood.Push("proud", 35, "saw a story through") end end)
+    watch(seen, "ownStanding", math.floor(sumStanding(own) / 10), function(d) if d > 0 then Mood.Push("proud", 15, "earned some goodwill") end end)
+    watch(seen, "ownFriends", #own.friends, function(d) if d > 0 then Mood.Push("sociable", 10, "a familiar face") end end)
+    watch(seen, "ownLight", math.floor(own.align.light / 5), function(d) if d > 0 then Mood.Push("righteous", 15, "did some good") end end)
   end
   local chron = ns.cache and ns.cache.chronicle
   if chron then
