@@ -342,7 +342,7 @@ function U.Call(fn, ...)
   return nil
 end
 
--- U.Call for an API that returns many values (the combat log): every value, unsecreted.
+-- U.Call for an API that returns many values (the combat log, GetItemInfo): every value, unsecreted.
 local function passAll(ok, ...)
   if not ok then return nil end
   if type(_G.issecretvalue) ~= "function" then return ... end

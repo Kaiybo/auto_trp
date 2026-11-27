@@ -1925,6 +1925,257 @@ W.DURABILITY = {
 }
 
 ---------------------------------------------------------------------------
+-- ======================== PHYSICAL (0.21.0) ==============================
+-- About: Physical and the Marks glance: how the body carries itself, what is worn and
+-- how, and what is on them right now (spells, sickness, drink, shapes). Everything here is
+-- used only when the game says so: armour by what most of it is, weapons by their type,
+-- auras by their names. {main} {off} {ranged} {item} {set} are filled with real items.
+---------------------------------------------------------------------------
+-- Every one of a race shares these: voice, gait, bulk. Nothing a player can customise.
+W.RACE_BEARING = {
+  Human = { "Speaks plainly, in the common tongue of the eastern kingdoms.", "Neither tall nor short, and easy to lose in a crowd." },
+  Dwarf = { "Speaks with a deep mountain burr.", "Plants {their} feet like {they} mean to stay there." },
+  Gnome = { "Talks quickly, in a high, bright voice.", "Has to look up at almost everyone, and doesn't seem to mind." },
+  NightElf = { "Moves almost without sound.", "Has the patience of a people who count their lives in centuries." },
+  Orc = { "Speaks in a rough, growling voice.", "Takes up more room than most, and knows it." },
+  Troll = { "Talks with the rolling lilt of the jungle tribes.", "Stands stooped, and still looks down on most people." },
+  Tauren = { "Each step lands heavy.", "Speaks slowly, in a low, rumbling voice." },
+  Scourge = { "Joints creak when {they} move{s}, and {their} voice rasps.", "Smells of grave-earth, the way all the Forsaken do." },
+  Goblin = { "Talks fast, and usually about money.", "Quick-handed, with a voice that carries." },
+}
+W.RACE_LOOK.Goblin = W.RACE_LOOK.Goblin or { "Small and green, with long ears and sharp teeth.", "Big-eared and sharp-toothed, with quick, calculating eyes." }
+
+-- How a class carries itself, by how far along the road they are (under 20, under 45, beyond).
+W.PHYS_STANCE = {
+  WARRIOR = {
+    green = { "Stands square, like someone still drilling the basics.", "Holds {themselves} stiffly, the way new recruits do." },
+    seasoned = { "Stands with {their} weight forward, ready to move.", "Plants {their} feet wide out of habit." },
+    veteran = { "Moves with the unhurried economy of someone who has fought for years.", "Stands loose and balanced, never caught flat-footed." },
+  },
+  PALADIN = {
+    green = { "Stands very straight, as if someone were watching.", "Carries {themselves} with a novice's careful dignity." },
+    seasoned = { "Upright and steady, with a calm that doesn't shift much.", "Holds {their} head up and {their} shoulders back." },
+    veteran = { "Stands with the settled calm of long service.", "Has the steady, patient bearing of someone sworn for years." },
+  },
+  HUNTER = {
+    green = { "Keeps glancing at the edges of things, still learning to watch.", "Restless, with a newcomer's ear for every sound." },
+    seasoned = { "Quiet on {their} feet, eyes always moving.", "Stands loose and easy, ready to turn." },
+    veteran = { "Goes still in a way only long years in the wild teach.", "Watches the world with the patience of a practised tracker." },
+  },
+  ROGUE = {
+    green = { "Fidgety, and too obvious about watching the door.", "Tries hard to look like nobody in particular." },
+    seasoned = { "Keeps {their} back to the wall and {their} face hard to read.", "Light on {their} feet and hard to pin down." },
+    veteran = { "Easy to overlook, which is plainly on purpose.", "Moves so quietly that people lose track of {them}." },
+  },
+  PRIEST = {
+    green = { "Earnest and attentive, and quick to notice who is hurting.", "Holds {themselves} with a novice's careful piety." },
+    seasoned = { "Patient, with a healer's steady hands.", "Calm and watchful, in the way of someone who mends people." },
+    veteran = { "Has the deep, settled calm of long devotion.", "Unhurried, with the composed face of a long-serving healer." },
+  },
+  SHAMAN = {
+    green = { "Tilts {their} head now and then, as if listening for something.", "Earnest, and still finding {their} footing with the spirits." },
+    seasoned = { "Grounded and steady, rooted where {they} stand{s}.", "Has a listener's stillness about {them}." },
+    veteran = { "Calm in the deep way of someone the elements answer.", "Still as old stone, until {they} move{s}." },
+  },
+  MAGE = {
+    green = { "Bright-eyed and too eager to explain things.", "Has the restless fingers of an apprentice." },
+    seasoned = { "Composed and precise, choosing words with care.", "Holds {themselves} with a scholar's poise." },
+    veteran = { "Cool and exact, with the poise of long practice.", "Unhurried and certain, like someone who has read the ending." },
+  },
+  WARLOCK = {
+    green = { "Wary, as if braced for something to go wrong.", "Keeps {their} distance, and {their} voice low." },
+    seasoned = { "Cool and guarded, giving little away.", "Has a stillness about {them} that unsettles people." },
+    veteran = { "Cold, composed and hard to read.", "Self-possessed in a way that makes others step back." },
+  },
+  DRUID = {
+    green = { "Moves with an awkward, half-learned grace.", "Restless under a roof, and plainly happier outside." },
+    seasoned = { "Easy in {their} body, and quiet on {their} feet.", "Has the patient stillness of someone who watches animals." },
+    veteran = { "Patient as the old groves.", "Moves like something wild that has decided to trust you." },
+  },
+  DEATHKNIGHT = {
+    green = { "Holds {themselves} with a cold, deliberate stillness." },
+    seasoned = { "Moves with a heavy, purposeful tread." },
+    veteran = { "Cold and deliberate, wasting no movement at all." },
+  },
+}
+
+-- How they are in body right now, by health (out of a fight) and rest.
+W.PHYS_HEALTH = {
+  { max = 0.25, glance = "Badly Hurt", text = { "Badly hurt, and moving stiffly to spare it", "Hurt badly, and every step gives it away" } },
+  { max = 0.5, glance = "Bloodied", text = { "Freshly wounded, and moving carefully", "Carrying fresh wounds, and favouring them" } },
+  { max = 0.8, text = { "Nursing a few fresh hurts", "Somewhat the worse for wear from a recent scrape" } },
+}
+W.PHYS_RESTED = { "Looks well rested", "Rested and clear-eyed" }
+W.PHYS_UNRESTED = { "Has the drawn look of someone overdue for a night in a proper bed", "Road-weary, and short of a good night's sleep" }
+W.PHYS_UNHURT = { "Unhurt for now, and steady on {their} feet", "Whole and unhurt at the moment", "Hale, with nothing ailing {them} just now" }
+
+-- Armour, by what most of it is.
+W.ARMOUR_WORD = { Cloth = "cloth", Leather = "leather", Mail = "mail", Plate = "plate" }
+W.PHYS_ARMOUR = {
+  Cloth = { "Goes about in cloth, soft and unarmoured", "Dresses in cloth, light and loose", "Wears cloth, and nothing heavier" },
+  Leather = { "Goes about in leather, close-fitting and quiet", "Dresses in supple leather", "Wears leather that creaks softly when {they} move{s}" },
+  Mail = { "Goes about in mail", "Wears mail that chinks softly with each step", "Is armoured in mail" },
+  Plate = { "Goes about in plate", "Wears heavy plate, and the clank of it announces {them}", "Is armoured in plate, heavy and close-fitted" },
+}
+W.PHYS_ARMOUR_MIX = { "Wears a mix of {list}", "Goes about in a patchwork of {list}" }
+-- Lighter than the class usually wears by then (plate classes from forty, mail from forty).
+W.PHYS_ARMOUR_LIGHT = { "Lighter than most of {their} calling would choose", "Light gear, for one of {their} calling" }
+
+-- How fine it is, by the quality most pieces share: a clause after the armour.
+W.QUALITY_WORD = { [0] = "worn out", [1] = "plain and serviceable", [2] = "sound, honest work", [3] = "fine work",
+  [4] = "remarkable", [5] = "beyond price" }
+W.PHYS_QUALITY = {
+  all = { "All of it is {word}", "Every piece of it is {word}" },
+  most = { "Most of it is {word}", "The bulk of it is {word}" },
+  finer = { "with one finer piece among it", "and one piece is finer than the rest" },
+  finerN = { "with {n} finer pieces among it", "and {n} pieces are finer than the rest" },
+}
+-- How it sits with their experience (from the items' level against their own).
+W.PHYS_FIT = {
+  behind = { "Much of it is older gear {they've} outgrown", "Most of it is kit {they} could do better than by now" },
+  ahead = { "Better gear than most at {their} stage of the road", "Finer kit than {their} years on the road would suggest" },
+  top = { "The kind of gear only the hardest fights give up" },
+}
+
+-- The pieces that show: chest first, then head and shoulders.
+W.PHYS_OUTFIT = {
+  armoured = { "Chief among it is {outfit}", "Most noticeable is {outfit}", "What shows first is {outfit}" },
+  bare = { "{they} wear{s} {outfit}", "{they} go{es} about in {outfit}" },
+}
+W.PHYS_ON = { [1] = "on {their} head", [3] = "across {their} shoulders" }
+W.PHYS_LAYERS = {
+  both = { "{cloak} hangs at {their} back, and {tabard} goes over the top", "Over it all go {tabard} and, at {their} back, {cloak}" },
+  tabard = { "{tabard} is worn over the top", "Over it all {they} wear{s} {tabard}" },
+  cloak = { "{cloak} hangs at {their} back", "{cloak} falls behind {them}", "{they} wear{s} {cloak} at {their} back" },
+  shirt = { "Above the waist {they} wear{s} only {shirt}", "{shirt} is all {they} wear{s} above the waist" },
+}
+
+-- Weapons, by how they're carried. {kind} is what the weapon is ("a great axe").
+W.TWO_HANDED = { ["Two-Handed Axes"] = true, ["Two-Handed Swords"] = true, ["Two-Handed Maces"] = true, Polearms = true, Staves = true }
+W.PHYS_ARMS = {
+  twohand = { "{main}, {kind}, is slung across {their} back", "Carries {main}, {kind}, across {their} back", "Goes armed with {main}, {kind} that takes both hands" },
+  staff = { "{main}, {their} staff, is never far from {their} hand", "Carries {main}, a staff", "Walks with {main}, a staff" },
+  dual = { "Carries a weapon for each hand: {main} and {off}", "Fights with {main} and {off}, one in each hand", "Wears {main} and {off} at {their} sides" },
+  shield = { "Carries {main}, with {shield} slung on {their} back", "{main} hangs at {their} side, {shield} on {their} back", "Goes armed with {main} and {shield}" },
+  holdable = { "Carries {main}, with {off} held in the other hand", "{main} at {their} side, and {off} in the other hand" },
+  one = { "{main} hangs at {their} side", "Carries {main}, {kind}", "Goes armed with {main}, {kind}" },
+  offonly = { "Carries {off}, and nothing else in hand" },
+  none = { "Carries no weapon anyone can see", "Goes unarmed, as far as anyone can tell" },
+}
+W.PHYS_RANGED = {
+  Bows = { "{ranged}, a bow, rides on {their} back", "Keeps {ranged}, a bow, ready over {their} shoulder" },
+  Crossbows = { "{ranged}, a crossbow, is slung on {their} back", "Carries {ranged}, a crossbow, on {their} back" },
+  Guns = { "{ranged}, a gun, is slung across {their} back", "Carries {ranged}, a gun, on {their} back" },
+  Wands = { "Keeps {ranged}, a wand, at {their} hip", "Carries {ranged}, a wand, within easy reach" },
+  Thrown = { "Carries {ranged} for throwing", "Keeps {ranged} ready to throw" },
+  Idols = { "Keeps {ranged}, a druid's idol, close", "Carries {ranged}, a druid's idol" },
+  Totems = { "Keeps {ranged}, a shaman's totem, close", "Carries {ranged}, a shaman's totem" },
+  Librams = { "Keeps {ranged}, a paladin's libram, close", "Carries {ranged}, a paladin's libram" },
+  default = { "Carries {ranged} as well" },
+}
+
+-- Matched pieces, enchantments, jewellery and the finest piece.
+W.PHYS_SET = {
+  named = { "{n} of the pieces match, all from {set}", "{n} pieces are a matched set, {set}", "Part of it is matched: {n} pieces of {set}" },
+  unnamed = { "{n} of the pieces match, made as a set", "{n} pieces were plainly made to go together" },
+  full = { "{n} of the pieces make up one matched set, {set}", "Most of it is one matched set: {n} pieces of {set}" },
+}
+W.PHYS_ENCHANT = {
+  weapon = { "{main} carries an enchanter's work", "{main} has been enchanted" },
+  it = { "It has been enchanted, too", "An enchanter has worked on it as well" },
+  one = { "{item} has been enchanted", "{item} carries an enchanter's work" },
+  many = { "{n} of the pieces carry an enchanter's work", "{n} pieces have been enchanted" },
+}
+W.PHYS_JEWEL = {
+  ring = { "Wears {item} on one finger", "{item} sits on one finger" },
+  rings = { "Wears {item} and {item2}, one on each hand" },
+  neck = { "{item} hangs at {their} throat", "Wears {item} at {their} throat" },
+  neckAlso = { "with {item} at {their} throat", "and {item} hangs at {their} throat" },
+  trinket = { "Keeps {item} about {them}", "Carries {item} as well" },
+}
+W.PHYS_FINEST = { "The finest piece is {item}", "The best of it is {item}", "Nothing else {they} wear{s} matches {item}" }
+
+-- What is on them right now, from their auras. Each `names` is matched exactly, `prefix`
+-- by the start of the name. `glance` titles the Marks glance; prio ranks it.
+W.AURA_LOOK = {
+  { names = { "Ice Block" }, prio = 6.8, glance = "Encased in Ice", icon = "Spell_Frost_Frost",
+    text = { "Locked inside a block of ice", "Sealed in a shell of solid ice" } },
+  { names = { "Divine Shield", "Divine Protection", "Blessing of Protection" }, prio = 6.7, glance = "Shielded by the Light", icon = "Spell_Holy_DivineIntervention",
+    text = { "Blazing inside a dome of golden light", "Wrapped in a shell of golden light" } },
+  { names = { "Shadowmeld" }, prio = 5.5, glance = "In the Shadows", icon = "Ability_Ambush",
+    text = { "Melted into the shadows, all but invisible" } },
+  { names = { "Power Word: Shield" }, prio = 4.8, glance = "Warded", icon = "Spell_Holy_PowerWordShield",
+    text = { "A shimmering ward of holy light surrounds {them}", "Held inside a bright, shimmering ward" } },
+  { names = { "Inner Fire" }, prio = 4.7, glance = "Inner Fire", icon = "Spell_Holy_InnerFire",
+    text = { "A pale holy fire flickers over {their} skin", "Wrapped in a thin glow of holy fire" } },
+  { names = { "Lightning Shield" }, prio = 4.7, glance = "Crackling", icon = "Spell_Nature_LightningShield",
+    text = { "Small orbs of lightning circle {them}, crackling", "Lightning circles {them} in little spitting orbs" } },
+  { names = { "Demon Skin", "Demon Armor" }, prio = 4.6, glance = "Fel-Warded", icon = "Spell_Shadow_RagingScream",
+    text = { "{their} skin has a dark, hard sheen, a demon's ward", "A sullen fel glow clings to {their} skin" } },
+  { names = { "Frost Armor", "Ice Armor" }, prio = 4.6, glance = "Rimed in Frost", icon = "Spell_Frost_FrostArmor02",
+    text = { "Frost creeps over {them}, and the air nearby is cold", "Rimed with a thin skin of frost" } },
+  { names = { "Mage Armor" }, prio = 4.5, glance = "Arcane Ward", icon = "Spell_MageArmor",
+    text = { "A pale arcane shimmer wraps {them}", "The air around {them} shimmers with arcane force" } },
+  { names = { "Fire Shield" }, prio = 4.5, glance = "Wreathed in Flame", icon = "Spell_Fire_FireArmor",
+    text = { "Flames lick harmlessly about {them}", "Ringed in small, harmless flames" } },
+  { names = { "Thorns" }, prio = 4.4, glance = "Thorn-Wrapped", icon = "Spell_Nature_Thorns",
+    text = { "Thorny vines twist about {them}", "Wrapped in a thorny, living ward" } },
+  { names = { "Stoneskin" }, prio = 4.3, glance = "Stoneskin", icon = "Spell_Nature_StoneSkinTotem",
+    text = { "{their} skin has the hard grey look of stone", "Looks hard as stone, by a shaman's grace" } },
+  { names = { "Rallying Cry of the Dragonslayer", "Songflower Serenade", "Spirit of Zandalar", "Warchief's Blessing",
+    "Fengus' Ferocity", "Mol'dar's Moxie", "Slip'kik's Savvy", "Boon of Blackfathom" }, prio = 3.6, glance = "A City's Blessing", icon = "Spell_Holy_PrayerOfHealing",
+    text = { "Still carries the blessing of {aura}", "{aura} is still on {them}" } },
+  { names = { "Well Fed" }, prefix = "Well Fed", prio = 2, glance = "Well Fed", icon = "Spell_Misc_Food",
+    text = { "Has eaten well, and looks it", "Well fed, and the better for it" } },
+  { names = { "Mark of the Wild", "Gift of the Wild" }, prio = 1.5, icon = "Spell_Nature_Regeneration",
+    text = { "Carries a druid's blessing, the Mark of the Wild" } },
+  { prefix = "Blessing of", prio = 1.5, icon = "Spell_Holy_FistOfJustice", text = { "Carries a paladin's blessing" } },
+  { prefix = "Greater Blessing of", prio = 1.5, icon = "Spell_Holy_FistOfJustice", text = { "Carries a paladin's blessing" } },
+  { names = { "Power Word: Fortitude", "Prayer of Fortitude" }, prio = 1.4, icon = "Spell_Holy_WordFortitude",
+    text = { "Stands steadier for a priest's blessing of fortitude" } },
+  { names = { "Arcane Intellect", "Arcane Brilliance" }, prio = 1.3, icon = "Spell_Holy_MagicalSentry",
+    text = { "A mage's Arcane Intellect sharpens {their} eyes" } },
+}
+-- Shapes, by aura name (the shape's own phrase comes from World.Form).
+W.FORM_MARK = {
+  ["Bear Form"] = { "Bear-Shaped", "Ability_Racial_BearForm" }, ["Dire Bear Form"] = { "Bear-Shaped", "Ability_Racial_BearForm" },
+  ["Cat Form"] = { "Cat-Shaped", "Ability_Druid_CatForm" }, ["Travel Form"] = { "Stag-Shaped", "Ability_Druid_TravelForm" },
+  ["Aquatic Form"] = { "Sea-Shaped", "Ability_Druid_AquaticForm" }, ["Moonkin Form"] = { "Moonkin", "Spell_Nature_ForceOfNature" },
+  ["Ghost Wolf"] = { "Ghost Wolf", "Spell_Nature_SpiritWolf" }, ["Shadowform"] = { "Shadowform", "Spell_Shadow_Shadowform" },
+}
+W.PHYS_FORM = { "Is {form} for now", "For now {they're} {form}" }
+W.PHYS_MOUNT = { "Is {mount} for now", "For now {they're} {mount}" }
+W.PHYS_STEALTH = { "Keeps to the shadows, hard to make out at all", "Hard to see at all, keeping to the shadows" }
+W.PHYS_GHOST = { "A spirit for now, pale and drifting", "Only a ghost at the moment, pale and half-there" }
+W.PHYS_MEAL = { eating = { "In the middle of a meal" }, drinking = { "Taking a long, slow drink" } }
+W.PHYS_PET = { "{pet} the {kind} keeps close", "{pet}, {their} {kind}, is never far away" }
+-- Drink, by how much (the game's own "tipsy", "drunk", "completely smashed").
+W.PHYS_DRUNK = {
+  { glance = "Tipsy", text = { "Tipsy, and cheerful with it", "Loose-limbed and merry with drink" } },
+  { glance = "Smells of Ale", text = { "Plainly drunk, and smelling of it", "Unsteady on {their} feet, and smelling of drink" } },
+  { glance = "Roaring Drunk", text = { "Thoroughly drunk, and none too steady", "Drunk enough to sway where {they} stand{s}" } },
+}
+-- Afflictions, by the kind the game gives them.
+W.PHYS_AILMENT = {
+  Disease = { prio = 7.4, glance = "Sickly", icon = "Spell_Shadow_AbominationExplosion",
+    text = { "Has the hollow, feverish look of someone fighting off a disease", "Sickly and feverish, with a disease on {them}" } },
+  Poison = { prio = 7.3, glance = "Poisoned", icon = "Spell_Nature_CorrosiveBreath",
+    text = { "Sweating and unsteady, with poison in {their} blood", "Grey and shaky with poison" } },
+  Curse = { prio = 7.2, glance = "Cursed", icon = "Spell_Shadow_AntiShadow",
+    text = { "Something about {them} feels cursed, and it hasn't lifted", "Labours under a curse that hasn't lifted yet" } },
+  Magic = { prio = 3, glance = "Spellbound", icon = "Spell_Shadow_Teleport",
+    text = { "Some spell still clings to {them}", "Still under some spell or other" } },
+}
+W.PHYS_RESSICK = { "Weak and grey, newly back from death", "Newly back from death, and weak with it" }
+-- Gear marks for the glance.
+W.PHYS_MARK = {
+  set = { "Matched Set", "INV_Chest_Plate03" }, enchanted = { "Enchanted Weapon", "Spell_Holy_GreaterHeal" },
+  twohand = { "Great Weapon", "INV_Axe_09" }, dual = { "Two Weapons", "Ability_DualWield" },
+  jewel = { "Rare Jewellery", "INV_Jewelry_Ring_15" }, plate = { "Plate-Clad", "INV_Chest_Plate01" },
+}
+-- ====================== end of PHYSICAL (0.21.0) =========================
+
+---------------------------------------------------------------------------
 -- More ways each race shows a mood. Face, voice and posture only: nothing they'd have to
 -- be holding or wearing, and nothing a player can customise (hair, beards, skin).
 ---------------------------------------------------------------------------
