@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.22.0 (2026-11-27): Second Wind
+
+### The journal
+
+- **Much more of the day.** The journal now draws on everything Auto TRP records as it happens: fish caught and the best of the catch (*"Had a line out for a while; six came in, an Oily Blackmouth the prize"*), things made at a trade, books read (by title; letters never), the emote the day was full of (*"no shortage of waving"*), duels won and lost, battlegrounds (the outcome and the killing blows), a new mount, the pet by its own name (hungry, content again, fallen), joining, leaving or rising in a guild, a storyline moved along or seen through (*"one more step in the key to Scholomance"*), a standing earned, jobs given up, a loot roll lost (the winner is never named), being healed by others (counted), a face met before (Social Diary friends by name, everyone else only counted), a day that ran for hours, and what's within reach (the next step up, or the next standing with a faction).
+- **Written like a day's end.** An entry opens where you woke (an inn says so) and when you set out, keeps the road in one paragraph, the work of the day in the next, company and fortune after it, and closes on where you stopped, how you felt and the purse, a line when one feeling held all day, and a last thought in your own voice: by how the day went, by your temperament (RPG Dialogue's, or Auto TRP's own reading of how you play), and by your race, a Forsaken's dry *"Nothing went wrong, which is suspicious, but I'll allow it"*, a dwarf's *"Bah. Tomorrow, then"*, a night elf's *"One good day among very many, and I'll still remember it"*. Every beat has six or more ways to say it, and none of it invents an event.
+- **Days to mark.** The first time at every tenth level (60 most of all), a first dungeon, a first death and a first mount open the day on it (*"Today I rode my first mount, my Brown Horse."*). Firsts other than levels are only claimed for a character Auto TRP has known from level 5 or under.
+- **The week behind.** On the first session of a new week the journal looks back on the one before, from the days it kept: where you mostly were, the new ground, what it added up to (masters brought down, levels, a mount, a standing, the best find, jobs, battles, duels, fish, books, deaths) and how the days felt.
+- **The journal window** shows each date in full (*"Thursday, 26 November"*), a marker for each week with its look back under it, and each day's mood with its icon.
+- Kept bounded: ten kinds of fish, crafts and emotes a day, 150 events a day, 30 days of entries, six weekly look backs. Nothing is composed in combat.
+- Fixed: the journal read a craft's new rank only half way.
+
 ## 0.21.0 (2026-11-27): Lately
 
 ### With Total RP 3 alone

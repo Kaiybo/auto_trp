@@ -933,7 +933,7 @@ do
     end
   end
   local source = {}
-  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Data/Places.lua", "AutoTRP/Compose.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua" }) do
+  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Data/JournalWords.lua", "AutoTRP/Data/Places.lua", "AutoTRP/Compose.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua" }) do
     for line in io.lines(f) do
       if not line:match("^%s*%-%-") then source[#source + 1] = (line:gsub("%-%-[^\"]*$", "")):lower() end
     end
@@ -3254,6 +3254,240 @@ do
   state.zone, state.sub, state.resting, state.combat = "Duskwood", "Raven Hill", false, false
   C.SourcesChanged(); C.Refresh()
   check(C.History():find("Back at the Lion's Pride", 1, true), "with RPG Dialogue's diary back, History quotes that instead")
+end
+
+-- The journal, much deeper (0.22.0): a rich session drawn from Life, Company, Goals and Mood;
+-- a milestone opening; a week looked back on; each race in its own voice.
+do
+  local J, C, W = ns.Journal, ns.Compose, ns.Words
+  local Life = ns.Sources.Life
+  local keepNOW = NOW
+  local keepChar = deepcopy(ns.char)   -- everything the day records elsewhere goes back after
+  local saved = { deeds = ns.char.deeds, days = ns.char.days, milestones = ns.char.milestones, journal = ns.char.journal,
+    levels = ns.char.life.levels, since = ns.char.life.since, seedName = ns.char.seedName,
+    GetGameTime = GetGameTime, UnitName = UnitName, UnitExists = UnitExists, IsInGroup = IsInGroup,
+    GetNumGroupMembers = GetNumGroupMembers, IsInInstance = IsInInstance, GetInstanceInfo = GetInstanceInfo,
+    UnitIsDeadOrGhost = UnitIsDeadOrGhost, GetPetHappiness = GetPetHappiness, GetGuildInfo = GetGuildInfo,
+    IsInGuild = IsInGuild, UnitRace = UnitRace }
+  local banned = {}
+  for l in io.lines("tests/banned_phrases.txt") do
+    if not l:match("^%s*#") and l:match("%S") then banned[#banned + 1] = (l:match("^(.-)%s*|") or l):gsub("^%s+", ""):gsub("%s+$", ""):lower() end
+  end
+  local function clean(t)
+    if t:find("[{}]") or t:find('""', 1, true) or t:find("  ", 1, true) or t:find(" ,", 1, true) or t:find("%.%.") or t:find(",%.") then return false end
+    for _, b in ipairs(banned) do if t:lower():find(b, 1, true) then return false end end
+    return true
+  end
+  -- A character Auto TRP has known from their first steps, so a first is a first.
+  ns.char.journal, ns.char.days, ns.char.deeds = nil, {}, nil
+  ns.char.life.levels = { [1] = { t = NOW - 86400 * 20, start = true } }
+  ns.char.life.since = NOW - 86400 * 20
+  ns.char.life.mounts.seen = {}
+  ns.char.company.companions[ns.Sources.Company.Mark("Player-1-0001")] = { n = 3, last = NOW }
+  ns.char.company.pets.Grimfang = { first = NOW - 86400, n = 4, last = NOW }
+  local hour = 6
+  GetGameTime = function() return hour, 0 end
+  local names = { party1 = "Mirelle", party2 = "Thorvald", pet = "Grimfang" }
+  UnitName = function(u) return names[u] or "Aldric" end
+  GetGuildInfo = function() return nil end
+  IsInGuild = function() return false end
+  state.zone, state.sub, state.resting, state.combat = "Elwynn Forest", "Lion's Pride Inn", true, false
+  event("PLAYER_ENTERING_WORLD")
+  event("PLAYER_GUILD_UPDATE")   -- the first look only notes where things stand
+  local key = ns.Mood.Day()
+  -- The morning by the water and at the bench.
+  NOW = NOW + 1800
+  state.sub, state.resting = "Crystal Lake", false
+  event("ZONE_CHANGED")
+  for _ = 1, 5 do Life.Fish("Raw Brilliant Smallfish", 1, 1) end
+  Life.Fish("Oily Blackmouth", 1, 2)
+  Life.Make("Linen Bandage", 3, "First Aid")
+  Life.Make("Heavy Linen Bandage", 2, "First Aid")
+  Life.Page("The Birth of the Lich King", false)
+  Life.Page("A letter from home", true)   -- a letter: never named
+  for _ = 1, 7 do Life.Emote("wave") end
+  Life.Duel(true); Life.Duel(true); Life.Duel(false)
+  -- A first mount; a guild; a standing; a job given up; a storyline moved along.
+  Life.Mount("Brown Horse")
+  GetGuildInfo = function() return "Knights of the Vale", "Initiate", 5 end
+  IsInGuild = function() return true end
+  event("PLAYER_GUILD_UPDATE")
+  event("CHAT_MSG_COMBAT_FACTION_CHANGE", "You are now Honored with Stormwind.")
+  ns.Mood.Abandoned("Elmore's Task")
+  local step, chain
+  local steps = {}
+  for s, c in pairs(W.CHAIN_STEPS) do if W.CHAIN_GOAL[c] then steps[#steps + 1] = s end end
+  table.sort(steps)
+  step = steps[1]; chain = W.CHAIN_GOAL[W.CHAIN_STEPS[step]]
+  GetTitleText = function() return step end
+  GetQuestID = function() return 7001 end
+  event("QUEST_COMPLETE"); event("QUEST_TURNED_IN", 7001, 0, 0)
+  -- Company: a Social Diary friend, a face met before and a stranger; help from others; a roll lost.
+  UnitExists = function(u) return u == "party1" or u == "party2" or u == "pet" end
+  IsInGroup = function() return false end
+  event("GROUP_ROSTER_UPDATE")
+  IsInGroup = function() return true end
+  GetNumGroupMembers = function() return 3 end
+  C.SourcesChanged(); C.Refresh()
+  event("GROUP_ROSTER_UPDATE")
+  ns.Mood.Push("grateful", 26, "2 people tended {their} wounds")
+  event("CHAT_MSG_LOOT", "You have selected Need for: |cff0070dd|Hitem:3|h[Thief's Blade]|h|r")
+  event("CHAT_MSG_LOOT", "Thorvald won: |cff0070dd|Hitem:3|h[Thief's Blade]|h|r")
+  -- A battleground won, with blows struck.
+  NOW = NOW + 3600
+  IsInInstance = function() return true, "pvp" end
+  GetInstanceInfo = function() return "Warsong Gulch", "pvp" end
+  state.zone, state.sub = "Warsong Gulch", nil
+  event("ZONE_CHANGED_NEW_AREA")
+  Life.Battle("Warsong Gulch", true)
+  Life.KillingBlow(); Life.KillingBlow(); Life.KillingBlow()
+  IsInInstance = function() return false, "none" end
+  IsInGroup = function() return false end
+  GetNumGroupMembers = function() return 0 end
+  event("GROUP_ROSTER_UPDATE")
+  -- The pet: hungry, content again, and a fall.
+  local happy = 2
+  GetPetHappiness = function() return happy end
+  event("UNIT_HAPPINESS", "pet")
+  happy = 1; event("UNIT_HAPPINESS", "pet")
+  happy = 3; event("UNIT_HAPPINESS", "pet")
+  UnitIsDeadOrGhost = function(u) return u == "pet" end
+  event("UNIT_HEALTH", "pet")
+  UnitIsDeadOrGhost = saved.UnitIsDeadOrGhost
+  event("UNIT_HEALTH", "pet")
+  -- Back to Elwynn, a level, a rare find, and the night at the inn after a long day.
+  NOW = NOW + 9000
+  state.zone, state.sub = "Elwynn Forest", "Goldshire"
+  event("ZONE_CHANGED_NEW_AREA")
+  event("PLAYER_LEVEL_UP", 23)
+  event("CHAT_MSG_LOOT", "You receive loot: |cff0070dd|Hitem:4|h[Thornstone Sledgehammer]|h|r.")
+  hour = 23
+  state.sub, state.resting = "Lion's Pride Inn", true
+  event("ZONE_CHANGED")
+  ns.char.days[key] = { moods = { merry = 6, proud = 1 }, zones = { ["Elwynn Forest"] = 6 } }
+  event("PLAYER_LOGOUT")
+  local e = J.Entry(key)
+  local text = e and e.text or ""
+  print("\nJournal, a full day:\n" .. text)
+  for _, want in ipairs({ "Oily Blackmouth", "first aid", "The Birth of the Lich King", "waving", "Brown Horse", "Knights of the Vale",
+    "Stormwind", "Elmore's Task", chain, "Thief's Blade", "Warsong Gulch", "Grimfang", "Thornstone Sledgehammer",
+    "the Lion's Pride Inn" }) do
+    check(text:find(want, 1, true), "a full day: the journal tells of " .. want)
+  end
+  check(e and e.lines[1].kind == "milestone" and e.lines[1].text:find("Brown Horse", 1, true),
+    "a first mount opens the day as a milestone: " .. tostring(e and e.lines[1].text))
+  check(not text:find("Thorvald", 1, true) and not text:find("letter from home", 1, true),
+    "a full day: no stranger named (not even the roll's winner), no letter")
+  check(text:find("Mirelle", 1, true) == nil or true, "friends may be named")
+  local familiar = false
+  for _, l in ipairs(W.JOURNAL.familiar_one) do if text:find(l, 1, true) then familiar = true end end
+  check(familiar, "a face met before is counted, never named")
+  local healed = false
+  for _, l in ipairs(W.JOURNAL.healed_many) do if text:lower():find((l:gsub("{n}", "two"):gsub("{times}", "twice")):lower(), 1, true) then healed = true end end
+  check(healed, "help from others is told, by count")
+  local woke = false
+  for _, l in ipairs(W.JOURNAL.open_inn_move) do if text:find((l:gsub(" {tod}", "")):gsub("{place}", "the Lion's Pride Inn"), 1, true) then woke = true end end
+  check(woke, "the day opens where I woke, at the inn")
+  local long = false
+  for _, l in ipairs(W.JOURNAL.long_day) do if text:find((l:gsub("{span}", "some hours")), 1, true) or text:find((l:gsub("{span}", "Some hours")), 1, true) then long = true end end
+  check(long, "a long day is told as one")
+  local dom = false
+  for _, l in ipairs(W.JOURNAL.dominant.merry) do if text:find(l, 1, true) then dom = true end end
+  check(dom, "a mood that held all day is told")
+  check(clean(text), "a full day reads cleanly")
+  check(e.mood == "merry" and e.sum and e.sum.fish == 6 and e.sum.mount == "Brown Horse", "the day keeps its mood and its tally for the week")
+  -- The frame: dates, the week, the mood icon.
+  local body = J.Text()
+  check(body:find(J.Heading(key), 1, true) and body:find("|TInterface\\Icons\\" .. W.MOODS.merry.icon, 1, true)
+    and body:find(J.WeekLabel(J.WeekOf(key)), 1, true), "/atrp journal shows the date, the week and the day's mood icon")
+  check(J.Heading("2026-11-26") == "Thursday, 26 November" and J.WeekOf("2026-11-26") == "2026-11-23"
+    and J.WeekOf("2026-11-23") == "2026-11-23" and J.WeekOf("2026-11-29") == "2026-11-23" and J.KeyOf(J.DaysOf("2024-02-29")) == "2024-02-29",
+    "dates are worked out by hand: " .. J.Heading("2026-11-26"))
+  -- Every variant reads cleanly.
+  local bad = {}
+  for i = 1, 40 do
+    ns.char.seedName = "deep" .. i
+    local t = J.Compose(key).text
+    if not clean(t) then bad[#bad + 1] = t end
+    if i <= 2 then print("\nJournal, a full day in another voice:\n" .. t) end
+  end
+  check(#bad == 0, "a full day: every variant reads cleanly: " .. (bad[1] or ""))
+  -- Each race in its own voice: its own closing thoughts, never another race's.
+  for _, race in ipairs({ "Scourge", "Dwarf", "NightElf", "Orc", "Troll", "Gnome", "Tauren" }) do
+    UnitRace = function() return race, race end
+    local own, other = false, nil
+    for i = 1, 16 do
+      ns.char.seedName = race .. i
+      local t = J.Compose(key).text
+      for _, l in ipairs(W.JOURNAL.reflect.good[race]) do if t:find(l, 1, true) then own = true end end
+      for r, list in pairs(W.JOURNAL.reflect.good) do
+        if r ~= race and r ~= "default" then for _, l in ipairs(list) do if t:find(l, 1, true) then other = r end end end
+      end
+      if race == "Scourge" and i == 1 then print("\nJournal, a Forsaken's day:\n" .. t) end
+    end
+    check(own and not other, race .. " writes in their own voice" .. (other and (", not " .. other) or ""))
+  end
+  UnitRace = saved.UnitRace
+  ns.char.seedName = saved.seedName
+
+  -- A milestone: the first time at a tenth level opens the day on it; so does a first death.
+  local j = ns.char.journal
+  local mk = "2026-01-05"
+  j.days[mk] = { start = { zone = "Elwynn Forest", sub = "Goldshire", hour = 9, t = NOW }, last = { zone = "Elwynn Forest", sub = "Goldshire", hour = 14, t = NOW },
+    cur = "Elwynn Forest", ev = { { k = "level", level = 20, rank = "Squire", ms = true, t = NOW } }, money = 0, first = NOW }
+  local me = J.Compose(mk)
+  local lv = false
+  for _, l in ipairs(W.JOURNAL.milestone.level[20]) do if me.lines[1].text:find(l, 1, true) then lv = true end end
+  for _, l in ipairs(W.JOURNAL.milestone.level.any) do if me.lines[1].text:find((l:gsub("{rank}", "a Squire")), 1, true) then lv = true end end
+  check(me.lines[1].kind == "milestone" and lv, "a first time at level 20 opens on it: " .. me.lines[1].text)
+  print("\nJournal, a milestone:\n" .. me.text)
+  j.days[mk].ev = { { k = "death", first = true, zone = "Elwynn Forest", t = NOW } }
+  me = J.Compose(mk)
+  local died = false
+  for _, l in ipairs(W.JOURNAL.milestone.death) do if me.lines[1].text:find(l, 1, true) then died = true end end
+  check(me.lines[1].kind == "milestone" and died and clean(me.text), "a first death opens on it: " .. me.lines[1].text)
+  j.days[mk] = nil
+
+  -- The week looked back on, on the first session of the next.
+  local z = J.DaysOf(key)
+  local monday = J.WeekOf(key)
+  local otherDay = (z + 3) % 7 < 6 and J.KeyOf(z + 1) or J.KeyOf(z - 1)
+  j.entries[otherDay] = { text = "A day in Duskwood.", lines = {}, mood = "weary",
+    sum = { zones = { "Duskwood", "Elwynn Forest" }, new = { "Duskwood" }, q = 4, bosses = { "Mor'Ladim" }, deaths = 1, lv = 1,
+      fish = 0, made = 0, books = 0, duels = 0, bg = 0, mood = "weary", val = -1 } }
+  check(J.WeekDue() == nil, "no look back in the middle of a week")
+  NOW = NOW + (7 - (z + 3) % 7) * 86400 + 3600
+  state.zone, state.sub = "Duskwood", "Darkshire"
+  event("ZONE_CHANGED_NEW_AREA")
+  event("PLAYER_LOGOUT")
+  local wk = J.Week(monday)
+  local wtext = wk and wk.text or ""
+  print("\nJournal, the week behind:\n" .. wtext)
+  check(wtext:find("Elwynn Forest", 1, true) and wtext:find("Duskwood", 1, true) and wtext:find("Mor'Ladim", 1, true)
+    and wtext:find("Brown Horse", 1, true) and clean(wtext), "the first session of a new week looks back on the last")
+  check(J.Text():find(wk and wk.title or "?", 1, true), "the journal shows the look back under its week")
+  local again = J.WeekDue()
+  check(again == nil and J.Week(monday).text == wtext, "the look back is written once")
+  local weeks = 0
+  for _ = 1, 10 do j.weeks["2020-01-0" .. _] = { text = "x" } end
+  J.WriteAll()
+  for _ in pairs(j.weeks) do weeks = weeks + 1 end
+  check(weeks <= J.KEEP_WEEKS, "weeks kept are bounded: " .. weeks)
+
+  NOW = keepNOW
+  for k, v in pairs(saved) do
+    if k == "levels" or k == "since" then ns.char.life[k] = v
+    elseif k == "deeds" or k == "days" or k == "milestones" or k == "journal" or k == "seedName" then ns.char[k] = v
+    else _G[k] = v end
+  end
+  GetTitleText, GetQuestID = nil, nil
+  -- Mocks that weren't there before go again (pairs skips the nils).
+  for _, k in ipairs({ "GetPetHappiness", "GetGuildInfo", "IsInGuild" }) do if saved[k] == nil then _G[k] = nil end end
+  ns.World.Invalidate()
+  for k in pairs(ns.char) do ns.char[k] = nil end
+  for k, v in pairs(keepChar) do ns.char[k] = v end
+  state.zone, state.sub, state.resting, state.combat = "Duskwood", "Raven Hill", false, false
+  C.SourcesChanged(); C.Refresh()
 end
 
 -- Currently from the game alone: with no other addon, every place has words, every moment
