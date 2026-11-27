@@ -155,7 +155,7 @@ local function deathCount(c)
 end
 
 local function sentence(s)
-  s = U.Pron(U.Cap(s))
+  s = U.Cap(U.Pron(s))
   local tail = s:gsub("{/col}$", "")
   if not (tail:find("[%.!%?]$") or tail:find("[%.!%?]\"$")) then s = s .. "." end
   return s
@@ -825,23 +825,96 @@ local function prose(s)
   return (s:gsub("([%.!%?]\"? +)(%l)", function(gap, l) return gap .. l:upper() end))
 end
 
--- A paragraph from sentences; empty ones are skipped.
--- Two sentences in a row that open on a bare "Has" (or "Is") read like a list; the second
--- gets its pronoun back ("Has risen to Templar. He has done good work for Stormwind.").
+-- A third-person verb as pronoun tags that agree with whoever {they} are: "holds" ->
+-- "hold{s}" ("she holds", "they hold"), "is" -> "{are}", "carries" -> "carr{ies}". A past
+-- tense needs nothing. Nil for a word this can't turn.
+local PAST = { saw = true, stood = true, found = true, took = true, came = true, went = true, fought = true, won = true,
+  lost = true, brought = true, made = true, rose = true, got = true, caught = true, left = true, held = true, kept = true,
+  spent = true, sold = true, could = true, would = true }
+local NOT_VERB = { this = true, its = true, thus = true, perhaps = true, always = true, towns = true, days = true,
+  less = true, unless = true, us = true, yes = true, his = true, hers = true, theirs = true, as = true, was = true }
+local function tagVerb(w)
+  local l = w:lower()
+  if l == "is" then return "{are}" elseif l == "isn't" then return "{are}n't" end
+  if l == "has" then return "{have}" elseif l == "hasn't" then return "{have}n't" end
+  if l == "does" then return "{does}" elseif l == "doesn't" then return "{does}n't" end
+  if PAST[l] or l:find("%led$") then return l end
+  if NOT_VERB[l] or not l:find("^%l+s$") or l:find("ss$") or l:find("us$") then return nil end
+  if #l > 4 and l:find("ies$") then return l:sub(1, -4) .. "{ies}" end
+  if l:find("[sxz]es$") or l:find("[cs]hes$") or l:find("oes$") then return l:sub(1, -3) .. "{es}" end
+  return l:sub(1, -2) .. "{s}"
+end
+Compose.TagVerb = tagVerb
+
+-- Verbs that can follow "and" in a sentence whose subject was left out ("Belongs to the
+-- Silver Lanterns and holds the rank..."): once a pronoun goes in front, they agree too.
+local COORD = { has = true, is = true, holds = true, keeps = true, wears = true, travels = true, answers = true,
+  belongs = true, carries = true, counts = true, calls = true, knows = true, goes = true, means = true, seems = true,
+  gets = true, walks = true, believes = true, thinks = true, hopes = true, aims = true, prefers = true, speaks = true,
+  stands = true, moves = true, ["isn't"] = true, ["doesn't"] = true }
+
+-- "Holds the rank of lamplighter", after another "Holds...", becomes "She holds the rank of
+-- lamplighter" ("They hold..."): the subject back in, and the verbs agreeing with it.
+local function withSubject(s, name)
+  local w, rest = s:match("^(%a[%a']*)(.*)$")
+  if not w then return nil end
+  if name and w == name then
+    local v, rest2 = rest:match("^ (%a[%a']*)(.*)$")
+    if not v then return nil end
+    w, rest = v, rest2
+  end
+  local t = tagVerb(w)
+  if not t then return nil end
+  rest = rest:gsub("( and )(%l[%a']*)", function(a, v) if COORD[v] then return a .. tagVerb(v) end end)
+  return "{they} " .. t .. rest
+end
+
+-- A paragraph from sentences; empty ones are skipped. Two sentences in a row that open on
+-- the same word read like a list, so the second gets its subject back ("Has risen to
+-- Templar. He has done good work for Stormwind.").
 local function paragraph(list)
   local out = {}
   local last
+  local name = firstName()
   for _, s in ipairs(list) do
     if s and s ~= "" then
-      local w = s:match("^(%a+) ")
-      if w == last and w == "Has" then s = "{they} {have} " .. s:sub(5); w = nil
-      elseif w == last and w == "Is" then s = "{they} {are} " .. s:sub(4); w = nil end
+      local w = s:match("^(%a[%a']*)")
+      if w and w == last then
+        local fixed = withSubject(s, name)
+        if fixed then s = fixed; w = "{they}" end
+      end
       last = w
       out[#out + 1] = sentence(s)
     end
   end
   if #out == 0 then return nil end
   return prose(table.concat(out, " "))
+end
+
+-- How many sentences a list for paragraph() holds.
+local function count(list)
+  local n = 0
+  for _, s in ipairs(list or {}) do if s and s ~= "" then n = n + 1 end end
+  return n
+end
+
+-- Lists for paragraph(), each short one (a single sentence) folded into the one before
+-- while the two together stay within `most` sentences: a one-line paragraph reads like an
+-- afterthought. Returns the paragraphs written.
+local function folded(lists, most)
+  local out = {}
+  for i = 1, table.maxn(lists) do
+    local l = lists[i]
+    if type(l) == "table" and count(l) > 0 then
+      local prev = out[#out]
+      local copy = {}
+      for _, x in ipairs(l) do if x ~= "" then copy[#copy + 1] = x end end
+      if prev and #copy == 1 and #prev + 1 <= most then prev[#prev + 1] = copy[1]
+      else out[#out + 1] = copy end
+    end
+  end
+  for i, l in ipairs(out) do out[i] = paragraph(l) end
+  return out
 end
 
 local function pages(paras)
@@ -1056,7 +1129,7 @@ function Compose.Bearing()
     for _, h in ipairs(Compose.Habits(2)) do after[#after + 1] = h end
     after[#after + 1] = Compose.BooksLine()
     after[#after + 1] = Compose.WeekTone()
-    return pages({ paragraph(temperLines()), paragraph(after) })
+    return pages(folded({ temperLines(), after }, 6))
   end
 
   -- Temperament and conscience
@@ -1079,7 +1152,20 @@ function Compose.Bearing()
   -- Beliefs, and where they have shifted
   local views = {}
   local ops = opinions(rpgd, 3)
-  if #ops > 0 then views[#views + 1] = U.Join(ops) end
+  if #ops > 0 then
+    -- After a paragraph that opened on the name, the views open on the pronoun, the verbs
+    -- agreeing with it ("He keeps faith in the Light", "They keep faith...").
+    if #first > 0 then
+      for i, o in ipairs(ops) do
+        local w, rest = o:match("^(%S+)(.*)$")
+        local t = w and tagVerb(w)
+        if t then ops[i] = t .. rest end
+      end
+      views[#views + 1] = "{they} " .. U.Join(ops)
+    else
+      views[#views + 1] = name .. " " .. U.Join(ops)
+    end
+  end
   for _, o in ipairs(rpgd.opinions) do
     local topic = o.topic ~= "peace" and topicName(o.topic)
     if o.changed and topic then
@@ -1115,7 +1201,16 @@ function Compose.Bearing()
   -- and race fill in above, and how the week has gone closes it.
   if rpgd.own then more[#more + 1] = Compose.WeekTone() end
 
-  return pages({ paragraph(first), #views > 0 and paragraph({ name .. " " .. views[1], views[2] }) or nil, paragraph(more), stories })
+  -- Beliefs and the rest of the inner life share a paragraph while it stays short; a lone
+  -- line joins the one before. The stories close it, on their own.
+  local lists = { first, views, more }
+  if count(views) + count(more) <= 5 then
+    for _, m in ipairs(more) do views[#views + 1] = m end
+    lists[3] = nil
+  end
+  local paras = folded(lists, 5)
+  paras[#paras + 1] = stories
+  return pages(paras)
 end
 
 -- "Kobold Miner" -> "Kobold Miners", "Wolf" -> "Wolves", "Harpy" -> "Harpies"
@@ -1183,6 +1278,14 @@ function Compose.Drives()
   end
   if #lines == 0 then return nil end
   lines[1] = firstName() .. " " .. (lines[1]:gsub("^%u", string.lower))
+  -- "Has a rogue's first lessons ahead. Is nearly at level forty-six." reads as a list: the
+  -- last two share a sentence when both leave the subject out.
+  local a, b = lines[2], lines[3]
+  local function bare(l) local w = l and l:match("^(%u[%a']*) ") return w and tagVerb(w) end
+  if bare(a) and bare(b) then
+    lines[2] = a:gsub("%.$", "") .. ", and " .. b:gsub("^%u", string.lower)
+    lines[3] = nil
+  end
   return paragraph(lines)
 end
 
@@ -1258,6 +1361,17 @@ end
 
 local function guildName(g) return g:find("^The ") and U.Mid(g) or g end
 
+-- A run of things done, joined; once one of them has its own "and" ("got caught up in A and
+-- B"), the last is set off with a comma so the run doesn't read as one long list.
+local function joinRun(list)
+  local n = #list
+  if n < 2 then return U.Join(list) end
+  for _, x in ipairs(list) do
+    if x:find(" and ", 1, true) then return table.concat(list, ", ", 1, n - 1) .. ", and " .. list[n] end
+  end
+  return U.Join(list)
+end
+
 -- History, in five paragraphs. The first and the last two hold what lasts: where they
 -- came from and the road, the people, how things stand. The second is the news (the last
 -- three weeks, newest first, and what has changed). The third is the longer record: the
@@ -1267,7 +1381,6 @@ function Compose.History()
   local rpgd, chron, sd, world = Compose.Persona(c), c.chronicle, c.sd, c.world
   local name = firstName()
   local now = U.Now()
-  local paras = {}
   local race = W.RACE_NOUN[world.race or ""]
   local noun = W.CLASS_NOUN[world.class or ""]
   local what = race and noun and (article(race) .. " " .. noun) or nil
@@ -1276,6 +1389,7 @@ function Compose.History()
 
   -- 1. Where it began, and the road since
   local roots = {}
+  local saidPlace = {}   -- places the roots have named, to say "there" after
   if rpgd and rpgd.origin and rpgd.origin.name then
     local o = rpgd.origin.name
     local first = o:match("^(%a+)")
@@ -1287,23 +1401,30 @@ function Compose.History()
     local home = W.RACE_HOME[world.race or ""]
     if what then
       roots[#roots + 1] = name .. " is " .. what .. (home and (" who started out in " .. home) or "")
+      if home then saidPlace[home] = true end
     end
   end
   -- The trainer it began with (Auto TRP saw it), or the one gone back to.
   local start = rpgd and rpgd.start
   if start and start.trainer and start.zone and not (rpgd.origin and rpgd.origin.name) then
-    roots[#roots + 1] = say(start.first and "trainer_first" or "trainer_usual", { who = start.trainer, place = placeName(start.zone) }, start.trainer)
+    local place = placeName(start.zone)
+    local line = say(start.first and "trainer_first" or "trainer_usual", { who = start.trainer, place = place }, start.trainer)
+    -- "...who started out in Elwynn Forest. Had his first lessons from Priestess Josetta there."
+    if saidPlace[place] then line = line:gsub(" in " .. (place:gsub("%p", "%%%0")) .. "$", " there") end
+    saidPlace[place] = true
+    roots[#roots + 1] = line
   end
   local zones = (rpgd and #rpgd.zones > 0 and rpgd.zones) or (c.deeds and c.deeds.zones) or {}
   local zoneCount = math.max(#zones, chron and chron.zones or 0)
   if zoneCount >= 3 and zones[1] then
     local since = math.min(zones[1].t or math.huge, chron and chron.created or math.huge)
     local weeks = since < math.huge and math.floor((now - since) / 604800) or 0
-    local ago = weeks >= 9 and (U.Number(math.floor(weeks / 4.3)) .. " months ago")
-      or weeks >= 2 and (U.Number(weeks) .. " weeks ago") or nil
+    local span = weeks >= 9 and (U.Number(math.floor(weeks / 4.3)) .. " months")
+      or weeks >= 2 and (U.Number(weeks) .. " weeks") or nil
     local dungeons = math.max(chron and chron.dungeons or 0, c.deeds and c.deeds.dungeons or 0)
-    roots[#roots + 1] = "From " .. placeName(zones[1].name) .. (ago and (", " .. ago .. ",") or "")
-      .. " {their} road has led through " .. U.Number(zoneCount) .. " lands"
+    local from = placeName(zones[1].name)
+    roots[#roots + 1] = (span and ("Over the last " .. span .. ", ") or "")
+      .. "{their} road has led " .. (saidPlace[from] and "" or ("from " .. from .. " ")) .. "through " .. U.Number(zoneCount) .. " lands"
       .. (dungeons >= 2 and (" and down into " .. U.Number(dungeons) .. " dungeons") or "")
   elseif (world.level or 1) < 10 then
     roots[#roots + 1] = say("setout", { name = name })
@@ -1321,7 +1442,6 @@ function Compose.History()
     if title and (world.level or 1) >= 10 and not risen then roots[#roots + 1] = say("rankso", { rank = title }) end
     if world.zone then roots[#roots + 1] = say("keepsto", { zone = placeName(world.zone) }, world.zone) end
   end
-  paras[#paras + 1] = paragraph(roots)
 
   -- 2. Lately: what happened in the last three weeks, and what changed. Each event is a
   -- past-tense predicate ("reached Duskwood for the first time"), grouped by how long ago
@@ -1503,11 +1623,10 @@ function Compose.History()
         if place and said[place] then list[k] = head elseif place then said[place] = true end
       end
     end
-    lately[#lately + 1] = say("when_" .. order[i], nil, g[1].key) .. ", " .. subject .. " " .. U.Join(preds)
-    if #more > 0 then lately[#lately + 1] = "{they} also " .. U.Join(more) end
+    lately[#lately + 1] = say("when_" .. order[i], nil, g[1].key) .. ", " .. subject .. " " .. joinRun(preds)
+    if #more > 0 then lately[#lately + 1] = "{they} also " .. joinRun(more) end
     subject = "{they}"
   end
-  paras[#paras + 1] = paragraph(lately)
 
   -- 3. The longer record: the name and the deed behind it (these stay), then what came
   -- before the news, briefly.
@@ -1563,7 +1682,9 @@ function Compose.History()
     if #life.inns >= 5 then older[#older + 1] = "rested at " .. U.Number(#life.inns) .. " different inns" end
     if life.paths >= 10 then older[#older + 1] = "found the flight masters in " .. U.Number(life.paths) .. " places" end
     local most = math.floor(math.max(life.money.most or 0, type(world.money) == "number" and world.money or 0) / 10000)
-    if most >= 100 then older[#older + 1] = "had as much as " .. U.Number(most) .. " gold to {their} name at once" end
+    -- Not when what they hold now is most of it: how well off they are is told at the end.
+    local holding = type(world.money) == "number" and world.money / 10000 or 0
+    if most >= 100 and holding < most * 0.8 then older[#older + 1] = "had as much as " .. U.Number(most) .. " gold to {their} name at once" end
     local paid = math.floor((life.money.quests or 0) / 10000)
     if paid >= 50 then older[#older + 1] = "been paid " .. U.Number(paid) .. " gold for {their} jobs" end
     local mend = math.floor((life.money.repairs or 0) / 10000)
@@ -1579,12 +1700,12 @@ function Compose.History()
     older[#older + 1] = "risen to " .. U.Join(steps)
   end
   if #older > 0 then
-    local lead = #lately > 0 and say("before", nil, older[1]) or say("alongtheway", nil, older[1])
+    local lead = say("alongtheway", nil, older[1])
     -- Three at most to a sentence; the rest start another.
     local a, b = {}, {}
     for k, s in ipairs(older) do if k <= 3 then a[#a + 1] = s elseif k <= 6 then b[#b + 1] = s end end
-    record[#record + 1] = lead .. " {they've} " .. U.Join(a)
-    if #b > 0 then record[#record + 1] = "{they've} also " .. U.Join(b) end
+    record[#record + 1] = lead .. " {they've} " .. joinRun(a)
+    if #b > 0 then record[#record + 1] = "{they've} also " .. joinRun(b) end
   end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
   local crafts = {}
@@ -1626,7 +1747,6 @@ function Compose.History()
     end
   end
   if #oldFinds > 0 then record[#record + 1] = say("finds", { list = U.Join(oldFinds) }, finds[1].item) end
-  paras[#paras + 1] = paragraph(record)
 
   -- 4. The people: friends, the company they keep, their pet, their guild, standing.
   -- Other players are only ever counted; Social Diary friends are named when allowed.
@@ -1653,6 +1773,10 @@ function Compose.History()
       .. (partner and (", and travels with " .. partner) or "")
   elseif partner then
     people[#people + 1] = name .. " travels with " .. partner
+  end
+  -- The one they don't get on with, beside the ones they do.
+  if rpgd and rpgd.rivals[1] then
+    people[#people + 1] = say("rival", { who = rpgd.rivals[1].name }, rpgd.rivals[1].name)
   end
   -- How they go about: alone or in company, and who has shared the road (counts only).
   local sol = co.solitude or {}
@@ -1714,6 +1838,7 @@ function Compose.History()
       if #before > 0 then people[#people + 1] = cw("h_pets_before", { pet = cur.name, list = U.Join(before) }, cur.name) end
     end
   end
+  local standing = {}
   if rpgd then
     local good, bad = {}, nil
     for _, t in ipairs(rpgd.towns) do
@@ -1722,9 +1847,9 @@ function Compose.History()
     local worst = rpgd.towns[#rpgd.towns]
     if worst and worst.value <= -20 then bad = (ns.Sources.RPGD.Tier(worst.value).phrase:gsub("{town}", worst.name)) end
     if #good > 0 then
-      people[#people + 1] = U.Cap(U.Join(good)) .. (bad and (", though " .. bad) or "")
+      standing[#standing + 1] = U.Cap(U.Join(good)) .. (bad and (", but " .. bad) or "")
     elseif bad then
-      people[#people + 1] = U.Cap(bad)
+      standing[#standing + 1] = U.Cap(bad)
     end
   end
   local byWord = {}
@@ -1736,7 +1861,13 @@ function Compose.History()
   for _, w in ipairs({ "Exalted", "Revered", "Honored" }) do
     for _, fa in ipairs(byWord[w] or {}) do if #served < 3 then served[#served + 1] = fa end end
   end
-  local serve = #served > 0 and ("has done good work for " .. U.Join(served)) or nil
+  local serve = #served > 0 and ("Has done good work for " .. U.Join(served)) or nil
+  -- The factions served go with a short line about the towns ("Is liked in Goldshire, and
+  -- has done good work for Stormwind"), else with the guild, else on their own.
+  local town = standing[1]
+  if town and serve and not town:find(" and ", 1, true) and not town:find(", but ", 1, true) then
+    standing[1], serve = town .. ", and " .. serve:gsub("^%u", string.lower), nil
+  end
   if world.guild then
     -- How long they've worn the colours: from when Auto TRP saw them join, or at least as
     -- long as it has been watching.
@@ -1756,21 +1887,20 @@ function Compose.History()
     else
       line = cw("h_guild_now", vars, world.guild)
     end
-    if line then people[#people + 1] = line .. (serve and (", and " .. serve) or "")
-    elseif serve then people[#people + 1] = U.Cap(serve) end
-  elseif serve then
-    people[#people + 1] = U.Cap(serve)
+    -- The factions served join a short guild line; after "...and holds the rank of X
+    -- there" they start a sentence of their own.
+    if line and serve and not line:find(" and ", 1, true) then
+      line, serve = line .. ", and " .. serve:gsub("^%u", string.lower), nil
+    end
+    standing[#standing + 1] = line
   end
+  standing[#standing + 1] = serve
   if world.pvpRank then
-    people[#people + 1] = "Holds the rank of " .. world.pvpRank .. " in the " .. (world.faction or "faction") .. "'s army"
-  end
-  if rpgd and rpgd.rivals[1] then
-    people[#people + 1] = say("rival", { who = rpgd.rivals[1].name }, rpgd.rivals[1].name)
+    standing[#standing + 1] = "Holds the rank of " .. world.pvpRank .. " in the " .. (world.faction or "faction") .. "'s army"
   end
   if sd and #sd.foes > 0 then
     people[#people + 1] = say("foes", { what = #sd.foes == 1 and "an enemy" or (U.Number(#sd.foes) .. " enemies") }, #sd.foes)
   end
-  paras[#paras + 1] = paragraph(people)
 
   -- 5. How things stand now
   local nowLines = {}
@@ -1790,9 +1920,27 @@ function Compose.History()
   elseif ns.Journal then
     nowLines[#nowLines + 1] = ns.Journal.LatestLine(quote)   -- Auto TRP's own journal (Journal.lua)
   end
-  paras[#paras + 1] = paragraph(nowLines)
-  paras[6] = Compose.Drives()   -- 6. What drives them
 
+  -- One life, in order: where it began and the road since; the longer record; the news;
+  -- the people, and where they stand; how things are now, and what drives them. A lone
+  -- line joins the paragraph before it; the people and their standing share one while
+  -- it stays short.
+  if count(people) + count(standing) <= 5 then
+    for _, l in ipairs(standing) do people[#people + 1] = l end
+    standing = {}
+  end
+  local paras = folded({ roots, record }, 6)
+  for _, l in ipairs(folded({ lately }, 6)) do paras[#paras + 1] = l end
+  for _, l in ipairs(folded({ people, standing }, 6)) do paras[#paras + 1] = l end
+  -- What drives them closes it, after how things stand, in one paragraph when that is short.
+  local drives = Compose.Drives()
+  local nowPara = paragraph(nowLines)
+  if nowPara and drives and count(nowLines) <= 2 then
+    paras[#paras + 1] = nowPara .. " " .. drives
+  else
+    paras[#paras + 1] = nowPara
+    paras[#paras + 1] = drives
+  end
   return pages(paras)
 end
 
@@ -1815,21 +1963,21 @@ end
 
 -- Pronoun and verb tags are left for U.Pron; any other {tag} must be filled.
 local PRON_TAGS = { they = true, them = true, their = true, themselves = true, ["they've"] = true, ["they're"] = true,
-  s = true, es = true, ies = true, are = true, have = true }
+  ["they'd"] = true, s = true, es = true, ies = true, are = true, have = true, does = true }
 
 -- One line of a list, picked per character and key, with only the lines whose tags are known.
 local function fillPick(list, vars, key)
   local ok = {}
   for _, t in ipairs(type(list) == "table" and list or {}) do
     local whole = true
-    for k in t:gmatch("{([%a']+)}") do
+    for k in t:gmatch("{([%w']+)}") do
       if not PRON_TAGS[k] and (not vars or vars[k] == nil) then whole = false end
     end
     if whole then ok[#ok + 1] = t end
   end
   if #ok == 0 then return nil end
   local line = U.Pick(ok, seed("phys:" .. key))
-  return (line:gsub("{([%a']+)}", function(k) if not PRON_TAGS[k] then return vars[k] end end))
+  return (line:gsub("{([%w']+)}", function(k) if not PRON_TAGS[k] then return vars[k] end end))
 end
 
 -- "Walks with Staff of Westfall, a staff": when the weapon's own name already says what it
@@ -1971,7 +2119,9 @@ function Compose.GearParts(world, fmt)
     for _, id in ipairs(ench) do
       if id == 16 and s[16] then
         out.enchantWeapon = fillPick(E.weapon, { main = name(16) }, "enchw")
-        out.enchantIt = out.named[16] and fillPick(E.it, nil, "enchit") or out.enchantWeapon
+        -- "It" only when the weapon was the last thing named, not a shield or a second blade.
+        local alone = key == "twohand" or key == "staff" or key == "one"
+        out.enchantIt = out.named[16] and alone and fillPick(E.it, nil, "enchit") or out.enchantWeapon
       elseif s[id] then others[#others + 1] = id end
     end
     local parts = {}
@@ -2113,8 +2263,10 @@ function Compose.Physical()
   local p = Compose.GearParts(world, itemName)
   local dress = {}
   local function add(line) if line then dress[#dress + 1] = line end end
-  for _, k in ipairs({ "armour", "quality", "outfit", "layers", "set", "arms", "enchantIt", "ranged", "enchant", "jewel",
-    "finest", "light", "fit" }) do add(p[k]) end
+  -- What they wear, then what they carry: two paragraphs when there is a lot of both.
+  for _, k in ipairs({ "armour", "quality", "outfit", "layers", "set", "light", "fit" }) do add(p[k]) end
+  local worn = #dress
+  for _, k in ipairs({ "arms", "enchantIt", "ranged", "enchant", "jewel", "finest" }) do add(p[k]) end
   local wear = Compose.Wear(world)
   add(wear and wear.text)
   local bag = {}
@@ -2128,7 +2280,7 @@ function Compose.Physical()
   -- Nothing worn the game can name: the kit line, as the glance has it
   if not (p.armour or p.outfit or p.arms or p.ranged) then
     local k = kit(world, false, itemName)
-    if k then table.insert(dress, 1, k) end
+    if k then table.insert(dress, 1, k); worn = worn + 1 end
   end
 
   -- How they are right now: up to four things, the most striking first
@@ -2143,7 +2295,14 @@ function Compose.Physical()
   end
   if #now == 0 and not world.dead and (world.health or 1) >= 0.8 then now[1] = fillPick(W.PHYS_UNHURT, nil, "unhurt") end
 
-  return pages({ paragraph(body), paragraph(dress), paragraph(now) })
+  local carried = {}
+  if #dress > 6 and worn >= 2 and #dress - worn >= 2 then
+    for i = worn + 1, #dress do carried[#carried + 1] = dress[i]; dress[i] = nil end
+  end
+  -- A lone line about their kit joins the paragraph before; how they are now stays apart.
+  local paras = folded({ body, dress, carried }, 6)
+  paras[#paras + 1] = paragraph(now)
+  return pages(paras)
 end
 
 ---------------------------------------------------------------------------

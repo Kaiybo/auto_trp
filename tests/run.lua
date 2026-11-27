@@ -1077,7 +1077,8 @@ do
   }, "WARRIOR", 58)
   print("\nPhysical (warrior, plate):\n" .. ph .. "\nMarks: " .. mk.TI .. ": " .. mk.TX)
   local txt = plain(ph)
-  check(select(2, ph:gsub("\n\n", "")) == 2, "Physical is three paragraphs")
+  local np = select(2, ph:gsub("\n\n", ""))
+  check(np == 2 or np == 3, "Physical is three paragraphs, or four with a lot worn and carried: " .. np)
   check(txt:find("plate"), "armour by type: plate")
   check(txt:find("Arcanite Reaper, a great axe") , "a two-hander by name and kind: " .. txt)
   check(txt:find("Battlegear of Valor") and txt:lower():find("six"), "matched set by name and count")
@@ -1906,7 +1907,7 @@ do
   local paras = 1
   for _ in h:gmatch("\n\n") do paras = paras + 1 end
   check(paras >= 5, "History has all its paragraphs: " .. paras)
-  check(h:find("Priestess Josetta in Elwynn Forest", 1, true), "History tells where the training began")
+  check(h:find("from Priestess Josetta there", 1, true) or h:find("Priestess Josetta in Elwynn Forest", 1, true), "History tells where the training began: " .. h:match("^[^\n]*"))
   check(h:find("saw the gnoll raids on Elwynn's border through to the end", 1, true), "a storyline seen through is news")
   check(h:find("Innkeeper Farley", 1, true) and h:find("liked in Goldshire", 1, true), "History names the people and the town")
   check(sh.fulltitle == "Lightsworn, Friend of Goldshire", "the Full title has alignment and standing: " .. tostring(sh.fulltitle))
@@ -2620,7 +2621,8 @@ do
   local drives = C.Drives()
   check(drives:find("^Aldric ") and drives:find("Defias business") and drives:find("Deadmines") and not drives:find("horse"),
     "Drives: the top three: " .. drives)
-  check(select(2, drives:gsub("%. ", "")) == 2, "Drives is three sentences")
+  local nd = select(2, drives:gsub("%. ", ""))
+  check(nd == 1 or nd == 2, "Drives is three things in two or three sentences: " .. drives)
 
   -- The extras: a Chronicle goal outranks the everyday but not a chain; an RPG Dialogue story.
   ChronicleCharDB = keep[3]

@@ -399,7 +399,8 @@ function U.BackedList(list, world)
   return out
 end
 
--- Fills {they} {them} {their} {themselves} {they've} {they're} in word lists.
+-- Fills {they} {them} {their} {themselves} {they've} {they're} {they'd} in word lists, and the
+-- verbs that agree with them: {are} {have} {does} and the endings {s} {es} {ies}.
 function U.Pron(text)
   if type(text) ~= "string" or not text:find("{") then return text end
   local p = U.Pronouns()
@@ -408,7 +409,8 @@ function U.Pron(text)
     they = p.sub, them = p.obj, their = p.pos, themselves = reflexive,
     ["they've"] = p.sub == "they" and "they've" or (p.sub .. "'s"),
     ["they're"] = p.sub == "they" and "they're" or (p.sub .. "'s"),
-    are = p.be, have = p.has,
+    ["they'd"] = p.sub .. "'d",
+    are = p.be, have = p.has, does = p.does,
     -- Verb endings after {they}: "{they} walk{s}" reads "they walk" or "she walks".
     s = p.s, es = p.s == "s" and "es" or "",
     ies = p.s == "s" and "ies" or "y",
