@@ -401,6 +401,7 @@ local OPTIONS = {
   { path = { "sources", "chronicle" }, label = "Chronicle" },
   { head = "Details" },
   { path = { "diaryExcerpt" }, label = "Quote your latest diary entry in History" },
+  { path = { "journalInProfile" }, label = "Quote your Auto TRP journal in History and Lately when nothing's fresher (/atrp journal)" },
   { path = { "richText" }, label = "Colour quotes and item names on the About page" },
   { path = { "chronicleGoals" }, label = "Share your open Chronicle goal as an ambition" },
   { path = { "nameFriends" }, label = "Name the players you marked as friends in Social Diary" },
@@ -697,6 +698,7 @@ local HELP = {
   "|cffffd100/atrp slot <glance> <1-5|0>|r: move a glance (mood, lately, company, ambition, marks) to another slot, or 0 to drop it",
   "|cffffd100/atrp badge|r: show or hide the mood badge",
   "|cffffd100/atrp days|r: the mood journal, the last week of feelings and places",
+  "|cffffd100/atrp journal|r: your character's journal, a day's entry written from each session (|cffffd100/atrp journal today|r prints today's in chat)",
   "|cffffd100/atrp names|r: every name you've earned, and what for",
   "|cffffd100/atrp spells|r: the spells and abilities you cast most",
   "|cffffd100/atrp name <number|auto>|r: wear one of your earned names (|cffffd100auto|r: the greatest deed's)",
@@ -871,6 +873,8 @@ SlashCmdList.AUTOTRP = function(msg)
     UI.Update(true)
   elseif cmd == "days" then
     UI.ListDays()
+  elseif cmd == "journal" then
+    if arg == "today" then ns.Journal.PrintToday() else ns.Journal.Show() end
   elseif cmd == "all" and (arg == "on" or arg == "off") then
     UI.SetAllOptions(arg == "on")
     ns.Print(arg == "on" and "Every option switched on." or "Every option switched off.")

@@ -127,3 +127,13 @@ bedecked
 donned
 sporting
 head to toe
+
+# Clichés retired in 0.21.0
+strip paint
+storm about to break
+twice as hard
+easy grace
+da voodoo
+child at a fair
+reach the eyes
+weighs nothing
