@@ -93,6 +93,7 @@ function World.Gear()
   g.armor = chest and W.ARMOR[chest]
   local _, _, main = slot(16)
   g.main = main and W.WEAPONS[main]
+  g.mainType = main
   local _, _, off = slot(17)
   g.off = off and W.WEAPONS[off]
   local _, _, ranged = slot(18)
@@ -201,16 +202,14 @@ function World.Professions()
   return out
 end
 
--- Druid, shaman and priest shapes.
-local FORMS = {
-  ["Bear Form"] = "in the shape of a great bear", ["Dire Bear Form"] = "in the shape of a great bear",
-  ["Cat Form"] = "in the shape of a prowling cat", ["Travel Form"] = "in the shape of a running stag",
-  ["Aquatic Form"] = "in the shape of a sleek sea lion", ["Moonkin Form"] = "in moonkin form, feathers ruffled",
-  ["Ghost Wolf"] = "running as a ghost wolf", ["Shadowform"] = "wreathed in shadow",
+-- Druid, shaman and priest shapes, by the aura's (or the stance bar's) English name.
+local FORM_KEYS = {
+  ["Bear Form"] = "bear", ["Dire Bear Form"] = "bear", ["Cat Form"] = "cat", ["Travel Form"] = "travel",
+  ["Aquatic Form"] = "aquatic", ["Moonkin Form"] = "moonkin", ["Ghost Wolf"] = "ghostwolf", ["Shadowform"] = "shadowform",
 }
-function World.Form(auras)
-  for name, phrase in pairs(FORMS) do
-    if auras and auras.names and auras.names[name] then return phrase end
+function World.FormKey(auras)
+  for name, key in pairs(FORM_KEYS) do
+    if auras and auras.names and auras.names[name] then return key end
   end
   local idx = call("GetShapeshiftForm")
   if type(idx) == "number" and idx > 0 then
@@ -220,9 +219,16 @@ function World.Form(auras)
     if not name and type(fourth) == "number" then
       name = (C_Spell and C_Spell.GetSpellName and U.Call(C_Spell.GetSpellName, fourth)) or call("GetSpellInfo", fourth)
     end
-    return FORMS[World.Safe(name) or ""]
+    return FORM_KEYS[World.Safe(name) or ""]
   end
   return nil
+end
+-- The shape as a phrase ("in the shape of a great bear"), one of several by seed.
+function World.Form(auras, seed)
+  local key = World.FormKey(auras)
+  local list = key and W.FORM_LINES and W.FORM_LINES[key]
+  if not list then return nil end
+  return seed and U.Pick(list, seed .. "form" .. key) or list[1]
 end
 
 ---------------------------------------------------------------------------
@@ -316,6 +322,7 @@ function World.Snapshot()
     World.slow = slow
   end
   s.factions, s.professions, s.gear, s.reagents = slow.factions, slow.professions, slow.gear, slow.reagents or {}
+  s.formKey = World.FormKey(s.auras)
   s.form = World.Form(s.auras)
   local guild, guildRank = call("GetGuildInfo", "player")
   s.guild, s.guildRank = U.Plain(World.Safe(guild)), U.Plain(World.Safe(guildRank))
@@ -324,6 +331,7 @@ function World.Snapshot()
   s.raid = call("IsInRaid") and true or false
   s.away = call("UnitIsAFK", "player") and true or false
   s.context = World.Context()
+  World.MomentState(s)
   return s
 end
 
@@ -347,7 +355,8 @@ World.CONTEXT_SECONDS = 180
 
 -- Some moments are brief.
 local CONTEXT_LENGTH = { shadowmeld = 30, cannibalize = 30, hearth = 20, portal = 90, mining = 60, herbs = 60,
-  skinning = 45, disenchant = 45, lockpick = 30, pickpocket = 30 }
+  skinning = 45, disenchant = 45, lockpick = 30, pickpocket = 30, map = 45, teleport = 30, trade = 60, follow = 900,
+  feedpet = 45, spirithealer = 60 }
 
 function World.SetContext(kind, detail)
   context = { kind = kind, detail = detail, t = U.Now() }
@@ -433,6 +442,8 @@ ns.OnUnit("UNIT_SPELLCAST_SUCCEEDED", "player", function(_, _, _, spellID)
   World.CountCast(name, spellID)
   local dest = name:match("^Portal: (.+)$")
   if dest then World.SetContext("portal", dest); if ns.UI then ns.UI.Poke(false) end return end
+  local tele = name:match("^Teleport: (.+)$")
+  if tele then World.SetContext("teleport", tele); if ns.UI then ns.UI.Poke(false) end return end
   local def = W.SPELLS[name]
   if not def then return end
   if def.context then World.SetContext(def.context) end
@@ -466,83 +477,249 @@ local function petPhrase(s, seed)
   return U.Pron((p:gsub("{pet}", function() return s.pet end):gsub("{kind}", function() return (s.petKind or "companion"):lower() end)))
 end
 
--- "resting at the Lion's Pride Inn in Goldshire" etc. Never the exact spot in the open
--- world: a profile is public, and "around Goldshire" is plenty.
--- terse: leave out the form and the pet (when Currently would run long).
-function World.Activity(s, seed, terse)
+
+
+---------------------------------------------------------------------------
+-- CURRENTLY: the moment, as the game shows it. More of what the game says right now
+-- (queues, breath, a fall, a ship, a sign hung out), the hooks that notice what you're
+-- busy with, and the pieces Currently is written from.
+---------------------------------------------------------------------------
+local mirror = {}
+World.mirror = mirror
+local function poke() if ns.UI and ns.UI.Poke then ns.UI.Poke(false) end end
+
+function World.ClearContext(kind)
+  if context and (not kind or context.kind == kind) then context = nil end
+end
+
+-- The first battleground you're queued for, by name.
+function World.Queued()
+  local max = call("GetMaxBattlefieldID")
+  if type(max) ~= "number" then max = 3 end
+  for i = 1, math.min(max, 5) do
+    local status, name = call("GetBattlefieldStatus", i)
+    if status == "queued" and type(name) == "string" then return U.Plain(name) end
+  end
+  return nil
+end
+
+-- Cheap reads added to the snapshot: flags, a fall, breath, the sea, a queue, a pole.
+function World.MomentState(s)
+  s.dnd = call("UnitIsDND", "player") and true or false
+  s.falling = call("IsFalling") and true or false
+  if not s.swimming then mirror.BREATH, mirror.EXHAUSTION = nil, nil end
+  s.underwater = mirror.BREATH and true or false
+  s.fatigue = mirror.EXHAUSTION and true or false
+  s.queued = World.Queued()
+  s.capital = W.CAPITAL_ZONES[s.zoneKey or ""] or false
+  local sea = (W.SEA_ZONES[s.zoneKey or ""] and s.zone) or (W.SEA_ZONES[s.subzone or ""] and s.subzone)
+  if sea and not s.swimming and not s.dead and not s.taxi then
+    s.sea = sea
+    -- The Horde crosses between the continents by zeppelin; the boat out of Booty Bay sails the South Seas.
+    s.transport = (s.faction == "Horde" and sea ~= "South Seas") and "zeppelin" or "ship"
+  end
+  local g = s.gear
+  if g and g.mainType == "Fishing Poles" and g.names and g.names[16] then s.pole = g.names[16] end
+  local names = s.auras and s.auras.names or {}
+  s.prowling = names["Prowl"] and true or false
+  s.rogueStealth = names["Stealth"] and true or false
+end
+
+ns.On("MIRROR_TIMER_START", function(_, timer)
+  if timer == "BREATH" or timer == "EXHAUSTION" then mirror[timer] = true; poke() end
+end)
+ns.On("MIRROR_TIMER_STOP", function(_, timer)
+  if timer == "BREATH" or timer == "EXHAUSTION" then mirror[timer] = nil; poke() end
+end)
+-- Frames the game opens for you: who you're dealing with, never their name.
+for event, kind in pairs({ BARBER_SHOP_OPEN = "barber", PET_STABLE_SHOW = "stable", CONFIRM_BINDER = "innkeeper",
+  GUILDBANKFRAME_OPENED = "guildbank", GUILD_REGISTRAR_SHOW = "registrar", OPEN_TABARD_FRAME = "tabard",
+  TRADE_SHOW = "trade", CONFIRM_XP_LOSS = "spirithealer" }) do
+  ns.On(event, function() World.SetContext(kind); poke() end)
+end
+ns.On("MERCHANT_SHOW", function()
+  if call("CanMerchantRepair") then World.SetContext("repair") end
+end)
+ns.On("AUTOFOLLOW_BEGIN", function() World.SetContext("follow"); poke() end)
+ns.On("AUTOFOLLOW_END", function() World.ClearContext("follow"); poke() end)
+ns.On("DUEL_FINISHED", function() World.ClearContext("duel") end)
+ns.On("UPDATE_BATTLEFIELD_STATUS", poke)
+ns.On("PLAYER_LOGIN", function()
+  local map = _G.WorldMapFrame
+  if type(map) == "table" and type(map.HookScript) == "function" then
+    pcall(map.HookScript, map, "OnShow", function()
+      if not U.Call(InCombatLockdown) then World.SetContext("map"); poke() end
+    end)
+  end
+end)
+
+local function timeKey(s)
+  if s.indoors or s.instance then return nil end
+  return s.night and "night" or s.dawn and "dawn" or s.dusk and "dusk" or nil
+end
+World.TimeKey = timeKey
+
+-- A place's line, by the hour when the place has one for it (two times in three). Returns
+-- the line and whether it already tells the hour.
+local function placeLine(s, name, list, seed)
+  local tk = timeKey(s)
+  local hours = tk and name and W.PLACE_TIME[name] and W.PLACE_TIME[name][tk]
+  if hours and #hours > 0 and (U.Hash(seed .. name .. "hour") % 3 ~= 0 or type(list) ~= "table") then
+    return U.Pick(hours, seed .. name .. tk), true
+  end
+  if type(list) == "string" then return list, false end
+  if type(list) == "table" and #list > 0 then return U.Pick(list, seed .. (name or "")), false end
+  return nil, false
+end
+World.PlaceLine = placeLine
+
+-- The moment in pieces: main (what and where), whether it tells the hour, extras (what
+-- goes with it, best first) and asides (a second sentence, best first).
+function World.Moment(s, seed)
+  seed = seed or ""
+  local m = { extras = {}, asides = {} }
   local sub = s.subzone
-  if sub and World.IsInn(sub) and not sub:find("^The ") then sub = "the " .. sub end
-  local place = sub and (U.Mid(sub) .. ", " .. (s.zone or "")) or s.zone or "the road"
+  local subThe = sub
+  if sub and World.IsInn(sub) and not sub:find("^The ") then subThe = "the " .. sub end
   local where = U.Mid(s.zone) or "the wilds"
-  local text
-  -- A travel phrase with the place filled in ({where} the zone, {place} the spot,
-  -- {around} "around <spot>" or "in <zone>").
-  local function fill(list, around)
-    return (U.Pick(list, seed .. (list[1] or "")):gsub("{(%a+)}", function(k)
-      if k == "where" then return where elseif k == "place" then return place elseif k == "around" then return around end
-    end))
+  local place = subThe and (U.Mid(subThe) .. ", " .. (s.zone or "")) or s.zone or "the road"
+  local spot = U.Mid(subThe) or where
+  local ctx = s.context
+  local tags = {
+    where = where, place = place, around = sub and ("around " .. place) or ("in " .. where), sub = U.Mid(sub) or where,
+    pet = s.pet or "{their} companion", sea = s.sea and U.Mid(s.sea), pole = s.pole, bg = s.queued,
+    who = ctx and ctx.detail or "someone", dest = ctx and ctx.detail or "afar",
+    what = ctx and ctx.kind == "reading" and ctx.detail and ("\"" .. ctx.detail .. "\"") or "a book",
+  }
+  local function fill(text, over)
+    if type(text) ~= "string" then return nil end
+    text = text:gsub("{([%a']+)}", function(k)
+      local v = over and over[k]
+      if v == nil then v = tags[k] end
+      if v ~= nil then return v end
+    end)
+    return U.Pron(text)
   end
-  if s.ghost or s.dead then
-    return (U.Pick(W.TRAVEL.ghost, seed .. "ghost"):gsub("{where}", function() return where end))
+  local function pick(list, key, over)
+    if type(list) ~= "table" or #list == 0 then return nil end
+    return fill(U.Pick(list, seed .. key), over)
   end
-  if s.taxi then
+  local act = { place = spot }
+  local main, timed
+  if s.dead and not s.ghost then
+    main = pick(W.MOMENT.fallen, "fallen")
+  elseif s.ghost or s.dead then
+    main = U.Hash(seed .. "ghostway") % 2 == 0 and pick(W.MOMENT.ghost, "ghost") or pick(W.TRAVEL.ghost, "ghost")
+  elseif s.taxi then
     local beast
     if s.faction == "Horde" then beast = W.BAT_ZONES[s.zoneKey or ""] and "a bat" or "a wind rider"
     else beast = W.KALIMDOR[s.zoneKey or ""] and "a hippogryph" or "a gryphon" end
-    return (U.Pick(W.TRAVEL.taxi, seed .. "taxi"):gsub("{beast}", beast):gsub("{where}", function() return where end))
-  end
-  local ctx = s.context
-  if ctx and ctx.kind == "craft" then
-    text = U.Pick(W.CRAFT[ctx.detail], seed .. "craft") .. " in " .. (U.Mid(sub) or where)
-  elseif s.away then
-    text = U.Pick(W.ACTIVITY.away, seed .. "away"):gsub("{place}", function() return U.Mid(sub) or where end)
-  elseif ctx and W.ACTIVITY[ctx.kind] then
-    text = U.Pick(W.ACTIVITY[ctx.kind], seed .. ctx.kind):gsub("{place}", function() return U.Mid(sub) or where end)
-      :gsub("{who}", function() return ctx.detail or "someone" end):gsub("{dest}", function() return ctx.detail or "afar" end):gsub("{what}", function() return ctx.detail and ("\"" .. ctx.detail .. "\"") or "a book" end)
-    text = U.Pron(text)
-  elseif s.auras and (s.auras.eating or s.auras.drinking) then
-    local list = s.auras.eating and W.ACTIVITY.eating or W.ACTIVITY.drinking
-    text = U.Pick(list, seed .. "meal"):gsub("{place}", function() return U.Mid(sub) or where end)
-  elseif s.instance == "party" or s.instance == "raid" then
-    local inst = W.INSTANCE_FLAVOR[s.zone or ""]
-    text = inst and U.Pick(inst, seed .. "inst") or fill(W.TRAVEL.dungeon)
+    main = pick(W.TRAVEL.taxi, "taxi", { beast = beast })
+  elseif s.transport then
+    main = pick(W.TRANSPORT[s.transport], "sea")
   elseif s.instance == "pvp" then
-    text = fill(W.TRAVEL.battleground)
-  elseif s.resting and World.IsInn(s.subzone) then
-    text = fill(W.TRAVEL.inn)
-  elseif s.subzone and W.CITY_FLAVOR[s.subzone] then
-    text = U.Pick(W.CITY_FLAVOR[s.subzone], seed .. "city")
-  elseif s.resting then
-    text = fill(W.TRAVEL.town)
+    local bg = W.BG_FLAVOR[s.zoneKey or ""] or W.BG_FLAVOR[s.zone or ""]
+    if sub and U.Hash(seed .. "bgat") % 2 == 0 then main = pick(W.BG_AT, "bgat")
+    else main = pick(bg or W.TRAVEL.battleground, "bg") end
+  elseif s.falling and not s.swimming and not s.flying then
+    main = pick(W.MOMENT.falling, "fall")
+  elseif s.fatigue then
+    main = pick(W.MOMENT.deepwater, "deep")
+  elseif s.underwater then
+    main = pick(W.MOMENT.underwater, "under")
+  elseif ctx and ctx.kind == "craft" and W.CRAFT[ctx.detail] then
+    main = U.Pick(W.CRAFT[ctx.detail], seed .. "craft") .. " in " .. spot
+  elseif s.away then
+    main = pick(W.ACTIVITY.away, "away", act)
+  elseif ctx and W.ACTIVITY[ctx.kind] then
+    main = pick(W.ACTIVITY[ctx.kind], ctx.kind, act)
+  elseif s.auras and (s.auras.eating or s.auras.drinking) then
+    main = pick(s.auras.eating and W.ACTIVITY.eating or W.ACTIVITY.drinking, "meal", act)
+  elseif s.instance == "party" or s.instance == "raid" then
+    local inst = W.INSTANCE_FLAVOR[s.zoneKey or ""] or W.INSTANCE_FLAVOR[s.zone or ""]
+    if type(inst) == "string" then inst = { inst } end
+    main = pick(inst or W.TRAVEL.dungeon, "inst")
+  elseif s.resting and World.IsInn(sub) then
+    main = pick(W.TRAVEL.inn, "inn")
   elseif s.stealthed then
-    text = fill(W.TRAVEL.stealth, s.subzone and ("around " .. place) or ("in " .. where))
+    local list = (s.prowling and W.STEALTH.DRUID) or (s.rogueStealth and W.STEALTH.ROGUE) or W.TRAVEL.stealth
+    main = pick(list, "stealth")
   elseif s.swimming then
-    text = fill(W.TRAVEL.swimming)
+    main = pick(U.Hash(seed .. "swimway") % 2 == 0 and W.MOMENT.swimming or W.TRAVEL.swimming, "swim")
   elseif s.flying then
-    text = fill(W.TRAVEL.flying)
-  elseif s.mounted then
-    text = fill(W.TRAVEL.mounted):gsub("{mount}", function() return World.Mount(s) end)
+    main = pick(W.TRAVEL.flying, "fly")
   else
-    -- Out in the open: where they are, and nothing they aren't doing.
-    local flavor = W.ZONE_FLAVOR[s.zoneKey or ""]
-    if flavor and U.Hash(seed .. "flavor") % 2 == 0 then
-      text = U.Pick(flavor, seed .. "fl")
+    -- The place itself: a district, a town or landmark, the capital, the zone.
+    local line
+    if sub and W.CITY_FLAVOR[sub] then
+      line, timed = placeLine(s, sub, W.CITY_FLAVOR[sub], seed)
+    elseif sub and W.SUBZONE_FLAVOR[sub] then
+      line, timed = placeLine(s, sub, W.SUBZONE_FLAVOR[sub], seed)
+      -- "on the boardwalks of Booty Bay in Stranglethorn Vale": the land too, when the line doesn't say it.
+      if line and not timed and s.zone and not s.capital and not line:find(s.zone, 1, true) then line = line .. " in " .. U.Mid(s.zone) end
+    elseif s.capital then
+      line, timed = placeLine(s, s.zoneKey, W.ZONE_FLAVOR[s.zoneKey] or W.MOMENT.capital, seed)
+    elseif s.resting then
+      line = U.Pick(W.TRAVEL.town, seed .. "town")
     else
-      local around = s.subzone and ("around " .. place) or ("in " .. where)
-      text = fill(W.TRAVEL.road, around)
+      local key = s.zoneKey or ""
+      if (W.ZONE_FLAVOR[key] or W.PLACE_TIME[key]) and U.Hash(seed .. "flavor") % 4 ~= 0 then
+        line, timed = placeLine(s, key, W.ZONE_FLAVOR[key], seed)
+      end
+    end
+    if s.mounted then
+      local mount = World.Mount(s)
+      if line and U.Hash(seed .. "mountline") % 2 == 0 then
+        main = fill(line)
+        m.extras[#m.extras + 1] = mount
+      else
+        main, timed = pick(W.TRAVEL.mounted, "mounted", { mount = mount }), false
+      end
+    else
+      main = line and fill(line) or pick(W.TRAVEL.road, "road")
     end
   end
-  text = U.Pron(text)
-  if terse then return text end
-  if s.form and not s.taxi then text = text .. ", " .. s.form end
-  local pet = petPhrase(s, seed)
-  if pet then text = text .. ", " .. pet end
-  return text
+  m.main, m.timed = main or ("in " .. where), timed and true or false
+
+  -- Extras
+  local alive = not s.dead and not s.ghost
+  if alive and s.formKey and W.FORM_LINES[s.formKey] and not s.taxi and not s.transport then
+    m.extras[#m.extras + 1] = U.Pick(W.FORM_LINES[s.formKey], seed .. "form" .. s.formKey)
+  end
+  if alive and s.grouped and s.instance ~= "pvp" and (s.groupSize or 0) >= 2 then
+    local n = s.groupSize
+    if s.raid then m.extras[#m.extras + 1] = pick(W.EXTRA.raid, "raid", { total = U.Number(n) })
+    elseif n == 2 then m.extras[#m.extras + 1] = pick(W.EXTRA.pair, "pair")
+    else m.extras[#m.extras + 1] = pick(W.EXTRA.party, "party", { n = U.Number(n - 1), total = U.Number(n) }) end
+  end
+  local pet = alive and petPhrase(s, seed)
+  if pet then m.extras[#m.extras + 1] = pet end
+  if alive and s.pole and not (ctx and ctx.kind == "fishing") then m.extras[#m.extras + 1] = pick(W.EXTRA.pole, "pole") end
+
+  -- Asides
+  if s.auras and s.auras.resSick and alive then m.asides[#m.asides + 1] = pick(W.ASIDE.ressick, "ressick") end
+  if s.queued and s.instance ~= "pvp" then m.asides[#m.asides + 1] = pick(W.QUEUED, "queued") end
+  if s.dnd then m.asides[#m.asides + 1] = pick(W.ASIDE.dnd, "dnd") end
+  local fest = s.festival and W.FESTIVAL_TOWN[s.festival]
+  if fest and alive and not s.instance then
+    if s.capital then m.asides[#m.asides + 1] = pick(fest, "fest", { where = s.zone })
+    elseif s.festival == "hallowsend" and s.resting and World.IsInn(sub) then m.asides[#m.asides + 1] = pick(fest, "fest", { where = "the inn" }) end
+  end
+  return m
+end
+
+-- "resting at the Lion's Pride Inn in Goldshire" and one thing more. Never the exact spot
+-- in the open world: a profile is public, and "around Goldshire" is plenty.
+-- terse: the place and what they're doing only. Returns the text and whether it tells the hour.
+function World.Activity(s, seed, terse)
+  local m = World.Moment(s, seed or "")
+  local text = m.main
+  if not terse and m.extras[1] then text = text .. ", " .. m.extras[1] end
+  return text, m.timed
 end
 
 function World.TimeOfDay(s, seed)
-  if s.indoors or s.instance then return nil end
-  local key = s.night and "night" or s.dawn and "dawn" or s.dusk and "dusk"
+  local key = timeKey(s)
   if not key then return nil end
   return U.Pick(W.TIME_OF_DAY[key], (seed or "") .. "tod" .. key)
 end

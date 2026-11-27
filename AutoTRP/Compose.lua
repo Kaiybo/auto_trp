@@ -131,32 +131,44 @@ function Compose.Intent()
   return nil
 end
 
--- Total RP 3 shows Currently in tooltips: keep it to a couple of lines. When it runs long,
--- the time of day goes first, then the form and pet, then the second mood.
+-- Total RP 3 shows Currently in tooltips: keep it to a couple of lines. One sentence: the
+-- mood, what they're doing and where, the hour, and at most two things that go with it
+-- (a shape, company, a pet, a fishing pole); then, when something lingers (resurrection
+-- sickness, a queue, a sign hung out, a festival in town), a short second sentence. When it
+-- runs long, the hour goes first, then the second extra, the aside, the first, the second mood.
 Compose.CURRENTLY_MAX = 200
 
 function Compose.Currently(mood)
   local world = ns.cache.world
   local s = seed("act:" .. (world.zone or "") .. (world.subzone or ""))
   local intent = Compose.Intent()
-  local tod = ns.World.TimeOfDay(world, s)
-  local function build(withAlso, terse, withTod)
+  local m = ns.World.Moment(world, s)
+  local tod = not m.timed and ns.World.TimeOfDay(world, s) or nil
+  local ex = m.extras
+  local function build(withAlso, extras, withTod, withAside)
     local text = mood.adj
     -- "Weary and uneasy", but "In no hurry, hale and hearty" rather than a run of ands.
     if withAlso and mood.also then
       text = text .. ((text:find(" and ") or mood.also:find(" and ")) and ", " or " and ") .. mood.also
     end
-    text = text .. ", " .. ns.World.Activity(world, s, terse)
+    text = text .. ", " .. m.main
     if withTod and tod then text = text .. " " .. tod end
+    if extras >= 1 and ex[1] then
+      text = text .. ", " .. ex[1]
+      -- A second only when it's "with ..." after something that isn't: never a list.
+      if extras >= 2 and ex[2] and ex[2]:find("^with ") and not ex[1]:find("^with ") then text = text .. ", " .. ex[2] end
+    end
     text = text .. "."
+    if withAside and m.asides[1] then text = text .. " " .. sentence(m.asides[1]) end
     if intent then text = text .. " " .. sentence(intent) end
     return text
   end
-  for _, v in ipairs({ { true, false, true }, { true, false, false }, { true, true, false }, { false, true, false } }) do
-    local text = build(v[1], v[2], v[3])
+  for _, v in ipairs({ { true, 2, true, true }, { true, 2, false, true }, { true, 1, false, true }, { true, 1, false, false },
+    { true, 0, false, false }, { false, 0, false, false } }) do
+    local text = build(v[1], v[2], v[3], v[4])
     if #text <= Compose.CURRENTLY_MAX then return text end
   end
-  return build(false, true, false)
+  return build(false, 0, false, false)
 end
 
 ---------------------------------------------------------------------------
