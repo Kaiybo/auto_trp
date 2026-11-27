@@ -2529,5 +2529,165 @@ do
   check(C.History():find("Back at the Lion's Pride", 1, true), "with RPG Dialogue's diary back, History quotes that instead")
 end
 
+
+-- The interface: settings panel, preview, welcome window, mood badge and /atrp help, built
+-- against the generic frame mock (any method is a no-op).
+do
+  local UI = ns.UI
+  local tip = {}
+  GameTooltip = { SetOwner = function() tip = {} end, AddLine = function(_, t) tip[#tip + 1] = t end,
+    SetText = function(_, t) tip[#tip + 1] = t end, Show = function() end, Hide = function() end }
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  local function listen() said = {}; DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end end
+  local function stop() DEFAULT_CHAT_FRAME.AddMessage = oldChat end
+  local function heard(s) for _, m in ipairs(said) do if m:find(s, 1, true) then return true end end return false end
+
+  -- Settings panel: made at login, filled the first time it's shown.
+  local panel = UI.panel
+  check(panel ~= nil and panel.built == false, "the settings panel's contents wait until it's opened")
+  local ok, err = pcall(panel.scripts.OnShow, panel)
+  check(ok and panel.built == true, "building the settings panel doesn't error: " .. tostring(err))
+  local nOpts = 0
+  for _, o in ipairs(UI.OPTIONS) do if o.path then nOpts = nOpts + 1 end end
+  check(#UI.boxes == nOpts, "a checkbox for every option: " .. #UI.boxes .. "/" .. nOpts)
+  local noTip, emptyHover = {}, {}
+  for _, cb in ipairs(UI.boxes) do
+    if not UI.TipFor(cb.opt) then noTip[#noTip + 1] = table.concat(cb.opt.path, ".") end
+    cb.scripts.OnEnter(cb)
+    if #tip < 2 then emptyHover[#emptyHover + 1] = table.concat(cb.opt.path, ".") end
+  end
+  check(#noTip == 0, "every option has a tooltip (UI.TIPS or tip =): " .. table.concat(noTip, ", "))
+  check(#emptyHover == 0, "hovering every checkbox shows its name and what it does: " .. table.concat(emptyHover, ", "))
+  local lines = UI.SourceLines()
+  check(#lines == 4 and lines[1]:find("Total RP 3") and lines[1]:find("found") and lines[2]:find("RPG Dialogue"), "the source lines show what each addon adds")
+  check(StaticPopupDialogs.AUTOTRP_RESTORE and StaticPopupDialogs.AUTOTRP_RESTORE.button1 == "Restore", "Restore asks first")
+
+  -- Per-heading toggles flip only their own group.
+  local function flat()
+    local t = {}
+    for _, o in ipairs(UI.OPTIONS) do
+      if o.path then
+        local v = ns.db
+        for _, k in ipairs(o.path) do v = v[k] end
+        t[table.concat(o.path, ".")] = v
+      end
+    end
+    return t
+  end
+  local saved = flat()
+  local groups = UI.Groups()
+  check(#groups >= 4, "options come in groups under their headings: " .. #groups)
+  local bad = {}
+  for _, g in ipairs(groups) do
+    for _, on in ipairs({ false, true }) do
+      local before = flat()
+      UI.SetGroupOptions(g.head, on)
+      local after, inGroup = flat(), {}
+      for _, o in ipairs(g.items) do inGroup[table.concat(o.path, ".")] = true end
+      for k, v in pairs(after) do
+        if inGroup[k] and v ~= on then bad[#bad + 1] = g.head .. ":" .. k .. " not " .. tostring(on) end
+        if not inGroup[k] and v ~= before[k] then bad[#bad + 1] = g.head .. " changed " .. k end
+      end
+    end
+  end
+  check(#bad == 0, "each heading's On / Off flips its own group and nothing else: " .. table.concat(bad, "; "))
+  for k, v in pairs(saved) do
+    local path, t = {}, ns.db
+    for part in k:gmatch("[^.]+") do path[#path + 1] = part end
+    for i = 1, #path - 1 do t = t[path[i]] end
+    t[path[#path]] = v
+  end
+  UI.UpdateBadge()
+
+  -- Preview: builds, every tab lays out, glances carry their icons.
+  ok, err = pcall(UI.Preview)
+  check(ok and UI.previewFrame ~= nil, "building the preview doesn't error: " .. tostring(err))
+  local f = UI.previewFrame
+  for i = 1, #UI.PREVIEW_TABS do
+    ok, err = pcall(UI.PreviewTab, i)
+    check(ok and f.tab == i, "preview tab " .. UI.PREVIEW_TABS[i] .. " lays out: " .. tostring(err))
+  end
+  local tabs = UI.PreviewSections()
+  local glanceIcon, statusAll, statsRows = false, true, 0
+  for _, r in ipairs(tabs[1].rows) do
+    if r.key == "glance_mood" and r.icon and UI.IconString(r.icon):find("^|TInterface\\Icons\\") then glanceIcon = true end
+  end
+  for t = 1, 4 do for _, r in ipairs(tabs[t].rows) do if r.key and not UI.STATUS_WORDS[r.status] then statusAll = false end end end
+  for _, r in ipairs(tabs[4].rows) do if r.key:find("^stat_") then statsRows = statsRows + 1 end end
+  check(glanceIcon, "the mood glance shows its icon")
+  check(statusAll, "every preview field says whose it is")
+  check(statsRows >= 10, "the statistics tab lists the statistics: " .. statsRows)
+  check(UI.CopyText("{col:ffeecc}\"A quote\"{/col}\nand more") == "\"A quote\" and more", "the copy box holds plain text")
+  ok = pcall(f.scripts.OnDragStop, f)
+  check(ok, "moving the preview saves its place without error")
+  check(UI.PreviewText():find("Currently", 1, true) ~= nil, "the text preview still works")
+
+  -- Welcome window.
+  local declined, declines = ns.char.declined, ns.char.declines
+  ok, err = pcall(UI.ShowWelcome)
+  check(ok and UI.welcomeFrame and UI.welcomeFrame.buttons.make and UI.welcomeFrame.buttons.never, "building the welcome window doesn't error: " .. tostring(err))
+  check(#UI.WELCOME_LINES == 3, "the welcome says what it does in three lines")
+  listen()
+  local w = UI.welcomeFrame
+  w.Hide = function(self) if self.scripts.OnHide then self.scripts.OnHide(self) end end
+  w.buttons.never.scripts.OnClick(w.buttons.never)
+  stop()
+  check(ns.char.declined == true and (ns.char.declines or 0) == (declines or 0), "Don't ask again stops the prompt, without counting a plain no")
+  ns.char.declined = false
+  UI.ShowWelcome(); w.chose = false
+  w:Hide()
+  check(ns.char.declines == (declines or 0) + 1, "closing the welcome counts as not now")
+  ns.char.declined, ns.char.declines = declined, declines
+
+  -- Mood badge: tooltip, clicks, a glow when the mood turns.
+  local b = UI.badge
+  ns.char.lastWrite = { t = NOW - 120, fields = { "Currently", "Glance: mood" } }
+  b.scripts.OnEnter(b)
+  local all = table.concat(tip, "\n")
+  check(all:find("last written 2 min ago", 1, true) and all:find("Changed: Currently, Glance: mood", 1, true), "the badge tooltip says when the profile was written and what changed")
+  check(all:find("Shift-click", 1, true) and all:find("Ctrl-click", 1, true), "the badge tooltip lists the clicks")
+  IsShiftKeyDown = function() return true end
+  listen(); b.scripts.OnClick(b, "LeftButton"); stop()
+  check(heard("Currently: ") and heard("only you see this"), "shift-click shows Currently in your own chat")
+  IsShiftKeyDown = function() return false end
+  IsControlKeyDown = function() return true end
+  local opened, oldOpen = false, UI.OpenSettings
+  UI.OpenSettings = function() opened = true end
+  b.scripts.OnClick(b, "LeftButton")
+  UI.OpenSettings = oldOpen
+  IsControlKeyDown = nil; IsShiftKeyDown = nil
+  check(opened, "ctrl-click opens the settings")
+  local pulses, oldPulse = 0, UI.PulseBadge
+  UI.PulseBadge = function() pulses = pulses + 1 end
+  UI.UpdateBadge({ key = "elated", title = "Elated", icon = "INV_Misc_Book_11" })
+  UI.UpdateBadge({ key = "elated", title = "Elated", icon = "INV_Misc_Book_11" })
+  UI.UpdateBadge({ key = "downcast", title = "Downcast", icon = "INV_Misc_Book_11" })
+  UI.PulseBadge = oldPulse
+  check(pulses == 2, "the badge glows only when the mood turns: " .. pulses)
+  check(pcall(UI.PulseBadge), "the glow builds without error")
+
+  -- /atrp help lists every command in README's table.
+  listen(); SlashCmdList.AUTOTRP("help"); stop()
+  local help = table.concat(said, "\n"):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("||", "|")
+  local missing, n = {}, 0
+  local inTable = false
+  for line in io.lines("README.md") do
+    if line:match("^## Commands") then inTable = true elseif line:match("^## ") then inTable = false end
+    if inTable and line:match("^| `/atrp") then
+      local first = line:match("^|(.-[^\\])|")
+      for cmd in first:gmatch("`(/atrp[^`]*)`") do
+        cmd = cmd:gsub("\\|", "|")
+        n = n + 1
+        if not help:find(cmd, 1, true) then missing[#missing + 1] = cmd end
+      end
+    end
+  end
+  check(n >= 20 and #missing == 0, "/atrp help lists every command in README (" .. n .. "): missing " .. table.concat(missing, ", "))
+  listen(); SlashCmdList.AUTOTRP("nonsense"); stop()
+  check(heard("No command 'nonsense'") and heard("/atrp preview"), "an unknown command says so and lists the rest")
+  GameTooltip = nil
+end
+
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))
 os.exit(fails == 0 and 0 or 1)
