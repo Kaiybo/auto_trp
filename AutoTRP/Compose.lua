@@ -4214,7 +4214,7 @@ end
 -- mood: already worked out by the caller. only: the fields wanted (the story fields are
 -- skipped when none of them is).
 local STORY = { "traits", "bearing", "history", "physical", "title", "fulltitle", "residence", "birthplace",
-  "motto", "nickname", "icon", "relationship", "ooc", "glance_ambition", "age", "eyes", "height", "build" }
+  "motto", "nickname", "icon", "relationship", "ooc", "glance_ambition", "age", "eyes", "height", "build", "statistics" }
 for _, st in ipairs(Compose.STATS) do STORY[#STORY + 1] = "stat_" .. st.key end
 -- The five glances side by side: where two say the same thing, the one with other ways to
 -- say it gives way. Lately and the mood's own title stand; Marks takes its next mark; the
@@ -4276,4 +4276,22 @@ function Compose.Sheet(fresh, mood, only)
     icon = Compose.Icon(),
     stats = Compose.Stats(),
   }
+end
+
+-- The Statistics block on the About page: one line each, in the statistics' own order, for
+-- those switched on with something to say. Nothing yet ("None yet", "None") is left out,
+-- and with nothing at all the block isn't there.
+Compose.STATS_SKIP = { ["None yet"] = true, ["None"] = true }
+function Compose.StatsBlock(stats)
+  local f = ns.db and ns.db.fields or {}
+  local rich = not ns.db or ns.db.richText ~= false
+  local lines = {}
+  for _, st in ipairs(Compose.STATS) do
+    local v = stats and stats[st.key]
+    if type(v) == "string" then v = v:gsub("^%s+", ""):gsub("%s+$", "") end
+    if not st.retired and f["stat_" .. st.key] ~= false and type(v) == "string" and v ~= "" and not Compose.STATS_SKIP[v] then
+      lines[#lines + 1] = (rich and ("{col:c8a165}" .. st.label .. ":{/col} ") or (st.label .. ": ")) .. v
+    end
+  end
+  return #lines > 0 and table.concat(lines, "\n") or nil
 end

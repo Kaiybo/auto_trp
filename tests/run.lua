@@ -194,23 +194,41 @@ check(not ns.TRP.Managed(), "nothing is written before a profile is chosen")
 local ok = ns.TRP.UseCurrent()
 check(not ok, "the default profile is refused")
 
+-- The statistics tests below read them under Additional information; the About page's own
+-- Statistics block (the default) has its own tests near the end.
+ns.db.statsInAbout = false
 ok = ns.UI.Setup()
 check(ns.char.profileID ~= nil and ns.char.profileID ~= "abc*", "setup makes and selects a new profile")
 ns.UI.Update(true)
 local p = profiles[ns.char.profileID].player
+-- About's sections, whichever layout holds them: the block layout (template 2: Physical 1,
+-- Personality 2, History 3, Statistics 4, each under its heading) or the three sections.
+local ABOUT_I, ABOUT_T3 = { PH = 1, PS = 2, HI = 3, ST = 4 }, { PH = "PH", PS = "PS", HI = "HI" }
+local function about(pp, part)
+  if pp.about.TE == 2 then
+    local f = type(pp.about.T2) == "table" and pp.about.T2[ABOUT_I[part]]
+    return f and ns.TRP.AboutBody(f.TX) or nil
+  end
+  local sec = ABOUT_T3[part] and pp.about.T3 and pp.about.T3[ABOUT_T3[part]]
+  return sec and sec.TX or nil
+end
+local function setAbout(pp, part, text)
+  if pp.about.TE == 2 then pp.about.T2[ABOUT_I[part]].TX = text else pp.about.T3[ABOUT_T3[part]].TX = text end
+end
 check(p.character.CU and p.character.CU:find("Lion's Pride Inn"), "Currently mentions the inn: " .. tostring(p.character.CU))
 check(p.characteristics.TI == "Cleric of the Light", "rank title by level (human priest): " .. tostring(p.characteristics.TI))
 check(p.characteristics.FT == "Lightsworn, Friend of Goldshire", "full title: " .. tostring(p.characteristics.FT))
 check(p.characteristics.PS[1].LT == "Good" and p.characteristics.PS[1].RT == "Evil", "plain good/evil bar")
 for i = 1, 5 do check(p.misc.PE[tostring(i)] and p.misc.PE[tostring(i)].AC and p.misc.PE[tostring(i)].TX ~= nil, "glance " .. i .. " filled") end
-check(p.about.T3.PH.TX and p.about.T3.PH.TX:find("Crown of the Lost"), "physical mentions the finest gear")
+check(about(p, "PH") and about(p, "PH"):find("Crown of the Lost"), "physical mentions the finest gear")
 check(p.characteristics.IC == "ClassIcon_Priest", "the profile icon is who they are, not the nickname (no talents yet, no portrait to ask about): " .. tostring(p.characteristics.IC))
-check(p.about.TE == 3 and p.about.T3.HI.TX and p.about.T3.HI.TX:find("Lion's Pride"), "history written in template 3")
-check(not p.about.T3.HI.TX:find("died"), "deaths stay out of the History prose")
+check(p.about.TE == 2 and about(p, "HI") and about(p, "HI"):find("Lion's Pride") and p.about.T2[3].TX:find("^{h3:c}History{/h3}"),
+  "a fresh profile's About takes the block layout, History under its heading")
+check(not about(p, "HI"):find("died"), "deaths stay out of the History prose")
 local statDeaths
 for _, e in ipairs(p.characteristics.MI) do if e.ID == 1 and e.NA == "Deaths" then statDeaths = e.VA end end
 check(statDeaths == "3, the first to Hogger", "deaths are a statistic: " .. tostring(statDeaths))
-check(not p.about.T3.HI.TX:find("PRIVATE"), "Chronicle notes are never read")
+check(not about(p, "HI"):find("PRIVATE"), "Chronicle notes are never read")
 check(p.misc.PE["1"] and p.misc.PE["1"].AC, "mood glance written")
 check(#p.characteristics.PS >= 3, "personality bars written")
 check(p.characteristics.v > 1 and p.about.v > 1 and p.misc.v > 1, "section versions bumped")
@@ -218,13 +236,13 @@ check(#fired > 0, "REGISTER_DATA_UPDATED fired")
 check(profiles["abc*"].player.character.CU == "Hanging about.", "the default profile is untouched")
 
 -- The player edits their history: Auto TRP must let it be.
-p.about.T3.HI.TX = "My own story."
+setAbout(p, "HI", "My own story.")
 ns.UI.Update(true)
-check(p.about.T3.HI.TX == "My own story.", "a field the player edited is left alone")
+check(about(p, "HI") == "My own story.", "a field the player edited is left alone")
 check(ns.TRP.Status("history") == "yours", "and marked as theirs")
 ns.TRP.Claim("history")
 ns.UI.Update(true)
-check(p.about.T3.HI.TX ~= "My own story.", "claim hands it back")
+check(about(p, "HI") ~= "My own story.", "claim hands it back")
 
 -- No writes in combat
 state.combat = true
@@ -356,15 +374,15 @@ ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("Looking for passage to Theramore%."), "intent appended to Currently")
 
 print("\n--- written profile ---")
-local writtenHistory = p.about.T3.HI.TX
+local writtenHistory = about(p, "HI")
 print("CU: " .. tostring(p.character.CU))
 print("TI: " .. tostring(p.characteristics.TI) .. " | FT: " .. tostring(p.characteristics.FT) .. " | RE: " .. tostring(p.characteristics.RE) .. " | BP: " .. tostring(p.characteristics.BP))
 for _, e in ipairs(p.characteristics.MI) do print("MI " .. tostring(e.NA) .. ": " .. tostring(e.VA)) end
 for _, t in ipairs(p.characteristics.PS) do print(("PS %s %d %s"):format(t.LT, t.V2, t.RT)) end
 for i = 1, 5 do local g = p.misc.PE[tostring(i)]; if g then print("PE" .. i .. " " .. tostring(g.TI) .. ": " .. tostring(g.TX)) end end
-print("\nPersonality:\n" .. tostring(p.about.T3.PS.TX))
-print("\nHistory:\n" .. tostring(p.about.T3.HI.TX))
-print("\nPhysical:\n" .. tostring(p.about.T3.PH.TX))
+print("\nPersonality:\n" .. tostring(about(p, "PS")))
+print("\nHistory:\n" .. tostring(about(p, "HI")))
+print("\nPhysical:\n" .. tostring(about(p, "PH")))
 
 -- Review fixes
 -- 1. Paused while OOC: no one-second loop.
@@ -408,15 +426,15 @@ end
 -- 2. An editor saving an older copy over Auto TRP's text is rewritten, not taken as yours.
 NOW = NOW + 400
 local mine = ns.TRP.Owned()
-p.about.T3.HI.TX = "Old text."
+setAbout(p, "HI", "Old text.")
 mine.history = "Something newer"
 ns.db.previous[ns.char.profileID].history = "Old text."
 ns.TRP.Apply({ history = "Fresh history." }, { history = true })
-check(p.about.T3.HI.TX == "Fresh history." and ns.TRP.Status("history") == "auto", "an editor's revert is rewritten, not released")
+check(about(p, "HI") == "Fresh history." and ns.TRP.Status("history") == "auto", "an editor's revert is rewritten, not released")
 -- 3. While TRP3's editor is open, About and characteristics wait.
 TRP3_API.navigation = { page = { getCurrentContext = function() return { isEditMode = true } end } }
 ns.TRP.Apply({ history = "While editing." }, { history = true })
-check(p.about.T3.HI.TX == "Fresh history.", "nothing written into an open editor's section")
+check(about(p, "HI") == "Fresh history.", "nothing written into an open editor's section")
 TRP3_API.navigation = nil
 -- 4. A switched-off glance with the player's words is theirs.
 p.misc.PE["9"] = nil
@@ -2922,7 +2940,7 @@ end
 do
   local before = {}
   for k, v in pairs(ns.db.fields) do before[k] = v end
-  local quiet, badge = ns.db.quiet, ns.db.showBadge
+  local quiet, badge, statsHome = ns.db.quiet, ns.db.showBadge, ns.db.statsInAbout
   SlashCmdList.AUTOTRP("all off")
   local anyOn = false
   for k, v in pairs(ns.db.fields) do if v then anyOn = k end end
@@ -2932,7 +2950,7 @@ do
   for k, v in pairs(ns.db.fields) do if not v and k ~= "stat_met" and k ~= "stat_letters" then anyOff = true end end
   check(not anyOff and ns.db.quiet == true, "all on: every option on")
   for k, v in pairs(before) do ns.db.fields[k] = v end
-  ns.db.quiet, ns.db.showBadge = quiet, badge
+  ns.db.quiet, ns.db.showBadge, ns.db.statsInAbout = quiet, badge, statsHome
 end
 
 -- 0.23.0, more of Total RP 3 (Register.lua): name colour, profile music, the Faction, Guild,
@@ -7527,6 +7545,58 @@ do
   C_Map, GetRealZoneText = cmapWas, zoneWas
   ns.db.innerAreas = nil
   W.ResetLands()
+end
+
+-- 0.24.0: the statistics as their own block on the About page (the default), only those
+-- with something to say; a three-section About of Auto TRP's own moves to the block layout.
+do
+  local T, C = ns.TRP, ns.Compose
+  local prof = profiles[ns.char.profileID].player
+  local mine = T.Owned()
+  local function info(label)
+    for _, e in ipairs(prof.characteristics.MI) do if e.ID == 1 and e.NA == label then return e.VA end end
+  end
+  local quietWas = ns.db.quiet
+  ns.db.quiet = true
+  check(info("Deaths") ~= nil, "under Additional information while the setting is off")
+  ns.db.statsInAbout = true
+  C.SourcesChanged(); ns.UI.Update(true)
+  local block = prof.about.T2[4] and prof.about.T2[4].TX or ""
+  check(prof.about.TE == 2 and block:find("^{h3:c}Statistics{/h3}") and block:find("Deaths:", 1, true),
+    "on: a Statistics block of its own on the About page, after History: " .. block:sub(1, 80))
+  check(not block:find("None yet", 1, true) and not block:find(": None\n", 1, true), "with nothing-yet statistics left out")
+  check(info("Deaths") == nil and info("Faction") == nil, "and Auto TRP's entries are taken down from Additional information")
+  check(T.Status("statistics") == "auto", "the block is Auto TRP's")
+  ns.db.fields.stat_deaths = false
+  ns.UI.Update(true)
+  check(not (prof.about.T2[4].TX or ""):find("Deaths:", 1, true), "a statistic switched off isn't in the block")
+  ns.db.fields.stat_deaths = true
+  check(C.StatsBlock({ deaths = "None yet", guild = "None", road = "" }) == nil, "nothing to say at all: no block")
+
+  -- A profile still on the three-section layout, all of it Auto TRP's (0.23.0 and before),
+  -- moves over once: the same words under their headings, still Auto TRP's.
+  local ph, ps, hi = about(prof, "PH"), about(prof, "PS"), about(prof, "HI")
+  prof.about.TE, prof.about.T2 = 3, {}
+  prof.about.T3 = { PH = { TX = ph }, PS = { TX = ps }, HI = { TX = hi } }
+  local P = ns.U.Plain
+  mine.physical, mine.bearing, mine.history, mine.statistics = P(ph), P(ps), P(hi), nil
+  ns.UI.Update(true)
+  check(prof.about.TE == 2 and about(prof, "HI") == hi and about(prof, "PS") == ps and about(prof, "PH") == ph,
+    "three sections of Auto TRP's own move to the block layout, word for word")
+  check(T.Status("history") == "auto" and T.Status("bearing") == "auto" and T.Status("physical") == "auto",
+    "and stay Auto TRP's (no edit is read into the move)")
+  check(prof.about.T2[2].TX:find("^{h3:c}Personality{/h3}") and prof.about.T2[4] and prof.about.T2[4].TX, "under their headings, with Statistics after them")
+  check(ns.db.backup[ns.char.profileID].t3raw ~= nil, "the three sections as they were are kept for /atrp restore")
+
+  -- The player's own words in the three sections: their layout stays, and so do the statistics
+  -- under Additional information.
+  prof.about.TE, prof.about.T2 = 3, {}
+  prof.about.T3 = { PH = { TX = ph }, PS = { TX = ps }, HI = { TX = "My own history." } }
+  T.Release("history")
+  ns.UI.Update(true)
+  check(prof.about.TE == 3 and prof.about.T3.HI.TX == "My own history.", "the player's own three sections keep their layout")
+  check(not T.StatsInAbout() and info("Deaths") ~= nil, "and the statistics stay under Additional information")
+  ns.db.quiet = quietWas
 end
 
 -- The README lists every field `/atrp claim` and `/atrp release` take (the retired ones aside).

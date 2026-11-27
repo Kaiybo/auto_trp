@@ -28,6 +28,7 @@ local function values(sheet)
     glance_marks = sheet.glances.marks,
   }
   for _, st in ipairs(ns.Compose.STATS) do v["stat_" .. st.key] = sheet.stats and sheet.stats[st.key] end
+  v.statistics = sheet.stats and ns.Compose.StatsBlock(sheet.stats) or nil   -- the About page's own block
   return v
 end
 
@@ -463,9 +464,15 @@ function UI.PreviewSections(s)
   add(3, "music", s.music and (tostring(s.musicName) .. " (" .. tostring(s.music) .. ")"), { empty = "your home's music, or where you are" })
   add(3, "walkup", s.walkup == 2 and "Open to walk-ups" or s.walkup == 1 and "Not open to walk-ups" or nil, { empty = "no change" })
 
-  -- Statistics.
-  for _, st in ipairs(ns.Compose.STATS) do
-    if not st.retired then add(4, "stat_" .. st.key, s.stats and s.stats[st.key], { icon = st.icon }) end
+  -- Statistics: their own block on the About page (only those with something to say), else
+  -- each one under Additional information.
+  if TRP.StatsInAbout() then
+    add(4, "statistics", s.stats and ns.Compose.StatsBlock(s.stats), { icon = TRP.ABOUT.statistics.icon,
+      empty = "nothing counted yet; a statistic shows once it has something to say" })
+  else
+    for _, st in ipairs(ns.Compose.STATS) do
+      if not st.retired then add(4, "stat_" .. st.key, s.stats and s.stats[st.key], { icon = st.icon }) end
+    end
   end
   return tabs, s
 end
@@ -763,6 +770,7 @@ local OPTIONS = {
   { path = { "fields", "walkup" }, label = "Open to walk-ups follows your mood" },
   { head = "Statistics (Additional information on the Characteristics tab)" },
   { path = { "fields", "stats" }, label = "Write statistics (all of them; the switches below pick which)" },
+  { path = { "statsInAbout" }, label = "Statistics in their own block on the About page (off: under Additional information)" },
   { head = "Where it looks" },
   { path = { "sources", "rpgd" }, label = "RPG Dialogue" },
   { path = { "sources", "socialDiary" }, label = "Social Diary" },
@@ -854,7 +862,8 @@ UI.TIPS = {
   ["fields.stat_forms"] = "The \"Stances and forms\" statistic: time spent in each stance, shape or presence, for the classes that have them.",
   ["fields.stat_recipes"] = "The \"Recipes known\" statistic: how many recipes each trade knows, counted when its window is open. Off, Auto TRP takes down what it wrote there.",
   ["fields.stat_finest"] = "The \"Finest work\" statistic: the best thing you've made at a trade, by its quality. Off, Auto TRP takes down what it wrote there.",
-  ["fields.stats"] = "The Statistics entries under Additional information. Your own entries there stay as they are.",
+  ["fields.stats"] = "Your statistics: a block of their own on the About page (or entries under Additional information). Only those with something to say are shown.",
+  ["statsInAbout"] = "On: the statistics are a block of their own on the About page, after History, showing only those with something to say. Off: one entry each under Additional information on the Characteristics page.",
   ["fields.stat_grounds"] = "The \"Battlegrounds\" statistic: each battleground fought in, won, and your flags, bases and graveyards. Off, Auto TRP takes down what it wrote there.",
   ["fields.stat_honour"] = "The \"Honour\" statistic: your honour rank, honourable kills, enemies brought down in the open (counted, never named) and towns defended. Off, Auto TRP takes down what it wrote there.",
   ["fields.stat_kinhome"] = "How much of your play is spent in your people's capital and home lands, and how much abroad. Counted while you play, not while you're away.",
@@ -1237,20 +1246,23 @@ function UI.PulseBadge()
     g:SetSize(64, 64)
     g:SetAlpha(0)
     badge.glow = g
-    local ag = g.CreateAnimationGroup and g:CreateAnimationGroup()
-    if ag then
-      local up = ag:CreateAnimation("Alpha")
-      if up then
-        up:SetFromAlpha(0); up:SetToAlpha(1); up:SetDuration(0.25); up:SetOrder(1)
-        local down = ag:CreateAnimation("Alpha")
-        down:SetFromAlpha(1); down:SetToAlpha(0); down:SetDuration(0.6); down:SetOrder(2)
-        ag:SetLoopingType("NONE")
-        ag:SetScript("OnFinished", function() g:SetAlpha(0) end)
-        badge.pulse = ag
-      end
-    end
+    -- The glow is a nicety: a client missing any of these leaves it out, never an error.
+    -- (AnimationGroup:SetLooping, not SetLoopingType, which no client has.)
+    local ok, ag = pcall(function()
+      local a = g.CreateAnimationGroup and g:CreateAnimationGroup()
+      if not a then return nil end
+      local up = a:CreateAnimation("Alpha")
+      local down = a:CreateAnimation("Alpha")
+      if not up or not down then return nil end
+      up:SetFromAlpha(0); up:SetToAlpha(1); up:SetDuration(0.25); up:SetOrder(1)
+      down:SetFromAlpha(1); down:SetToAlpha(0); down:SetDuration(0.6); down:SetOrder(2)
+      if a.SetLooping then a:SetLooping("NONE") end
+      a:SetScript("OnFinished", function() g:SetAlpha(0) end)
+      return a
+    end)
+    badge.pulse = ok and ag or nil
   end
-  if badge.pulse then badge.pulse:Stop(); badge.pulse:Play() end
+  if badge.pulse then pcall(badge.pulse.Stop, badge.pulse); pcall(badge.pulse.Play, badge.pulse) end
 end
 
 function UI.BadgeTooltip(self)

@@ -153,34 +153,140 @@ local function t2HasText(about)
   return false
 end
 
-local function aboutField(part)
+-- About (0.24.0): Total RP 3's block layout (template 2), four blocks in a fixed order, each
+-- opening on its own heading: Physical description, Personality, History, and Statistics,
+-- which has the About page to itself rather than Characteristics' Additional information.
+-- A profile still on the three-section layout (template 3) is moved over once, when all three
+-- sections are Auto TRP's or empty (TRP.MoveAbout); a profile with About text of the player's
+-- own keeps its layout, and Auto TRP's sections stay where they were.
+TRP.ABOUT = {
+  physical = { i = 1, part = "PH", loc = "REG_PLAYER_PHYSICAL", title = "Physical description", icon = SECTION_ICONS.PH },
+  bearing = { i = 2, part = "PS", loc = "REG_PLAYER_PSYCHO", title = "Personality", icon = SECTION_ICONS.PS },
+  history = { i = 3, part = "HI", loc = "REG_PLAYER_HISTORY", title = "History", icon = SECTION_ICONS.HI },
+  statistics = { i = 4, title = "Statistics", icon = "INV_Misc_Note_01" },
+}
+local function aboutTitle(a)
+  local L = type(TRP3_API) == "table" and type(TRP3_API.loc) == "table" and TRP3_API.loc
+  local t = a.loc and L and L[a.loc]
+  return type(t) == "string" and t ~= "" and t or a.title
+end
+-- The block's text without its heading.
+local function body(tx)
+  if type(tx) ~= "string" then return nil end
+  return (tx:gsub("^%s*{h%d:?%a?}.-{/h%d}%s*", ""))
+end
+TRP.AboutBody = body
+local function t2(p, upto)
+  local about = sub(p, "about")
+  if type(about.T2) ~= "table" then about.T2 = {} end
+  for i = 1, upto or 0 do
+    if type(about.T2[i]) ~= "table" then about.T2[i] = {} end
+  end
+  return about.T2
+end
+function TRP.AboutBlocks(p)
+  local about = p and sub(p, "about")
+  return about and about.TE == 2 or false
+end
+
+local function aboutField(key)
+  local a = TRP.ABOUT[key]
   return {
     section = "about", multiLine = true,
     read = function(p)
       local about = sub(p, "about")
-      local sec = type(about.T3) == "table" and about.T3[part]
+      if about.TE == 2 then
+        local f = type(about.T2) == "table" and about.T2[a.i]
+        return type(f) == "table" and (U.Plain(body(f.TX)) or "") or ""
+      end
+      if not a.part then return "" end
+      local sec = type(about.T3) == "table" and about.T3[a.part]
       return type(sec) == "table" and (U.Plain(sec.TX) or "") or ""
     end,
     write = function(p, v)
-      local sec = t3(p)[part]
-      sec.TX = clean(v, true)
-      if sec.TX and not sec.IC then sec.IC = icon(SECTION_ICONS[part]) end
+      local about = sub(p, "about")
+      v = clean(v, true)
+      if about.TE == 2 or not a.part then
+        local f = t2(p, a.i)[a.i]
+        f.TX = v and ("{h3:c}" .. aboutTitle(a) .. "{/h3}\n" .. v) or nil
+        if v and not f.IC then f.IC = icon(a.icon) end
+        return
+      end
+      local sec = t3(p)[a.part]
+      sec.TX = v
+      if sec.TX and not sec.IC then sec.IC = icon(a.icon) end
     end,
-    raw = function(p) return copy(t3(p)[part]) end,
-    setRaw = function(p, v) t3(p)[part] = type(v) == "table" and v or {} end,
-    -- About only shows template 3's sections when the profile uses template 3. Switch to it
-    -- only when the other templates are empty.
+    raw = function(p)
+      local about = sub(p, "about")
+      if about.TE == 2 or not a.part then return copy(t2(p, a.i)[a.i]) end
+      return copy(t3(p)[a.part])
+    end,
+    setRaw = function(p, v)
+      local about = sub(p, "about")
+      if about.TE == 2 or not a.part then t2(p, a.i)[a.i] = type(v) == "table" and v or {}; return end
+      t3(p)[a.part] = type(v) == "table" and v or {}
+    end,
+    -- About only shows one layout. A profile with nothing in any of them takes the block
+    -- layout; one with words of the player's own keeps theirs.
     ready = function(p, id)
       local about = sub(p, "about")
-      if about.TE == 3 then return true end
+      if about.TE == 2 then return true end
+      if about.TE == 3 and a.part then return true end
       local t1 = type(about.T1) == "table" and U.Plain(about.T1.TX)
       if t1 or t2HasText(about) then return false end
+      if about.TE == 3 then
+        for _, part in ipairs({ "PH", "PS", "HI" }) do
+          local sec = type(about.T3) == "table" and about.T3[part]
+          if type(sec) == "table" and U.Plain(sec.TX) then return false end
+        end
+      end
       local b = ns.TRP.BackupFor(id)
       if b.TE == nil then b.TE = about.TE or false end
-      about.TE = 3
+      about.TE = 2
       return true
     end,
   }
+end
+
+-- A profile on the three-section layout with only Auto TRP's words in it (or none) moves to
+-- the block layout once: the same words, under their headings, and the sections as they
+-- were before Auto TRP first wrote them kept for /atrp restore. Returns true when it moved.
+function TRP.MoveAbout(profile, id, mine, theirs, prev)
+  local about = sub(profile, "about")
+  if about.TE ~= 3 or not ns.db or ns.db.statsInAbout == false then return false end
+  if t2HasText(about) then return false end
+  local texts = {}
+  for _, key in ipairs({ "physical", "bearing", "history" }) do
+    local a = TRP.ABOUT[key]
+    local sec = type(about.T3) == "table" and about.T3[a.part]
+    local have = type(sec) == "table" and (U.Plain(sec.TX) or "") or ""
+    if have ~= "" then
+      if theirs[key] or mine[key] == nil then return false end
+      if mine[key] ~= have and mine[key] ~= CLAIM and prev[key] ~= have then return false end
+    end
+    texts[key] = { tx = type(sec) == "table" and sec.TX or nil, ic = type(sec) == "table" and sec.IC or nil, bk = type(sec) == "table" and sec.BK or nil }
+  end
+  local b = ns.TRP.BackupFor(id)
+  if b.TE == nil then b.TE = about.TE end
+  b.t3raw = b.t3raw or {}
+  for _, key in ipairs({ "physical", "bearing", "history" }) do
+    local a = TRP.ABOUT[key]
+    if b.fields[key] and b.t3raw[a.part] == nil then b.t3raw[a.part] = b.fields[key].raw or {} end
+    b.fields[key] = nil   -- from here on, the block's own state before Auto TRP wrote it
+  end
+  local frames = t2(profile, 3)
+  for _, key in ipairs({ "physical", "bearing", "history" }) do
+    local a, t = TRP.ABOUT[key], texts[key]
+    local f = frames[a.i]
+    b.fields[key] = { raw = copy(f) }
+    if t.tx and U.Plain(t.tx) then
+      f.TX = "{h3:c}" .. aboutTitle(a) .. "{/h3}\n" .. t.tx
+      f.IC = t.ic or icon(a.icon)
+      f.BK = t.bk
+    end
+  end
+  about.TE = 2
+  return true
 end
 
 local function miscField(id, label, iconName)
@@ -340,9 +446,10 @@ TRP.FIELDS = {
     raw = function(p) return sub(p, "characteristics").IC end,
     setRaw = function(p, v) sub(p, "characteristics").IC = v end,
   },
-  bearing = aboutField("PS"),
-  history = aboutField("HI"),
-  physical = aboutField("PH"),
+  bearing = aboutField("bearing"),
+  history = aboutField("history"),
+  physical = aboutField("physical"),
+  statistics = aboutField("statistics"),
   ooc = textField("character", "CO"),
   -- Total RP 3's "open to walk-ups" (2 yes, 1 no). "No" reads as empty, the profile default.
   walkup = {
@@ -430,6 +537,7 @@ TRP.LABELS = {
   glance_mood = "Glance: mood", glance_lately = "Glance: lately", glance_company = "Glance: company",
   glance_ambition = "Glance: ambition", glance_marks = "Glance: marks",
   ooc = "OOC note", relationship = "Relationship status", walkup = "Open to walk-ups",
+  statistics = "About: Statistics",
   age = "Age", eyes = "Eye colour", height = "Height", build = "Body shape",
 }
 TRP.LABELS.namecolour, TRP.LABELS.music = "Name colour", "Profile music"   -- 0.23.0
@@ -439,7 +547,7 @@ for _, st in ipairs(ns.Compose.STATS) do TRP.LABELS["stat_" .. st.key] = "Stats:
 -- (nickname and motto before the statistics, the statistics in their own order).
 TRP.ORDER = { "currently", "title", "fulltitle", "nickname", "motto", "icon", "residence", "birthplace", "age", "eyes",
   "height", "build", "relationship",
-  "traits", "bearing", "history", "physical", "ooc", "walkup",
+  "traits", "bearing", "history", "physical", "statistics", "ooc", "walkup",
   "glance_mood", "glance_lately", "glance_company", "glance_ambition", "glance_marks" }
 for _, st in ipairs(ns.Compose.STATS) do TRP.ORDER[#TRP.ORDER + 1] = "stat_" .. st.key end
 do
@@ -451,11 +559,31 @@ do
   for _, k in ipairs(rest) do TRP.ORDER[#TRP.ORDER + 1] = k end
 end
 
+-- Where the statistics go: their own block on the About page (the block layout), unless the
+-- setting says Additional information or About is laid out with the player's own words.
+function TRP.StatsInAbout(p)
+  if not ns.db or ns.db.statsInAbout == false then return false end
+  p = p or TRP.Current()
+  if type(p) ~= "table" then return false end
+  local about = sub(p, "about")
+  if about.TE == 2 then return true end
+  if (type(about.T1) == "table" and U.Plain(about.T1.TX)) or t2HasText(about) then return false end
+  -- The three-section layout with words in it: only once it has moved over (TRP.MoveAbout).
+  if about.TE == 3 then
+    for _, part in ipairs({ "PH", "PS", "HI" }) do
+      local sec = type(about.T3) == "table" and about.T3[part]
+      if type(sec) == "table" and U.Plain(sec.TX) then return false end
+    end
+  end
+  return true
+end
+
 -- Which setting switches a field on.
 local function enabled(key)
   local f = ns.db.fields
+  if key == "statistics" then return f.stats and TRP.StatsInAbout() or false end
   if key:find("^glance_") then return f.glances and f[key] ~= false and TRP.GlanceSlot(key:sub(8)) > 0 end
-  if key:find("^stat_") then return f.stats and f[key] ~= false end
+  if key:find("^stat_") then return f.stats and f[key] ~= false and not TRP.StatsInAbout() end
   if key == "ooc" then return (f.ooc or f.ooc_doing) and true or false end   -- the note, or what you're doing OOC
   return f[key] and true or false
 end
@@ -566,6 +694,11 @@ function TRP.Restore()
     end
   end
   if b.TE ~= nil then sub(profile, "about").TE = b.TE or nil; sections.about = true end
+  -- The three About sections as they were before Auto TRP first wrote them (TRP.MoveAbout).
+  if type(b.t3raw) == "table" then
+    for part, raw in pairs(b.t3raw) do t3(profile)[part] = type(raw) == "table" and copy(raw) or {} end
+    sections.about = true
+  end
   for section in pairs(sections) do bump(sub(profile, section)) end
   for key in pairs(TRP.FIELDS) do TRP.Release(key, id) end
   ns.db.backup[id] = nil
@@ -607,6 +740,12 @@ function TRP.Apply(values, only)
   local dirty, changed, left, diff = {}, {}, {}, {}
   local editing = TRP.Editing()
   local bk = TRP.BackupFor(id)
+  -- The three-section About moves to the block layout before anything is written there.
+  local aboutAsked = not only or only.history or only.bearing or only.physical or only.statistics
+  if aboutAsked and not (editing and EDITED_SECTIONS.about) and TRP.MoveAbout(profile, id, mine, theirs, prev) then
+    bump(sub(profile, "about"))
+    dirty.about = true
+  end
 
   for _, key in ipairs(TRP.ORDER) do
     local def = TRP.FIELDS[key]

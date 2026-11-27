@@ -178,6 +178,7 @@ ns.DEFAULTS = {
   currentlyEvery = 15,     -- seconds, at least, between rewrites of "Currently" and the glances
   quiet = false,           -- no chat lines when the profile is updated
   pauseOOC = false,        -- leave "Currently" and the glances alone while you're out of character
+  statsInAbout = true,     -- statistics as their own block on the About page (else Additional information)
   reactPeople = true,      -- friends, foes and enemies you target move your mood
   reactPlaces = true,      -- places and spells that matter to your race and class
   moodNotes = true,        -- a quiet line in your own chat when your mood turns
