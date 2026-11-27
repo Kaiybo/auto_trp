@@ -165,5 +165,14 @@ the best thing i've come by
 grew into my strength
 band of three
 
+# About prose tics (editorial pass): lists that read like a catalogue, or say one thing twice
+among it
+unaccompanied
+is worn over the top
+before any of this
+steady, patient
+patient bearing | max 1
+as {list} instead
+
 # Fame, from the reputation hearsay (0.22.0)
 famed

@@ -625,7 +625,7 @@ W.ALIGN_TITLES = {
 
 -- How a lean shows in a sentence ("walks in the Light").
 W.AXIS_PROSE = {
-  light = { [1] = "keeps to the Light", [-1] = "walks closer to the shadow than most would like" },
+  light = { [1] = "tries to do right by people", [-1] = "walks closer to the shadow than most would like" },
   order = { [1] = "believes in law and keeping one's place", [-1] = "answers to no rules but {their} own" },
   honor = { [1] = "keeps {their} word", [-1] = "lies easily and well" },
 }
@@ -1591,7 +1591,7 @@ W.RACE_LOOK = {
   NightElf = { "Tall and graceful, with long ears and eyes that glow faintly silver.", "Tall, with long sweeping ears and silver eyes." },
   Orc = { "Heavy-jawed and thick through the shoulders, with jutting tusks.", "Massive shoulders, a heavy brow and jutting tusks." },
   Troll = { "Tall and lanky, with long tusks and longer ears.", "Loose-limbed and hunched, tusks curving up past a wide grin." },
-  Tauren = { "Enormous and calm, horned and hoofed, with gentle eyes.", "A towering bulk of fur and muscle, crowned with horns." },
+  Tauren = { "Enormous and calm, horned and hoofed, with gentle eyes.", "Towering, all fur and muscle, crowned with horns." },
   Scourge = { "Rotting flesh stretched over bone, with a jaw that doesn't quite close.", "Gaunt, eyes burning a cold yellow in a ruined face." },
 }
 
@@ -2285,7 +2285,7 @@ W.PHYS_STANCE = {
   PALADIN = {
     green = { "Stands very straight, as if someone were watching.", "Carries {themselves} with a novice's careful dignity." },
     seasoned = { "Upright and steady, with a calm that doesn't shift much.", "Holds {their} head up and {their} shoulders back." },
-    veteran = { "Stands with the settled calm of long service.", "Has the steady, patient bearing of someone sworn for years." },
+    veteran = { "Stands with the settled calm of long service.", "Has the patient bearing of someone sworn for years." },
   },
   HUNTER = {
     green = { "Keeps glancing at the edges of things, still learning to watch.", "Restless, with a newcomer's ear for every sound." },
@@ -2356,26 +2356,26 @@ W.QUALITY_WORD = { [0] = "worn out", [1] = "plain and serviceable", [2] = "sound
   [4] = "remarkable", [5] = "beyond price" }
 W.PHYS_QUALITY = {
   all = { "All of it is {word}", "Every piece of it is {word}" },
-  most = { "Most of it is {word}", "The bulk of it is {word}" },
-  finer = { "with one finer piece among it", "and one piece is finer than the rest" },
-  finerN = { "with {n} finer pieces among it", "and {n} pieces are finer than the rest" },
+  most = { "Much of it is {word}", "The bulk of it is {word}" },
+  finer = { "with one piece finer than the rest", "and one piece is better than the rest" },
+  finerN = { "with {n} pieces finer than the rest", "and {n} pieces are better than the rest" },
 }
 -- How it sits with their experience (from the items' level against their own).
 W.PHYS_FIT = {
-  behind = { "Much of it is older gear {they've} outgrown", "Most of it is kit {they} could do better than by now" },
+  behind = { "A good deal of it is gear {they've} outgrown", "{they've} outgrown most of it by now" },
   ahead = { "Better gear than most at {their} stage of the road", "Finer kit than {their} years on the road would suggest" },
   top = { "The kind of gear only the hardest fights give up" },
 }
 
 -- The pieces that show: chest first, then head and shoulders.
 W.PHYS_OUTFIT = {
-  armoured = { "Chief among it is {outfit}", "Most noticeable is {outfit}", "What shows first is {outfit}" },
+  armoured = { "What stands out is {outfit}", "Most noticeable is {outfit}", "What shows first is {outfit}" },
   bare = { "{they} wear{s} {outfit}", "{they} go{es} about in {outfit}" },
 }
 W.PHYS_ON = { [1] = "on {their} head", [3] = "across {their} shoulders" }
 W.PHYS_LAYERS = {
   both = { "{cloak} hangs at {their} back, and {tabard} goes over the top", "Over it all go {tabard} and, at {their} back, {cloak}" },
-  tabard = { "{tabard} is worn over the top", "Over it all {they} wear{s} {tabard}" },
+  tabard = { "{tabard} goes over the top", "Over it all goes {tabard}" },
   cloak = { "{cloak} hangs at {their} back", "{cloak} falls behind {them}", "{they} wear{s} {cloak} at {their} back" },
   shirt = { "Above the waist {they} wear{s} only {shirt}", "{shirt} is all {they} wear{s} above the waist" },
 }
@@ -2406,12 +2406,12 @@ W.PHYS_RANGED = {
 
 -- Matched pieces, enchantments, jewellery and the finest piece.
 W.PHYS_SET = {
-  named = { "{n} of the pieces match, all from {set}", "{n} pieces are a matched set, {set}", "Part of it is matched: {n} pieces of {set}" },
+  named = { "{n} pieces come from one set, {set}", "{n} pieces are a matched set, {set}", "Part of it is matched: {n} pieces of {set}" },
   unnamed = { "{n} of the pieces match, made as a set", "{n} pieces were plainly made to go together" },
   full = { "{n} of the pieces make up one matched set, {set}", "Most of it is one matched set: {n} pieces of {set}" },
 }
 W.PHYS_ENCHANT = {
-  weapon = { "{main} carries an enchanter's work", "{main} has been enchanted" },
+  weapon = { "An enchanter has worked on {main}", "There is an enchanter's work on {main}" },
   it = { "It has been enchanted, too", "An enchanter has worked on it as well" },
   one = { "{item} has been enchanted", "{item} carries an enchanter's work" },
   many = { "{n} of the pieces carry an enchanter's work", "{n} pieces have been enchanted" },
@@ -2923,16 +2923,16 @@ extendAll(W.PHYSIQUE, {
   agility = { "quick and supple", "nimble, light on {their} feet" },
   stamina = { "hardy and enduring", "built to last" },
   intellect = { "keen-eyed and thoughtful", "with a sharp, studious face" },
-  spirit = { "serene and steady", "calm-faced and unhurried" },
+  spirit = { "serene and slow to anger", "calm-faced and unhurried" },
 })
 extendAll(W.RACE_LOOK, {
-  Human = { "Human, of ordinary height and build.", "A human, much like any other at first glance." },
+  Human = { "Human, of ordinary height and build.", "Human, and much like any other at first glance." },
   Dwarf = { "Short and stout, built like a barrel.", "Broad and squat, with a heavy step." },
   Gnome = { "Barely waist-high, with large bright eyes.", "Small and quick, with oversized ears." },
   NightElf = { "Tall and lean, with pointed ears and glowing eyes.", "Graceful and long-limbed, eyes shining silver." },
-  Orc = { "Broad and powerful, with a heavy jaw and tusks.", "A big, heavily muscled orc." },
+  Orc = { "Broad and powerful, with a heavy jaw and tusks.", "Big and heavily muscled, even for an orc." },
   Troll = { "Long-limbed and lean, tusks curving up.", "Lanky and stooped, with long arms." },
-  Tauren = { "Huge and horned, with broad hooves.", "A towering tauren, horned and heavy." },
+  Tauren = { "Huge and horned, with broad hooves.", "Towering, horned and heavy." },
   Scourge = { "Thin and decayed, with glowing eyes.", "Pale, rotting and gaunt." },
 })
 extendAll(W.CLASS_LOOK, {
@@ -3027,7 +3027,7 @@ W.SAY = {
     "Has taken on and finished {n} jobs", "Has done {n} jobs for whoever needed them done" },
   crafts = { "Between roads {they're} {list}", "Off the road {they're} {list}", "By trade {they're} {list}",
     "Between journeys {they} work{s} as {list}", "When {they're} not travelling, {they're} {list}" },
-  finds = { "Found {list}", "Has come by {list}", "Has turned up {list} on {their} travels", "Picked up {list} along the way",
+  finds = { "Brought back {list}", "Has come by {list}", "Has turned up {list} on {their} travels", "Picked up {list} along the way",
     "Was lucky enough to come by {list}" },
   setout = { "{name} has only just set out, and hasn't been far from home yet",
     "{name} is new to the road, and hasn't been far from home yet",
@@ -3043,21 +3043,20 @@ W.SAY = {
   when_lastweek = { "Last week", "The week before", "A week or so ago", "About a week back", "Something over a week ago" },
   when_fortnight = { "A couple of weeks ago", "Two weeks or so back", "Earlier in the month", "Some two weeks ago",
     "Two or three weeks back" },
-  before = { "Before all that,", "Before that,", "Further back,", "Earlier on,", "Before any of this," },
   alongtheway = { "Along the way", "Over time", "On the road so far", "All told,", "Up to now", "In {their} time on the road" },
   -- Filling a sparse History
   rankso = { "Has risen as far as {rank}", "Has made it as far as the rank of {rank}", "Has reached the rank of {rank}",
-    "{they've} come up as far as {rank}", "{they} stand{s} at the rank of {rank} for now", "Holds the rank of {rank}, for now" },
-  keepsto = { "These days {they} keep{s} mostly to {zone}", "Lately {they've} been around {zone}", "For now {their} road runs through {zone}",
+    "{they've} come up as far as {rank}", "{they} stand{s} at the rank of {rank} for now", "For now, {they're} at the rank of {rank}" },
+  keepsto = { "These days {they} keep{s} mostly to {zone}", "Lately {they've} been around {zone}", "{zone} is where {they} spend{s} most of {their} time",
     "{they're} mostly to be found in {zone} lately", "Most days find {them} somewhere in {zone}" },
   -- Earned names: where the name came from, the saying that came with it, the others that
   -- stuck, and a name earned only lately (Lately).
   earned = { "{deed}. That's how {name} came to be called {nick}", "{deed}, and some have called {name} {nick} since",
     "{deed}. The name {nick} has stuck to {name} since", "{deed}. It's why {name} answers to {nick}",
     "{deed}, which is where the name {nick} comes from", "{deed}. Since then some call {name} {nick}" },
-  saying = { "It's where {they} picked up the saying {motto}", "{they} came away from it with a saying: {motto}",
+  saying = { "{they} picked up a saying along the way: {motto}", "{they} came away from it with a saying: {motto}",
     "{they} took a saying from it: {motto}", "A saying came with it, too: {motto}", "It left {them} with a saying: {motto}" },
-  othernames = { "Has been called {list} as well", "Also answers to {list}", "Other names have stuck too: {list}" },
+  othernames = { "Has been called {list} as well", "Also answers to {list}", "Other names have stuck as well: {list}" },
   favspell = { "Reaches for {spell} more than any other {noun}", "{spell} is the {noun} {they} use{s} most",
     "Uses {spell} more often than any other {noun}" },
   newname = { "Has lately come to be called {nick}.", "Some have started calling {them} {nick}.",
@@ -3166,7 +3165,7 @@ W.SELF_NOT_BOOKS = { ["Plain Letter"] = true, ["Letter"] = true }
 
 -- History: the trainer where it began, or the one gone back to.
 W.SAY.trainer_first = { "Had {their} first lessons from {who} in {place}", "Learned the first of {their} trade from {who} in {place}" }
-W.SAY.trainer_usual = { "Still goes back to {who} in {place} for lessons", "Takes {their} lessons from {who} in {place}" }
+W.SAY.trainer_usual = { "Still goes back for lessons to {who} in {place}", "Takes {their} lessons from {who} in {place}" }
 
 ---------------------------------------------------------------------------
 -- Life on the road (Sources/Life.lua): fishing, crafts, gathering, duels, battles, money,
@@ -3330,13 +3329,13 @@ W.PACK = {
     sold = "Let Go", auctioned = "Let Go", given = "Given Away", sent = "Sent Off", destroyed = "Thrown Out", carried = "Long Carried" },
   -- Personality: what's hoarded, once it's been kept well stocked for days. {item} is the plural.
   HABIT = {
-    bandage = { "Never seems to travel without a few {item} to spare", "Always has {item} on hand, and plenty of them",
+    bandage = { "Never seems to travel without a few {item} to spare", "Has {item} on hand, and plenty of them",
       "Keeps a stock of {item} for whoever needs one", "Is rarely caught short of {item}" },
     potion = { "Never goes far without {item}", "Keeps {item} close, for the fight that goes wrong",
-      "Always has a few {item} put by", "Carries {item} as a matter of course" },
-    food = { "Is never short of {item}", "Always has {item} packed for the road", "Keeps {their} bags well stocked with {item}",
+      "Keeps a few {item} put by", "Carries {item} as a matter of course" },
+    food = { "Is never short of {item}", "Packs {item} for every road", "Keeps {their} bags well stocked with {item}",
       "Travels with enough {item} to feed a small camp" },
-    drink = { "Is never short of {item}", "Always has {item} to hand", "Keeps more {item} in {their} bags than one person needs",
+    drink = { "Is never short of {item}", "Keeps {item} to hand", "Keeps more {item} in {their} bags than one person needs",
       "Carries {item} enough for a long dry road" },
     ammo = { "Never lets {their} stock of {item} run low", "Always carries more {item} than {they} need{s}",
       "Keeps {their} bags heavy with {item}", "Is never caught short of {item}" },
@@ -3570,8 +3569,8 @@ W.COMPANY = {
     "{they've} travelled with {n} of the same companions more than once", "Some faces come back: {n} have shared {their} road more than once" },
   h_recurring_one = { "One companion has travelled with {them} more than once", "One face has turned up at {their} side more than once",
     "{they've} travelled with one companion more than once", "One face keeps coming back to {their} road" },
-  h_solo = { "Has gone down into a dungeon single-handed {times}", "{they've} gone into a dungeon with no one at {their} back {times}",
-    "Has braved a dungeon on {their} own {times}", "Has taken on a dungeon unaccompanied {times}" },
+  h_solo = { "Has gone down into a dungeon single-handed {times}", "{times}, {they} went into a dungeon with no one at {their} back",
+    "Has braved a dungeon on {their} own {times}", "Has taken on a dungeon alone {times}" },
   h_pet = { "{pet}, {their} {kind}, has been at {their} side for {span}", "{name} has had {pet} the {kind} for {span}",
     "For {span} now, {pet} the {kind} has gone where {name} goes", "{pet}, {akind}, has kept at {name}'s heel for {span}" },
   h_pet_new = { "{name} has only just taken on {pet}, {akind}", "{pet} the {kind} is a new companion",
@@ -4642,7 +4641,7 @@ W.RACE_CLASS_TEMPER.Undead = W.RACE_CLASS_TEMPER.Scourge
 -- More ways the glances and About say things (W.SAY above), and new ones for lines that
 -- used to be written one way only.
 extendAll(W.SAY, {
-  othernames = { "Some know {them} as {list} instead", "Goes by {list} in some company" },
+  othernames = { "Others know {them} as {list}", "Goes by {list} in some company" },
   favspell = { "Leans on {spell} above any other {noun}", "Has a habit of reaching for {spell}" },
   newname = { "Has picked up a new name lately: {nick}.", "Has been going by {nick} of late." },
 })
@@ -4729,13 +4728,13 @@ extendAll(W.RACE_LOOK, {
   Dwarf = { "Low to the ground and heavy-boned, made for stone and cold." },
   Gnome = { "Small and wiry, with a long nose and quick, clever hands." },
   NightElf = { "Long-limbed and tall, ears sweeping back, eyes glowing in the shade." },
-  Orc = { "A powerful orc, heavy through the jaw and shoulders." },
+  Orc = { "Powerful, heavy through the jaw and shoulders." },
   Troll = { "Stooped from great height, with long arms and longer tusks.", "Rangy and loose-jointed, tusks jutting." },
   Tauren = { "Massive and deliberate, every step a heavy one on broad hooves." },
   Scourge = { "Thin to the bone, joints showing, eyes a cold glow in a sunken face." },
   Goblin = { "Short, wiry and sharp-featured, with long ears and a long nose.",
     "Small and bony, with big ears, a big nose and eyes that miss nothing.",
-    "A goblin, all angles and ears, with quick, clever hands." },
+    "All angles and ears, with quick, clever hands." },
 })
 extendAll(W.CLASS_LOOK, {
   WARRIOR = { "Stands square, weight even, like someone used to being pushed and not moving.",
@@ -4760,7 +4759,7 @@ extendAll(W.PHYSIQUE, {
   agility = { "lithe and balanced, seldom still", "quick-handed, with a light, easy step" },
   stamina = { "broad and tough, built to take a beating", "barrel-chested and enduring" },
   intellect = { "slight of build, with an intent, studious gaze", "lean, with a thinker's quick eyes" },
-  spirit = { "composed, with a steady, patient bearing", "quiet-faced, and still in a way that calms others" },
+  spirit = { "composed and patient", "quiet-faced, and still in a way that calms others" },
 })
 
 -- MOOD MODEL 0.21.0: how the journal (first person) says the new moods.

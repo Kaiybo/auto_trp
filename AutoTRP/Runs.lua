@@ -136,11 +136,13 @@ local function worth(run)
     + (run.full and 3 or 0) + (run.firstClear and 4 or 0) + ((run.of and not run.full) and 1 or 0)
 end
 
+-- Not the words History's news opens with (W.SAY.when_*): the run story follows the news,
+-- and two paragraphs in a row shouldn't open "In the last day or two".
 local WHEN = {
-  { 2 * 86400, { "In the last day or two", "Just these past days" } },
-  { 7 * 86400, { "Earlier this week", "This week" } },
-  { 14 * 86400, { "Last week", "A week or so ago" } },
-  { RECENT, { "A couple of weeks ago", "Two weeks or so back" } },
+  { 2 * 86400, { "Only a day or two back", "Very lately" } },
+  { 7 * 86400, { "Some days ago", "Earlier in the week" } },
+  { 14 * 86400, { "The week before this one", "A week or more back" } },
+  { RECENT, { "Around a fortnight back", "Half a month ago" } },
   { math.huge, { "Some while back", "A good while ago" } },
 }
 local function when(t)
@@ -162,7 +164,8 @@ function R.Story(run, name)
   local last = run.bosses[#run.bosses] and run.bosses[#run.bosses].name
   local open = pick(run.entry and run.entry.down and "go_down" or "go", { place = run.name, with = R.Company(run) }, run.start)
   local s = when(run.stop or run.start) .. " " .. name .. " " .. open
-  local setback, sb = R.Setback(run, name)
+  -- After the opening, the subject is a pronoun: "Aldric went down into the Deadmines; he fell once".
+  local setback, sb = R.Setback(run, "{they}")
   local short = run.of and not run.full and last and (run.of - (run.got or 0)) or nil
   local items = {}
   for i, l in ipairs(finest(run, 2)) do items[i] = itemName(l) end
@@ -182,7 +185,7 @@ function R.Story(run, name)
     else
       s = s .. " " .. choose({ "and came back out with no master down", "and gave it up before any master fell" }, "none:" .. run.start)
     end
-    if #items > 0 then s = s .. ", " .. pick("loot", { name = name, item = U.Join(items) }, run.start) end
+    if #items > 0 then s = s .. ", " .. pick("loot", { name = "{they}", item = U.Join(items) }, run.start) end
   else
     if run.full then s = s .. " " .. pick(run.firstClear and "clear_first" or "clear", nil, run.start)
     elseif short and short > 0 then s = s .. " " .. pick("left", { last = last, n = U.Number(short) }, run.start)
@@ -214,6 +217,7 @@ function R.Tales(c, name)
   if best then
     for _, s in ipairs(R.Story(best, name)) do out[#out + 1] = s end
     told.place = best.place
+    if now - (best.stop or 0) <= RECENT then told.name = best.name end
     if now - (best.stop or 0) <= RECENT then
       for _, b in ipairs(best.bosses or {}) do told.bosses[b.name] = true end
       for _, l in ipairs(best.loot or {}) do told.items[l.name] = true end

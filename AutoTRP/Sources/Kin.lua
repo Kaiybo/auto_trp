@@ -531,6 +531,17 @@ function K.Bearing(c, n)
   return out
 end
 
+-- Their people's own home lands: reaching them is no journey ("made the journey to Elwynn
+-- Forest" for a human). History leaves them out; the glances still feel them.
+local HOMELANDS = {
+  Human = { ["Elwynn Forest"] = true, ["Northshire Abbey"] = true, ["Westfall"] = true },
+  Dwarf = { ["Dun Morogh"] = true, ["Loch Modan"] = true }, Gnome = { ["Dun Morogh"] = true, ["Tinker Town"] = true },
+  NightElf = { ["Teldrassil"] = true }, Orc = { ["Durotar"] = true }, Troll = { ["Durotar"] = true, ["Sen'jin Village"] = true },
+  Tauren = { ["Mulgore"] = true, ["The Barrens"] = true }, Scourge = { ["Tirisfal Glades"] = true },
+  Undead = { ["Tirisfal Glades"] = true },
+}
+local function journey(k, p) return not (HOMELANDS[k.race or ""] or {})[p.name] end
+
 -- History news: { { t, rank, text, key } }, only what is recent (History checks again).
 function K.Events(c)
   local k = c and c.kin
@@ -543,7 +554,7 @@ function K.Events(c)
   end
   local fresh = {}
   for _, p in ipairs(k.places) do
-    if not p.before and U.Now() - p.t <= 21 * 86400 and #fresh < 2 then fresh[#fresh + 1] = p end
+    if not p.before and U.Now() - p.t <= 21 * 86400 and #fresh < 2 and journey(k, p) then fresh[#fresh + 1] = p end
   end
   if #fresh > 0 then
     local names = {}
@@ -570,7 +581,7 @@ function K.Older(c, told)
   local places = {}
   for i = #k.places, 1, -1 do
     local p = k.places[i]
-    if #places < 3 and not (told["kin:place"] and not p.before and U.Now() - p.t <= 21 * 86400) then places[#places + 1] = K.PlaceName(p.name) end
+    if #places < 3 and journey(k, p) and not (told["kin:place"] and not p.before and U.Now() - p.t <= 21 * 86400) then places[#places + 1] = K.PlaceName(p.name) end
   end
   if #places >= 2 then out[#out + 1] = pick(KW.EV.places, "oldplaces", { list = U.Join(places) }) end
   local foe = k.foes[1]
