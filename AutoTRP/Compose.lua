@@ -352,6 +352,12 @@ function Compose.AmbitionGlance()
         TX = say("unfinished", { t = lowerFirst(t.title) }, t.id) }
     end
   end
+  -- A job in the log that would earn them a name.
+  local reach = Compose.InReach()[1]
+  if reach then
+    return { TI = "Unfinished Business", IC = "INV_Misc_Note_02",
+      TX = U.Pron(say("inreach", { q = "\"" .. reach.quest .. "\"" }, reach.quest)) }
+  end
   -- Nothing they've set out to do: the next rank on their road, which the game will give them.
   local level = world.level or 1
   local ranks = Compose.Ranks(world)
@@ -707,11 +713,91 @@ local function placeName(n)
   return n
 end
 
+-- The annals: the character's moments, kept as they happen so History builds up rather
+-- than being rewritten. Taken from the records (ranks, names earned, standing), each
+-- once, and kept even after the record it came from has forgotten it.
+Compose.KEEP_ANNALS = 60
+local MONTHS = { "January", "February", "March", "April", "May", "June", "July", "August", "September",
+  "October", "November", "December" }
+
+function Compose.Annals()
+  if not ns.char then return {} end
+  local a = type(ns.char.annals) == "table" and ns.char.annals or {}
+  ns.char.annals = a
+  local have = {}
+  for _, e in ipairs(a) do have[e.k] = true end
+  local function add(e)
+    if have[e.k] or not e.t or e.t <= 1 then return end
+    have[e.k] = true; a[#a + 1] = e
+  end
+  for _, m in ipairs(ns.char.milestones or {}) do
+    if tonumber(m.level) then add({ k = "rank:" .. m.level, t = m.t, kind = "rank", level = tonumber(m.level), rank = m.rank, zone = m.zone }) end
+  end
+  for _, e in ipairs(Compose.EarnedAll()) do
+    add({ k = "name:" .. e.key, t = e.t, kind = "name", deed = e.deed, nick = e.nick })
+  end
+  for _, h in ipairs(ns.char.honours or {}) do
+    add({ k = "honour:" .. tostring(h.faction) .. ":" .. tostring(h.standing), t = h.t, kind = "honour",
+      faction = h.faction, standing = h.standing })
+  end
+  table.sort(a, function(x, y) if x.t ~= y.t then return x.t < y.t end return x.k < y.k end)
+  while #a > Compose.KEEP_ANNALS do table.remove(a, 1) end
+  return a
+end
+
+-- "In September, Aldric was made Footman in Westfall and was there when Edwin VanCleef fell."
+-- The latest few moments that the rest of History doesn't already tell, a sentence a month.
+local function annalsParagraph(name, told)
+  local a = Compose.Annals()
+  local ladder = Compose.Ranks(ns.cache.world)
+  local picked = {}
+  for k = #a, 1, -1 do
+    local e = a[k]
+    if not told[e.k] then
+      local text
+      if e.kind == "rank" then
+        local rank = ladder[band(e.level)] or e.rank
+        text = rank and ("was made " .. rank .. (e.zone and (" in " .. U.Mid(e.zone)) or ""))
+      elseif e.kind == "name" and e.deed then
+        text = e.deed:gsub("^%u", string.lower) .. ", and has been called " .. quote(e.nick) .. " since"
+      elseif e.kind == "honour" and e.standing and e.faction then
+        text = "earned " .. e.standing:lower() .. " standing with " .. W.FactionName(e.faction)
+      end
+      if text then table.insert(picked, 1, { t = e.t, text = text }) end
+      if #picked >= 4 then break end
+    end
+  end
+  if #picked == 0 then return nil end
+  local now = U.Call(date, "*t", U.Now()) or {}
+  local out, month, list = {}, nil, nil
+  local function flush()
+    if not list then return end
+    local d = U.Call(date, "*t", month) or {}
+    local when
+    if d.year == now.year and d.month == now.month then when = "This month"
+    elseif d.month then when = "In " .. MONTHS[d.month] .. ((d.year ~= now.year) and (" " .. d.year) or "")
+    end
+    if when then
+      out[#out + 1] = when .. ", " .. name .. " " .. list[1]
+      for k = 2, #list do out[#out + 1] = list[k] end
+    end
+  end
+  for _, p in ipairs(picked) do
+    local d = U.Call(date, "*t", p.t) or {}
+    local m = month and U.Call(date, "*t", month) or {}
+    if not list or d.month ~= m.month or d.year ~= m.year then flush(); month, list = p.t, {} end
+    list[#list + 1] = p.text
+  end
+  flush()
+  return paragraph(out)
+end
+
 function Compose.History()
   local c = ns.cache
   local rpgd, chron, sd, world = c.rpgd, c.chronicle, c.sd, c.world
   local name = firstName()
   local paras = {}
+  local toldKeys = {}   -- what the paragraphs tell, so the annals don't tell it twice
   local race = W.RACE_NOUN[world.race or ""]
   local noun = W.CLASS_NOUN[world.class or ""]
   local what = race and noun and (article(race) .. " " .. noun) or nil
@@ -761,6 +847,7 @@ function Compose.History()
       local m = ms[k]
       local rank = (tonumber(m.level) and ladder[band(m.level)]) or m.rank
       if rank then steps[#steps + 1] = rank .. (m.zone and (" in " .. U.Mid(m.zone)) or "") end
+      if rank and tonumber(m.level) then toldKeys["rank:" .. m.level] = true end
     end
     if #steps > 0 then road[#road + 1] = "Was made " .. U.Join(steps) end
   end
@@ -777,11 +864,13 @@ function Compose.History()
   -- Statistics, not told here.)
   local deeds = {}
   local earned, earnedKey = Compose.EarnedStory(name)
+  if earnedKey then toldKeys["name:" .. earnedKey] = true; toldKeys[earnedKey] = true end
   local told = 0
   if rpgd then
     for _, t in ipairs(rpgd.threads) do
       if earnedKey ~= "thread:" .. t.id and told < 2 then
         if t.state == "resolved" then deeds[#deeds + 1] = "Saw " .. lowerFirst(t.title) .. " through to the end"; told = told + 1
+          toldKeys["name:thread:" .. t.id] = true
         elseif t.state == "soured" then deeds[#deeds + 1] = "Watched " .. lowerFirst(t.title) .. " go sour"; told = told + 1 end
       end
     end
@@ -795,6 +884,7 @@ function Compose.History()
   local bosses = Compose.Bosses(c)
   local latest = bosses[1]
   local named = earnedKey and latest and earnedKey == "boss:" .. latest.name
+  if latest then toldKeys["name:boss:" .. latest.name] = true end
   if #bosses >= 3 then deeds[#deeds + 1] = say("bosses", { n = U.Number(#bosses), who = latest.name }, latest.name)
   elseif latest and not named then deeds[#deeds + 1] = say("boss", { who = latest.name, where = "" }, latest.name) end
   if chron and chron.rares >= 5 then deeds[#deeds + 1] = say("rares", { n = U.Number(chron.rares) }) end
@@ -878,6 +968,7 @@ function Compose.History()
   local hon = ns.char and ns.char.honours or {}
   local h = hon[#hon]
   if h and within(h.t, 14 * 86400) then
+    toldKeys["honour:" .. tostring(h.faction) .. ":" .. tostring(h.standing)] = true
     people[#people + 1] = "Only recently earned " .. h.standing:lower() .. " standing with " .. W.FactionName(h.faction)
   end
   if rpgd and rpgd.rivals[1] then
@@ -887,6 +978,9 @@ function Compose.History()
     people[#people + 1] = "Has made " .. (#sd.foes == 1 and "an enemy" or (U.Number(#sd.foes) .. " enemies")) .. " on the road"
   end
   paras[#paras + 1] = paragraph(people)
+
+  -- 4b. Month by month: the moments the rest doesn't tell.
+  if ns.db.annals ~= false then paras[#paras + 1] = annalsParagraph(name, toldKeys) end
 
   -- 5. How things stand now
   local now = {}
@@ -1206,6 +1300,34 @@ function Compose.EarnedAll()
   end
   earnedCache.rpgd, earnedCache.chron, earnedCache.deeds, earnedCache.class, earnedCache.list = rpgd, chron, c.deeds, class, list
   return list
+end
+
+-- Names within reach: a quest in the log that would earn one not yet earned (a chain's
+-- last step, or one of its parts that share its title; a bounty). Greatest first:
+-- { { nick, quest, motto, rank, tier } }.
+function Compose.InReach()
+  local have, out, seen = {}, {}, {}
+  for _, e in ipairs(Compose.EarnedAll()) do have[e.nick] = true end
+  local class = ns.cache.world and ns.cache.world.class
+  local log = ns.Sources.Deeds and ns.Sources.Deeds.InLog() or {}
+  for i, title in ipairs(log) do
+    local e, r = W.EARNED_QUEST[title], nil
+    if e and (not e.class or e.class == class) then
+      r = { nick = e.nick, motto = e.motto, quest = title, rank = 3, tier = e.tier or 1, i = i }
+    else
+      local target, short = Compose.BountyTarget(title)
+      if target then
+        r = { nick = short .. "'s Bane", motto = (W.EARNED_BOUNTY[short] or {}).motto, quest = title, rank = 1, tier = 0, i = i }
+      end
+    end
+    if r and not have[r.nick] and not seen[r.nick] then seen[r.nick] = true; out[#out + 1] = r end
+  end
+  table.sort(out, function(a, b)
+    if a.rank ~= b.rank then return a.rank > b.rank end
+    if a.tier ~= b.tier then return a.tier > b.tier end
+    return a.i < b.i
+  end)
+  return out
 end
 
 -- The name they go by: the one chosen with /atrp name, if it's still theirs, else the best.

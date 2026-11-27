@@ -1219,6 +1219,67 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- Names within reach: a quest in the log that would earn a name shows in Ambition and
+-- /atrp names, until it's turned in.
+do
+  local C = ns.Compose
+  local threads, goals, deeds, names = RPGDialogueCharDB.threads, ns.db.chronicleGoals, ns.char.deeds, ns.char.names
+  RPGDialogueCharDB.threads, ns.db.chronicleGoals = {}, false
+  ns.char.deeds = nil
+  local LOG = { { "Elwynn Forest", true }, { "Kill Some Boars" }, { 'Wanted: "Hogger"' }, { "Princess Must Die!" } }
+  GetNumQuestLogEntries = function() return #LOG end
+  GetQuestLogTitle = function(i) return LOG[i][1], 10, nil, LOG[i][2] end
+  event("QUEST_LOG_UPDATE")
+  C.SourcesChanged(); C.Refresh()
+  local r = C.InReach()
+  check(#r == 2 and r[1].nick == "Pig-Sticker" and r[2].nick == "Hogger's Bane", "a chain's step outranks a bounty, headers and errands left out")
+  local amb = C.AmbitionGlance()
+  check(amb.TI == "Unfinished Business" and amb.TX:find('"Princess Must Die!"', 1, true), "Ambition names the job in hand: " .. amb.TX)
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end
+  ns.UI.ListNames()
+  DEFAULT_CHAT_FRAME.AddMessage = oldChat
+  check(table.concat(said, "\n"):find("Within reach") and table.concat(said, "\n"):find("Pig%-Sticker"), "/atrp names lists what's within reach")
+  ns.Sources.Deeds.Quest("Princess Must Die!", 88, "Elwynn Forest")
+  table.remove(LOG, 4); event("QUEST_REMOVED")
+  C.Refresh()
+  check(#C.InReach() == 1 and C.InReach()[1].nick == "Hogger's Bane", "once earned it's no longer within reach")
+  GetNumQuestLogEntries, GetQuestLogTitle = nil, nil
+  event("QUEST_LOG_UPDATE")
+  check(#C.InReach() == 0, "no quest log, nothing within reach")
+  RPGDialogueCharDB.threads, ns.db.chronicleGoals, ns.char.deeds, ns.char.names = threads, goals, deeds, names
+  C.SourcesChanged(); C.Refresh()
+end
+
+-- The annals: History keeps its moments month by month, and they stay once the record
+-- they came from forgets them.
+do
+  local C = ns.Compose
+  local ms, hon = ns.char.milestones, ns.char.honours
+  ns.char.annals = nil
+  local old = NOW - 400 * 86400
+  ns.char.milestones = { { level = 10, zone = "Westfall", t = old }, { level = 20, zone = "Duskwood", t = NOW - 2000 },
+    { level = 30, zone = "Arathi Highlands", t = NOW - 1000 } }
+  ns.char.honours = {}
+  C.Refresh()
+  local h = C.History()
+  local d = os.date("*t", old)
+  local MONTHS = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" }
+  check(h:find("In " .. MONTHS[d.month] .. " " .. d.year .. ", Aldric was made ", 1, true) and h:find("in Westfall", 1, true),
+    "an old rank is told with its month and year")
+  local _, n = h:gsub("Was made ", "")
+  check(not h:find("was made [^.]* in Duskwood%. ") or n <= 1, "the ranks History already tells aren't told twice")
+  ns.char.milestones = {}
+  C.Refresh()
+  check(C.History():find("in Westfall", 1, true), "and the moment stays after its record forgets it")
+  ns.db.annals = false
+  check(not C.History():find("In " .. MONTHS[d.month] .. " " .. d.year, 1, true), "switched off, History leaves it out")
+  ns.db.annals = true
+  ns.char.milestones, ns.char.honours, ns.char.annals = ms, hon, nil
+  C.Refresh()
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },

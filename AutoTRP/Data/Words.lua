@@ -2223,6 +2223,8 @@ W.SAY = {
   -- Ambition and Marks
   nextrank = { "Working toward the rank of {rank}.", "Aims to rise to {rank}.", "Has {their} sights on the rank of {rank}." },
   unfinished = { "Wants to get to the bottom of {t}.", "Means to see {t} through.", "Means to find out the truth of {t}." },
+  inreach = { "Has taken on a job worth finishing: {q}.", "Has {their} mind on a job not yet done: {q}.",
+    "Is partway through a job: {q}." },
   remarkable = { "{their} {item} is the first thing people notice.", "{their} {item} draws a second look.",
     "{their} {item} stands out at once." },
   plain = { "Gives little away at first glance.", "Hard to read at first glance.", "Nothing about {them} stands out at first." },

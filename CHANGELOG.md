@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.21.0 (2026-11-27): Along the Way
+
+- **Names within reach.** A quest in your log that would earn a name you don't have yet (a chain's last step, or a bounty) is now noticed. `/atrp names` lists them under *Within reach*, with the saying that comes with each, and the *Ambition* glance names the job when you have no Chronicle goal or unfinished story: *"Has taken on a job worth finishing: "Princess Must Die!"."* The quest log is read only when it has changed.
+- **History, month by month.** History gains a paragraph of dated moments: the ranks you reached, the names you earned and the standing you won, a sentence each, under the month they happened (*"In September, Aldric was made Footman in Westfall."*). Moments are kept as they happen (up to sixty), so they stay even after the record they came from has forgotten them, and nothing the rest of History already tells is told twice. It has its own switch in the settings.
+
 ## 0.20.0 (2026-11-25): In Good Order
 
 - **Fixed: some characters' profiles stopped being written.** 0.14.0 lost the class rank ladders every race shares, so a character whose race and class have no ladder of their own (a human warlock, a dwarf rogue) hit an error on every update: *Currently* and the glances kept going, but the title, About, History, statistics, nickname and the rest were never written. The ladders are back (a human warlock rises from Initiate to Summoner and on), and a new test builds the whole profile for every race and class.

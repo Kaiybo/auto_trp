@@ -400,6 +400,7 @@ local OPTIONS = {
   { path = { "sources", "socialDiary" }, label = "Social Diary" },
   { path = { "sources", "chronicle" }, label = "Chronicle" },
   { head = "Details" },
+  { path = { "annals" }, label = "History keeps your moments month by month (ranks, masters, names, standing)" },
   { path = { "diaryExcerpt" }, label = "Quote your latest diary entry in History" },
   { path = { "richText" }, label = "Colour quotes and item names on the About page" },
   { path = { "chronicleGoals" }, label = "Share your open Chronicle goal as an ambition" },
@@ -678,8 +679,17 @@ local HELP = {
 function UI.ListNames()
   ns.Compose.Refresh()
   local all, worn = ns.Compose.EarnedAll(), ns.Compose.Earned()
+  local reach = ns.Compose.InReach()
+  local function within()
+    if #reach == 0 then return end
+    ns.Print("Within reach (in your quest log):")
+    for _, r in ipairs(reach) do
+      ns.Print(("  |cffffd100%s|r: finish %s%s"):format(r.nick, r.quest, r.motto and (". \"" .. r.motto .. "\"") or ""))
+    end
+  end
   if #all == 0 then
     ns.Print("No name earned yet. One comes from finishing a story in RPG Dialogue or a quest chain, bringing down a dungeon's master, or collecting a bounty.")
+    within()
     return
   end
   ns.Print("Names you've earned:")
@@ -692,6 +702,7 @@ function UI.ListNames()
     ns.Print((ns.char.chosenName and "You chose this one" or "Auto TRP picks the greatest deed's")
       .. "; |cffffd100/atrp name <number>|r wears another, |cffffd100/atrp name auto|r lets Auto TRP choose.")
   end
+  within()
 end
 
 function UI.ChooseName(arg)
