@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.0 (2026-11-27): Second Wind
+
+### How they fight
+
+- **How your character fights, from your own lines in the combat log** (`Sources/Style.lua`, with Total RP 3 alone). Each group fight is read as it ends from what you did in it: healing others more than you struck makes it a healer's fight, taunts, sunders, growls, mauls and shield blocks a defender's, the rest a striker's. Auto TRP also counts how much of your damage is up close, from range or by spell, the school you deal most, how long your fights run and how many you have an hour, how often you strike first in a group fight, the spells you cut off (Kick, Pummel, Counterspell, Earth Shock), the curses, poisons and sicknesses you lift from others, the foes you take out of a fight (polymorph, sap, fear, sleep, roots), the kinds of creature you fight most (read once as each fight starts) and your weapon skills. Other players are never kept, only counts. The combat log handler makes two comparisons and is out for every line that isn't yours; in a fight it only adds to a few counters, and every list is capped.
+- **Personality** gets a short paragraph on how you fight, each line only once the counts back it, four or five ways to say each: *"Fights from the back of a group, mending more than striking."*, *"Steps in front when a group runs into trouble."*, *"Reaches for fire first."*, *"Is quick to cut off a spellcaster mid-word."*, *"Is usually first into a fight."*, *"Lifts curses and sickness from others without being asked."*, *"Ends most fights quickly."*
+- **Physical** says how you carry yourself in a fight (*"Stands square and low in a fight, hard to move."*, *"Hangs back in a fight, lips moving."*). **History**'s older record tells the role you've mostly taken (*"has spent most of their fights keeping others standing"*), the spells you've cut off, the afflictions you've lifted, the kind of foe you've fought most and the weapons you've trained as far as your years allow.
+- **Company** names the part you play in the group you're in now, from its own fights (or, before there are any, the role you usually take): *"Sharing the road with a warrior and two mages, the group's healer."*
+- **Mood**: cutting off three or more casters in one fight is a quiet satisfaction (*"cut off four spells in one fight"*).
+- **Two new statistics**, each with its own switch and tooltip: **Role** (*"Healer, mostly"*, *"Defender, nearly always"*, *"Healer and spellcaster, by turns"*) and **Speciality** (*"Holy, 31 points"*, *", and 20 in Discipline"* when a second tree has ten or more). Speciality replaces 0.21.0's *Talents* entry, which is retired and taken down; if you had switched Talents off, Speciality starts off too.
+
 ## 0.21.0 (2026-11-27): Lately
 
 ### With Total RP 3 alone
