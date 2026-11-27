@@ -144,6 +144,7 @@ ns.DEFAULTS = {
     stat_fish = true, stat_made = true, stat_gathered = true, stat_duels = true, stat_battles = true, stat_gold = true,
     stat_inns = true, stat_hit = true, stat_longest = true, stat_keepsake = true, stat_deepest = true, stat_wipes = true, stat_since = true, stat_festivals = true,
     stat_kinhome = true, stat_racial = true, stat_kinfoes = true,
+    stat_calling = true, stat_escapes = true, stat_given = true, stat_forms = true, -- the class's own work (Sources/Calling.lua)
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },

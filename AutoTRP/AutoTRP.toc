@@ -18,6 +18,7 @@ Core.lua
 Data\RPGDNames.lua
 Data\Words.lua
 Data\Places.lua
+Data\Calling.lua
 Data\Delves.lua
 Data\Kin.lua
 Sources\World.lua
@@ -29,6 +30,7 @@ Sources\Self.lua
 Sources\Life.lua
 Sources\Company.lua
 Sources\Goals.lua
+Sources\Calling.lua
 Sources\Delves.lua
 Sources\Seasons.lua
 Sources\Style.lua

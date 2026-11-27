@@ -74,6 +74,7 @@ function Compose.Refresh()
     c.life = S.Life and S.Life.Read() or nil
     c.kin = S.Kin and S.Kin.Read() or nil
     c.road = S.Road and S.Road.Read() or nil
+    c.calling = S.Calling and S.Calling.Read() or nil   -- the class's signature work (Sources/Calling.lua)
     c.delves = S.Delves and S.Delves.Read() or nil
     c.seasons = S.Seasons and S.Seasons.Read(c) or nil
     c.pack = S.Pack and S.Pack.Read() or nil
@@ -482,6 +483,9 @@ function Compose.LatelyGlance()
   -- The shape of their time: an anniversary this week, a festival, a return (Seasons.lua).
   for _, cd in ipairs(Compose.TimeLately(c)) do add(cd.t, cd.prio, cd.g) end
 
+  -- The calling: a beast tamed, a portal opened, a narrow escape (Sources/Calling.lua).
+  for _, e in ipairs(ns.Sources.Calling and ns.Sources.Calling.Lately(c) or {}) do add(e.t, e.prio, e.g) end
+
   -- A day-old hurt outranks everything; otherwise the newest, then the weightiest. (A strict
   -- order: table.sort may compare an entry with itself.)
   for _, cd in ipairs(cands) do cd.urgent = (cd.prio == 3 and within(cd.t, 86400)) and 1 or 0 end
@@ -844,6 +848,7 @@ function Compose.MarksGlance()
     end
   end
   for _, m in ipairs(ns.Sources.Kin and ns.Sources.Kin.Marks(c) or {}) do mark(m.prio, m.title, m.text, m.icon) end
+  for _, m in ipairs(ns.Sources.Calling and ns.Sources.Calling.Marks(c) or {}) do mark(m.prio, m.title, m.text, m.icon) end
   -- Just out of a hard dungeon or raid run (Runs.lua).
   local rm = ns.Runs and ns.Runs.Mark(c)
   if rm then mark(rm.prio, rm.title, rm.text, rm.icon) end
@@ -1125,6 +1130,8 @@ function Compose.Habits(k)
   if #life.inns >= 10 then add(1, "inns") end
   if life.falls >= 10 then add(1.2, "falls") end
   if life.closeCalls >= 10 then add(1.1, "close") end
+  -- How they practise their calling (Sources/Calling.lua).
+  for _, h in ipairs(ns.Sources.Calling and ns.Sources.Calling.Habits(c) or {}) do cands[#cands + 1] = h end
   for _, h in ipairs(Compose.KeepsakeHabits and Compose.KeepsakeHabits() or {}) do add(h.score, h.key, h.list) end
   table.sort(cands, function(a, b) if a.score ~= b.score then return a.score > b.score end return a.key < b.key end)
   local out = {}
@@ -1884,6 +1891,8 @@ function Compose.History()
   end
   -- Their people (Sources/Kin.lua): a homecoming, a place of their people, a gift that mattered.
   for _, e in ipairs(ns.Sources.Kin and ns.Sources.Kin.Events(c) or {}) do event(e.t, e.rank, e.text, e.key) end
+  -- The calling's news: a beast tamed, a portal opened, the fallen raised (Sources/Calling.lua).
+  for _, e in ipairs(ns.Sources.Calling and ns.Sources.Calling.Events(c, recent) or {}) do event(e.t, e.rank, e.text, e.key) end
 
   local groups, order = {}, {}
   for _, e in ipairs(events) do
@@ -1947,6 +1956,7 @@ function Compose.History()
     older[#older + 1] = "helped bring down " .. oldBosses[1].name
   end
   if chron and chron.rares >= 5 then older[#older + 1] = "tracked down " .. U.Number(chron.rares) .. " rare beasts" end
+  for _, s in ipairs(ns.Sources.Calling and ns.Sources.Calling.Older(c, toldRecent) or {}) do older[#older + 1] = s end
   local questsDone = Compose.QuestsDone(c)
   if questsDone >= 25 then older[#older + 1] = "seen " .. U.Roughly(questsDone) .. " jobs through" end
   local own = c.deeds or {}
@@ -2624,6 +2634,8 @@ Compose.STATS = {
   -- From the bags (Sources/Pack.lua): the thing carried longest.
   { key = "keepsake", label = "Treasured keepsake", icon = "INV_Misc_Bag_11" },
 }
+-- The class's own work (Sources/Calling.lua): what a class has none of is left off.
+for _, st in ipairs(ns.Sources.Calling and ns.Sources.Calling.STATS or {}) do Compose.STATS[#Compose.STATS + 1] = st end
 
 -- How well off, against what's usual at their level.
 function Compose.WealthBand(world)
@@ -2727,6 +2739,7 @@ function Compose.Stats()
   end
   -- The road, land by land (Sources/Road.lua): the land they've spent longest in.
   out.longest = Compose.LongestStay()
+  for k, v in pairs(ns.Sources.Calling and ns.Sources.Calling.Stats(c) or {}) do out[k] = v end
   -- Their time: the first day on record, and the festivals kept (Seasons.lua).
   local se = c.seasons
   if se and se.first then
