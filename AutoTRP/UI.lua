@@ -753,6 +753,7 @@ local OPTIONS = {
   { head = "Details" },
   { path = { "diaryExcerpt" }, label = "Quote your latest diary entry in History" },
   { path = { "journalInProfile" }, label = "Quote your Auto TRP journal in History and Lately when nothing's fresher (/atrp journal)" },
+  { path = { "timeNotes" }, label = "Anniversaries, festivals kept and returns from time away, in History and Lately" },
   { path = { "richText" }, label = "Colour quotes and item names on the About page" },
   { path = { "chronicleGoals" }, label = "Share your open Chronicle goal as an ambition" },
   { path = { "nameFriends" }, label = "Name the players you marked as friends in Social Diary" },
@@ -830,6 +831,9 @@ UI.TIPS = {
   ["sources.chronicle"] = "Goals, bosses, dungeons, rare beasts, professions and gear. Your private notes are never read.",
   ["diaryExcerpt"] = "A line from your latest RPG Dialogue diary entry at the end of History.",
   ["journalInProfile"] = "When nothing fresher has happened, History and Lately quote a line from your Auto TRP journal.",
+  ["timeNotes"] = "The shape of your time: the hours you keep, a year on the road, a month since a new rank, the festivals you took part in, coming back after days away. Off, History and Lately leave them out.",
+  ["fields.stat_since"] = "The \"On the road since\" statistic: the first day on record (when Auto TRP first saw you, or the earliest any addon has). Off, Auto TRP takes down what it wrote there.",
+  ["fields.stat_festivals"] = "The \"Festivals kept\" statistic: the festivals you took part in (a holiday buff, quest, item or place seen while it was on) and your days at the Darkmoon Faire. Off, Auto TRP takes down what it wrote there.",
   ["richText"] = "Uses Total RP 3's colour markup: quotes in cream, items in their quality colour.",
   ["chronicleGoals"] = "Your open Chronicle goal becomes the Ambition glance.",
   ["nameFriends"] = "Friends you marked in Social Diary are named on your profile. Off, they're left out.",
@@ -1398,7 +1402,7 @@ local HELP = {
   { "/atrp status", "which profile it writes to and which addons it reads" },
   { "/atrp welcome", "show the welcome window again" },
   { "/atrp on", "resume (/atrp off: pause; your profile stays as it is)" },
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, talents, fish, made, gathered, duels, battles, gold, inns, hit)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, talents, fish, made, gathered, duels, battles, gold, inns, hit, since, festivals)",
 }
 UI.HELP = HELP
 

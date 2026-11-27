@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.22.0 (2026-11-27): Second Wind
+
+- **The shape of their time** (new: Sources/Seasons.lua, `AutoTRPCharDB.seasons`). Auto TRP keeps each session (start, end, length, from login and logout and a once-a-minute ticker), the game-clock hours you're usually abroad, the real days of the week you come, your longest stretch and longest absence, the return after one, runs of days played, and the first day on record (when Auto TRP first saw you, or the earliest any source has). Bounded: 30 sessions, 14 months, 24 festivals.
+- **History** tells it, from facts: *"Is most often abroad after dark."* (or an early riser, a daytime traveller, an evening one), *"Is mostly seen at the end of the week."*, *"It's a year this week since Aldric first set out."* (a month, a hundred days, half a year, each year), *"A month ago this week, Aldric rose to Templar."*, *"Came back after eleven days away."*, *"Spent Hallow's End in Undercity."*, *"Has been on the road nine days running."*, the longest stretch and a long absence once. Four to six ways to say each.
+- **Festivals actually kept**: a holiday buff or debuff, quest, item or place seen while the festival was on (Winter Veil, the Lunar Festival, Love is in the Air, Noblegarden, Children's Week, Midsummer, the Harvest Festival, Brewfest, Hallow's End, the Day of the Dead), with where you spent most of it; Darkmoon Faire visits by its grounds or Sayge's fortunes, once a day.
+- **How the months went**: the mood journal's days are folded in by month, so History can say the season or month just past was a hard or a good one (*"Had a hard autumn of it."*).
+- **Lately** shows an anniversary this week (*A Year On*, *A Month On*), a festival you're keeping today, a day at the Darkmoon Faire and a return after days away. The **mood** lifts a little (proud on an anniversary, merry at a festival or the faire, glad to be home after two weeks or more away), and the **journal** gets a line for each (*"It's a year this week since I set out."*).
+- **Two statistics**: *On the road since* (*"The 3rd of March, 2026"*) and *Festivals kept* (*"2: Winter Veil and Hallow's End; the Darkmoon Faire once"*), each with its own switch and tooltip.
+- A new setting, "Anniversaries, festivals kept and returns from time away, in History and Lately", on by default.
+
 ## 0.21.0 (2026-11-27): Lately
 
 ### With Total RP 3 alone

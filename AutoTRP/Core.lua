@@ -142,12 +142,13 @@ ns.DEFAULTS = {
     stat_rares = true, stat_slain = true, stat_jobs = true, stat_wealth = true, stat_crafts = true,
     stat_standing = true, stat_names = true, stat_spell = true, stat_met = true, stat_books = true, stat_letters = true,
     stat_fish = true, stat_made = true, stat_gathered = true, stat_duels = true, stat_battles = true, stat_gold = true,
-    stat_inns = true, stat_hit = true,
+    stat_inns = true, stat_hit = true, stat_since = true, stat_festivals = true,
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },
   diaryExcerpt = true,     -- quote your latest RPG Dialogue diary entry in History
   journalInProfile = true, -- without one, quote Auto TRP's own journal in History (and Lately, when nothing's fresher)
+  timeNotes = true,        -- anniversaries, returns and festivals kept, in History and Lately
   richText = true,         -- colour quotes and item names on the About page
   chronicleGoals = true,   -- your open Chronicle goals as an ambition
   nameFriends = true,      -- name players you marked friend (or gave a relationship) in Social Diary
