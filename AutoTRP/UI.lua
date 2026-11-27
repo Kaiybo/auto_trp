@@ -268,6 +268,15 @@ local function glanceText(g)
   return g.TI .. ": " .. g.TX
 end
 
+-- Total RP 3's About markup, shown the way a reader sees it: colours as colours, headings in
+-- gold, rather than the raw {col:...} tags.
+function UI.Render(text)
+  if type(text) ~= "string" then return text end
+  text = text:gsub("{col:(%x%x%x%x%x%x)}", "|cff%1"):gsub("{/col}", "|r")
+  text = text:gsub("{h%d}(.-){/h%d}", "|cffffd100%1|r")
+  return text
+end
+
 function UI.PreviewText()
   local s = ns.Compose.Sheet()
   local out = {}
@@ -379,7 +388,7 @@ function UI.Preview()
     refresh:SetText("Refresh")
     refresh:SetScript("OnClick", function() f.Refresh() end)
     function f.Refresh()
-      f.body = UI.PreviewText()
+      f.body = UI.Render(UI.PreviewText())
       f.text:SetText(f.body)
       f.text:SetCursorPosition(0)
     end
@@ -424,7 +433,7 @@ local OPTIONS = {
   { path = { "sources", "chronicle" }, label = "Chronicle" },
   { head = "Details" },
   { path = { "diaryExcerpt" }, label = "Quote your latest diary entry in History" },
-  { path = { "richText" }, label = "Colour quotes and item names on the About page" },
+  { path = { "richText" }, label = "Colour quotes and item names, and head History's paragraphs, on the About page" },
   { path = { "chronicleGoals" }, label = "Share your open Chronicle goal as an ambition" },
   { path = { "nameFriends" }, label = "Name the players you marked as friends in Social Diary" },
   { path = { "pauseOOC" }, label = "Pause Currently and glances while out of character" },

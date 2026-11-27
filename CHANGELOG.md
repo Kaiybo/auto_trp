@@ -10,6 +10,8 @@
 - `/atrp places` lists the five lands you've spent the most time in, and since when.
 - **Plainer chat lines.** "Updated Currently, About: History and two statistics (deaths and wealth)." instead of "Updated: About: History, Currently, Stats: deaths, Stats: wealth.", in the order the profile reads, with the glances and statistics gathered together. The same for the fields left alone because they're yours.
 - *Lately* no longer leaves a death hanging: a day or two on, it says the character is back on their feet, which matches what Currently and the mood show.
+- **Easier to read.** History's five paragraphs have small headings (*Beginnings*, *The Road So Far*, *Deeds*, *Friends and Foes*, *These Days*), so a reader can find the part they want. Switching off coloured text in the settings leaves them out too.
+- The preview shows colours and headings as a reader sees them, not as `{col:...}` tags.
 - **A tidier preview.** The statistics read as one block, a line each, the way Total RP 3 lists them, with the ones that have nothing to count yet gathered into one line at the end instead of a dozen "(nothing yet)"s.
 - **Reads as one piece.** The About pages no longer say the same thing twice or break one event into scraps:
   - Personality leaves out a belief the opening line already gave ("keeps to the Light", then "keeps faith in the Light").

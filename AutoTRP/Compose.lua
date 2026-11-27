@@ -519,6 +519,15 @@ local function paragraph(list)
   return prose(table.concat(out, " "))
 end
 
+-- A small heading over a paragraph ("{h3}Deeds{/h3}"), so a long History can be read at a
+-- glance. Total RP 3 renders the tags; the "richText" setting leaves them out.
+local function headed(title, para)
+  if not para then return nil end
+  if ns.db and ns.db.richText == false then return para end
+  return "{h3}" .. title .. "{/h3}\n" .. para
+end
+Compose.Headed = headed
+
 local function pages(paras)
   local out = {}
   for i = 1, table.maxn(paras) do if paras[i] then out[#out + 1] = paras[i] end end
@@ -797,7 +806,7 @@ function Compose.History()
       roots[#roots + 1] = name .. " is " .. what .. (home and (" who started out in " .. home) or "")
     end
   end
-  paras[#paras + 1] = paragraph(roots)
+  paras[#paras + 1] = headed("Beginnings", paragraph(roots))
 
   -- 2. The road so far
   local road = {}
@@ -839,7 +848,7 @@ function Compose.History()
     end
     road[#road + 1] = s
   end
-  paras[#paras + 1] = paragraph(road)
+  paras[#paras + 1] = headed("The Road So Far", paragraph(road))
 
   -- 3. What they've done, and the name it earned them. (Deaths and kills are counted in the
   -- Statistics, not told here.)
@@ -901,7 +910,7 @@ function Compose.History()
     end
     deeds[#deeds + 1] = say("finds", { list = U.Join(items) }, finds[#finds].item)
   end
-  paras[#paras + 1] = paragraph(deeds)
+  paras[#paras + 1] = headed("Deeds", paragraph(deeds))
 
   -- 4. The people, friends and otherwise
   local people = {}
@@ -970,7 +979,7 @@ function Compose.History()
   if sd and #sd.foes > 0 then
     people[#people + 1] = "Has made " .. (#sd.foes == 1 and "an enemy" or (U.Number(#sd.foes) .. " enemies")) .. " on the road"
   end
-  paras[#paras + 1] = paragraph(people)
+  paras[#paras + 1] = headed("Friends and Foes", paragraph(people))
 
   -- 5. How things stand now
   local now = {}
@@ -988,7 +997,7 @@ function Compose.History()
   if rpgd and ns.db.diaryExcerpt and rpgd.lastEntry and rpgd.lastEntry.text then
     now[#now + 1] = "{their} latest journal entry reads " .. quote(U.Truncate(rpgd.lastEntry.text, 280))
   end
-  paras[#paras + 1] = paragraph(now)
+  paras[#paras + 1] = headed("These Days", paragraph(now))
 
   return pages(paras)
 end

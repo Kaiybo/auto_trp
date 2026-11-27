@@ -1316,6 +1316,19 @@ do
   check(D({ "stat_crafts" }) == "the crafts statistic", D({ "stat_crafts" }))
 end
 
+-- Easy to read: History has small headings; the preview shows colours, not tags.
+do
+  local C = ns.Compose
+  C.SourcesChanged(); C.Refresh()
+  local h = C.History()
+  check(h:find("{h3}Beginnings{/h3}", 1, true) and h:find("{h3}Deeds{/h3}", 1, true), "History has headings")
+  ns.db.richText = false
+  check(not C.History():find("{h3}", 1, true), "plain text: no headings")
+  ns.db.richText = true
+  local r = ns.UI.Render("{h3}Deeds{/h3}\nWears {col:a335ee}Crown{/col}.")
+  check(r == "|cffffd100Deeds|r\nWears |cffa335eeCrown|r.", "the preview renders the markup: " .. r)
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
