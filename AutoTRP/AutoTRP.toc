@@ -19,6 +19,7 @@ Data\RPGDNames.lua
 Data\Words.lua
 Data\Places.lua
 Data\Delves.lua
+Data\Kin.lua
 Sources\World.lua
 Sources\RPGDialogue.lua
 Sources\SocialDiary.lua
@@ -33,6 +34,7 @@ Sources\Seasons.lua
 Sources\Style.lua
 Sources\Renown.lua
 Sources\Pack.lua
+Sources\Kin.lua
 Mood.lua
 Journal.lua
 Compose.lua
