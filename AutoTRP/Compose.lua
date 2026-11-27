@@ -1329,9 +1329,11 @@ end
 
 -- Open to walk-ups when the mood is open; closed when it isn't; otherwise no change.
 local WALKUP_OPEN = { sociable = true, ease = true, merry = true, company = true, elated = true, festive = true,
-  smitten = true, satisfied = true, homecoming = true, proud = true, flush = true, ["calm:charming"] = true, ["calm:kind"] = true }
+  smitten = true, satisfied = true, homecoming = true, proud = true, flush = true, ["calm:charming"] = true, ["calm:kind"] = true,
+  grateful = true, cheerful = true, smug = true, bored = true }
 local WALKUP_CLOSED = { angry = true, downcast = true, sorrowful = true, wounded = true, tense = true, shaken = true,
-  ailing = true, frustrated = true, drained = true, haunted = true, ["calm:reserved"] = true, ["calm:cruel"] = true }
+  ailing = true, frustrated = true, drained = true, haunted = true, ["calm:reserved"] = true, ["calm:cruel"] = true,
+  bitter = true, exhausted = true }
 function Compose.Walkup(mood)
   if not mood then return nil end
   if WALKUP_OPEN[mood.key] then return 2 end

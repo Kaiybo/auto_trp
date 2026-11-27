@@ -334,6 +334,17 @@ function U.Call(fn, ...)
   return nil
 end
 
+-- U.Call for an API that returns many values (the combat log): every value, unsecreted.
+local function passAll(ok, ...)
+  if not ok then return nil end
+  if type(_G.issecretvalue) ~= "function" then return ... end
+  return scrub(...)
+end
+function U.CallAll(fn, ...)
+  if type(fn) ~= "function" then return nil end
+  return passAll(pcall(fn, ...))
+end
+
 -- The player's pronouns for prose. Total RP 3's own pronoun field wins when it is set;
 -- otherwise they/them, never a guess from the character's model.
 function U.Pronouns()
