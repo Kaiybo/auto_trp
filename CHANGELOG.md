@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.21.0 (2026-11-27): Lately
+
+- **History leads with the news.** Right after where your character came from, a paragraph tells what happened in the last three weeks, newest first, grouped by when: *"Just these past days, Aldric helped bring down Edwin VanCleef, came back up out of the Deadmines and took up the colours of the Silver Lanterns."* New lands, a new rank, stories settled or gone sour, masters felled (or felled again), dungeons, standing earned, a move to a new inn, a name newly earned and a great find all count.
+- **What has changed.** Auto TRP now notices when you join, leave or change guilds, move up or down a guild rank, or become clearly better or worse off, and History says so (*"left the Silver Lanterns for the Iron Wake"*, *"went from getting by to comfortable"*). A purse hovering on the edge of a band isn't news every day.
+- **Some things stay.** Your roots, the road and home, the name you're known by and the saying that came with it, and your people are always there. Older deeds are told briefly, in one or two sentences, once they're no longer news.
+- Smoother prose: the deeds no longer run as a string of short "Has..." sentences, and guild and reputations share one.
+
 ## 0.20.0 (2026-11-25): In Good Order
 
 - **Fixed: some characters' profiles stopped being written.** 0.14.0 lost the class rank ladders every race shares, so a character whose race and class have no ladder of their own (a human warlock, a dwarf rogue) hit an error on every update: *Currently* and the glances kept going, but the title, About, History, statistics, nickname and the rest were never written. The ladders are back (a human warlock rises from Initiate to Summoner and on), and a new test builds the whole profile for every race and class.

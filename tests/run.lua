@@ -292,8 +292,27 @@ ns.char.days = {
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 local hist = ns.Compose.History()
 check(hist:find("Wears the colours of the Silver Lanterns and holds the rank of lamplighter there"), "history: guild")
-check(hist:find("Has done good work for Stormwind and the Argent Dawn"), "history: reputations")
+check(hist:find("done good work for Stormwind and the Argent Dawn"), "history: reputations")
 check(hist:find("Felt downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
+-- History favours what's recent: news within three weeks leads, older deeds join the record.
+check(hist:find("Aldric helped bring down Edwin VanCleef", 1, true) or hist:find("Aldric came to be called", 1, true), "history: the news comes first")
+do
+  local realTime = GetServerTime
+  GetServerTime = function() return NOW + 40 * 86400 end
+  ns.Compose.Refresh()
+  local old = ns.Compose.History()
+  print("\nHistory, forty days on:\n" .. old)
+  check(not old:find("for the first time", 1, true), "weeks later, the news has moved on")
+  check(old:find("\"Mine-Warden\"", 1, true) and old:find("Westbrook", 1, true), "the name and the roots stay")
+  check(old:find("been down into the Deadmines", 1, true), "and older deeds are told briefly")
+  -- A change of guild is noticed and told.
+  ns.cache.world.guild = "The Iron Wake"
+  local changed = ns.Compose.History()
+  check(changed:find("left the Silver Lanterns for the Iron Wake", 1, true), "a change of guild is news: " .. changed:match("[^\n]*Iron Wake[^\n]*"))
+  GetServerTime = realTime
+  ns.char.changes, ns.char.seen = nil, nil
+  ns.Compose.Refresh()
+end
 check(ns.Compose.Bearing():find("about the gold of Elwynn's mines"), "personality: conversation hooks")
 state.buffs[#state.buffs + 1] = "Shadowform"
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
@@ -1081,7 +1100,7 @@ do
   -- One saved by an earlier version from the plain class ladder is told by its level.
   ns.char.milestones = { { level = 30, rank = "Cutthroat", zone = "Hillsbrad Foothills", t = NOW - 100 } }
   C.Refresh()
-  check(C.History():find("Was made Deathstalker in Hillsbrad Foothills"), "an old milestone reads on the right ladder")
+  check(C.History():find("rose to Deathstalker in Hillsbrad Foothills"), "an old milestone reads on the right ladder")
   ns.char.milestones = nil
   UnitRace = function() return "Human", "Human" end
   UnitClass = function() return "Priest", "PRIEST" end

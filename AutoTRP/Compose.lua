@@ -692,8 +692,8 @@ function Compose.Hooks()
 end
 
 ---------------------------------------------------------------------------
--- About: History. Five movements: where they came from, the road so far and what it has
--- made of them, the people, the work and the deeds, and how things stand now.
+-- About: History. What happened lately comes first and is told most fully; what lasts
+-- (roots, the earned name, the people) always stays; the rest is told briefly.
 ---------------------------------------------------------------------------
 local function profWord(rank)
   for _, r in ipairs(W.PROF_RANK) do if rank >= r.min then return r.word end end
@@ -707,16 +707,79 @@ local function placeName(n)
   return n
 end
 
+-- How long ago, in the words History uses to open a run of recent events. Events within
+-- RECENT are news; older ones join the longer record, told more briefly.
+local RECENT = 21 * 86400
+local function whenWords(t)
+  local age = U.Now() - t
+  if age < 2 * 86400 then return "near", 1 end
+  if age < 7 * 86400 then return "week", 2 end
+  if age < 14 * 86400 then return "lastweek", 3 end
+  return "fortnight", 4
+end
+
+-- What has changed since Auto TRP last looked: the guild, the rank in it, and how well off
+-- they are. The first look is only remembered. Each change: { kind, from, to, t }.
+function Compose.NoticeChanges(world)
+  if not ns.char or not world then return {} end
+  local seen = ns.char.seen
+  local changes = ns.char.changes or {}
+  ns.char.changes = changes
+  local now = U.Now()
+  local function note(kind, from, to)
+    changes[#changes + 1] = { kind = kind, from = from, to = to, t = now }
+    while #changes > 8 do table.remove(changes, 1) end
+  end
+  -- Wealth moves a band only when it's clearly past the edge, so a purse that hovers on a
+  -- boundary isn't news every day.
+  local band
+  if type(world.money) == "number" and world.level then
+    local r = world.money / math.max(1, world.level ^ 2)
+    for i, b in ipairs(W.WEALTH) do if r < b.max then band = i; break end end
+    local was = seen and seen.wealth
+    if was and band ~= was then
+      local lo = W.WEALTH[was - 1] and W.WEALTH[was - 1].max or 0
+      local hi = W.WEALTH[was].max
+      if r < hi * 1.15 and r >= lo * 0.85 then band = was end
+    end
+  end
+  if seen then
+    if band and seen.wealth and band ~= seen.wealth then note("wealth", seen.wealth, band) end
+    if world.guild ~= seen.guild then
+      if world.guild and seen.guild then note("guildmove", seen.guild, world.guild)
+      elseif world.guild then note("joined", nil, world.guild)
+      elseif seen.guild then note("left", seen.guild, nil) end
+    elseif world.guild and world.guildRank and seen.guildRank and world.guildRank ~= seen.guildRank then
+      note("guildrank", seen.guildRank, world.guildRank)
+    end
+  end
+  ns.char.seen = { wealth = band or (seen and seen.wealth), guild = world.guild,
+    guildRank = world.guildRank or (seen and world.guild == seen.guild and seen.guildRank) or nil }
+  for i = #changes, 1, -1 do
+    if now - (changes[i].t or 0) > 45 * 86400 then table.remove(changes, i) end
+  end
+  return changes
+end
+
+local function guildName(g) return g:find("^The ") and U.Mid(g) or g end
+
+-- History, in five paragraphs. The first and the last two hold what lasts: where they
+-- came from and the road, the people, how things stand. The second is the news (the last
+-- three weeks, newest first, and what has changed). The third is the longer record: the
+-- deed behind their name, then everything older, told briefly.
 function Compose.History()
   local c = ns.cache
   local rpgd, chron, sd, world = c.rpgd, c.chronicle, c.sd, c.world
   local name = firstName()
+  local now = U.Now()
   local paras = {}
   local race = W.RACE_NOUN[world.race or ""]
   local noun = W.CLASS_NOUN[world.class or ""]
   local what = race and noun and (article(race) .. " " .. noun) or nil
+  local function recent(t) return type(t) == "number" and t > 0 and now - t <= RECENT end
+  local changes = Compose.NoticeChanges(world)
 
-  -- 1. Where it began
+  -- 1. Where it began, and the road since
   local roots = {}
   if rpgd and rpgd.origin and rpgd.origin.name then
     local o = rpgd.origin.name
@@ -731,75 +794,176 @@ function Compose.History()
       roots[#roots + 1] = name .. " is " .. what .. (home and (" who started out in " .. home) or "")
     end
   end
-  paras[#paras + 1] = paragraph(roots)
-
-  -- 2. The road so far
-  local road = {}
   local zones = rpgd and rpgd.zones or {}
   local zoneCount = math.max(#zones, chron and chron.zones or 0)
   if zoneCount >= 3 and zones[1] then
     local since = math.min(zones[1].t or math.huge, chron and chron.created or math.huge)
-    local weeks = since < math.huge and math.floor((U.Now() - since) / 604800) or 0
+    local weeks = since < math.huge and math.floor((now - since) / 604800) or 0
     local ago = weeks >= 9 and (U.Number(math.floor(weeks / 4.3)) .. " months ago")
       or weeks >= 2 and (U.Number(weeks) .. " weeks ago") or nil
-    local last = zones[#zones]
-    local latest = (last and last.name ~= zones[1].name) and (", " .. placeName(last.name) .. " the latest of them") or ""
-    road[#road + 1] = "From " .. placeName(zones[1].name) .. (ago and (", " .. ago .. ",") or "") .. " {their} road has led through "
-      .. U.Number(zoneCount) .. " lands" .. latest
     local dungeons = chron and chron.dungeons or 0
-    if dungeons >= 2 then road[#road + 1] = "Along the way {they've} been inside " .. U.Number(dungeons) .. " dungeons" end
+    roots[#roots + 1] = "From " .. placeName(zones[1].name) .. (ago and (", " .. ago .. ",") or "")
+      .. " {their} road has led through " .. U.Number(zoneCount) .. " lands"
+      .. (dungeons >= 2 and (" and down into " .. U.Number(dungeons) .. " dungeons") or "")
   elseif (world.level or 1) < 10 then
-    road[#road + 1] = say("setout", { name = name })
+    roots[#roots + 1] = say("setout", { name = name })
+  end
+  if rpgd and rpgd.homeInn and not (rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and recent(rpgd.homeSince)) then
+    roots[#roots + 1] = "Home these days is " .. placeName(rpgd.homeInn)
+  end
+  paras[#paras + 1] = paragraph(roots)
+
+  -- 2. Lately: what happened in the last three weeks, and what changed. Each event is a
+  -- past-tense predicate ("reached Duskwood for the first time"), grouped by how long ago
+  -- and joined into one sentence per group, so the news reads as a run, not a list.
+  local events = {}
+  local toldRecent = {}
+  local function event(t, rank, text, key)
+    if recent(t) and text then events[#events + 1] = { t = t, rank = rank, text = text, key = key } end
+  end
+  local known = ns.char and ns.char.names or {}
+  local earned, earnedKey = Compose.EarnedStory(name, function(key) return recent(known[key]) end)
+  for _, e in ipairs(Compose.EarnedAll()) do
+    if e.key ~= earnedKey and recent(known[e.key]) then
+      event(known[e.key], 1, "came to be called " .. quote(e.nick) .. " by some", "name:" .. e.key)
+    end
   end
   local ms = ns.char and ns.char.milestones or {}
-  if #ms > 0 then
-    -- The rank by the level it came at, on this character's own ladder (before 0.20.0 the
-    -- plain class ladder was saved, which could disagree with the Title).
-    local ladder = Compose.Ranks(world)
-    local steps = {}
-    for k = math.max(1, #ms - 1), #ms do
-      local m = ms[k]
-      local rank = (tonumber(m.level) and ladder[band(m.level)]) or m.rank
-      if rank then steps[#steps + 1] = rank .. (m.zone and (" in " .. U.Mid(m.zone)) or "") end
-    end
-    if #steps > 0 then road[#road + 1] = "Was made " .. U.Join(steps) end
+  local ladder = Compose.Ranks(world)
+  local function rankOf(m) return (tonumber(m.level) and ladder[band(m.level)]) or m.rank end
+  local lastMs = ms[#ms]
+  if lastMs and rankOf(lastMs) then
+    event(lastMs.t, 2, "rose to " .. rankOf(lastMs) .. (lastMs.zone and (" in " .. U.Mid(lastMs.zone)) or ""), "rank")
   end
-  if rpgd and rpgd.homeInn then
-    local s = "Home these days is " .. placeName(rpgd.homeInn)
-    if rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and within(rpgd.homeSince, 14 * 86400) then
-      s = s .. ", lately moved from " .. placeName(rpgd.homePrev)
+  for _, t in ipairs(rpgd and rpgd.threads or {}) do
+    if earnedKey ~= "thread:" .. t.id then
+      local v = t.state == "resolved" and "saw " .. lowerFirst(t.title) .. " through to the end"
+        or t.state == "soured" and "watched " .. lowerFirst(t.title) .. " go sour"
+        or (t.state == "unfolding" or t.state == "stirring") and "got caught up in " .. lowerFirst(t.title)
+      event(t.t, 3, v, "thread:" .. t.id)
     end
-    road[#road + 1] = s
-  end
-  paras[#paras + 1] = paragraph(road)
-
-  -- 3. What they've done, and the name it earned them. (Deaths and kills are counted in the
-  -- Statistics, not told here.)
-  local deeds = {}
-  local earned, earnedKey = Compose.EarnedStory(name)
-  local told = 0
-  if rpgd then
-    for _, t in ipairs(rpgd.threads) do
-      if earnedKey ~= "thread:" .. t.id and told < 2 then
-        if t.state == "resolved" then deeds[#deeds + 1] = "Saw " .. lowerFirst(t.title) .. " through to the end"; told = told + 1
-        elseif t.state == "soured" then deeds[#deeds + 1] = "Watched " .. lowerFirst(t.title) .. " go sour"; told = told + 1 end
-      end
-    end
-  end
-  for _, s in ipairs(earned or {}) do deeds[#deeds + 1] = s end
-  if rpgd then
-    local places = {}
-    for k = 1, math.min(3, #rpgd.cleared) do places[k] = U.Mid(rpgd.cleared[k].name) end
-    if #places > 0 then deeds[#deeds + 1] = say("delved", { list = U.Join(places) }, places[1]) end
   end
   local bosses = Compose.Bosses(c)
-  local latest = bosses[1]
-  local named = earnedKey and latest and earnedKey == "boss:" .. latest.name
-  if #bosses >= 3 then deeds[#deeds + 1] = say("bosses", { n = U.Number(#bosses), who = latest.name }, latest.name)
-  elseif latest and not named then deeds[#deeds + 1] = say("boss", { who = latest.name, where = "" }, latest.name) end
-  if chron and chron.rares >= 5 then deeds[#deeds + 1] = say("rares", { n = U.Number(chron.rares) }) end
+  local nb = 0
+  for _, b in ipairs(bosses) do
+    if nb < 2 and recent(b.t) and earnedKey ~= "boss:" .. b.name then
+      nb = nb + 1
+      local again = b.first and b.first > 0 and not recent(b.first)
+      event(b.t, 3, (again and "brought down " .. b.name .. " again" or "helped bring down " .. b.name), "boss:" .. b.name)
+    end
+  end
+  for k = 1, math.min(2, rpgd and #rpgd.cleared or 0) do
+    local d = rpgd.cleared[k]
+    event(d.t, 4, "came back up out of " .. U.Mid(d.name), "cleared:" .. d.name)
+  end
+  do
+    local fresh = {}
+    for k = 2, #zones do if recent(zones[k].t) then fresh[#fresh + 1] = zones[k] end end
+    if #fresh > 0 then
+      local names = {}
+      for k = #fresh, math.max(1, #fresh - 2), -1 do names[#names + 1] = placeName(fresh[k].name) end
+      event(fresh[#fresh].t, 5, (#names == 1 and "reached " or "saw ") .. U.Join(names) .. " for the first time", "zones")
+    end
+  end
+  local hon = ns.char and ns.char.honours or {}
+  local h = hon[#hon]
+  if h then event(h.t, 5, "earned " .. h.standing:lower() .. " standing with " .. W.FactionName(h.faction), "honour") end
+  if rpgd and rpgd.homeInn and rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn then
+    event(rpgd.homeSince, 5, "moved from " .. placeName(rpgd.homePrev) .. " to " .. placeName(rpgd.homeInn), "home")
+  end
+  local lastOf = {}
+  for _, ch in ipairs(changes) do lastOf[ch.kind == "guildrank" and "guildrank" or ch.kind == "wealth" and "wealth" or "guild"] = ch end
+  if lastOf.guild then
+    local ch = lastOf.guild
+    event(ch.t, 5, ch.kind == "joined" and "took up the colours of " .. guildName(ch.to)
+      or ch.kind == "left" and "left " .. guildName(ch.from)
+      or "left " .. guildName(ch.from) .. " for " .. guildName(ch.to), "guild")
+  end
+  if lastOf.guildrank and not (lastOf.guild and lastOf.guild.t >= lastOf.guildrank.t) then
+    local ch = lastOf.guildrank
+    event(ch.t, 6, "went from " .. ch.from:lower() .. " to " .. ch.to:lower() .. " in " .. guildName(world.guild or ""), "guildrank")
+  end
+  if lastOf.wealth then
+    local ch = lastOf.wealth
+    local from, to = W.WEALTH[ch.from], W.WEALTH[ch.to]
+    if from and to then
+      event(ch.t, 6, (ch.to > ch.from and "went from " or "came down from ") .. from.word:lower() .. " to " .. to.word:lower(), "wealth")
+    end
+  end
+  local finds = ns.char and ns.char.finds or {}
+  local f = finds[#finds]
+  if f then event(f.t, 7, "came by " .. itemName(f.item, f.quality) .. (f.zone and (" in " .. U.Mid(f.zone)) or ""), "find") end
+
+  local groups, order = {}, {}
+  for _, e in ipairs(events) do
+    local g = whenWords(e.t)
+    if not groups[g] then groups[g] = { at = e.t }; order[#order + 1] = g end
+    table.insert(groups[g], e)
+    if e.t > groups[g].at then groups[g].at = e.t end
+  end
+  table.sort(order, function(a, b) return groups[a].at > groups[b].at end)
+  local lately = {}
+  local subject = name
+  for i = 1, math.min(2, #order) do
+    local g = groups[order[i]]
+    table.sort(g, function(a, b) if a.rank ~= b.rank then return a.rank < b.rank end return a.t > b.t end)
+    -- Three to a sentence, and two more at most in a second one.
+    local preds, more = {}, {}
+    for k = 1, math.min(5, #g) do
+      table.insert(k <= 3 and preds or more, g[k].text); toldRecent[g[k].key] = true
+    end
+    lately[#lately + 1] = say("when_" .. order[i], nil, g[1].key) .. ", " .. subject .. " " .. U.Join(preds)
+    if #more > 0 then lately[#lately + 1] = "{they} also " .. U.Join(more) end
+    subject = "{they}"
+  end
+  paras[#paras + 1] = paragraph(lately)
+
+  -- 3. The longer record: the name and the deed behind it (these stay), then what came
+  -- before the news, briefly.
+  local record = {}
+  for _, s in ipairs(earned or {}) do record[#record + 1] = s end
+  local older = {}
+  local told = 0
+  for _, t in ipairs(rpgd and rpgd.threads or {}) do
+    if earnedKey ~= "thread:" .. t.id and not toldRecent["thread:" .. t.id] and told < 2 then
+      if t.state == "resolved" then older[#older + 1] = "seen " .. lowerFirst(t.title) .. " through"; told = told + 1
+      elseif t.state == "soured" then older[#older + 1] = "watched " .. lowerFirst(t.title) .. " go sour"; told = told + 1 end
+    end
+  end
+  local places = {}
+  for _, d in ipairs(rpgd and rpgd.cleared or {}) do
+    if #places < 3 and not toldRecent["cleared:" .. d.name] then places[#places + 1] = U.Mid(d.name) end
+  end
+  if #places > 0 then older[#older + 1] = "been down into " .. U.Join(places) end
+  local oldBosses = {}
+  for _, b in ipairs(bosses) do
+    if not toldRecent["boss:" .. b.name] and earnedKey ~= "boss:" .. b.name then oldBosses[#oldBosses + 1] = b end
+  end
+  if #bosses >= 3 then
+    older[#older + 1] = "helped bring down " .. U.Number(#bosses) .. " named foes"
+      .. (oldBosses[1] and (", " .. oldBosses[1].name .. " among them") or "")
+  elseif oldBosses[1] then
+    older[#older + 1] = "helped bring down " .. oldBosses[1].name
+  end
+  if chron and chron.rares >= 5 then older[#older + 1] = "tracked down " .. U.Number(chron.rares) .. " rare beasts" end
   local questsDone = Compose.QuestsDone(c)
-  if questsDone >= 25 then deeds[#deeds + 1] = say("jobs", { n = U.Roughly(questsDone) }) end
+  if questsDone >= 25 then older[#older + 1] = "seen " .. U.Roughly(questsDone) .. " jobs through" end
+  if lastMs and rankOf(lastMs) and not toldRecent.rank then
+    local steps = {}
+    for k = math.max(1, #ms - 1), #ms do
+      local rank = rankOf(ms[k])
+      if rank then steps[#steps + 1] = rank .. (ms[k].zone and (" in " .. U.Mid(ms[k].zone)) or "") end
+    end
+    older[#older + 1] = "risen to " .. U.Join(steps)
+  end
+  if #older > 0 then
+    local lead = #lately > 0 and say("before", nil, older[1]) or say("alongtheway", nil, older[1])
+    -- Three at most to a sentence; the rest start another.
+    local a, b = {}, {}
+    for k, s in ipairs(older) do if k <= 3 then a[#a + 1] = s else b[#b + 1] = s end end
+    record[#record + 1] = lead .. " {they've} " .. U.Join(a)
+    if #b > 0 then record[#record + 1] = "{they've} also " .. U.Join(b) end
+  end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
   local crafts = {}
   for k = 1, math.min(2, #profs) do
@@ -807,17 +971,16 @@ function Compose.History()
     local pn = W.PROF_NOUN[pr.name:lower()]
     if pr.rank >= 50 and pn then crafts[#crafts + 1] = profWord(pr.rank) .. " " .. pn end
   end
-  if #crafts > 0 then deeds[#deeds + 1] = "Between roads {they're} " .. U.Join(crafts) end
-  local finds = ns.char and ns.char.finds or {}
-  if #finds > 0 then
-    local items = {}
-    for k = #finds, math.max(1, #finds - 1), -1 do
-      local f = finds[k]
-      items[#items + 1] = itemName(f.item, f.quality) .. (f.zone and (" from " .. U.Mid(f.zone)) or "")
+  if #crafts > 0 then record[#record + 1] = "Between roads {they're} " .. U.Join(crafts) end
+  local oldFinds = {}
+  for k = #finds, 1, -1 do
+    local fd = finds[k]
+    if #oldFinds < 2 and not (k == #finds and toldRecent.find) then
+      oldFinds[#oldFinds + 1] = itemName(fd.item, fd.quality) .. (fd.zone and (" from " .. U.Mid(fd.zone)) or "")
     end
-    deeds[#deeds + 1] = say("finds", { list = U.Join(items) }, finds[#finds].item)
   end
-  paras[#paras + 1] = paragraph(deeds)
+  if #oldFinds > 0 then record[#record + 1] = say("finds", { list = U.Join(oldFinds) }, finds[1].item) end
+  paras[#paras + 1] = paragraph(record)
 
   -- 4. The people, friends and otherwise
   local people = {}
@@ -827,9 +990,9 @@ function Compose.History()
   end
   local partner
   if sd and ns.db.nameFriends and #sd.friends > 0 then
-    local f = sd.friends[1]
-    if f.relationship then
-      partner = f.name .. ", {their} " .. f.relationship:lower() .. (sd.friends[2] and (", and " .. sd.friends[2].name) or "")
+    local fr = sd.friends[1]
+    if fr.relationship then
+      partner = fr.name .. ", {their} " .. fr.relationship:lower() .. (sd.friends[2] and (", and " .. sd.friends[2].name) or "")
     else
       local names = {}
       for k = 1, math.min(3, #sd.friends) do names[k] = sd.friends[k].name end
@@ -858,27 +1021,25 @@ function Compose.History()
       people[#people + 1] = U.Cap(bad)
     end
   end
-  if world.guild then
-    local g = world.guild:find("^The ") and U.Mid(world.guild) or world.guild
-    people[#people + 1] = "Wears the colours of " .. g .. (world.guildRank and (" and holds the rank of " .. world.guildRank:lower() .. " there") or "")
-  end
-  if world.pvpRank then
-    people[#people + 1] = "Holds the rank of " .. world.pvpRank .. " in the " .. (world.faction or "faction") .. "'s army"
-  end
   local byWord = {}
-  for _, f in ipairs(world.factions or {}) do
-    byWord[f.word] = byWord[f.word] or {}
-    if #byWord[f.word] < 2 then table.insert(byWord[f.word], W.FactionName(f.name)) end
+  for _, fa in ipairs(world.factions or {}) do
+    byWord[fa.word] = byWord[fa.word] or {}
+    if #byWord[fa.word] < 2 then table.insert(byWord[fa.word], W.FactionName(fa.name)) end
   end
   local served = {}
   for _, w in ipairs({ "Exalted", "Revered", "Honored" }) do
-    for _, f in ipairs(byWord[w] or {}) do if #served < 3 then served[#served + 1] = f end end
+    for _, fa in ipairs(byWord[w] or {}) do if #served < 3 then served[#served + 1] = fa end end
   end
-  if #served > 0 then people[#people + 1] = "Has done good work for " .. U.Join(served) end
-  local hon = ns.char and ns.char.honours or {}
-  local h = hon[#hon]
-  if h and within(h.t, 14 * 86400) then
-    people[#people + 1] = "Only recently earned " .. h.standing:lower() .. " standing with " .. W.FactionName(h.faction)
+  local serve = #served > 0 and ("has done good work for " .. U.Join(served)) or nil
+  if world.guild then
+    people[#people + 1] = "Wears the colours of " .. guildName(world.guild)
+      .. (world.guildRank and (" and holds the rank of " .. world.guildRank:lower() .. " there") or "")
+      .. (serve and (", and " .. serve) or "")
+  elseif serve then
+    people[#people + 1] = U.Cap(serve)
+  end
+  if world.pvpRank then
+    people[#people + 1] = "Holds the rank of " .. world.pvpRank .. " in the " .. (world.faction or "faction") .. "'s army"
   end
   if rpgd and rpgd.rivals[1] then
     people[#people + 1] = say("rival", { who = rpgd.rivals[1].name }, rpgd.rivals[1].name)
@@ -889,7 +1050,7 @@ function Compose.History()
   paras[#paras + 1] = paragraph(people)
 
   -- 5. How things stand now
-  local now = {}
+  local nowLines = {}
   local days = ns.Mood.RecentDays(3)
   local bits = {}
   for _, d in ipairs(days) do
@@ -897,14 +1058,14 @@ function Compose.History()
     if m and d.zone then bits[#bits + 1] = m .. " in " .. U.Mid(d.zone) .. " " .. d.label
     elseif m then bits[#bits + 1] = m .. " " .. d.label end
   end
-  now[#now + 1] = Compose.WeekTone()
-  if #bits >= 2 then now[#now + 1] = "Felt " .. U.Join(bits) end
+  nowLines[#nowLines + 1] = Compose.WeekTone()
+  if #bits >= 2 then nowLines[#nowLines + 1] = "Felt " .. U.Join(bits) end
   local wb = Compose.WealthBand(world)
-  if wb then now[#now + 1] = wb.flair end
+  if wb and not toldRecent.wealth then nowLines[#nowLines + 1] = wb.flair end
   if rpgd and ns.db.diaryExcerpt and rpgd.lastEntry and rpgd.lastEntry.text then
-    now[#now + 1] = "{their} latest journal entry reads " .. quote(U.Truncate(rpgd.lastEntry.text, 280))
+    nowLines[#nowLines + 1] = "{their} latest journal entry reads " .. quote(U.Truncate(rpgd.lastEntry.text, 280))
   end
-  paras[#paras + 1] = paragraph(now)
+  paras[#paras + 1] = paragraph(nowLines)
 
   return pages(paras)
 end
@@ -1238,15 +1399,16 @@ end
 
 -- The History sentences for the deed behind the name: the deed and where the name came
 -- from, the saying that came with it, and the other names that stuck (two at most).
--- Returns a list of sentences and the key of the deed told.
-function Compose.EarnedStory(name)
+-- skip(key) leaves out other names told elsewhere. Returns a list of sentences and the key
+-- of the deed told.
+function Compose.EarnedStory(name, skip)
   local e = Compose.Earned()
   if not e then return nil end
   local out = { say("earned", { deed = e.deed, name = name, nick = quote(e.nick) }, e.key) }
   if e.motto then out[#out + 1] = say("saying", { motto = quote(e.motto) }, e.key) end
   local others = {}
   for _, o in ipairs(Compose.EarnedAll()) do
-    if o.key ~= e.key and #others < 2 then others[#others + 1] = quote(o.nick) end
+    if o.key ~= e.key and #others < 2 and not (skip and skip(o.key)) then others[#others + 1] = quote(o.nick) end
   end
   if #others > 0 then out[#out + 1] = say("othernames", { list = U.Join(others) }, others[1]) end
   return out, e.key

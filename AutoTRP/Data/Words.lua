@@ -2242,6 +2242,13 @@ W.SAY = {
     "{name} is new to the road, and hasn't been far from home yet" },
   home = { "Calls {inn} home", "Has made {inn} {their} home" },
   lastplace = { "The last new place {they} reached was {place}", "Most recently reached {place}" },
+  -- History: how a run of recent events opens, and how the older record does.
+  when_near = { "In the last day or two", "Only in the last couple of days", "Just these past days" },
+  when_week = { "Earlier this week", "In the past week", "A few days ago" },
+  when_lastweek = { "Last week", "The week before", "A week or so ago" },
+  when_fortnight = { "A couple of weeks ago", "Two weeks or so back", "Earlier in the month" },
+  before = { "Before all that,", "Before that,", "Further back," },
+  alongtheway = { "Along the way", "Over time", "On the road so far" },
   -- Earned names: where the name came from, the saying that came with it, the others that
   -- stuck, and a name earned only lately (Lately).
   earned = { "{deed}. That's how {name} came to be called {nick}", "{deed}, and some have called {name} {nick} since",
