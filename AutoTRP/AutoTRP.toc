@@ -17,6 +17,7 @@
 Core.lua
 Data\RPGDNames.lua
 Data\Words.lua
+Data\Places.lua
 Sources\World.lua
 Sources\RPGDialogue.lua
 Sources\SocialDiary.lua

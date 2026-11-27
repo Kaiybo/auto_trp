@@ -152,3 +152,8 @@ da voodoo
 child at a fair
 reach the eyes
 weighs nothing
+
+# Currently: place words that crept in too often
+on the edge of | max 12
+in the thick of | max 2
+endless | max 2
