@@ -2,8 +2,10 @@
 --   * Name colour (characteristics.CH) from the class colour.
 --   * Profile music (about.MU) from the music of the land your hearthstone is in, else the
 --     land you're in, where there's a fitting piece of the game's own music.
---   * Four more Additional information entries after the statistics: Faction, Guild, Level,
---     Talents (each with its own switch, in the same ordered block).
+--   * More Additional information entries after the statistics: Faction, Guild, Level, and
+--     (0.22.0, from Sources/Style.lua) Role and Speciality, each with its own switch, in the
+--     same ordered block. Speciality took the place of 0.21.0's Talents entry, which is
+--     retired: an entry Auto TRP wrote under that name is taken down again.
 --   * An out-of-character line in "Currently" (character.CO): what you're doing OOC
 --     ("Levelling in Duskwood.", "Looking for a group in the Barrens."). Off by default.
 -- Loaded after Compose.lua and before TRP.lua: the new entries join Compose.STATS before
@@ -17,7 +19,8 @@ ns.More = More
 
 -- Defaults (Core.lua fills them in on load like the rest).
 for k, v in pairs({ namecolour = true, music = true, ooc_doing = false,
-  stat_faction = true, stat_guild = true, stat_level = true, stat_talents = true }) do
+  stat_faction = true, stat_guild = true, stat_level = true, stat_talents = true,
+  stat_role = true, stat_speciality = true }) do
   if ns.DEFAULTS.fields[k] == nil then ns.DEFAULTS.fields[k] = v end
 end
 
@@ -28,7 +31,10 @@ More.INFO = {
   { key = "faction", label = "Faction", icon = "Ability_Warrior_BattleShout" },
   { key = "guild", label = "Guild", icon = "INV_Shirt_GuildTabard_01" },
   { key = "level", label = "Level", icon = "Spell_Holy_InnerFire" },
-  { key = "talents", label = "Talents", icon = "INV_Misc_Book_11" },
+  { key = "role", label = "Role", icon = "Ability_Warrior_DefensiveStance" },
+  { key = "speciality", label = "Speciality", icon = "INV_Misc_Book_11" },
+  -- Retired in 0.22.0 for Speciality (it never has a value now, so what it wrote comes down).
+  { key = "talents", label = "Talents", icon = "INV_Misc_Book_11", retired = true },
 }
 for _, e in ipairs(More.INFO) do Compose.STATS[#Compose.STATS + 1] = e end
 
@@ -55,35 +61,34 @@ function More.Level(world)
   return tostring(level) .. (rank and (", " .. rank) or "")
 end
 
--- "Holy, 21/5/0": points in each talent tree, the one with the most named.
--- Classic returns (name, icon, points, ...); later clients (id, name, description, icon, points, ...).
-function More.Talents()
-  local n = U.Call(_G.GetNumTalentTabs)
-  if type(n) ~= "number" or n < 1 then return nil end
-  local points, best, bestPts, total = {}, nil, 0, 0
-  for i = 1, math.min(n, 4) do
-    local a, b, c = U.Call(_G.GetTalentTabInfo, i)
-    local name, pts
-    if type(a) == "string" then
-      name, pts = a, c
-    elseif type(b) == "string" then
-      name = b
-      pts = U.Call(function(tab) return (select(5, _G.GetTalentTabInfo(tab))) end, i)
-    end
-    pts = type(pts) == "number" and pts or 0
-    points[#points + 1] = tostring(pts)
-    total = total + pts
-    if name and pts > bestPts then best, bestPts = U.Plain(name), pts end
-  end
-  if total == 0 or not best then return nil end
-  return best .. ", " .. table.concat(points, "/")
+-- "Healer, mostly": the role their group fights show (Sources/Style.lua).
+function More.Role(style)
+  local S = ns.Sources.Style
+  return S and S.RoleStat(style) or nil
 end
+
+-- "Holy, 31 points" (", and 20 in Discipline" when a second tree has a share worth saying).
+-- Read from the talent trees each time, so a new point shows at once.
+function More.Speciality()
+  local S = ns.Sources.Style
+  return S and S.SpecStat({ spec = S.Spec() }) or nil
+end
+
+-- A player who had switched the Talents entry off has Speciality off too.
+ns.Listen("INIT", function()
+  local f = ns.db and ns.db.fields
+  if f and not ns.db.specialityFrom then
+    if f.stat_talents == false then f.stat_speciality = false end
+    ns.db.specialityFrom = "talents"
+  end
+end)
 
 local baseStats = Compose.Stats
 function Compose.Stats()
   local out = baseStats()
   local world = ns.cache.world
-  out.faction, out.guild, out.level, out.talents = More.Faction(world), More.Guild(world), More.Level(world), More.Talents()
+  out.faction, out.guild, out.level = More.Faction(world), More.Guild(world), More.Level(world)
+  out.role, out.speciality = More.Role(ns.cache.style), More.Speciality()
   return out
 end
 

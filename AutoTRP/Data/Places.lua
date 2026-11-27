@@ -707,3 +707,56 @@ W.ZONE_BY_MAP[1461] = "Arathi Basin"
 
 -- A hunter feeding a pet is a moment too.
 if W.SPELLS["Feed Pet"] then W.SPELLS["Feed Pet"].context = "feedpet" else W.SPELLS["Feed Pet"] = { context = "feedpet" } end
+
+---------------------------------------------------------------------------
+-- What each land is, in a few words, for the road told in History ("Westfall, the dry
+-- farmland west of Stormwind, ..."). Reads after the land's name and a comma.
+---------------------------------------------------------------------------
+W.ZONE_KIND = {
+  ["Elwynn Forest"] = { "the farm and forest country around Stormwind", "the quiet woods south of Stormwind" },
+  ["Westfall"] = { "the dry farmland west of Stormwind", "the abandoned farm country by the western sea" },
+  ["Redridge Mountains"] = { "the red hills around Lake Everstill", "the hill country east of Elwynn" },
+  ["Duskwood"] = { "the dark forest south of Elwynn", "the forest where dusk never lifts" },
+  ["Stranglethorn Vale"] = { "the jungle that runs down to Booty Bay", "the deep jungle south of Duskwood" },
+  ["Dun Morogh"] = { "the snowbound valleys around Ironforge", "the dwarves' winter country" },
+  ["Loch Modan"] = { "the lake country behind the great dam", "the green hills around the loch" },
+  ["Wetlands"] = { "the marshes south of the Thandol Span", "the wet moorland below Grim Batol" },
+  ["Arathi Highlands"] = { "the windy uplands of old Arathor", "the highlands where Stromgarde stands" },
+  ["Hillsbrad Foothills"] = { "the farming foothills below Alterac", "the orchard country along the southern shore" },
+  ["Alterac Mountains"] = { "the cold mountains above Hillsbrad", "the snowy ruins of a fallen kingdom" },
+  ["The Hinterlands"] = { "the wild high country of the Wildhammer", "the forested hills of trolls and gryphons" },
+  ["Silverpine Forest"] = { "the grey pinewoods below Shadowfang Keep", "the misty forest south of Tirisfal" },
+  ["Tirisfal Glades"] = { "the Forsaken's withered homeland", "the gloomy fields around the ruins of Lordaeron" },
+  ["Western Plaguelands"] = { "the blighted farmland of Lordaeron", "the plagued fields around Andorhal" },
+  ["Eastern Plaguelands"] = { "the worst of the plague country", "the ruined land around Light's Hope Chapel" },
+  ["Badlands"] = { "the cracked, dry canyon country", "the dusty canyons below Uldaman" },
+  ["Searing Gorge"] = { "the slag-covered gorge of the Dark Iron", "the burnt mining country above Blackrock" },
+  ["Burning Steppes"] = { "the ash fields at the foot of Blackrock", "the smoking country of the Blackrock orcs" },
+  ["Swamp of Sorrows"] = { "the drowned marshland around the Sunken Temple", "the sodden swamp east of Deadwind" },
+  ["Blasted Lands"] = { "the red waste around the Dark Portal", "the scorched land below Nethergarde" },
+  ["Deadwind Pass"] = { "the bare pass below Karazhan", "the dead pass around Karazhan" },
+  ["Durotar"] = { "the red, dry home of the orcs", "the dusty land around Orgrimmar" },
+  ["Mulgore"] = { "the tauren grasslands", "the green plains below Thunder Bluff" },
+  ["The Barrens"] = { "the long dry savannah of central Kalimdor", "the wide plains around the Crossroads" },
+  ["Teldrassil"] = { "the forest on the night elves' great tree", "the night elves' world tree" },
+  ["Darkshore"] = { "the grey northern coast around Auberdine", "the long, misty shore below Teldrassil" },
+  ["Ashenvale"] = { "the old night elf forest", "the ancient forest the orcs are logging" },
+  ["Stonetalon Mountains"] = { "the high peaks of the Stonetalon range", "the mountains where the Venture Company digs" },
+  ["Desolace"] = { "the bare grey land of the centaur clans", "the dead country west of Stonetalon" },
+  ["Thousand Needles"] = { "the canyon of stone spires", "the deep canyon below the high mesas" },
+  ["Dustwallow Marsh"] = { "the swamp around Theramore", "the marsh where Theramore stands" },
+  ["Feralas"] = { "the wet, wild forests of the west", "the forest-jungle along the western coast" },
+  ["Tanaris"] = { "the desert around Gadgetzan", "the great southern desert" },
+  ["Un'Goro Crater"] = { "the steaming jungle crater", "the hot crater full of old beasts" },
+  ["Azshara"] = { "the ruined coast of the old night elf capital", "the autumn-coloured ruins along the eastern sea" },
+  ["Felwood"] = { "the corrupted forest above Ashenvale", "the poisoned woods of the satyrs" },
+  ["Winterspring"] = { "the snowfields of the far north", "the snowy valleys around Everlook" },
+  ["Moonglade"] = { "the druids' sacred glade", "the quiet valley of the druids" },
+  ["Silithus"] = { "the desert of the silithid hives", "the sand-scoured hives of the far south" },
+  ["Stormwind City"] = { "the human capital", "the white city of the Alliance" },
+  ["Ironforge"] = { "the dwarves' city under the mountain", "the great forge-city of the dwarves" },
+  ["Darnassus"] = { "the night elves' city in the boughs of Teldrassil", "the night elf capital" },
+  ["Orgrimmar"] = { "the orcs' city in the canyon", "the capital of the Horde" },
+  ["Thunder Bluff"] = { "the tauren city on the mesas", "the tauren capital" },
+  ["Undercity"] = { "the Forsaken's city beneath Lordaeron", "the city under the ruins of Lordaeron" },
+}
