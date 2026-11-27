@@ -138,6 +138,7 @@ ns.DEFAULTS = {
     fulltitle = true,   -- full title from your standing ("Respected in Goldshire")
     residence = true,   -- where your hearthstone is
     birthplace = true,  -- from your RPG Dialogue origin
+    age = true, eyes = true, height = true, build = true,   -- by race, body type and years on the road
     motto = true,       -- a saying taken from a story or quest chain you saw through
     nickname = true,    -- what people call you, for a story, quest chain or foe you saw through
     icon = true,        -- the profile icon: your nickname's, else your class crest

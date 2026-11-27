@@ -83,11 +83,12 @@ function R.Read()
   out.conversations = tonumber(c.conversations) or 0
 
   -- Zones in the order first reached
-  out.zones = {}
+  -- (RPG Dialogue keeps what the game calls the zone, a tavern included: folded into lands.)
+  local zones = {}
   for zone, t in pairs(type(c.zones) == "table" and c.zones or {}) do
-    if type(zone) == "string" and zone ~= "" then out.zones[#out.zones + 1] = { name = zone, t = tonumber(t) or 0 } end
+    if type(zone) == "string" and zone ~= "" then zones[#zones + 1] = { name = zone, t = tonumber(t) or 0 } end
   end
-  table.sort(out.zones, function(x, y) return x.t < y.t end)
+  out.zones = ns.World.FoldLands(zones)
 
   -- Throughlines (stories)
   out.threads = {}

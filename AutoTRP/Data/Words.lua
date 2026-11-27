@@ -876,6 +876,61 @@ W.SPEC_ICON = {
   DRUID = { "Spell_Nature_StarFall", "Ability_Racial_BearForm", "Spell_Nature_HealingTouch" },
   DEATHKNIGHT = { "Spell_Deathknight_BloodPresence", "Spell_Deathknight_FrostPresence", "Spell_Deathknight_UnholyPresence" },
 }
+-- What Total RP 3 asks of a character and the game doesn't keep (age, eyes, height, body
+-- shape), by race, in the words a profile would use. Eyes: the race's own where it has one
+-- (and matches what About: Physical says), else one of a few, fixed for the character.
+-- height: { male, female }. frame: the build every one of them shares. age: green (under
+-- 20), seasoned (under 45), veteran, as the race counts years.
+W.BODY = {
+  Human = { eyes = { { "Brown", "6b4423" }, { "Grey", "8a9199" }, { "Blue", "4a7bb7" }, { "Green", "5b8a4a" }, { "Hazel", "8e7445" } },
+    height = { "Around six feet", "Around five foot six" }, frame = "Of an ordinary build",
+    age = { "Young, still in {their} twenties", "In the prime of life", "Weathered, with long years behind {them}" } },
+  Dwarf = { eyes = { { "Grey", "8a9199" }, { "Blue", "4a7bb7" }, { "Brown", "6b4423" }, { "Green", "5b8a4a" } },
+    height = { "A little over four feet", "About four feet" }, frame = "Stocky and broad",
+    age = { "Young, as dwarves count it", "Past a hundred and fifty, and sturdy with it", "Old enough to have a story about everyone's grandfather" } },
+  Gnome = { eyes = { { "Blue", "4a7bb7" }, { "Green", "5b8a4a" }, { "Grey", "8a9199" }, { "Violet", "8a5cc7" } },
+    height = { "About three feet", "Just under three feet" }, frame = "Small and slight",
+    age = { "Young, by gnomish reckoning", "Middle-aged, as gnomes count it", "Old enough to remember Gnomeregan in its glory" } },
+  NightElf = { eyes = { { "Glowing silver", "c9d6e8" } },
+    height = { "Around seven feet", "Around six and a half feet" }, frame = "Tall and lithe",
+    age = { "Young, as the kaldorei count years", "Centuries old, with the stillness to match", "Old beyond any human reckoning" } },
+  Draenei = { eyes = { { "Glowing pale blue", "bfe6ff" } },
+    height = { "Well over seven feet", "Around seven feet" }, frame = "Tall and powerful",
+    age = { "Young, as the draenei count years", "Thousands of years old", "Old enough to remember Argus" } },
+  Worgen = { eyes = { { "Amber", "c78a2c" }, { "Yellow", "d8c04a" } },
+    height = { "Around six feet, taller in worgen form", "Around five foot six, taller in worgen form" }, frame = "Rangy",
+    age = { "Young, still in {their} twenties", "In the prime of life", "Weathered, with long years behind {them}" } },
+  Orc = { eyes = { { "Dark brown", "4a2e1a" }, { "Black", "1c1c1c" }, { "Amber", "c78a2c" } },
+    height = { "Around six and a half feet", "Around six feet" }, frame = "Heavy and broad",
+    age = { "Young, with something to prove", "In the prime of life", "Grey and scarred, old by orcish reckoning" } },
+  Scourge = { eyes = { { "Glowing yellow", "e8d44d" } },
+    height = { "Around six feet, less with the stoop", "Around five and a half feet, less with the stoop" }, frame = "Gaunt",
+    age = { "Died young, and not so long ago", "Died in the prime of life", "Was old when {they} died, and death hasn't changed it" } },
+  Tauren = { eyes = { { "Dark brown", "3e2716" }, { "Black", "1c1c1c" }, { "Amber", "c78a2c" } },
+    height = { "Around nine feet", "Around eight feet" }, frame = "Massive",
+    age = { "Young, still a calf to the elders", "In the prime of life", "Grey about the muzzle" } },
+  Troll = { eyes = { { "Amber", "c78a2c" }, { "Yellow", "d8c04a" }, { "Red-brown", "7a3b2a" } },
+    height = { "Over seven feet, standing straight", "Around seven feet, standing straight" }, frame = "Long-limbed and hunched",
+    age = { "Young, and restless with it", "In the prime of life", "Old for a troll, and still standing" } },
+  BloodElf = { eyes = { { "Glowing green", "6cff4a" } },
+    height = { "Around six feet", "Around five foot eight" }, frame = "Slender",
+    age = { "Young, as the sin'dorei count years", "A century or two, and carries it lightly", "Old enough to remember Silvermoon before the Scourge" } },
+  Goblin = { eyes = { { "Red", "c0392b" }, { "Yellow", "d8c04a" }, { "Orange", "d9822b" } },
+    height = { "About three and a half feet", "About three and a half feet" }, frame = "Small and wiry",
+    age = { "Young, and in a hurry", "Middle-aged, for a goblin", "Old for a goblin, which is to say lucky" } },
+  Pandaren = { eyes = { { "Brown", "6b4423" }, { "Green", "5b8a4a" }, { "Amber", "c78a2c" } },
+    height = { "Around seven feet", "Around six and a half feet" }, frame = "Round and solid",
+    age = { "Young, and full of questions", "In the prime of life", "Old, and in no hurry about anything" } },
+}
+W.BODY.Undead = W.BODY.Scourge
+-- A death knight's eyes are the Lich King's mark, whatever the race.
+W.BODY_CLASS_EYES = { DEATHKNIGHT = { "Glowing ice-blue", "6fd6ff" } }
+-- The body shape after the frame, by the strongest attribute (as About: Physical's build).
+W.BODY_SHAPE = {
+  strength = "broad through the shoulders", agility = "lean and quick", stamina = "solidly built",
+  intellect = "on the slight side", spirit = "with an easy, unhurried carriage",
+}
+
 -- Before any talents, the face of their people (as Total RP 3's own default icon):
 -- Achievement_Character_<name>_Male / _Female, by the game's race token.
 W.RACE_PORTRAIT = {

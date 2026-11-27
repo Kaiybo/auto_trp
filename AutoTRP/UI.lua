@@ -18,6 +18,7 @@ local function values(sheet)
   local v = {
     currently = sheet.currently, title = sheet.title, fulltitle = sheet.fulltitle,
     residence = sheet.residence, birthplace = sheet.birthplace, motto = sheet.motto,
+    age = sheet.age, eyes = sheet.eyes, height = sheet.height, build = sheet.build,
     nickname = sheet.nickname, icon = sheet.icon, bearing = sheet.bearing, history = sheet.history,
     physical = sheet.physical, traits = sheet.traits, relationship = sheet.relationship, ooc = sheet.ooc,
     walkup = sheet.walkup,
@@ -452,7 +453,11 @@ function UI.PreviewSections(s)
   add(3, "icon", s.icon, { icon = s.icon })
   add(3, "residence", s.residence)
   add(3, "birthplace", s.birthplace)
-  add(3, "relationship", s.relationship and ({ [2] = "Taken", [3] = "Married" })[s.relationship])
+  add(3, "age", s.age)
+  add(3, "eyes", s.eyes and ("|cff" .. s.eyes.hex .. s.eyes.name .. "|r"))
+  add(3, "height", s.height)
+  add(3, "build", s.build)
+  add(3, "relationship", s.relationship and ({ [1] = "Single", [2] = "Taken", [3] = "Married" })[s.relationship])
   add(3, "ooc", s.ooc)
   add(3, "namecolour", s.namecolour and ("|cff" .. s.namecolour .. s.namecolour .. "|r"), { empty = "from your class colour" })
   add(3, "music", s.music and (tostring(s.musicName) .. " (" .. tostring(s.music) .. ")"), { empty = "your home's music, or where you are" })
@@ -743,10 +748,14 @@ local OPTIONS = {
   { path = { "fields", "fulltitle" }, label = "Full title: alignment and standing (\"Lightsworn, Friend of Goldshire\")" },
   { path = { "fields", "nickname" }, label = "Nickname: earned by a story, quest chain, master or bounty you saw through (/atrp names)" },
   { path = { "fields", "motto" }, label = "Motto: the saying that deed left you with" },
-  { path = { "fields", "icon" }, label = "Icon: your nickname's, else your class crest" },
+  { path = { "fields", "icon" }, label = "Icon: your main talent tree, else your race's portrait, else your class crest" },
   { path = { "fields", "residence" }, label = "Residence: where your hearthstone is" },
   { path = { "fields", "birthplace" }, label = "Birthplace" },
-  { path = { "fields", "relationship" }, label = "Relationship status, from a partner in Social Diary" },
+  { path = { "fields", "age" }, label = "Age, as your race counts years, by your years on the road" },
+  { path = { "fields", "eyes" }, label = "Eye colour: your race's own, else one fixed for you" },
+  { path = { "fields", "height" }, label = "Height, by race and body type" },
+  { path = { "fields", "build" }, label = "Body shape: your race's frame and your build" },
+  { path = { "fields", "relationship" }, label = "Relationship status: from a partner in Social Diary, else Single" },
   { path = { "fields", "ooc" }, label = "OOC note saying the profile updates itself" },
   { path = { "fields", "ooc_doing" }, label = "OOC: what you're doing (\"Levelling in Duskwood\", \"Looking for a group\")" },
   { path = { "fields", "namecolour" }, label = "Name colour: your class colour" },
@@ -828,7 +837,11 @@ UI.TIPS = {
   ["fields.icon"] = "The profile's icon: your main talent tree's, before any talents your race's portrait, else your class crest.",
   ["fields.residence"] = "The inn your hearthstone is set to.",
   ["fields.birthplace"] = "Your homeland, or the origin you chose in RPG Dialogue.",
-  ["fields.relationship"] = "Married or Taken, if you've named a partner in Social Diary.",
+  ["fields.relationship"] = "Married or Taken, if you've named a partner in Social Diary; Single otherwise.",
+  ["fields.age"] = "Your age in your race's own terms, older as your road gets longer.",
+  ["fields.eyes"] = "Your race's eye colour where it has one (a night elf's silver, a death knight's ice-blue), else one picked once for you.",
+  ["fields.height"] = "Typical for your race and body type.",
+  ["fields.build"] = "Your race's frame, and the build your strongest attribute gives you (as About: Physical).",
   ["fields.ooc"] = "A short out-of-character note saying the profile updates itself.",
   ["fields.ooc_doing"] = "An out-of-character line on what you're doing: levelling somewhere, looking for a group, in a dungeon, or away. Off by default.",
   ["fields.namecolour"] = "Shows your name in your class colour on your profile.",

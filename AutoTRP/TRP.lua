@@ -375,6 +375,23 @@ TRP.FIELDS = {
     raw = function(p) return copy(sub(p, "characteristics").PS) end,
     setRaw = function(p, v) sub(p, "characteristics").PS = type(v) == "table" and v or {} end,
   },
+  -- Age, eyes, height and body shape (0.24.0). Eyes keep their colour too (EH, as Total RP 3
+  -- shows the name in it), compared by the name.
+  age = textField("characteristics", "AG"),
+  height = textField("characteristics", "HE"),
+  build = textField("characteristics", "WE"),
+  eyes = {
+    section = "characteristics",
+    read = function(p) return U.Plain(sub(p, "characteristics").EC) or "" end,
+    write = function(p, v)
+      local ch = sub(p, "characteristics")
+      ch.EC = v and clean(v.name, false) or nil
+      ch.EH = v and type(v.hex) == "string" and v.hex:lower() or nil
+    end,
+    sig = function(v) return v and (U.Plain(v.name) or "") or "" end,
+    raw = function(p) local ch = sub(p, "characteristics"); return { EC = ch.EC, EH = ch.EH } end,
+    setRaw = function(p, v) local ch = sub(p, "characteristics"); v = type(v) == "table" and v or {}; ch.EC, ch.EH = v.EC, v.EH end,
+  },
   glance_mood = glanceField("mood"),
   glance_lately = glanceField("lately"),
   glance_company = glanceField("company"),
@@ -413,13 +430,15 @@ TRP.LABELS = {
   glance_mood = "Glance: mood", glance_lately = "Glance: lately", glance_company = "Glance: company",
   glance_ambition = "Glance: ambition", glance_marks = "Glance: marks",
   ooc = "OOC note", relationship = "Relationship status", walkup = "Open to walk-ups",
+  age = "Age", eyes = "Eye colour", height = "Height", build = "Body shape",
 }
 TRP.LABELS.namecolour, TRP.LABELS.music = "Name colour", "Profile music"   -- 0.23.0
 for _, st in ipairs(ns.Compose.STATS) do TRP.LABELS["stat_" .. st.key] = "Stats: " .. st.label:lower() end
 
 -- The order fields are written in, so new entries land in Total RP 3 the same way every time
 -- (nickname and motto before the statistics, the statistics in their own order).
-TRP.ORDER = { "currently", "title", "fulltitle", "nickname", "motto", "icon", "residence", "birthplace", "relationship",
+TRP.ORDER = { "currently", "title", "fulltitle", "nickname", "motto", "icon", "residence", "birthplace", "age", "eyes",
+  "height", "build", "relationship",
   "traits", "bearing", "history", "physical", "ooc", "walkup",
   "glance_mood", "glance_lately", "glance_company", "glance_ambition", "glance_marks" }
 for _, st in ipairs(ns.Compose.STATS) do TRP.ORDER[#TRP.ORDER + 1] = "stat_" .. st.key end

@@ -1624,7 +1624,8 @@ do
         local okSheet, sh = pcall(C.Sheet)
         local missing = {}
         if not okSheet then missing[1] = tostring(sh) else
-          for _, k in ipairs({ "currently", "bearing", "history", "physical", "title", "fulltitle", "motto", "nickname", "icon", "walkup", "ooc" }) do
+          for _, k in ipairs({ "currently", "bearing", "history", "physical", "title", "fulltitle", "motto", "nickname", "icon", "walkup", "ooc",
+            "age", "eyes", "height", "build", "relationship" }) do
             if sh[k] == nil or sh[k] == "" then missing[#missing + 1] = k end
           end
           if not sh.traits or #sh.traits < 3 then missing[#missing + 1] = "traits" end
@@ -2977,7 +2978,12 @@ do
   check(about.MU == 53220, "no music for home: where you are (Duskwood): " .. tostring(about.MU))
   state.zone = "Deadwind Pass"
   C.SourcesChanged(); ns.UI.Update(true)
-  check(about.MU == 53220, "no music anywhere: the music is left as it was")
+  check(about.MU == 53190, "nothing for home or here: the music of their people's capital (Stormwind): " .. tostring(about.MU))
+  local musicWas = MUSIC_IDS.stormwind04_zone
+  MUSIC_IDS.stormwind04_zone, MUSIC_IDS.dayforest = nil, nil
+  C.SourcesChanged(); ns.UI.Update(true)
+  check(about.MU == 53190, "no music this client has anywhere: left as it was")
+  MUSIC_IDS.stormwind04_zone, MUSIC_IDS.dayforest = musicWas, 53210
   state.zone = "Duskwood"
   GetBindLocation = bindWas
   -- Wrath-style talent API (id, name, description, icon, points).
@@ -7413,8 +7419,83 @@ do
   check(icon() == "ClassIcon_Druid", "a portrait this client hasn't got: the class crest: " .. tostring(C.Icon()))
   GetFileIDFromPath = nil
   check(icon() == "ClassIcon_Druid", "a client that can't be asked: no portrait, the crest")
+  -- Age, eyes, height and body shape: never blank, in the race's terms.
+  UnitSex, UnitRace = function() return 3 end, function() return "Night Elf", "NightElf" end
+  UnitClass = function() return "Druid", "DRUID" end
+  C.SourcesChanged(); C.Refresh()
+  local eyes = C.Eyes()
+  check(eyes and eyes.name == "Glowing silver" and eyes.hex == "c9d6e8", "a night elf's eyes are silver, as Physical says: " .. tostring(eyes and eyes.name))
+  check(C.Height() == "Around six and a half feet", "height by race and body type: " .. tostring(C.Height()))
+  check(C.Age() == "Centuries old, with the stillness to match", "age as the kaldorei count it, at level 22: " .. tostring(C.Age()))
+  check(C.Build():find("^Tall and lithe"), "body shape opens on the race's frame: " .. tostring(C.Build()))
+  UnitClass = function() return "Death Knight", "DEATHKNIGHT" end
+  C.SourcesChanged(); C.Refresh()
+  check(C.Eyes().name == "Glowing ice-blue", "a death knight's eyes, whatever the race")
+  UnitRace, UnitClass = function() return "Human", "Human" end, function() return "Priest", "PRIEST" end
+  C.SourcesChanged(); C.Refresh()
+  local e1 = C.Eyes()
+  C.SourcesChanged(); C.Refresh()
+  check(e1 and C.Eyes().name == e1.name, "a human's eye colour is picked once and stays: " .. tostring(e1 and e1.name))
+  UnitSex = function() return 2 end
+  C.SourcesChanged(); C.Refresh()
+  check(C.Height() == "Around six feet" and C.Age():find("^In the prime of life"), "a human man's height and age")
+  check(C.RelationshipStatus() == 1 or (ns.cache.sd and ns.cache.sd.partner), "no partner named: Single, never unset")
+  ns.UI.Update(true)
+  local pc = profiles[ns.char.profileID].player.characteristics
+  check(pc.AG and pc.AG ~= "" and pc.EC and pc.EH and pc.HE and pc.WE, "written to Total RP 3: AG, EC (with EH), HE, WE")
   for k, v in pairs(was) do _G[k] = v end
   C.SourcesChanged(); C.Refresh()
+end
+
+-- 0.24.0: one faction honoured is what Best standing says; Standing counts the friendly too.
+do
+  local R = ns.Sources.Renown
+  local world = { factions = { { name = "Darnassus", word = "Honored" } } }
+  local rn = { factions = { { name = "Darnassus", st = 6, down = 0 }, { name = "Stormwind", st = 5, down = 0 },
+    { name = "Ironforge", st = 5, down = 0 }, { name = "Gnomeregan", st = 4, down = 0 } } }
+  check(R.Stat(world, rn) == "Honored with 1 faction, Friendly with 2", "Standing with one faction honoured: " .. tostring(R.Stat(world, rn)))
+  world.factions[2] = { name = "Stormwind", word = "Honored" }
+  check(R.Stat(world, rn) == "Honored with 2 factions", "two honoured: the friendly aren't needed: " .. tostring(R.Stat(world, rn)))
+end
+
+-- 0.24.0: a building some clients give as the zone isn't a land.
+do
+  local W = ns.World
+  local maps = {
+    [947] = { mapID = 947, name = "Azeroth", mapType = 1, parentMapID = 0 },
+    [1415] = { mapID = 1415, name = "Eastern Kingdoms", mapType = 2, parentMapID = 947 },
+    [1431] = { mapID = 1431, name = "Duskwood", mapType = 3, parentMapID = 1415 },
+    [1429] = { mapID = 1429, name = "Elwynn Forest", mapType = 3, parentMapID = 1415 },
+    [1581] = { mapID = 1581, name = "The Deadmines", mapType = 4, parentMapID = 1436 },
+    [9001] = { mapID = 9001, name = "Darkshire Town Hall", mapType = 5, parentMapID = 1431 },
+  }
+  for i = 1, 12 do maps[9100 + i] = { mapID = 9100 + i, name = "Filler " .. i, mapType = 3, parentMapID = 1415 } end
+  local here = 1431
+  local cmapWas, zoneWas = C_Map, GetRealZoneText
+  C_Map = {
+    GetMapInfo = function(id) return maps[id] end,
+    GetBestMapForUnit = function() return here end,
+    GetMapChildrenInfo = function(root)
+      local out = {}
+      for id, m in pairs(maps) do if id ~= root then out[#out + 1] = m end end
+      return out
+    end,
+  }
+  W.ResetLands()
+  local folded = W.FoldLands({ { name = "Scarlet Raven Tavern", t = 10 }, { name = "Duskwood", t = 20 },
+    { name = "Darkshire Town Hall", t = 30 }, { name = "Elwynn Forest", t = 5 } })
+  check(#folded == 2 and folded[1].name == "Elwynn Forest" and folded[2].name == "Duskwood" and folded[2].t == 20,
+    "a tavern isn't a land, a town hall counts as Duskwood: " .. tostring(#folded))
+  GetRealZoneText = function() return "Scarlet Raven Tavern" end
+  local zone, building = W.Where(false)
+  check(zone == "Duskwood" and building == "Scarlet Raven Tavern", "inside the tavern, the zone is Duskwood: " .. tostring(zone))
+  check(W.Land("Scarlet Raven Tavern") == "Duskwood", "and the tavern is remembered by its zone")
+  check(W.Where(true) == "Scarlet Raven Tavern", "an instance keeps the name the game gives")
+  GetRealZoneText = function() return "Elwynn Forest" end
+  check(W.Where(false) == "Elwynn Forest", "a zone the map hasn't caught up with stays itself")
+  C_Map, GetRealZoneText = cmapWas, zoneWas
+  ns.db.innerAreas = nil
+  W.ResetLands()
 end
 
 -- The README lists every field `/atrp claim` and `/atrp release` take (the retired ones aside).

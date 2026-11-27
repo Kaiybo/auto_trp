@@ -96,7 +96,8 @@ local function record(d, name, t)
 end
 
 local function level() return tonumber((U.Call(UnitLevel, "player"))) end
-local function zoneName() return U.Plain(U.Call(GetRealZoneText)) end
+-- A building some clients give as the zone counts as the zone it's in (World.Where).
+local function zoneName() return (ns.World.Where((U.Call(IsInInstance)) and true or false)) end
 
 ---------------------------------------------------------------------------
 -- Recording
