@@ -160,7 +160,10 @@ endless | max 2
 
 # Stock phrasing in the short fields (glances, Currently, journal): fine once or twice, not as a habit.
 has the look of someone | max 2
-only lately | max 4
+only lately | max 7
 the best thing i've come by
 grew into my strength
 band of three
+
+# Fame, from the reputation hearsay (0.22.0)
+famed

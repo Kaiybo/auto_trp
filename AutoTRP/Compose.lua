@@ -72,6 +72,15 @@ function Compose.Refresh()
     c.deeds = S.Deeds.Read()
     c.self = S.Self and S.Self.Read(c) or nil
     c.life = S.Life and S.Life.Read() or nil
+    c.work = S.Work and S.Work.Read() or nil
+    c.kin = S.Kin and S.Kin.Read() or nil
+    c.road = S.Road and S.Road.Read() or nil
+    c.calling = S.Calling and S.Calling.Read() or nil   -- the class's signature work (Sources/Calling.lua)
+    c.delves = S.Delves and S.Delves.Read() or nil
+    c.seasons = S.Seasons and S.Seasons.Read(c) or nil
+    c.pack = S.Pack and S.Pack.Read() or nil
+    c.style = S.Style and S.Style.Read() or nil
+    c.renown = S.Renown and S.Renown.Read() or nil
     sourcesAt, c.read = now, true
   end
   -- The company is the game's own (cheap: a party is five units, a raid forty); Social
@@ -275,6 +284,104 @@ local function lowerFirst(s)
   return s
 end
 
+-- The shape of their time (Sources/Seasons.lua), in W.SEASONS' words: {name} and the vars
+-- filled, pronoun tags left for U.Pron.
+local function timeSay(key, vars, which)
+  local list = W.SEASONS[key]
+  if type(list) ~= "table" or #list == 0 then return nil end
+  local line = U.Pick(list, seed("time:" .. key .. ":" .. tostring(which or "")))
+  line = line:gsub("{(%a+)}", function(k) if vars and vars[k] ~= nil then return vars[k] end end)
+  return U.Cap(line)
+end
+Compose.TimeSay = timeSay
+
+local function timeOn() return not ns.db or ns.db.timeNotes ~= false end
+
+-- For History: lines on the shape of their time. road: what they keep to (an anniversary,
+-- the hours and days they keep, the longest stretch, a long absence once); now: how things
+-- stand (a return, a festival kept, a run of days, the season or month just past). At most
+-- two of each, the weightiest first.
+function Compose.TimeLines(c)
+  c = c or ns.cache
+  local se = c and c.seasons
+  local out = { road = {}, now = {} }
+  if not se or not timeOn() then return out end
+  local S = ns.Sources.Seasons
+  local name = firstName()
+  local now = U.Now()
+  local function road(t) if t and #out.road < 2 then out.road[#out.road + 1] = t end end
+  local function told(t) if t and #out.now < 2 then out.now[#out.now + 1] = t end end
+  local a = se.anniv
+  if a then
+    local vars = { name = name, span = a.span, when = a.today and "today" or "this week", rank = a.rank }
+    if a.kind == "setout" then road(timeSay("anniv", vars, a.id))
+    elseif a.rank then road(timeSay("anniv_rank", vars, a.id)) end
+  end
+  if se.hours then road(timeSay(se.hours, {}, se.hours)) end
+  if se.weekdays == "weekend" then road(timeSay("weekend", {}, "weekend"))
+  elseif se.weekdays then road(timeSay("weekday", { day = se.weekdays }, se.weekdays)) end
+  local back = se.back
+  local fresh = back and now - back.t <= 7 * 86400
+  if fresh then told(timeSay("back", { span = S.Span(back.n) }, back.t)) end
+  -- A festival kept lately (where), else the season just past, else the festivals kept.
+  local f = se.fests[1]
+  if f and f.where and now - f.t <= 45 * 86400 then
+    told(timeSay("fest", { fest = f.name, zone = U.Mid(f.where) }, f.key .. f.year))
+  end
+  local tone = se.tone
+  if tone and tone.season then told(timeSay("season_" .. tone.tone, { season = tone.season }, tone.season))
+  elseif tone and tone.month then told(timeSay("month_" .. tone.tone, { month = tone.month }, tone.month)) end
+  if f and now - f.t > 45 * 86400 then
+    if #se.festKinds >= 2 then
+      local list = {}
+      for i = 1, math.min(3, #se.festKinds) do list[i] = se.festKinds[i] end
+      told(timeSay("fest_list", { list = U.Join(list) }, list[1]))
+    elseif f.where then
+      told(timeSay("fest", { fest = f.name, zone = U.Mid(f.where) }, f.key .. f.year))
+    end
+  end
+  if (se.streak or 0) >= 7 then told(timeSay("streak", { n = U.Number(se.streak) }, se.streak)) end
+  if se.faire and se.faire.n >= 2 then told(timeSay("faire", { times = U.Times(se.faire.n) }, se.faire.n)) end
+  if se.longest and se.longest.n >= 5 * 3600 then road(timeSay("longest", { name = name, span = S.Hours(se.longest.n) }, se.longest.s)) end
+  if se.gap and se.gap.n >= 30 * 86400 and not fresh then road(timeSay("gap", { span = S.Span(se.gap.n) }, se.gap.from)) end
+  return out
+end
+
+-- For the Lately glance: an anniversary this week, a festival kept today, a return. Each
+-- { t, prio, g } like Lately's own candidates.
+function Compose.TimeLately(c)
+  c = c or ns.cache
+  local se = c and c.seasons
+  local out = {}
+  if not se or not timeOn() then return out end
+  local S = ns.Sources.Seasons
+  local name, now = firstName(), U.Now()
+  local a = se.anniv
+  if a and (a.kind == "setout" or a.rank) then
+    local vars = { name = name, span = a.span, when = a.today and "today" or "this week", rank = a.rank }
+    local tx = timeSay(a.kind == "setout" and "lately_anniv" or "lately_rank", vars, a.id)
+    -- Older than anything just now: an anniversary is the week's news, not the hour's.
+    out[#out + 1] = { t = math.min(a.target, now) - 6 * 3600, prio = 1,
+      g = { TI = W.SEASONS.titles[a.spanId] or "An Anniversary", IC = "INV_Misc_PocketWatch_01", TX = U.Pron(tx) } }
+  end
+  local f = se.fests[1]
+  if f and f.where and now - f.t <= 86400 then
+    out[#out + 1] = { t = f.t, prio = 1, g = { TI = U.Cap(f.name), IC = "INV_Holiday_Christmas_Present_01",
+      TX = U.Pron(timeSay("lately_fest", { fest = f.name, zone = U.Mid(f.where) }, f.key .. f.year)) } }
+  end
+  local fa = se.faire
+  if fa and fa.zone and now - fa.t <= 86400 then
+    out[#out + 1] = { t = fa.t, prio = 1, g = { TI = "The Darkmoon Faire", IC = "INV_Misc_Ticket_Tarot_Madness",
+      TX = timeSay("lately_faire", { zone = U.Mid(fa.zone) }, fa.t) } }
+  end
+  local back = se.back
+  if back and now - back.t <= 86400 then
+    out[#out + 1] = { t = back.t, prio = 1, g = { TI = "Back on the Road", IC = "Ability_Mount_RidingHorse",
+      TX = timeSay("lately_back", { span = S.Span(back.n) }, back.t) } }
+  end
+  return out
+end
+
 function Compose.LatelyGlance()
   local c = ns.cache
   local rpgd, chron, world = Compose.Persona(c), c.chronicle, c.world
@@ -391,6 +498,23 @@ function Compose.LatelyGlance()
       add(inn.t, 0, { TI = "A New Inn", IC = "INV_Drink_05", TX = say("lately_inn", { inn = innName }, inn.t) })
     end
   end
+  -- Their people (Sources/Kin.lua): a homecoming, a place of their people, a gift that mattered.
+  for _, k in ipairs(ns.Sources.Kin and ns.Sources.Kin.Lately(c) or {}) do add(k.t, k.prio, k.g) end
+  -- What's in the bags: something new, something long kept let go (Keepsakes.lua).
+  for _, k in ipairs(Compose.KeepsakeLately and Compose.KeepsakeLately() or {}) do add(k.t, k.prio, k.g) end
+
+  -- The road: back in a land after a long while, moving on after a long stay.
+  for _, r in ipairs(Compose.RoadLately and Compose.RoadLately() or {}) do add(r.t, r.prio, r.g) end
+  -- A dungeon or raid run just over (Runs.lua).
+  local run = ns.Runs and ns.Runs.Lately(c)
+  if run then add(run.t, run.prio, run.g) end
+  -- The shape of their time: an anniversary this week, a festival, a return (Seasons.lua).
+  for _, cd in ipairs(Compose.TimeLately(c)) do add(cd.t, cd.prio, cd.g) end
+
+  -- The calling: a beast tamed, a portal opened, a narrow escape (Sources/Calling.lua).
+  for _, e in ipairs(ns.Sources.Calling and ns.Sources.Calling.Lately(c) or {}) do add(e.t, e.prio, e.g) end
+  -- The kind of work they take on (Sources/Work.lua): an escort seen through or lost, a run of jobs.
+  for _, cd in ipairs(ns.Sources.Work and ns.Sources.Work.Lately(c.work) or {}) do add(cd.t, cd.prio, cd.g) end
 
   -- A day-old hurt outranks everything; otherwise the newest, then the weightiest. (A strict
   -- order: table.sort may compare an entry with itself.)
@@ -503,6 +627,9 @@ function Compose.CompanyGlance()
         TX = join(cw("battle", { n = U.Number(n), faction = world.faction or "cause" }, n)) }
     end
     local clause = groupClause(g, guild)
+    -- The part they play in it: "the group's healer" (Sources/Style.lua).
+    local role = ns.Sources.Style and ns.Sources.Style.PartyClause(c.style)
+    if role then clause = clause and (clause .. ", " .. role) or role end
     if g.raid and n > 5 then
       local s1 = cw(g.lead and "host_lead" or "host", { n = U.Number(n) }, n)
       return { TI = g.lead and "Leading a Host" or "Part of a Host", IC = "INV_BannerPVP_02",
@@ -789,6 +916,11 @@ function Compose.MarksGlance(avoid)
       mark(4.4, GATHER_MARK[gr.kind][1], say("mark_" .. gr.kind, nil, gr.start), GATHER_MARK[gr.kind][2])
     end
   end
+  for _, m in ipairs(ns.Sources.Kin and ns.Sources.Kin.Marks(c) or {}) do mark(m.prio, m.title, m.text, m.icon) end
+  for _, m in ipairs(ns.Sources.Calling and ns.Sources.Calling.Marks(c) or {}) do mark(m.prio, m.title, m.text, m.icon) end
+  -- Just out of a hard dungeon or raid run (Runs.lua).
+  local rm = ns.Runs and ns.Runs.Mark(c)
+  if rm then mark(rm.prio, rm.title, rm.text, rm.icon) end
   local finest = g.finest or (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
   if finest and finest.name and finest.quality >= 4 then
     mark(4, "Remarkable Gear", say("remarkable", { item = finest.name }, finest.name), "INV_Misc_Gem_Pearl_04")
@@ -800,6 +932,7 @@ function Compose.MarksGlance(avoid)
   if parts.armsKey == "twohand" then mark(2.4, M.twohand[1], parts.arms, M.twohand[2])
   elseif parts.armsKey == "dual" then mark(2.3, M.dual[1], parts.arms, M.dual[2]) end
   if parts.armourType == "Plate" and not parts.mixed then mark(2, M.plate[1], parts.armour, M.plate[2]) end
+  for _, k in ipairs(Compose.KeepsakeMarks and Compose.KeepsakeMarks() or {}) do mark(k.prio, k.title, k.text, k.icon) end
   table.sort(marks, function(a, b) if a.prio ~= b.prio then return a.prio > b.prio end return a.title < b.title end)
   -- The strongest mark that doesn't say what another glance already says (avoid: ideas).
   for _, m in ipairs(marks) do
@@ -886,6 +1019,7 @@ end
 Compose.Colour = colour
 
 local function quote(text) return colour("\"" .. text .. "\"", QUOTE_COLOUR) end
+Compose.Quote = quote
 local function itemName(name, quality) return colour(name, ITEM_COLOUR[quality or 0]) end
 
 -- Pronouns filled in, and every sentence starts with a capital.
@@ -990,6 +1124,12 @@ function Compose.FavouriteSpell()
   return say("favspell", { spell = top.name, noun = noun }, top.name)
 end
 
+-- How they fight (Sources/Style.lua): Personality's lines, strongest first.
+function Compose.FightLines(k)
+  local Style = ns.Sources.Style
+  return Style and Style.TemperLines(ns.cache.style, k) or {}
+end
+
 ---------------------------------------------------------------------------
 -- Life on the road (Sources/Life.lua): small helpers shared by the fields below.
 ---------------------------------------------------------------------------
@@ -1035,13 +1175,16 @@ end
 -- Habits the counts back up, strongest first: at most `k` lines for Personality.
 function Compose.Habits(k)
   local c = ns.cache
-  local life, world = c.life, c.world or {}
-  if not life then return {} end
+  local world = c.world or {}
+  local life = c.life or { fish = 0, fishZones = 0, madeByProf = {}, herbs = 0, ore = 0, duelsWon = 0, duelsLost = 0,
+    battles = 0, inns = {}, falls = 0, closeCalls = 0 }
   local cands = {}
   local function add(score, key, list)
     local pool = list or W.LIFE.HABIT[key]
     if pool and #pool > 0 then cands[#cands + 1] = { score = score, key = key, text = U.Pick(pool, seed("habit:" .. key)) } end
   end
+  -- The kind of work they take on (Sources/Work.lua): couriers, bounty boards, coin over kit.
+  for _, h in ipairs(ns.Sources.Work and ns.Sources.Work.Habits(c.work) or {}) do add(h.score, h.key, h.pool) end
   if life.fish >= 100 and life.fishZones >= 3 then add(3, "fish_many") elseif life.fish >= 30 then add(2, "fish_some") end
   local cooked = life.madeByProf.Cooking or 0
   if cooked >= 50 then add(2, "cook") end
@@ -1062,6 +1205,9 @@ function Compose.Habits(k)
   if #life.inns >= 10 then add(1, "inns") end
   if life.falls >= 10 then add(1.2, "falls") end
   if life.closeCalls >= 10 then add(1.1, "close") end
+  -- How they practise their calling (Sources/Calling.lua).
+  for _, h in ipairs(ns.Sources.Calling and ns.Sources.Calling.Habits(c) or {}) do cands[#cands + 1] = h end
+  for _, h in ipairs(Compose.KeepsakeHabits and Compose.KeepsakeHabits() or {}) do add(h.score, h.key, h.list) end
   table.sort(cands, function(a, b) if a.score ~= b.score then return a.score > b.score end return a.key < b.key end)
   local out = {}
   for i = 1, math.min(k or 2, #cands) do out[i] = cands[i].text end
@@ -1093,6 +1239,13 @@ local function freshLine(pool, s, used)
   return fallback
 end
 
+-- Their bond to their people, the gifts they use and the old enemies they cut down
+-- (Sources/Kin.lua): at most two lines, only what the record backs.
+function Compose.KinLines()
+  local K = ns.Sources.Kin
+  return K and K.Bearing(ns.cache, 2) or {}
+end
+
 -- How this race and class carry themselves together (nil for a pair the lore doesn't have).
 function Compose.RaceClassTemper(world)
   local byRace = W.RACE_CLASS_TEMPER and W.RACE_CLASS_TEMPER[world.race or ""]
@@ -1119,13 +1272,17 @@ function Compose.Bearing()
     return lines
   end
 
+  -- How they fight (Sources/Style.lua), its own short paragraph.
+  local fighting = paragraph(Compose.FightLines(2))
+
   -- Nothing to read a character from: only the habit the game itself records.
   if not rpgd then
     local after = { habit }
     for _, h in ipairs(Compose.Habits(2)) do after[#after + 1] = h end
+    for _, h in ipairs(Compose.KinLines()) do after[#after + 1] = h end
     after[#after + 1] = Compose.BooksLine()
     after[#after + 1] = Compose.WeekTone()
-    return pages({ paragraph(temperLines()), paragraph(after) })
+    return pages({ paragraph(temperLines()), fighting, paragraph(after) })
   end
 
   -- Temperament and conscience
@@ -1169,6 +1326,7 @@ function Compose.Bearing()
   more[#more + 1] = Compose.BooksLine()
   if habit then more[#more + 1] = habit end
   for _, h in ipairs(Compose.Habits(2)) do more[#more + 1] = h end
+  for _, h in ipairs(Compose.KinLines()) do more[#more + 1] = h end
   -- Little recorded about the inner life yet: how this race and class carry themselves.
   local said = #first + #views + #more
   if said < 5 then
@@ -1184,7 +1342,7 @@ function Compose.Bearing()
   -- and race fill in above, and how the week has gone closes it.
   if rpgd.own then more[#more + 1] = Compose.WeekTone() end
 
-  return pages({ paragraph(first), #views > 0 and paragraph({ name .. " " .. views[1], views[2] }) or nil, paragraph(more), stories })
+  return pages({ paragraph(first), #views > 0 and paragraph({ name .. " " .. views[1], views[2] }) or nil, fighting, paragraph(more), stories })
 end
 
 -- "Kobold Miner" -> "Kobold Miners", "Wolf" -> "Wolves", "Harpy" -> "Harpies"
@@ -1327,6 +1485,253 @@ end
 
 local function guildName(g) return g:find("^The ") and U.Mid(g) or g end
 
+---------------------------------------------------------------------------
+-- The road, land by land (Sources/Road.lua): History's road paragraph, two Lately items
+-- and the "Longest stay" statistic. Wording in W.ROAD and W.SAY.lately_back/_moved.
+---------------------------------------------------------------------------
+local function roadFill(line, vars)
+  return (line:gsub("{([%a']+)}", function(k) if vars[k] ~= nil then return vars[k] end end))
+end
+local ROAD_COMMON = { from = true, level = true, there = true, with = true, that = true, into = true, down = true,
+  them = true, they = true, their = true, where = true }
+-- The words a line brings of its own (not its tags), to keep from saying "most" thrice.
+local function ownWords(line)
+  local out = {}
+  for w in line:gsub("{[%a']+}", ""):lower():gmatch("%a+") do if #w >= 4 and not ROAD_COMMON[w] then out[#out + 1] = w end end
+  return out
+end
+local function saysAny(text, words)
+  local low = " " .. text:lower():gsub("[^%a]+", " ") .. " "
+  for _, w in ipairs(words) do if low:find(" " .. w .. " ", 1, true) then return true end end
+  return false
+end
+-- One of a list, seeded per land, that repeats none of the words already said (else the
+-- seeded one).
+local function fresh(list, which, said)
+  if type(list) ~= "table" or #list == 0 then return list end
+  local start = U.Hash(seed("road:" .. which)) % #list
+  for k = 0, #list - 1 do
+    local l = list[(start + k) % #list + 1]
+    if not saysAny(said or "", ownWords(l)) then return l end
+  end
+  return list[start + 1]
+end
+local function bucket(list, v, which, said)
+  for _, b in ipairs(list) do
+    if v < b.max then return type(b.words) == "table" and fresh(b.words, "b:" .. tostring(which), said) or b.words end
+  end
+end
+-- How long a stay was: by the days it lasted when it ran over days, else by the hours.
+function Compose.StayWords(e, said)
+  if (e.wall or 0) >= 1.5 * 86400 and (e.secs or 0) >= 7200 then return bucket(W.ROAD.days, e.wall / 86400, e.name, said) end
+  return bucket(W.ROAD.hours, (e.secs or 0) / 3600, e.name, said)
+end
+function Compose.AwayWords(seconds) return bucket(W.ROAD.away, (seconds or 0) / 86400) end
+local function isCapital(name) return W.CAPITAL_ZONES and W.CAPITAL_ZONES[name] or false end
+local ROAD_THE = { Wetlands = true, Badlands = true }
+local function roadPlace(n) return ROAD_THE[n] and ("the " .. n) or placeName(n) end
+Compose.RoadPlace = roadPlace
+
+-- One land's sentence: the stay, the level, the work, and what else happened there.
+-- said: the paragraph so far, so the words don't repeat.
+local function roadLine(e, family, used, name, withKind, said)
+  local pool = W.ROAD[family]
+  local start = U.Hash(seed("road:" .. family .. ":" .. e.name)) % #pool
+  local line
+  for k = 0, #pool - 1 do
+    local l = pool[(start + k) % #pool + 1]
+    if not used[l] and not saysAny(said, ownWords(l)) then line = l; break end
+  end
+  if not line then
+    for k = 0, #pool - 1 do
+      local l = pool[(start + k) % #pool + 1]
+      if not used[l] then line = l; break end
+    end
+  end
+  line = line or pool[start + 1]
+  used[line] = true
+  local ctx = said .. " " .. line
+  local function pick(key)
+    local l = fresh(W.ROAD[key], key .. ":" .. e.name, ctx)
+    ctx = ctx .. " " .. l
+    return l
+  end
+  local stay = Compose.StayWords(e, ctx)
+  ctx = ctx .. " " .. stay
+  local clauses = {}
+  if not isCapital(e.name) then
+    local span = e.upLo and e.upHi and (e.upHi - e.upLo + 1) or 0
+    if (e.ups or 0) >= 2 and e.ups >= span * 0.6 then
+      clauses[#clauses + 1] = roadFill(pick("climb"), { a = U.Number(e.upLo - 1), b = U.Number(e.upHi) })
+    elseif e.lvlIn then
+      clauses[#clauses + 1] = roadFill(pick("level"), { a = U.Number(e.lvlIn) })
+    end
+  end
+  local work
+  if e.story and e.story.n >= 2 then
+    local story = e.story.title
+    for _, z in ipairs({ e.name, U.Mid(e.name) }) do
+      local cut = " in " .. z
+      if story:sub(-#cut) == cut then story = story:sub(1, -#cut - 1) end
+    end
+    work = roadFill(pick("story"), { story = story })
+  elseif (e.quests or 0) >= 3 then
+    work = roadFill(pick("jobs"), { n = U.Number(e.quests) })
+  elseif e.town and not e.town:find(e.name, 1, true) then
+    work = roadFill(pick("town"), { town = U.Mid(e.town) })
+  elseif e.inn then
+    work = roadFill(pick("inn"), { inn = placeName(e.inn) })
+  end
+  if work then clauses[#clauses + 1] = work end
+  local zone = roadPlace(e.name)
+  local kind = W.ZONE_KIND and W.ZONE_KIND[e.name]
+  local kinded = false
+  if withKind and kind and #clauses <= 1 and (line:find("{zone}{rest}", 1, true) or line:find("{zone}:", 1, true)) then
+    zone = zone .. ", " .. U.Pick(kind, seed("road:kind:" .. e.name))
+    kinded = true
+  end
+  local text = roadFill(line, { zone = zone, stay = stay, rest = table.concat(clauses) })
+  -- What else happened there: a death or two outranks the dungeon next door.
+  local tail
+  local after
+  if (e.deaths or 0) >= 1 then
+    tail = roadFill(pick("deaths"), { name = name, times = U.Times(e.deaths) })
+    if e.dungeons[1] then
+      after = roadFill(pick(e.bosses[1] and "boss" or "dungeon"), { dungeon = U.Mid(e.dungeons[1].name), boss = e.bosses[1] and e.bosses[#e.bosses].name })
+    end
+  elseif e.bosses[1] and e.dungeons[1] then
+    tail = roadFill(pick("boss"), { dungeon = U.Mid(e.dungeons[1].name), boss = e.bosses[#e.bosses].name })
+  elseif e.dungeons[1] then
+    tail = roadFill(pick("dungeon"), { dungeon = U.Mid(e.dungeons[1].name) })
+  elseif (e.close or 0) >= 2 then
+    tail = roadFill(pick("close"), { name = name, times = U.Times(e.close) })
+  end
+  if tail then text = text .. "; " .. tail end
+  if after then text = text .. ". " .. U.Cap(after) end
+  return text, kinded
+end
+
+-- The road told: the three or four lands that mattered most, in the order reached, then the
+-- one left quickly, the one they keep coming back to, and where they've been lately. Nil
+-- until two lands have real time on them. Every fact is from the record.
+function Compose.RoadStory(name)
+  local road = ns.cache.road
+  if not road then return nil end
+  name = name or firstName()
+  local now = U.Now()
+  local cands = {}
+  for _, e in ipairs(road.zones) do
+    if e.secs >= 1800 and not isCapital(e.name) then
+      e.score = e.secs / 3600 + (e.quests or 0) * 0.4 + (e.deaths or 0) + #e.dungeons * 1.5 + #e.bosses + (e.ups or 0)
+      cands[#cands + 1] = e
+    end
+  end
+  if #cands < 2 then return nil end
+  table.sort(cands, function(a, b) if a.score ~= b.score then return a.score > b.score end return a.name < b.name end)
+  local picked = {}
+  for k = 1, math.min(4, #cands) do picked[k] = cands[k] end
+  table.sort(picked, function(a, b) if a.first ~= b.first then return a.first < b.first end return a.name < b.name end)
+  local longest = picked[1]
+  for _, e in ipairs(picked) do if e.secs > longest.secs then longest = e end end
+  local told, used, list, kinds = {}, {}, {}, 0
+  for k, e in ipairs(picked) do
+    local family = k == 1 and "first" or (e == longest and "longest" or "next")
+    local text, kinded = roadLine(e, family, used, name, kinds < 2 and k % 2 == 1, table.concat(list, " "))
+    if kinded then kinds = kinds + 1 end
+    list[#list + 1] = text
+    told[e.name] = true
+  end
+  -- Then at most three more (two after four lands): where they've been lately counts most,
+  -- the land left at once least; told in the order quick, returning, lately.
+  local extra = {}
+  local function more(key, vars, which, order)
+    extra[#extra + 1] = { key = key, vars = vars, which = which, order = order }
+  end
+  -- The land left almost at once.
+  local quick
+  for _, e in ipairs(road.zones) do
+    if e.visits == 1 and not e.before and not e.here and e.secs > 0 and e.secs < 1800 and (e.quests or 0) == 0
+      and now - e.last > 86400 and not isCapital(e.name) and not told[e.name] and (not quick or e.last > quick.last) then
+      quick = e
+    end
+  end
+  if quick then more("quick", { zone = roadPlace(quick.name) }, quick.name, 1) end
+  -- Back where they were a long while ago, else where they've been this past week; and the
+  -- land they keep coming back to.
+  local lately, back = road.lately, road.back
+  local latelyName
+  if back and back.zone == road.cur and now - back.t <= 7 * 86400 then
+    more("lately_back", { zone = roadPlace(back.zone), away = Compose.AwayWords(back.away) }, back.zone, 3)
+    latelyName = back.zone
+  elseif lately and lately.recent >= 3600 then
+    local sub = ""
+    if lately.sub and (lately.subN or 0) >= 3 and not ns.World.IsInn(lately.sub) then sub = ", around " .. U.Mid(lately.sub) end
+    more("lately", { zone = roadPlace(lately.name), sub = sub }, lately.name, 3)
+    latelyName = lately.name
+  end
+  local mv = road.mostVisited
+  if mv and mv.visits >= 4 and mv.name ~= latelyName then
+    more("returns", { zone = roadPlace(mv.name), n = U.Times(mv.visits - 1) }, mv.name, 2)
+  end
+  local room = #picked >= 4 and 2 or 3
+  while #extra > room do
+    local lo = 1
+    for k, x in ipairs(extra) do if x.order < extra[lo].order then lo = k end end
+    table.remove(extra, lo)
+  end
+  table.sort(extra, function(a, b) return a.order < b.order end)
+  for _, x in ipairs(extra) do
+    list[#list + 1] = roadFill(fresh(W.ROAD[x.key], x.key .. ":" .. x.which, table.concat(list, " ")), x.vars)
+  end
+  return paragraph(list)
+end
+
+-- Lately: back in a land after a long while, or moving on after a long stay.
+function Compose.RoadLately()
+  local road = ns.cache.road
+  local out = {}
+  if not road or not road.cur then return out end
+  local b = road.back
+  if b and b.zone == road.cur and within(b.t, 2 * 86400) then
+    out[#out + 1] = { t = b.t, prio = 1, g = { TI = "Back Again", IC = "INV_Misc_Map_01",
+      TX = U.Pron(say("lately_back", { zone = roadPlace(b.zone), away = Compose.AwayWords(b.away) }, b.t)) } }
+  end
+  local l = road.left
+  local here = road.byName[road.cur]
+  if l and l.zone ~= road.cur and within(l.t, 86400) and here and here.visits == 1 and not here.before
+    and ((l.stay or 0) >= 2 * 86400 or (l.secs or 0) >= 3 * 3600) then
+    local from = road.byName[l.zone]
+    out[#out + 1] = { t = l.t, prio = 0, g = { TI = "Moving On", IC = "Ability_Hunter_Pathfinding",
+      TX = U.Pron(say("lately_moved", { zone = roadPlace(road.cur), from = roadPlace(l.zone),
+        stay = Compose.StayWords({ name = l.zone, wall = from and from.wall or l.stay, secs = from and from.secs or l.secs }) }, l.t)) } }
+  end
+  return out
+end
+
+-- "Westfall, 14 hours over 3 visits"
+function Compose.LongestStay()
+  local lg = ns.cache.road and ns.cache.road.longest
+  if not lg then return nil end
+  local h = math.floor(lg.secs / 3600)
+  local m = math.max(1, math.floor(lg.secs / 60))
+  local span = lg.secs < 3600 and (m .. " " .. U.Plural(m, "minute")) or (h .. " " .. U.Plural(h, "hour"))
+  return lg.name .. ", " .. span .. (lg.visits > 1 and (" over " .. lg.visits .. " visits") or "")
+end
+
+-- Reputation as people would see it (Sources/Renown.lua). Rumours: "What's said of them",
+-- at most k lines of hearsay (3 by default), each built from one stored record.
+function Compose.Rumours(k)
+  local R = ns.Sources.Renown
+  local out = {}
+  for i, r in ipairs(R and R.Rumours(ns.cache, k) or {}) do out[i] = r.text end
+  return out
+end
+-- Standing changes for History's news: { t, text, key }.
+function Compose.StandingNews()
+  local R = ns.Sources.Renown
+  return R and R.News(ns.cache, RECENT) or {}
+end
+
 -- History, in five paragraphs. The first and the last two hold what lasts: where they
 -- came from and the road, the people, how things stand. The second is the news (the last
 -- three weeks, newest first, and what has changed). The third is the longer record: the
@@ -1382,15 +1787,21 @@ function Compose.History()
   end
   -- Little recorded yet: say what can be seen of them now (rank, where they are, how
   -- seasoned they look) so History is never just one line.
+  local roadStory = Compose.RoadStory(name)
   if #roots < 3 then
     local title = Compose.Title()
     -- Not when the news below tells of rising to it.
     local lastRise = ns.char and ns.char.milestones and ns.char.milestones[#ns.char.milestones]
     local risen = lastRise and recent(lastRise.t)
     if title and (world.level or 1) >= 10 and not risen then roots[#roots + 1] = say("rankso", { rank = title }) end
-    if world.zone then roots[#roots + 1] = say("keepsto", { zone = placeName(world.zone) }, world.zone) end
+    if world.zone and not roadStory then roots[#roots + 1] = say("keepsto", { zone = placeName(world.zone) }, world.zone) end
   end
+  -- The shape of their time: an anniversary this week, the hours and days they keep.
+  local time = Compose.TimeLines(c)
+  for _, l in ipairs(time.road) do roots[#roots + 1] = l end
   paras[#paras + 1] = paragraph(roots)
+  -- 1b. The road, land by land (Sources/Road.lua), once there's enough of it.
+  paras[#paras + 1] = roadStory
 
   -- 2. Lately: what happened in the last three weeks, and what changed. Each event is a
   -- past-tense predicate ("reached Duskwood for the first time"), grouped by how long ago
@@ -1438,10 +1849,16 @@ function Compose.History()
     for k, t in ipairs(caught) do titles[k] = lowerFirst(t.title) end
     event(caught[1].t, 3, "got caught up in " .. U.Join(titles), "thread:" .. caught[1].id)
   end
+  -- Dungeon and raid runs as stories (Runs.lua): what the story tells isn't news twice.
+  local tales, taleTold = nil, { bosses = {}, items = {} }
+  if ns.Runs then
+    local t, told = ns.Runs.Tales(c, name)
+    tales, taleTold = t, told or taleTold
+  end
   local bosses = Compose.Bosses(c)
   local nb = 0
   for _, b in ipairs(bosses) do
-    if nb < 2 and recent(b.t) and earnedKey ~= "boss:" .. b.name then
+    if nb < 2 and recent(b.t) and earnedKey ~= "boss:" .. b.name and not taleTold.bosses[b.name] then
       nb = nb + 1
       local again = b.first and b.first > 0 and not recent(b.first)
       event(b.t, 3, (again and "brought down " .. b.name .. " again" or "helped bring down " .. b.name), "boss:" .. b.name)
@@ -1463,6 +1880,9 @@ function Compose.History()
   local hon = ns.char and ns.char.honours or {}
   local h = hon[#hon]
   if h then event(h.t, 5, "earned " .. h.standing:lower() .. " standing with " .. W.FactionName(h.faction), "honour") end
+  -- Standing lost or worked hard for (Sources/Renown.lua).
+  -- A step down in standing is real news; a slow drift or steady work, less so.
+  for _, e in ipairs(Compose.StandingNews()) do event(e.t, e.rank or 5, e.text, e.key) end
   if rpgd and rpgd.homeInn and rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn then
     event(rpgd.homeSince, 5, "moved from " .. placeName(rpgd.homePrev) .. " to " .. placeName(rpgd.homeInn), "home")
   end
@@ -1487,7 +1907,7 @@ function Compose.History()
   end
   local finds = ns.char and ns.char.finds or {}
   local f = finds[#finds]
-  if f then event(f.t, 7, "came by " .. itemName(f.item, f.quality) .. (f.zone and (" in " .. U.Mid(f.zone)) or ""), "find") end
+  if f and not taleTold.items[f.item] then event(f.t, 7, "came by " .. itemName(f.item, f.quality) .. (f.zone and (" in " .. U.Mid(f.zone)) or ""), "find") end
   -- Auto TRP's own record of the rest of life on the road.
   local life = c.life
   if life then
@@ -1544,6 +1964,13 @@ function Compose.History()
       event(cl.t, 6, say("ev_close", { who = cl.foe and (" with " .. (cl.named and cl.foe or article(cl.foe))) or "", zone = U.Mid(cl.zone) }, cl.t), "close")
     end
   end
+  -- Their people (Sources/Kin.lua): a homecoming, a place of their people, a gift that mattered.
+  for _, e in ipairs(ns.Sources.Kin and ns.Sources.Kin.Events(c) or {}) do event(e.t, e.rank, e.text, e.key) end
+  -- The calling's news: a beast tamed, a portal opened, the fallen raised (Sources/Calling.lua).
+  for _, e in ipairs(ns.Sources.Calling and ns.Sources.Calling.Events(c, recent) or {}) do event(e.t, e.rank, e.text, e.key) end
+
+  -- The kind of work they take on (Sources/Work.lua): an escort seen through or lost.
+  for _, e in ipairs(ns.Sources.Work and ns.Sources.Work.News(c.work, recent) or {}) do event(e.t, e.rank, e.text, e.key) end
 
   local groups, order = {}, {}
   for _, e in ipairs(events) do
@@ -1577,6 +2004,7 @@ function Compose.History()
     subject = "{they}"
   end
   paras[#paras + 1] = paragraph(lately)
+  if tales then paras[#paras + 1] = paragraph(tales) end
 
   -- 3. The longer record: the name and the deed behind it (these stay), then what came
   -- before the news, briefly.
@@ -1606,6 +2034,7 @@ function Compose.History()
     older[#older + 1] = "helped bring down " .. oldBosses[1].name
   end
   if chron and chron.rares >= 5 then older[#older + 1] = "tracked down " .. U.Number(chron.rares) .. " rare beasts" end
+  for _, s in ipairs(ns.Sources.Calling and ns.Sources.Calling.Older(c, toldRecent) or {}) do older[#older + 1] = s end
   local questsDone = Compose.QuestsDone(c)
   if questsDone >= 25 then older[#older + 1] = "seen " .. U.Roughly(questsDone) .. " jobs through" end
   local own = c.deeds or {}
@@ -1616,6 +2045,8 @@ function Compose.History()
     for n, k in pairs(own.killsByName or {}) do if k > tn then top, tn = n, k end end
     if top and tn >= 20 then older[#older + 1] = "killed more " .. Compose.Plural(top) .. " than any other creature" end
   end
+  -- Their people (Sources/Kin.lua): homecomings, places of their people, old enemies.
+  for _, s in ipairs(ns.Sources.Kin and ns.Sources.Kin.Older(c, toldRecent) or {}) do older[#older + 1] = s end
   -- Auto TRP's own record: battles, duels, inns, flight masters and coin.
   if life then
     if life.battles >= 3 then
@@ -1639,6 +2070,10 @@ function Compose.History()
     if mend >= 20 then older[#older + 1] = "spent " .. U.Number(mend) .. " gold having {their} gear mended" end
     if (life.money.auctions or 0) >= 5 then older[#older + 1] = "sold " .. U.Roughly(life.money.auctions) .. " things at auction" end
   end
+  -- How they fight: the role they take, the spells they cut off, what they fight most.
+  if ns.Sources.Style then
+    for _, s in ipairs(ns.Sources.Style.HistoryClauses(c.style, world.level)) do older[#older + 1] = s end
+  end
   if lastMs and rankOf(lastMs) and not toldRecent.rank then
     local steps = {}
     for k = math.max(1, #ms - 1), #ms do
@@ -1655,6 +2090,8 @@ function Compose.History()
     record[#record + 1] = lead .. " {they've} " .. U.Join(a)
     if #b > 0 then record[#record + 1] = "{they've} also " .. U.Join(b) end
   end
+  -- What most of the work has been, and the escorts (Sources/Work.lua).
+  for _, s in ipairs(ns.Sources.Work and ns.Sources.Work.Record(c.work, toldRecent) or {}) do record[#record + 1] = s end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
   local crafts = {}
   for k = 1, math.min(2, #profs) do
@@ -1690,11 +2127,12 @@ function Compose.History()
   local oldFinds = {}
   for k = #finds, 1, -1 do
     local fd = finds[k]
-    if #oldFinds < 2 and not (k == #finds and toldRecent.find) then
+    if #oldFinds < 2 and not (k == #finds and toldRecent.find) and not taleTold.items[fd.item] then
       oldFinds[#oldFinds + 1] = itemName(fd.item, fd.quality) .. (fd.zone and (" from " .. U.Mid(fd.zone)) or "")
     end
   end
   if #oldFinds > 0 then record[#record + 1] = say("finds", { list = U.Join(oldFinds) }, finds[1].item) end
+  record[#record + 1] = Compose.KeepsakeHistory and Compose.KeepsakeHistory(itemName) or nil   -- Keepsakes.lua
   paras[#paras + 1] = paragraph(record)
 
   -- 4. The people: friends, the company they keep, their pet, their guild, standing.
@@ -1722,6 +2160,12 @@ function Compose.History()
       .. (partner and (", and travels with " .. partner) or "")
   elseif partner then
     people[#people + 1] = name .. " travels with " .. partner
+  end
+  -- The one they work for most (Sources/Work.lua), unless already named among their friends.
+  do
+    local named = {}
+    for _, f in ipairs(friends) do named[f] = true end
+    people[#people + 1] = ns.Sources.Work and ns.Sources.Work.GiverLine(c.work, named) or nil
   end
   -- How they go about: alone or in company, and who has shared the road (counts only).
   local sol = co.solitude or {}
@@ -1836,6 +2280,8 @@ function Compose.History()
   if rpgd and rpgd.rivals[1] then
     people[#people + 1] = say("rival", { who = rpgd.rivals[1].name }, rpgd.rivals[1].name)
   end
+  -- What's said of them: hearsay, each line from a stored record (Sources/Renown.lua).
+  for _, r in ipairs(Compose.Rumours()) do people[#people + 1] = r end
   if sd and #sd.foes > 0 then
     people[#people + 1] = say("foes", { what = #sd.foes == 1 and "an enemy" or (U.Number(#sd.foes) .. " enemies") }, #sd.foes)
   end
@@ -1851,6 +2297,7 @@ function Compose.History()
     elseif m then bits[#bits + 1] = m .. " " .. d.label end
   end
   nowLines[#nowLines + 1] = Compose.WeekTone()
+  for _, l in ipairs(time.now) do nowLines[#nowLines + 1] = l end
   if #bits >= 2 then nowLines[#nowLines + 1] = "Felt " .. U.Join(bits) end
   local wb = Compose.WealthBand(world)
   if wb and not toldRecent.wealth then nowLines[#nowLines + 1] = wb.flair end
@@ -1860,7 +2307,7 @@ function Compose.History()
     nowLines[#nowLines + 1] = ns.Journal.LatestLine(quote)   -- Auto TRP's own journal (Journal.lua)
   end
   paras[#paras + 1] = paragraph(nowLines)
-  paras[6] = Compose.Drives()   -- 6. What drives them
+  paras[#paras + 1] = Compose.Drives()   -- 6. What drives them (after the runs, when there are any)
 
   return pages(paras)
 end
@@ -2177,6 +2624,10 @@ function Compose.Physical()
   end
   body[#body + 1] = stance
   body[#body + 1] = fillPick(W.RACE_BEARING[world.race or ""], nil, "bearing")
+  local Kin = ns.Sources.Kin
+  body[#body + 1] = Kin and Kin.Voice(c) or nil   -- the tongue they speak aloud, when it means something
+  -- How they carry themselves in a fight (Sources/Style.lua).
+  body[#body + 1] = ns.Sources.Style and ns.Sources.Style.Bearing(c.style) or nil
 
   -- What they wear and carry, by name, and what their class keeps in the bags
   local p = Compose.GearParts(world, itemName)
@@ -2205,6 +2656,9 @@ function Compose.Physical()
   for _, m in ipairs(Compose.NowMarks(c)) do
     if #now < 4 then now[#now + 1] = m.text end
   end
+  -- How being here sits with one of their people (home soil, an old enemy's land, a long road).
+  local here = Kin and not world.combat and not world.dead and Kin.Here(c)
+  if here and #now < 4 then now[#now + 1] = here end
   local lvl = world.level or 1
   if #now < 2 and lvl < 60 and not world.dead then
     if type(world.rested) == "number" and world.rested > 0 then now[#now + 1] = fillPick(W.PHYS_RESTED, nil, "rested")
@@ -2212,7 +2666,9 @@ function Compose.Physical()
   end
   if #now == 0 and not world.dead and (world.health or 1) >= 0.8 then now[1] = fillPick(W.PHYS_UNHURT, nil, "unhurt") end
 
-  return pages({ paragraph(body), paragraph(dress), paragraph(now) })
+  -- What they carry in the bags (Keepsakes.lua)
+  local carry = Compose.Keepsakes and paragraph(Compose.Keepsakes(itemName)) or nil
+  return pages({ paragraph(body), paragraph(dress), carry, paragraph(now) })
 end
 
 ---------------------------------------------------------------------------
@@ -2246,8 +2702,28 @@ Compose.STATS = {
   { key = "gold", label = "Most gold held", icon = "INV_Misc_Coin_01" },
   { key = "inns", label = "Inns stayed at", icon = "INV_Drink_05" },
   { key = "hit", label = "Hardest hit", icon = "Ability_Warrior_Rampage" },
+  -- From Auto TRP's record of the road, land by land (Sources/Road.lua).
+  { key = "longest", label = "Longest stay", icon = "Ability_Hunter_Pathfinding" },
+  -- From Auto TRP's record of the work they take on (Sources/Work.lua).
+  { key = "work", label = "Work by kind", icon = "INV_Misc_Note_01" },
+  -- From Auto TRP's record of dungeon and raid runs (Sources/Delves.lua, Runs.lua).
+  { key = "deepest", label = "Deepest run", icon = "INV_Misc_Key_13" },
+  { key = "wipes", label = "Wipes", icon = "Spell_Shadow_DeathScream" },
+  -- From Auto TRP's record of their time (Sources/Seasons.lua).
+  { key = "since", label = "On the road since", icon = "INV_Misc_PocketWatch_02" },
+  { key = "festivals", label = "Festivals kept", icon = "INV_Holiday_Christmas_Present_01" },
+  -- How every faction sees them (Sources/Renown.lua): "Exalted with 1, Revered with 3".
+  { key = "renown", label = "Standing", icon = "INV_Misc_Token_ArgentDawn" },
   { key = "letters", label = "Letters received", icon = "INV_Letter_15", retired = true },
+  -- From Auto TRP's record of their people (Sources/Kin.lua).
+  { key = "kinhome", label = "Time at home / abroad", icon = "INV_Misc_Rune_01" },
+  { key = "racial", label = "Racial ability most used", icon = "Spell_Nature_Strength" },
+  { key = "kinfoes", label = "Old enemies slain", icon = "INV_Sword_04" },
+  -- From the bags (Sources/Pack.lua): the thing carried longest.
+  { key = "keepsake", label = "Treasured keepsake", icon = "INV_Misc_Bag_11" },
 }
+-- The class's own work (Sources/Calling.lua): what a class has none of is left off.
+for _, st in ipairs(ns.Sources.Calling and ns.Sources.Calling.STATS or {}) do Compose.STATS[#Compose.STATS + 1] = st end
 
 -- How well off, against what's usual at their level.
 function Compose.WealthBand(world)
@@ -2306,6 +2782,7 @@ function Compose.Stats()
   end
   local questsDone = Compose.QuestsDone(c)
   if questsDone > 0 then out.jobs = figure(questsDone) end
+  out.work = ns.Sources.Work and ns.Sources.Work.Stat(c.work, figure) or nil
   local band = Compose.WealthBand(world)
   if band then out.wealth = band.word .. " (" .. money(world.money) .. ")" end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
@@ -2316,6 +2793,7 @@ function Compose.Stats()
   if top and top.word then out.standing = top.word .. " with " .. W.FactionName(top.name) end
   local books = #Compose.Books()
   if books > 0 then out.books = figure(books) end
+  out.renown = ns.Sources.Renown and ns.Sources.Renown.Stat(world, c.renown) or nil
   -- Auto TRP's own record of life on the road.
   local life = c.life
   if life then
@@ -2349,6 +2827,23 @@ function Compose.Stats()
     if taken then parts[#parts + 1] = figure(taken.n) .. " taken" .. (taken.from and (" from " .. taken.from) or "") end
     if #parts > 0 then out.hit = table.concat(parts, "; ") end
   end
+  -- The road, land by land (Sources/Road.lua): the land they've spent longest in.
+  out.longest = Compose.LongestStay()
+  for k, v in pairs(ns.Sources.Calling and ns.Sources.Calling.Stats(c) or {}) do out[k] = v end
+  -- Their time: the first day on record, and the festivals kept (Seasons.lua).
+  local se = c.seasons
+  if se and se.first then
+    local S = ns.Sources.Seasons
+    out.since = U.Cap(S.DateWords(se.first, true))
+    local parts = {}
+    if #se.fests > 0 then
+      local list = {}
+      for i = 1, math.min(3, #se.festKinds) do list[i] = se.festKinds[i] end
+      parts[1] = figure(#se.fests) .. ": " .. U.Join(list) .. (#se.festKinds > 3 and " and more" or "")
+    end
+    if se.faire then parts[#parts + 1] = (#parts == 0 and "The" or "the") .. " Darkmoon Faire " .. U.Times(se.faire.n) end
+    if #parts > 0 then out.festivals = table.concat(parts, "; ") end
+  end
   -- Every name earned, the one worn first ("Mine-Warden, Defias-Breaker and Hogger's Bane").
   local names, worn = {}, Compose.Earned()
   if worn then names[1] = worn.nick end
@@ -2360,11 +2855,15 @@ function Compose.Stats()
   local top = Compose.TopSpells(1)[1]
   if top and top.n >= 10 then out.spell = top.name .. ", " .. figure(top.n) .. " times"
   elseif top then out.spell = top.name .. ", " .. U.Times(top.n) end
+  if ns.Runs then ns.Runs.Stats(c, out) end
+  out.keepsake = Compose.KeepsakeStat and Compose.KeepsakeStat() or nil
   -- Nothing counted yet still says so, so no statistic is left blank.
   if not out.road and days == 0 then out.road = "Less than a day" end
   if not out.lands and world.zone then out.lands = "1" end
+  for k, v in pairs(ns.Sources.Kin and ns.Sources.Kin.Stats(c) or {}) do out[k] = v end
   for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "crafts", "standing", "books", "names", "spell",
-    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit" }) do
+    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "longest", "festivals", "renown", "keepsake", "deepest", "wipes",
+    "kinhome", "racial", "kinfoes" }) do
     out[k] = out[k] or "None yet"
   end
   return out
@@ -2400,9 +2899,10 @@ function Compose.FullTitle()
   if align and standing then return align .. ", " .. standing end
   if standing then return standing end
   local noun = U.Cap(W.CLASS_NOUN[world.class or ""] or "wanderer")
-  if align then return align .. " " .. noun end
-  local top = world.factions and world.factions[1]
-  if top and top.standing >= 7 then return "Friend of " .. W.FactionName(top.name) end
+  -- No town to name: a faction they're Revered or Exalted with (Sources/Renown.lua).
+  local friend = ns.Sources.Renown and ns.Sources.Renown.Title(world)
+  if align then return friend and (align .. ", " .. friend) or (align .. " " .. noun) end
+  if friend then return friend end
   local home = W.RACE_HOME[world.race or ""]
   return U.Cap(seasoned(world.level, "seasoned")) .. " " .. noun .. (home and (" of " .. home) or "")
 end
