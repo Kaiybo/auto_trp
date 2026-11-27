@@ -82,6 +82,7 @@
 
 ### Fixed
 
+- Dungeons, raids and battlegrounds entered no longer count as lands reached, so History doesn't say your road began in Shadowfang Keep.
 - Fixed: a player killed by your hand could be counted by name among the creatures slain (and so named in History's most-killed line). Players are now only killing blows, never named.
 - Fixed: an enemy player you fought could be named in the *Lately* glance (*"Fresh from a fight with ..."*) and, if they killed you, in the Deaths statistic and *Lately*'s *Hurt*. They're now only what they are (*a Horde rogue*), and a death to a player keeps no name. A death to a creature you'd been fighting names it again (it was lost).
 - Fixed: a quest shared by another player could put their name in *Currently* (*"talking with ..."*); a player's letter could put its subject there. Neither does now.

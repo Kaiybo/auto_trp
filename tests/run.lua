@@ -1643,6 +1643,13 @@ do
     check(st.slain == "12, 12 of them Defias Bandits", "kills from the combat log, only the player's: " .. tostring(st.slain))
     check(st.deaths == "1, the first to Hogger", "a death, with who did it: " .. tostring(st.deaths))
     check(st.dungeons == "1", "a dungeon entered: " .. tostring(st.dungeons))
+    ns.char.seen.zones = ns.char.seen.zones or {}
+    ns.char.seen.zones["The Deadmines"] = NOW - 5 * 86400
+    C.SourcesChanged(); C.Refresh()
+    local isLand = false
+    for _, z in ipairs(ns.cache.deeds.zones) do if z.name == "The Deadmines" then isLand = true end end
+    check(not isLand, "a dungeon entered isn't counted as a land")
+    ns.char.seen.zones["The Deadmines"] = nil
     check(st.lands == "2" and st.road == "3", "lands and days on the road from Auto TRP's own record: "
       .. tostring(st.lands) .. ", " .. tostring(st.road))
     ns.char.seen.zones = seenZones

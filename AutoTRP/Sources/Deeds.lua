@@ -134,11 +134,14 @@ function D.Read()
   for _, i in ipairs(out.instances) do if i.kind == "party" or i.kind == "raid" then out.dungeons = out.dungeons + 1 end end
   out.kills, out.killsByName = d.kills.total or 0, d.kills.byName
   out.flights = d.flights
-  -- Lands, in the order first reached, from the mood model's record of arrivals.
+  -- Lands, in the order first reached, from the mood model's record of arrivals. Dungeons,
+  -- raids and battlegrounds entered are counted on their own, not as lands.
   out.zones = {}
+  local inside = {}
+  for name in pairs(d.instances) do inside[name] = true end
   local seen = ns.char and type(ns.char.seen) == "table" and type(ns.char.seen.zones) == "table" and ns.char.seen.zones or {}
   for name, t in pairs(seen) do
-    if type(name) == "string" and tonumber(t) then out.zones[#out.zones + 1] = { name = name, t = tonumber(t) } end
+    if type(name) == "string" and tonumber(t) and not inside[name] then out.zones[#out.zones + 1] = { name = name, t = tonumber(t) } end
   end
   table.sort(out.zones, function(a, b) return a.t < b.t end)
   out.since = math.min(d.since, out.zones[1] and out.zones[1].t or math.huge)
