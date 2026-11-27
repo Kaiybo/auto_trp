@@ -19,6 +19,7 @@ local function values(sheet)
     nickname = sheet.nickname, icon = sheet.icon, bearing = sheet.bearing, history = sheet.history,
     physical = sheet.physical, traits = sheet.traits, relationship = sheet.relationship, ooc = sheet.ooc,
     walkup = sheet.walkup,
+    namecolour = sheet.namecolour, music = sheet.music,   -- 0.23.0 (Register.lua)
     glance_mood = sheet.glances.mood, glance_lately = sheet.glances.lately,
     glance_company = sheet.glances.company, glance_ambition = sheet.glances.ambition,
     glance_marks = sheet.glances.marks,
@@ -50,6 +51,8 @@ function UI.Update(force, fresh, mood)
     for k in pairs(FAST) do only[k] = true end
     any = true
   end
+  -- The OOC line says what you're doing out of character, so it isn't paused with the rest.
+  if ns.db.fields.ooc_doing and (force or now - lastFast >= gap) then only.ooc, any = true, true end
   if force or (slowDue and now - lastSlow >= UI.STORY_GAP) or now - lastSlow >= UI.STORY_EVERY then
     for k in pairs(TRP.FIELDS) do if not FAST[k] then only[k] = true end end
     any = true
@@ -70,6 +73,7 @@ function UI.Update(force, fresh, mood)
   for _, k in ipairs(changed) do if FAST[k] then wroteFast = true end end
   if wroteFast then lastFast = now end
   if only.history then lastSlow, slowDue = now, false end
+  UI.NoteWrite(changed, now)
   UI.LogWrite(changed, diff, sheet.mood)
   if force then
     if #changed > 0 then
@@ -232,7 +236,7 @@ local function firstRun(tries)
   if ns.char.profileID or ns.char.declined or UI.askedThisSession then return end
   UI.askedThisSession = true
   if U.Call(InCombatLockdown) then ns.After(10, function() firstRun(tries) end) return end
-  StaticPopup_Show("AUTOTRP_SETUP")
+  UI.ShowFirstRun()
 end
 
 local warnedOther = false
@@ -262,110 +266,454 @@ ns.Listen("LOGIN", function()
 end)
 
 ---------------------------------------------------------------------------
--- Preview
+-- Welcome: the first-run window
 ---------------------------------------------------------------------------
-local STATUS_WORDS = { auto = "|cff80ff80written by Auto TRP|r", yours = "|cffffd100yours (left alone)|r", off = "|cff808080off|r", waiting = "|cffaaaaaawaiting|r" }
+UI.WELCOME_LINES = {
+  "Auto TRP writes your Total RP 3 profile for you, from what your character does, feels and goes through.",
+  "It works on its own copy of your profile, and never writes over words you wrote yourself.",
+  "Total RP 3 is all it needs. RPG Dialogue, Social Diary and Chronicle give it more to tell.",
+}
 
-local function glanceText(g)
-  if not g then return "(nothing to say yet)" end
-  return g.TI .. ": " .. g.TX
+local function welcomeButton(f, text, w, tip, fn)
+  local b = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  b:SetSize(w, 24)
+  b:SetText(text)
+  b:SetScript("OnClick", fn)
+  if UI.Tooltip then UI.Tooltip(b, text, tip) end
+  return b
 end
 
-function UI.PreviewText()
-  local s = ns.Compose.Sheet()
-  local out = {}
-  local function add(key, text, until_)
-    out[#out + 1] = "|cffc8a165" .. (TRP.LABELS[key] or key) .. "|r  " .. STATUS_WORDS[TRP.Status(key)]
-    out[#out + 1] = (text and text ~= "") and text or ("|cff808080(nothing yet" .. (until_ and (": " .. until_) or "") .. ")|r")
-    out[#out + 1] = ""
+function UI.BuildWelcome()
+  if UI.welcomeFrame then return UI.welcomeFrame end
+  local f = CreateFrame("Frame", "AutoTRPWelcome", UIParent, "BasicFrameTemplateWithInset")
+  f:SetSize(460, 214)
+  f:SetPoint("CENTER", 0, 80)
+  f:SetFrameStrata("DIALOG")
+  f:SetMovable(true)
+  f:EnableMouse(true)
+  f:RegisterForDrag("LeftButton")
+  f:SetScript("OnDragStart", function(self) self:StartMoving() end)
+  f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+  f:Hide()
+  f.chose = false
+  local title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  title:SetPoint("TOP", 0, -5)
+  title:SetText("Welcome to Auto TRP")
+  local icon = f:CreateTexture(nil, "ARTWORK")
+  icon:SetSize(40, 40)
+  icon:SetPoint("TOPLEFT", 18, -36)
+  icon:SetTexture("Interface\\Icons\\INV_Misc_Book_11")
+  local text = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  text:SetPoint("TOPLEFT", icon, "TOPRIGHT", 12, 0)
+  text:SetPoint("RIGHT", -18, 0)
+  text:SetJustifyH("LEFT")
+  text:SetSpacing(4)
+  text:SetText(table.concat(UI.WELCOME_LINES, "\n"))
+
+  -- Closing it without choosing counts as "not now": asked again on a later login, and
+  -- not after the third time.
+  f:SetScript("OnHide", function(self)
+    if self.chose == true then return end
+    ns.char.declines = (ns.char.declines or 0) + 1
+    if ns.char.declines >= 3 then ns.char.declined = true end
+    ns.Print("No problem. |cffffd100/atrp setup|r whenever you'd like, or |cffffd100/atrp welcome|r to see this again.")
+  end)
+  local function choose(fn)
+    return function() f.chose = true; f:Hide(); fn() end
   end
+  f.buttons = {
+    make = welcomeButton(f, "Make my Auto TRP profile", 200,
+      "Copies your current Total RP 3 profile as \"Name (Auto TRP)\", switches to it, and writes it now.", choose(UI.Setup)),
+    use = welcomeButton(f, "Use my current profile", 200,
+      "Auto TRP writes to the profile you're using now. Fields that already have your text stay yours.", choose(UI.UseCurrent)),
+    settings = welcomeButton(f, "Settings", 120, "Look at what it writes first. This window comes back on your next login.",
+      choose(function() UI.OpenSettings() end)),
+    never = welcomeButton(f, "Don't ask again", 140, "Auto TRP stays idle on this character. /atrp setup starts it any time.",
+      choose(function()
+        ns.char.declined = true
+        ns.Print("It won't ask again on this character. |cffffd100/atrp setup|r whenever you'd like.")
+      end)),
+  }
+  local b = f.buttons
+  b.make:SetPoint("BOTTOMLEFT", 22, 46)
+  b.use:SetPoint("LEFT", b.make, "RIGHT", 16, 0)
+  b.settings:SetPoint("BOTTOMLEFT", 22, 16)
+  b.never:SetPoint("BOTTOMRIGHT", -22, 16)
+  tinsert(UISpecialFrames, "AutoTRPWelcome")
+  UI.welcomeFrame = f
+  return f
+end
+
+-- again: shown on request (/atrp welcome), so closing it isn't a "no".
+function UI.ShowWelcome(again)
+  local f = UI.BuildWelcome()
+  f.chose = again and true or false
+  f:Show()
+  return f
+end
+
+-- The first-run prompt: the welcome window, or the plain popup if that can't be made.
+function UI.ShowFirstRun()
+  local ok = pcall(UI.ShowWelcome)
+  if not ok then StaticPopup_Show("AUTOTRP_SETUP") end
+end
+
+---------------------------------------------------------------------------
+-- Preview
+---------------------------------------------------------------------------
+-- How each field stands, in a word or two.
+local STATUS_WORDS = { auto = "|cff80ff80Auto TRP's|r", yours = "|cffffd100yours, left alone|r", off = "|cff808080switched off|r", waiting = "|cffaaaaaanot written yet|r" }
+UI.STATUS_WORDS = STATUS_WORDS
+
+-- "|T...|t" for an icon name, file path or file ID.
+function UI.IconString(ic, size)
+  if ic == nil or ic == "" then return "" end
+  size = size or 16
+  local path = tostring(ic)
+  if type(ic) == "string" and not ic:find("\\") then path = "Interface\\Icons\\" .. ic end
+  return ("|T%s:%d:%d|t "):format(path, size, size)
+end
+
+-- Total RP 3's colour markup shown as the game's, or taken out for copying.
+local function shown(text)
+  if type(text) ~= "string" then return text end
+  return (text:gsub("{col:(%x%x%x%x%x%x)}", "|cff%1"):gsub("{/col}", "|r"))
+end
+local function plainCopy(text)
+  if type(text) ~= "string" then return "" end
+  return U.Plain((text:gsub("{col:%x+}", ""):gsub("{/col}", ""))) or ""
+end
+UI.CopyText = plainCopy
+
+UI.PREVIEW_TABS = { "Now", "About", "Names and titles", "Statistics" }
+local GLANCES = { "mood", "lately", "company", "ambition", "marks" }
+
+-- What the profile would say, as tabs of rows. A row: key (the field, nil for the mood),
+-- label, icon, title (a glance's), text, note (grey, not copied), status.
+function UI.PreviewSections(s)
+  s = s or ns.Compose.Sheet()
+  local tabs = {}
+  for i, name in ipairs(UI.PREVIEW_TABS) do tabs[i] = { name = name, rows = {} } end
+  local function add(t, key, text, extra)
+    extra = extra or {}
+    if text == "" then text = nil end
+    local rows = tabs[t].rows
+    rows[#rows + 1] = {
+      key = key, label = extra.label or (key and TRP.LABELS[key]) or key, icon = extra.icon, title = extra.title,
+      text = text, note = extra.note, empty = extra.empty, status = key and TRP.Status(key) or nil,
+    }
+  end
+
+  -- Now: mood, Currently, the glances.
+  local why = s.mood.reasons and (" (" .. table.concat(s.mood.reasons, ", ") .. ")") or ""
+  add(1, nil, s.mood.title .. why, { label = "Mood", icon = s.mood.icon, note = s.mood.tell })
+  add(1, "currently", s.currently)
+  for _, g in ipairs(GLANCES) do
+    local v = s.glances[g]
+    local slot = TRP.GlanceSlot(g)
+    add(1, "glance_" .. g, v and v.TX, {
+      label = (TRP.LABELS["glance_" .. g] or g) .. (slot > 0 and ("  |cff808080slot " .. slot .. "|r") or "  |cff808080no slot|r"),
+      icon = v and v.IC, title = v and v.TI, empty = "nothing to say yet",
+    })
+  end
+
+  -- About: the trait bars and the three About sections.
   local traits
   if s.traits then
     local t = {}
     for _, b in ipairs(s.traits) do t[#t + 1] = ("%s %d / %d %s"):format(b.LT, b.V2, 20 - b.V2, b.RT) end
     traits = table.concat(t, "\n")
   end
-  local why = s.mood.reasons and (" (" .. table.concat(s.mood.reasons, ", ") .. ")") or ""
-  out[#out + 1] = "|cffc8a165Mood|r  " .. s.mood.title .. why
-  out[#out + 1] = ""
-  add("currently", s.currently)
-  add("glance_mood", glanceText(s.glances.mood))
-  add("glance_lately", s.glances.lately and glanceText(s.glances.lately))
-  add("glance_company", s.glances.company and glanceText(s.glances.company))
-  add("glance_ambition", s.glances.ambition and glanceText(s.glances.ambition))
-  add("glance_marks", s.glances.marks and glanceText(s.glances.marks))
-  add("title", s.title)
-  add("fulltitle", s.fulltitle)
+  add(2, "traits", traits)
+  add(2, "bearing", s.bearing)
+  add(2, "history", s.history)
+  add(2, "physical", s.physical)
+
+  -- Names and titles.
+  add(3, "title", s.title)
+  add(3, "fulltitle", s.fulltitle)
   local e = ns.Compose.Earned()
-  local from = e and ("  |cff808080(" .. e.deed:gsub("^%u", string.lower) .. ")|r") or ""
+  local from = e and e.deed and U.Cap(e.deed) .. "." or nil
   local others = {}
   for _, o in ipairs(ns.Compose.EarnedAll()) do if o ~= e then others[#others + 1] = o.nick end end
-  local choose = #others > 0 and ("\n    |cff808080also earned: " .. U.Join(others) .. " (/atrp names, /atrp name <n>)|r") or ""
-  add("nickname", s.nickname and (s.nickname .. from .. choose), "earned by a story, quest chain, master or bounty you saw through")
-  add("motto", s.motto and (s.motto .. from), "comes with the deed behind the nickname")
-  add("icon", s.icon)
-  add("residence", s.residence)
-  add("birthplace", s.birthplace)
-  add("relationship", s.relationship and ({ [2] = "Taken", [3] = "Married" })[s.relationship])
-  add("ooc", s.ooc)
-  add("walkup", s.walkup == 2 and "Open to walk-ups" or s.walkup == 1 and "Not open to walk-ups" or "(no change)")
-  add("traits", traits)
-  add("bearing", s.bearing)
-  add("history", s.history)
-  add("physical", s.physical)
-  if s.stats then
-    for _, st in ipairs(ns.Compose.STATS) do if not st.retired then add("stat_" .. st.key, s.stats[st.key]) end end
+  local also = #others > 0 and ("Also earned: " .. U.Join(others) .. " (/atrp names, /atrp name <n>).") or nil
+  add(3, "nickname", s.nickname, {
+    note = (from and also) and (from .. " " .. also) or from or also,
+    empty = "earned by a story, quest chain, master or bounty you saw through",
+  })
+  add(3, "motto", s.motto, { note = from, empty = "comes with the deed behind the nickname" })
+  add(3, "icon", s.icon, { icon = s.icon })
+  add(3, "residence", s.residence)
+  add(3, "birthplace", s.birthplace)
+  add(3, "relationship", s.relationship and ({ [2] = "Taken", [3] = "Married" })[s.relationship])
+  add(3, "ooc", s.ooc)
+  add(3, "namecolour", s.namecolour and ("|cff" .. s.namecolour .. s.namecolour .. "|r"), { empty = "from your class colour" })
+  add(3, "music", s.music and (tostring(s.musicName) .. " (" .. tostring(s.music) .. ")"), { empty = "your home's music, or where you are" })
+  add(3, "walkup", s.walkup == 2 and "Open to walk-ups" or s.walkup == 1 and "Not open to walk-ups" or nil, { empty = "no change" })
+
+  -- Statistics.
+  for _, st in ipairs(ns.Compose.STATS) do
+    if not st.retired then add(4, "stat_" .. st.key, s.stats and s.stats[st.key], { icon = st.icon }) end
+  end
+  return tabs, s
+end
+
+-- The same as text, for chat and the offline test.
+function UI.PreviewText()
+  local out = {}
+  for _, tab in ipairs(UI.PreviewSections()) do
+    for _, r in ipairs(tab.rows) do
+      if not r.key then
+        out[#out + 1] = "|cffc8a165" .. r.label .. "|r  " .. r.text
+      else
+        out[#out + 1] = "|cffc8a165" .. (TRP.LABELS[r.key] or r.key) .. "|r  " .. STATUS_WORDS[r.status]
+        if r.text then
+          out[#out + 1] = (r.title and (r.title .. ": ") or "") .. r.text
+          if r.note then out[#out + 1] = "    |cff808080" .. r.note .. "|r" end
+        else
+          out[#out + 1] = "|cff808080(nothing yet" .. (r.empty and (": " .. r.empty) or "") .. ")|r"
+        end
+      end
+      out[#out + 1] = ""
+    end
   end
   return table.concat(out, "\n")
 end
 
-local preview
-function UI.Preview()
-  if not preview then
-    local f = CreateFrame("Frame", "AutoTRPPreview", UIParent, "BasicFrameTemplateWithInset")
-    f:SetSize(520, 560)
-    f:SetPoint("CENTER")
-    f:SetMovable(true)
-    f:EnableMouse(true)
-    f:RegisterForDrag("LeftButton")
-    f:SetScript("OnDragStart", f.StartMoving)
-    f:SetScript("OnDragStop", f.StopMovingOrSizing)
-    f:SetFrameStrata("DIALOG")
-    local title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    title:SetPoint("TOP", 0, -5)
-    title:SetText("Auto TRP: what your profile would say")
-    local scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", 12, -32)
-    scroll:SetPoint("BOTTOMRIGHT", -32, 44)
-    local text = CreateFrame("EditBox", nil, scroll)
-    text:SetMultiLine(true)
-    text:SetFontObject(ChatFontNormal)
-    text:SetWidth(460)
-    text:SetAutoFocus(false)
-    text:SetScript("OnEscapePressed", function() f:Hide() end)
-    text:SetScript("OnTextChanged", function(self, user) if user then self:SetText(f.body or "") end end)
-    scroll:SetScrollChild(text)
-    f.text = text
-    local write = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    write:SetSize(140, 24)
-    write:SetPoint("BOTTOMRIGHT", -12, 12)
-    write:SetText("Write it now")
-    write:SetScript("OnClick", function() UI.Update(true); f.Refresh() end)
-    local refresh = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    refresh:SetSize(100, 24)
-    refresh:SetPoint("RIGHT", write, "LEFT", -6, 0)
-    refresh:SetText("Refresh")
-    refresh:SetScript("OnClick", function() f.Refresh() end)
-    function f.Refresh()
-      f.body = UI.PreviewText()
-      f.text:SetText(f.body)
-      f.text:SetCursorPosition(0)
-    end
-    tinsert(UISpecialFrames, "AutoTRPPreview")
-    preview = f
+-- Height of a font string's text at a width: measured when the game can, else a fair guess.
+local function textHeight(fs, text, width, lineH)
+  local h = fs.GetStringHeight and fs:GetStringHeight()
+  if type(h) == "number" and h > 0 then return h end
+  local plain = U.Plain(text or "") or ""
+  local per = math.max(10, math.floor(width / 6))
+  local lines = 0
+  for para in ((text or "") .. "\n"):gmatch("(.-)\n") do
+    lines = lines + math.max(1, math.ceil(#(U.Plain(para) or "") / per))
   end
-  preview.Refresh()
-  preview:Show()
+  if plain == "" then lines = 1 end
+  return lines * (lineH or 14)
+end
+UI.TextHeight = textHeight
+
+-- A read-only box holding a field's text in one line: click it, then Ctrl+C.
+local function copyBox(parent)
+  local b = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+  b:SetSize(150, 18)
+  b:SetAutoFocus(false)
+  b:SetFontObject(ChatFontSmall or ChatFontNormal)
+  b:SetScript("OnTextChanged", function(self, user)
+    if user then self:SetText(self.full or ""); self:HighlightText() end
+  end)
+  b:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+  b:SetScript("OnEditFocusLost", function(self) self:HighlightText(0, 0); self:SetCursorPosition(0) end)
+  b:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+  b:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+  b:SetScript("OnEnter", function(self)
+    if not GameTooltip then return end
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:AddLine("Copy")
+    GameTooltip:AddLine("Click, then Ctrl+C. The text comes without colours or line breaks.", 0.8, 0.8, 0.8, true)
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+  return b
+end
+
+local function previewRow(f)
+  local c = f.content
+  local r = {}
+  r.head = c:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  r.head:SetJustifyH("LEFT")
+  r.copy = copyBox(c)
+  r.body = c:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  r.body:SetJustifyH("LEFT")
+  r.body:SetJustifyV("TOP")
+  r.note = c:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+  r.note:SetJustifyH("LEFT")
+  f.rows[#f.rows + 1] = r
+  return r
+end
+
+local function savePreviewPlace(f)
+  local point, _, relPoint, x, y = f:GetPoint()
+  if not point then return end
+  local pos = { point = point, relPoint = relPoint, x = x, y = y }
+  local w, h = f:GetWidth(), f:GetHeight()
+  if type(w) == "number" and type(h) == "number" then pos.w, pos.h = math.floor(w + 0.5), math.floor(h + 0.5) end
+  ns.db.previewPos = pos
+end
+
+-- Lays out the chosen tab. Only runs on opening, a tab click, Refresh and a finished resize.
+function UI.RenderPreview()
+  local f = UI.previewFrame
+  if not f then return end
+  local tab = f.data and f.data[f.tab]
+  for i, b in ipairs(f.tabs) do if i == f.tab then b:LockHighlight() else b:UnlockHighlight() end end
+  local fw = f:GetWidth()
+  local width = math.max(300, (type(fw) == "number" and fw or 560) - 64)
+  f.content:SetWidth(width)
+  local y = -4
+  local n = 0
+  if f.combat then
+    f.notice:SetText("In combat: the preview catches up afterwards.")
+  else
+    f.notice:SetText("")
+  end
+  for _, row in ipairs(tab and tab.rows or {}) do
+    n = n + 1
+    local r = f.rows[n] or previewRow(f)
+    local status = row.status and ("  " .. STATUS_WORDS[row.status]) or ""
+    r.head:ClearAllPoints()
+    r.head:SetPoint("TOPLEFT", 0, y)
+    r.head:SetWidth(width - 160)
+    r.head:SetText(UI.IconString(row.icon) .. "|cffc8a165" .. row.label .. "|r" .. (row.title and ("  " .. row.title) or "") .. status)
+    r.head:Show()
+    local copy = row.text and plainCopy(row.text) or ""
+    r.copy.full = copy
+    r.copy:ClearAllPoints()
+    r.copy:SetPoint("TOPRIGHT", f.content, "TOPRIGHT", -4, y + 2)
+    r.copy:SetText(copy)
+    r.copy:SetCursorPosition(0)
+    if copy ~= "" then r.copy:Show() else r.copy:Hide() end
+    y = y - math.max(20, textHeight(r.head, r.head:GetText(), width - 160, 14) + 6)
+    local body = row.text and shown(row.text) or ("|cff808080(nothing yet" .. (row.empty and (": " .. row.empty) or "") .. ")|r")
+    r.body:ClearAllPoints()
+    r.body:SetPoint("TOPLEFT", 8, y)
+    r.body:SetWidth(width - 12)
+    r.body:SetText(body)
+    r.body:Show()
+    y = y - textHeight(r.body, body, width - 12, 14) - 4
+    if row.note then
+      r.note:ClearAllPoints()
+      r.note:SetPoint("TOPLEFT", 8, y)
+      r.note:SetWidth(width - 12)
+      r.note:SetText(row.note)
+      r.note:Show()
+      y = y - textHeight(r.note, row.note, width - 12, 12) - 4
+    else
+      r.note:Hide()
+    end
+    y = y - 10
+  end
+  for i = n + 1, #f.rows do
+    local r = f.rows[i]
+    r.head:Hide(); r.body:Hide(); r.note:Hide(); r.copy:Hide()
+  end
+  f.content:SetHeight(-y + 10)
+end
+
+function UI.PreviewTab(i)
+  local f = UI.previewFrame
+  if not f or not f.data or not f.data[i] then return end
+  f.tab = i
+  ns.db.previewTab = i
+  UI.RenderPreview()
+end
+
+function UI.BuildPreview()
+  if UI.previewFrame then return UI.previewFrame end
+  local f = CreateFrame("Frame", "AutoTRPPreview", UIParent, "BasicFrameTemplateWithInset")
+  f:SetSize(580, 600)
+  f:SetPoint("CENTER")
+  local pos = ns.db.previewPos
+  if type(pos) == "table" and pos.point then
+    f:ClearAllPoints()
+    f:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
+    if pos.w and pos.h then f:SetSize(pos.w, pos.h) end
+  end
+  f:SetMovable(true)
+  f:SetResizable(true)
+  if f.SetResizeBounds then f:SetResizeBounds(420, 320, 1200, 1400) elseif f.SetMinResize then f:SetMinResize(420, 320) end
+  f:SetClampedToScreen(true)
+  f:EnableMouse(true)
+  f:RegisterForDrag("LeftButton")
+  f:SetScript("OnDragStart", function(self) self:StartMoving() end)
+  f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing(); savePreviewPlace(self) end)
+  f:SetFrameStrata("DIALOG")
+  f:Hide()
+  f.data, f.combat = {}, false
+
+  local title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  title:SetPoint("TOP", 0, -5)
+  title:SetText("Auto TRP: what your profile would say")
+
+  f.tabs = {}
+  for i, name in ipairs(UI.PREVIEW_TABS) do
+    local b = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    b:SetSize(i == 3 and 130 or 100, 22)
+    if i == 1 then b:SetPoint("TOPLEFT", 12, -30) else b:SetPoint("LEFT", f.tabs[i - 1], "RIGHT", 4, 0) end
+    b:SetText(name)
+    b:SetScript("OnClick", function() UI.PreviewTab(i) end)
+    f.tabs[i] = b
+  end
+
+  local legend = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  legend:SetPoint("TOPLEFT", 14, -58)
+  legend:SetPoint("RIGHT", -14, 0)
+  legend:SetJustifyH("LEFT")
+  legend:SetText(STATUS_WORDS.auto .. ": it keeps this up to date.   " .. STATUS_WORDS.yours .. ": you wrote it, it isn't touched.")
+  f.notice = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  f.notice:SetPoint("TOPLEFT", legend, "BOTTOMLEFT", 0, -2)
+
+  local scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", 12, -86)
+  scroll:SetPoint("BOTTOMRIGHT", -32, 44)
+  f.content = CreateFrame("Frame", nil, scroll)
+  f.content:SetSize(516, 400)
+  scroll:SetScrollChild(f.content)
+  f.rows = {}
+
+  local hint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  hint:SetPoint("BOTTOMLEFT", 16, 18)
+  hint:SetText("Each box on the right holds a field's text: click it, then Ctrl+C.")
+
+  local write = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  write:SetSize(110, 24)
+  write:SetPoint("BOTTOMRIGHT", -24, 12)
+  write:SetText("Write it now")
+  write:SetScript("OnClick", function() UI.Update(true); f.Refresh() end)
+  local refresh = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  refresh:SetSize(80, 24)
+  refresh:SetPoint("RIGHT", write, "LEFT", -4, 0)
+  refresh:SetText("Refresh")
+  refresh:SetScript("OnClick", function() f.Refresh() end)
+  local settings = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  settings:SetSize(80, 24)
+  settings:SetPoint("RIGHT", refresh, "LEFT", -4, 0)
+  settings:SetText("Settings")
+  settings:SetScript("OnClick", function() f:Hide(); UI.OpenSettings() end)
+
+  -- Drag the corner to resize; the text is laid out again when you let go.
+  local grip = CreateFrame("Button", nil, f)
+  grip:SetSize(16, 16)
+  grip:SetPoint("BOTTOMRIGHT", -4, 4)
+  grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+  grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+  grip:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
+  grip:SetScript("OnMouseUp", function() f:StopMovingOrSizing(); savePreviewPlace(f); UI.RenderPreview() end)
+
+  -- Nothing is worked out in combat: the last preview stays, with a note.
+  function f.Refresh()
+    if U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") then
+      f.combat = true
+    else
+      f.combat = false
+      f.data = UI.PreviewSections()
+    end
+    UI.RenderPreview()
+  end
+
+  f.tab = (UI.PREVIEW_TABS[ns.db.previewTab or 1] and ns.db.previewTab) or 1
+  tinsert(UISpecialFrames, "AutoTRPPreview")
+  UI.previewFrame = f
+  return f
+end
+
+function UI.Preview()
+  local f = UI.BuildPreview()
+  f.Refresh()
+  f:Show()
 end
 
 ---------------------------------------------------------------------------
@@ -393,6 +741,9 @@ local OPTIONS = {
   { path = { "fields", "birthplace" }, label = "Birthplace" },
   { path = { "fields", "relationship" }, label = "Relationship status, from a partner in Social Diary" },
   { path = { "fields", "ooc" }, label = "OOC note saying the profile updates itself" },
+  { path = { "fields", "ooc_doing" }, label = "OOC: what you're doing (\"Levelling in Duskwood\", \"Looking for a group\")" },
+  { path = { "fields", "namecolour" }, label = "Name colour: your class colour" },
+  { path = { "fields", "music" }, label = "Profile music: your home's music (else where you are)" },
   { path = { "fields", "walkup" }, label = "Open to walk-ups follows your mood" },
   { head = "Statistics (Additional information on the Characteristics tab)" },
   { path = { "fields", "stats" }, label = "Write statistics (all of them; the switches below pick which)" },
@@ -403,6 +754,8 @@ local OPTIONS = {
   { head = "Details" },
   { path = { "annals" }, label = "History keeps your moments month by month (ranks, names, standing, firsts, crafts)" },
   { path = { "diaryExcerpt" }, label = "Quote your latest diary entry in History" },
+  { path = { "journalInProfile" }, label = "Quote your Auto TRP journal in History and Lately when nothing's fresher (/atrp journal)" },
+  { path = { "timeNotes" }, label = "Anniversaries, festivals kept and returns from time away, in History and Lately" },
   { path = { "richText" }, label = "Colour quotes and item names on the About page" },
   { path = { "chronicleGoals" }, label = "Share your open Chronicle goal as an ambition" },
   { path = { "nameFriends" }, label = "Name the players you marked as friends in Social Diary" },
@@ -420,93 +773,167 @@ local function getPath(path)
   return t, path[#path]
 end
 
-function UI.BuildPanel()
-  local panel = CreateFrame("Frame")
-  panel.name = "Auto TRP"
-  local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-  title:SetPoint("TOPLEFT", 16, -16)
-  title:SetText("Auto TRP")
-  local status = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  status:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
-  status:SetPoint("RIGHT", -16, 0)
-  status:SetJustifyH("LEFT")
+-- Every option at once, on or off ("Keep my profile up to date" is left as it is).
+function UI.SetAllOptions(on)
+  for _, opt in ipairs(OPTIONS) do
+    if opt.path then
+      local t, k = getPath(opt.path)
+      t[k] = on and true or false
+    end
+  end
+  -- And every field switch, including each statistic's own (letters and people met are
+  -- retired and stay off).
+  for k in pairs(ns.db.fields) do
+    ns.db.fields[k] = on and k ~= "stat_met" and k ~= "stat_letters" or false
+  end
+  for _, opt in ipairs(OPTIONS) do if opt.path and opt.after then opt.after() end end
+  UI.RefreshPanel()
+end
 
-  local enable = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-  enable:SetPoint("TOPLEFT", status, "BOTTOMLEFT", -4, -6)
-  local enableLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  enableLabel:SetPoint("LEFT", enable, "RIGHT", 2, 0)
-  enableLabel:SetText("Keep my profile up to date")
-  enable:SetScript("OnClick", function(self) ns.db.enabled = self:GetChecked() and true or false end)
+UI.OPTIONS = OPTIONS
 
-  -- The options scroll, so the panel fits any screen.
-  local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", 8, -104)
-  scroll:SetPoint("BOTTOMRIGHT", -30, 52)
-  local content = CreateFrame("Frame", nil, scroll)
-  content:SetSize(620, 800)
-  scroll:SetScrollChild(content)
+-- A line under each heading. Keyed by the heading's text, so new headings simply go without.
+UI.HEAD_NOTES = {
+  ["What Auto TRP writes"] = "Each field it can fill. A field you've edited yourself stays yours whatever these say.",
+  ["Statistics (Additional information on the Characteristics tab)"] = "Plain counts, listed after your own entries. Switched off, they're taken down.",
+  ["Where it looks"] = "Other addons it reads, never changes. Total RP 3 alone is enough.",
+  ["Details"] = "Tone, privacy and chat.",
+}
 
-  local y, x, col, lowest = -4, 8, 0, 0
-  local boxes = {}
+-- What each switch does, shown when you hover over it. Keyed by the option's path
+-- ("fields.currently"); an option can also carry its own `tip`.
+UI.TIPS = {
+  ["fields.currently"] = "The \"Currently\" line: how you seem, what you're doing and where. Rewritten as things change, at most every 15 seconds.",
+  ["fields.glances"] = "All five At first glance slots. Off hides them; the switches below pick single ones. /atrp slot moves them around.",
+  ["fields.glance_mood"] = "What a stranger would notice about your mood right now.",
+  ["fields.glance_lately"] = "The freshest news: a death, a victory, a story moving on, a new land.",
+  ["fields.glance_company"] = "Your group, your Social Diary friends, where you're known, or travelling alone.",
+  ["fields.glance_ambition"] = "Your Chronicle goal, an unfinished story, or the next rank on your road.",
+  ["fields.glance_marks"] = "Wounds, drink, battered or remarkable gear, old scars; else what you wear and carry.",
+  ["fields.traits"] = "The personality bars (Good/Evil, Kind/Cruel and the rest). From your RPG Dialogue choices, else leaning gently by race and class.",
+  ["fields.bearing"] = "About, Personality: temperament, beliefs, the opinions you've voiced and the spell you reach for most.",
+  ["fields.history"] = "About, History: where you came from, the latest news first, then your deeds, people and standing.",
+  ["fields.physical"] = "About, Physical: your build, what you wear and carry, and how you are right now.",
+  ["fields.title"] = "Your rank by experience, specific to your race and class.",
+  ["fields.fulltitle"] = "Your alignment and where you're liked, kept modest.",
+  ["fields.nickname"] = "A name earned by a deed. /atrp names lists yours; /atrp name <n> wears another.",
+  ["fields.motto"] = "The saying that came with the deed behind your nickname.",
+  ["fields.icon"] = "The profile's icon: your nickname's, else your class crest.",
+  ["fields.residence"] = "The inn your hearthstone is set to.",
+  ["fields.birthplace"] = "Your homeland, or the origin you chose in RPG Dialogue.",
+  ["fields.relationship"] = "Married or Taken, if you've named a partner in Social Diary.",
+  ["fields.ooc"] = "A short out-of-character note saying the profile updates itself.",
+  ["fields.ooc_doing"] = "An out-of-character line on what you're doing: levelling somewhere, looking for a group, in a dungeon, or away. Off by default.",
+  ["fields.namecolour"] = "Shows your name in your class colour on your profile.",
+  ["fields.music"] = "Sets your profile's music to your home's zone music, or where you are, when the game has a match.",
+  ["fields.walkup"] = "Marks you open to walk-ups when your mood is sociable, and not when it isn't.",
+  ["fields.stat_longest"] = "The \"Longest stay\" statistic: the land your character has spent most time in (time away from the keyboard and in fights isn't counted), with the hours and how many visits. Off, Auto TRP takes down what it wrote there.",
+  ["fields.stat_calling"] = "The \"Calling\" statistic: your class's signature work, counted (charges, pockets picked, beasts tamed, portals, summonings, totems). Off, Auto TRP takes it down.",
+  ["fields.stat_escapes"] = "The \"Narrow escapes\" statistic: a Vanish, Feign Death, Blink, Shield Wall or the like used on low health, or a Reincarnation.",
+  ["fields.stat_given"] = "The \"Given to others\" statistic: resurrections, shields, blessings, soulstones, Innervates, conjured food and portals for other players (counted, never named).",
+  ["fields.stat_forms"] = "The \"Stances and forms\" statistic: time spent in each stance, shape or presence, for the classes that have them.",
+  ["fields.stat_recipes"] = "The \"Recipes known\" statistic: how many recipes each trade knows, counted when its window is open. Off, Auto TRP takes down what it wrote there.",
+  ["fields.stat_finest"] = "The \"Finest work\" statistic: the best thing you've made at a trade, by its quality. Off, Auto TRP takes down what it wrote there.",
+  ["fields.stats"] = "The Statistics entries under Additional information. Your own entries there stay as they are.",
+  ["fields.stat_grounds"] = "The \"Battlegrounds\" statistic: each battleground fought in, won, and your flags, bases and graveyards. Off, Auto TRP takes down what it wrote there.",
+  ["fields.stat_honour"] = "The \"Honour\" statistic: your honour rank, honourable kills, enemies brought down in the open (counted, never named) and towns defended. Off, Auto TRP takes down what it wrote there.",
+  ["fields.stat_kinhome"] = "How much of your play is spent in your people's capital and home lands, and how much abroad. Counted while you play, not while you're away.",
+  ["fields.stat_racial"] = "Your race's gift you use most (Stoneform, Shadowmeld, War Stomp...), and how often it got you out of trouble.",
+  ["fields.stat_kinfoes"] = "Old enemies of your people you've killed, by the creature's name: the Scarlet Crusade for the Forsaken, satyrs for night elves, Dark Irons for dwarves.",
+  ["fields.stat_role"] = "The \"Role\" statistic: what you mostly do in a group's fights (healing, holding the foe, or striking), worked out from your own fights. Off, Auto TRP takes down what it wrote there.",
+  ["fields.stat_speciality"] = "The \"Speciality\" statistic: your main talent tree and its points. Off, Auto TRP takes down what it wrote there.",
+  ["sources.rpgd"] = "Your origin, alignment, choices, opinions, the people you've met, stories and diary.",
+  ["sources.socialDiary"] = "The players you've marked as friends, a partner, and your recent groups.",
+  ["sources.chronicle"] = "Goals, bosses, dungeons, rare beasts, professions and gear. Your private notes are never read.",
+  ["annals"] = "A paragraph of dated moments in History: the ranks you reached, names earned, standing won, the dungeons and raids you first went into, your crafts' ranks and your first battleground won, a sentence each under the month it happened. Kept as they happen, so they stay after the record forgets them. Nothing History already tells is told twice.",
+  ["diaryExcerpt"] = "A line from your latest RPG Dialogue diary entry at the end of History.",
+  ["journalInProfile"] = "When nothing fresher has happened, History and Lately quote a line from your Auto TRP journal.",
+  ["timeNotes"] = "The shape of your time: the hours you keep, a year on the road, a month since a new rank, the festivals you took part in, coming back after days away. Off, History and Lately leave them out.",
+  ["fields.stat_since"] = "The \"On the road since\" statistic: the first day on record (when Auto TRP first saw you, or the earliest any addon has). Off, Auto TRP takes down what it wrote there.",
+  ["fields.stat_festivals"] = "The \"Festivals kept\" statistic: the festivals you took part in (a holiday buff, quest, item or place seen while it was on) and your days at the Darkmoon Faire. Off, Auto TRP takes down what it wrote there.",
+  ["richText"] = "Uses Total RP 3's colour markup: quotes in cream, items in their quality colour.",
+  ["chronicleGoals"] = "Your open Chronicle goal becomes the Ambition glance.",
+  ["nameFriends"] = "Friends you marked in Social Diary are named on your profile. Off, they're left out.",
+  ["pauseOOC"] = "While Total RP 3 shows you out of character, Currently and the glances stay as they are.",
+  ["reactPeople"] = "Targeting someone from your records (a friend, a rival, an enemy) nudges your mood.",
+  ["reactPlaces"] = "Places and spells that mean something to your race and class nudge your mood.",
+  ["moodNotes"] = "A line in your own chat when your mood turns. Nobody else sees it.",
+  ["showBadge"] = "The small mood icon on screen. Hover for why, click for the preview, drag to move.",
+  ["quiet"] = "Keeps Auto TRP out of your chat unless you ask it something.",
+}
+
+function UI.TipFor(opt)
+  if opt.tip then return opt.tip end
+  if not opt.path then return nil end
+  local key = table.concat(opt.path, ".")
+  if UI.TIPS[key] then return UI.TIPS[key] end
+  local stat = key:match("^fields%.stat_(.+)$")
+  if stat then
+    for _, st in ipairs(ns.Compose.STATS) do
+      if st.key == stat then return "The \"" .. st.label .. "\" statistic. Off, Auto TRP takes down what it wrote there." end
+    end
+  end
+  return nil
+end
+
+-- The options under each heading, in order: { head = text, items = { option, ... } }.
+function UI.Groups()
+  local groups, cur = {}, nil
   for _, opt in ipairs(OPTIONS) do
     if opt.head then
-      if opt.head == "Where it looks" then col, y = 1, -4 end
-      local h = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-      x = col == 0 and 8 or 330
-      h:SetPoint("TOPLEFT", x, y)
-      h:SetText(opt.head)
-      y = y - 20
-    else
-      local cb = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
-      cb:SetSize(24, 24)
-      cb:SetPoint("TOPLEFT", x - 4, y)
-      local l = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-      l:SetPoint("LEFT", cb, "RIGHT", 2, 0)
-      l:SetWidth(col == 0 and 290 or 260)
-      l:SetJustifyH("LEFT")
-      l:SetText(opt.label)
-      cb:SetScript("OnClick", function(self)
+      cur = { head = opt.head, items = {} }
+      groups[#groups + 1] = cur
+    elseif opt.path and cur then
+      cur.items[#cur.items + 1] = opt
+    end
+  end
+  return groups
+end
+
+-- Every option under one heading, on or off; the rest stay as they are.
+function UI.SetGroupOptions(head, on)
+  for _, g in ipairs(UI.Groups()) do
+    if g.head == head then
+      for _, opt in ipairs(g.items) do
         local t, k = getPath(opt.path)
-        t[k] = self:GetChecked() and true or false
-        if opt.after then opt.after() end
-      end)
-      cb.path = opt.path
-      boxes[#boxes + 1] = cb
-      y = y - 21
+        t[k] = on and true or false
+      end
+      for _, opt in ipairs(g.items) do if opt.after then opt.after() end end
+      UI.RefreshPanel()
+      return true
     end
-    lowest = math.min(lowest, y)
   end
-  content:SetHeight(-lowest + 16)
+  return false
+end
 
-  local function button(text, w, anchorX, fn)
-    local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    b:SetSize(w, 24)
-    b:SetPoint("BOTTOMLEFT", anchorX, 16)
-    b:SetText(text)
-    b:SetScript("OnClick", fn)
-    return b
-  end
-  button("Preview", 110, 16, function() UI.Preview() end)
-  button("Write it now", 120, 132, function() UI.Update(true) end)
-  button("Make a profile for it", 170, 258, function() UI.Setup() end)
+-- What each addon brings. Total RP 3 alone is enough; the others add to it.
+UI.SOURCES = {
+  { name = "Total RP 3", loaded = function() return TRP.Loaded() end,
+    adds = "all it needs: Currently, glances, titles, History, statistics from what the game records" },
+  { name = "RPG Dialogue", key = "rpgd", loaded = function() return ns.Sources.RPGD.Loaded() end,
+    adds = "origin, alignment and traits, opinions, people met, stories, diary" },
+  { name = "Social Diary", key = "socialDiary", loaded = function() return ns.Sources.SocialDiary.Loaded() end,
+    adds = "friends you've marked, a partner, recent groups" },
+  { name = "Chronicle", key = "chronicle", loaded = function() return ns.Sources.Chronicle.Loaded() end,
+    adds = "goals, bosses, dungeons, rare beasts, professions, gear" },
+}
 
-  panel:SetScript("OnShow", function()
-    enable:SetChecked(ns.db.enabled)
-    for _, cb in ipairs(boxes) do
-      local t, k = getPath(cb.path)
-      cb:SetChecked(t[k])
+function UI.SourceLines()
+  local out = {}
+  for _, src in ipairs(UI.SOURCES) do
+    local ok, loaded = pcall(src.loaded)
+    loaded = ok and loaded
+    local state
+    if not loaded then
+      state = src.key and "|cff808080not installed|r" or "|cffff6060not loaded|r"
+    elseif src.key and ns.db.sources[src.key] == false then
+      state = "|cffaaaaaafound, switched off below|r"
+    else
+      state = "|cff80ff80found|r"
     end
-    status:SetText(UI.StatusLine())
-  end)
-
-  if Settings and Settings.RegisterCanvasLayoutCategory then
-    local category = Settings.RegisterCanvasLayoutCategory(panel, "Auto TRP")
-    Settings.RegisterAddOnCategory(category)
-    UI.category = category
-  elseif InterfaceOptions_AddCategory then
-    InterfaceOptions_AddCategory(panel)
+    out[#out + 1] = "|cffffd100" .. src.name .. "|r " .. state .. ": " .. (src.key and "adds " or "") .. src.adds
   end
-  UI.panel = panel
+  return out
 end
 
 function UI.StatusLine()
@@ -519,16 +946,351 @@ function UI.StatusLine()
   return p .. "  Reading: " .. (#where > 0 and U.Join(where) or "the game only") .. "."
 end
 
+-- Hover text for any control: a title and a line of explanation.
+local function tooltip(owner, title, text)
+  owner:SetScript("OnEnter", function(self)
+    if not GameTooltip then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine(title, 1, 1, 1, true)
+    if text then GameTooltip:AddLine(text, 1, 0.82, 0, true) end
+    GameTooltip:Show()
+  end)
+  owner:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+end
+UI.Tooltip = tooltip
+
+StaticPopupDialogs["AUTOTRP_RESTORE"] = {
+  text = "Put your Total RP 3 profile back exactly as it was before Auto TRP first wrote to it?\n\nEvery field becomes yours again. |cffffd100/atrp claim all|r hands them back later.",
+  button1 = "Restore", button2 = "Cancel",
+  OnAccept = function() UI.Restore() end,
+  timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+}
+
+function UI.Restore()
+  local ok, why = TRP.Restore()
+  if ok then
+    ns.Print("Your profile is back as it was. Every field is yours again; |cffffd100/atrp claim all|r hands them back to Auto TRP.")
+  else
+    ns.Print("Couldn't restore: " .. tostring(why))
+  end
+  UI.RefreshPanel()
+  return ok
+end
+
+function UI.OpenJournalOrDays()
+  if ns.Journal and type(ns.Journal.Show) == "function" then ns.Journal.Show()
+  elseif type(UI.OpenJournal) == "function" then UI.OpenJournal()
+  else UI.ListDays() end
+end
+
+function UI.OpenSettings()
+  if U.Call(InCombatLockdown) then ns.Print("The settings open after combat.") return end
+  if UI.category and Settings and Settings.OpenToCategory then
+    Settings.OpenToCategory(UI.category:GetID())
+  elseif InterfaceOptionsFrame_OpenToCategory and UI.panel then
+    -- The old options window needs asking twice the first time.
+    InterfaceOptionsFrame_OpenToCategory(UI.panel)
+    InterfaceOptionsFrame_OpenToCategory(UI.panel)
+  else
+    UI.Preview()
+  end
+end
+
+-- Puts every switch back in step with the saved settings.
+function UI.RefreshPanel()
+  local panel = UI.panel
+  if not panel or panel.built ~= true then return end
+  panel.enable:SetChecked(ns.db.enabled)
+  for _, cb in ipairs(UI.boxes or {}) do
+    local t, k = getPath(cb.path)
+    cb:SetChecked(t[k] and true or false)
+  end
+  panel.status:SetText(UI.StatusLine())
+  panel.sources:SetText(table.concat(UI.SourceLines(), "\n"))
+end
+
+-- The panel's frame is made at login (the settings window needs it); what's in it is made
+-- the first time it's shown.
+function UI.BuildPanel()
+  if UI.panel then return UI.panel end
+  local panel = CreateFrame("Frame")
+  panel.name = "Auto TRP"
+  panel.built = false
+  panel:SetScript("OnShow", function(self)
+    if self.built ~= true then UI.FillPanel(self) end
+    UI.RefreshPanel()
+  end)
+  if Settings and Settings.RegisterCanvasLayoutCategory then
+    local category = Settings.RegisterCanvasLayoutCategory(panel, "Auto TRP")
+    Settings.RegisterAddOnCategory(category)
+    UI.category = category
+  elseif InterfaceOptions_AddCategory then
+    InterfaceOptions_AddCategory(panel)
+  end
+  UI.panel = panel
+  return panel
+end
+
+local COL_X, COL_W = { 8, 330 }, 300
+UI.COLUMN_BREAK = { ["Where it looks"] = true }   -- headings that start the right-hand column
+
+function UI.FillPanel(panel)
+  panel.built = true
+  local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  title:SetPoint("TOPLEFT", 16, -16)
+  title:SetText("Auto TRP |cff8a8a8a" .. tostring(ns.VERSION) .. "|r")
+  local status = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  status:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+  status:SetPoint("RIGHT", -16, 0)
+  status:SetJustifyH("LEFT")
+  panel.status = status
+  local sources = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  sources:SetPoint("TOPLEFT", status, "BOTTOMLEFT", 0, -6)
+  sources:SetPoint("RIGHT", -16, 0)
+  sources:SetJustifyH("LEFT")
+  sources:SetSpacing(2)
+  panel.sources = sources
+
+  local enable = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+  enable:SetPoint("TOPLEFT", sources, "BOTTOMLEFT", -4, -4)
+  local enableLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  enableLabel:SetPoint("LEFT", enable, "RIGHT", 2, 0)
+  enableLabel:SetText("Keep my profile up to date")
+  enable:SetScript("OnClick", function(self)
+    ns.db.enabled = self:GetChecked() and true or false
+    UI.UpdateBadge()
+  end)
+  tooltip(enable, "Keep my profile up to date", "Off pauses Auto TRP: your profile stays exactly as it is. Right-clicking the mood badge does the same.")
+  panel.enable = enable
+
+  local function topButton(text, tip, fn, anchor)
+    local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    b:SetSize(80, 22)
+    if anchor then b:SetPoint("RIGHT", anchor, "LEFT", -6, 0) else b:SetPoint("RIGHT", panel, "RIGHT", -36, 0); b:SetPoint("TOP", enable, "TOP", 0, -2) end
+    b:SetText(text)
+    b:SetScript("OnClick", fn)
+    tooltip(b, text, tip)
+    return b
+  end
+  local allOff = topButton("All off", "Every switch below off, every field and statistic too. Auto TRP itself stays on.", function() UI.SetAllOptions(false) end)
+  topButton("All on", "Every switch below on, every field and statistic too.", function() UI.SetAllOptions(true) end, allOff)
+
+  -- The options scroll, so the panel fits any screen.
+  local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", enable, "BOTTOMLEFT", 4, -6)
+  scroll:SetPoint("BOTTOMRIGHT", -30, 52)
+  local content = CreateFrame("Frame", nil, scroll)
+  content:SetSize(640, 800)
+  scroll:SetScrollChild(content)
+  UI.BuildOptions(content)
+
+  local function button(text, w, tip, fn, anchor)
+    local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    b:SetSize(w, 24)
+    if anchor then b:SetPoint("LEFT", anchor, "RIGHT", 6, 0) else b:SetPoint("BOTTOMLEFT", 16, 16) end
+    b:SetText(text)
+    b:SetScript("OnClick", fn)
+    tooltip(b, text, tip)
+    return b
+  end
+  local b1 = button("Preview", 90, "What your profile would say, field by field, and which fields are yours.", function() UI.Preview() end)
+  local b2 = button("Write it now", 110, "Write everything now instead of waiting for the next change.", function() UI.Update(true); UI.RefreshPanel() end, b1)
+  local b3 = button("Journal", 90, "Your character's journal: a day's entry from each session. Without it, the mood journal's last week.", function() UI.OpenJournalOrDays() end, b2)
+  local b4 = button("Restore...", 100, "Put your profile back as it was before Auto TRP wrote to it. Asks first.", function() StaticPopup_Show("AUTOTRP_RESTORE") end, b3)
+  button("Make a profile for it", 160, "Make a copy of your current Total RP 3 profile for Auto TRP to write to, and switch to it.", function() UI.Setup(); UI.RefreshPanel() end, b4)
+end
+
+-- The switches, from OPTIONS, two columns, each heading with its own All on / All off.
+function UI.BuildOptions(content)
+  local y, col, lowest = -4, 1, 0
+  local x = COL_X[col]
+  local boxes = {}
+  for _, opt in ipairs(OPTIONS) do
+    if opt.head then
+      if UI.COLUMN_BREAK[opt.head] and col == 1 then col, y = 2, -4 end
+      x = COL_X[col]
+      local h = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+      h:SetPoint("TOPLEFT", x, y)
+      h:SetWidth(COL_W - 104)
+      h:SetJustifyH("LEFT")
+      h:SetText(opt.head)
+      local head = opt.head
+      local off = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+      off:SetSize(48, 18)
+      off:SetPoint("TOPLEFT", x + COL_W - 48, y + 2)
+      off:SetText("Off")
+      off:SetScript("OnClick", function() UI.SetGroupOptions(head, false) end)
+      tooltip(off, "All off", "Every switch under \"" .. head .. "\" off.")
+      local on = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+      on:SetSize(48, 18)
+      on:SetPoint("RIGHT", off, "LEFT", -4, 0)
+      on:SetText("On")
+      on:SetScript("OnClick", function() UI.SetGroupOptions(head, true) end)
+      tooltip(on, "All on", "Every switch under \"" .. head .. "\" on.")
+      y = y - math.max(22, textHeight(h, opt.head, COL_W - 104, 14) + 6)
+      local note = UI.HEAD_NOTES[opt.head]
+      if note then
+        local d = content:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+        d:SetPoint("TOPLEFT", x, y)
+        d:SetWidth(COL_W)
+        d:SetJustifyH("LEFT")
+        d:SetText(note)
+        y = y - textHeight(d, note, COL_W, 12) - 6
+      end
+    elseif opt.path then
+      local cb = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
+      cb:SetSize(24, 24)
+      cb:SetPoint("TOPLEFT", x - 4, y)
+      local l = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+      l:SetPoint("TOPLEFT", cb, "TOPRIGHT", 2, -5)
+      l:SetWidth(COL_W - 30)
+      l:SetJustifyH("LEFT")
+      l:SetText(opt.label)
+      cb:SetScript("OnClick", function(self)
+        local t, k = getPath(opt.path)
+        t[k] = self:GetChecked() and true or false
+        if opt.after then opt.after() end
+      end)
+      tooltip(cb, (opt.label:gsub("^%s+", "")), UI.TipFor(opt))
+      cb.path = opt.path
+      cb.opt = opt
+      boxes[#boxes + 1] = cb
+      y = y - math.max(22, textHeight(l, opt.label, COL_W - 30, 12) + 10)
+    end
+    lowest = math.min(lowest, y)
+  end
+  content:SetHeight(-lowest + 16)
+  UI.boxes = boxes
+  return boxes
+end
+
 ns.Listen("LOGIN", function() UI.BuildPanel(); UI.BuildBadge() end)
 
 ---------------------------------------------------------------------------
--- Mood badge: a small icon showing how your character feels. Hover for why and what your
--- profile says; click for the preview; right-click to pause or resume. Drag to move.
+-- Mood badge: a small icon showing how your character feels. Hover for why, what your
+-- profile says and when it was last written; click for the preview, shift-click to see your
+-- Currently in chat, ctrl-click for the settings, right-click to pause or resume. Drag to move.
+-- It glows briefly when the mood turns.
 ---------------------------------------------------------------------------
 local badge, badgeMood
+
+-- The last real write: when, and which fields (by their labels), for the badge's tooltip.
+function UI.NoteWrite(changed, now)
+  if not ns.char or type(changed) ~= "table" or #changed == 0 then return end
+  local names = {}
+  for i, k in ipairs(changed) do names[i] = TRP.LABELS[k] or k end
+  table.sort(names)
+  ns.char.lastWrite = { t = now or U.Now(), fields = names }
+end
+
+-- "just now", "4 min ago", "2 h ago", "3 days ago".
+function UI.Ago(t)
+  if type(t) ~= "number" then return nil end
+  local d = math.max(0, U.Now() - t)
+  if d < 60 then return "just now" end
+  if d < 3600 then return math.floor(d / 60) .. " min ago" end
+  if d < 86400 then return math.floor(d / 3600) .. " h ago" end
+  local n = math.floor(d / 86400)
+  return n .. U.Plural(n, " day", " days") .. " ago"
+end
+
+-- Shift-click: your Currently in your own chat window (nobody else sees it).
+function UI.EchoCurrently()
+  local profile = TRP.Managed()
+  local cu = profile and TRP.FIELDS.currently.read(profile)
+  if not cu or cu == "" then
+    ns.Print("Nothing in Currently yet.")
+  else
+    ns.Print("Currently: " .. cu .. " |cff808080(only you see this)|r")
+  end
+end
+
+-- A short glow when the mood turns: an animation the game runs, nothing ticking here.
+function UI.PulseBadge()
+  if not badge or not badge:IsShown() then return end
+  if not badge.glow then
+    local g = badge:CreateTexture(nil, "OVERLAY")
+    if not g then return end
+    g:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+    g:SetBlendMode("ADD")
+    g:SetPoint("CENTER")
+    g:SetSize(64, 64)
+    g:SetAlpha(0)
+    badge.glow = g
+    local ag = g.CreateAnimationGroup and g:CreateAnimationGroup()
+    if ag then
+      local up = ag:CreateAnimation("Alpha")
+      if up then
+        up:SetFromAlpha(0); up:SetToAlpha(1); up:SetDuration(0.25); up:SetOrder(1)
+        local down = ag:CreateAnimation("Alpha")
+        down:SetFromAlpha(1); down:SetToAlpha(0); down:SetDuration(0.6); down:SetOrder(2)
+        ag:SetLoopingType("NONE")
+        ag:SetScript("OnFinished", function() g:SetAlpha(0) end)
+        badge.pulse = ag
+      end
+    end
+  end
+  if badge.pulse then badge.pulse:Stop(); badge.pulse:Play() end
+end
+
+function UI.BadgeTooltip(self)
+  if not GameTooltip then return end
+  local m = badgeMood
+  GameTooltip:SetOwner(self or UIParent, "ANCHOR_BOTTOM")
+  GameTooltip:AddLine("Auto TRP" .. (ns.db.enabled and "" or " |cff808080(paused)|r"))
+  if m then
+    GameTooltip:AddLine(UI.IconString(m.icon, 14) .. m.title, 1, 0.82, 0)
+    if m.reasons then GameTooltip:AddLine("Because: " .. table.concat(m.reasons, ", "), 0.8, 0.8, 0.8, true) end
+    if m.also then GameTooltip:AddLine("And " .. m.also, 0.8, 0.8, 0.8, true) end
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine(m.tell, 1, 1, 1, true)
+    local earned = ns.Compose.Earned()
+    if earned then
+      GameTooltip:AddLine(" ")
+      GameTooltip:AddLine("Known as \"" .. earned.nick .. "\"", 1, 0.82, 0)
+      GameTooltip:AddLine(earned.deed, 0.8, 0.8, 0.8, true)
+    end
+  end
+  local profile = TRP.Managed()
+  local cu = profile and TRP.FIELDS.currently.read(profile)
+  if cu and cu ~= "" then
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("Currently: " .. cu, 0.6, 0.9, 0.6, true)
+  end
+  local w = ns.char and ns.char.lastWrite
+  GameTooltip:AddLine(" ")
+  if type(w) == "table" and w.t then
+    GameTooltip:AddLine("Profile last written " .. UI.Ago(w.t), 0.8, 0.8, 0.8)
+    if type(w.fields) == "table" and #w.fields > 0 then
+      GameTooltip:AddLine("Changed: " .. table.concat(w.fields, ", "), 0.6, 0.6, 0.6, true)
+    end
+  elseif not profile then
+    GameTooltip:AddLine("Not writing yet: |cffffd100/atrp setup|r makes a profile for it.", 0.8, 0.8, 0.8, true)
+  else
+    GameTooltip:AddLine("Nothing written this session yet.", 0.8, 0.8, 0.8)
+  end
+  GameTooltip:AddLine(" ")
+  GameTooltip:AddLine("Click: preview.  Shift-click: Currently in your chat.  Ctrl-click: settings.  Right-click: pause or resume.  Drag: move.", 0.5, 0.5, 0.5, true)
+  GameTooltip:Show()
+end
+
+function UI.BadgeClick(button)
+  if button == "RightButton" then
+    UI.TogglePause()
+  elseif U.Call(IsShiftKeyDown) then
+    UI.EchoCurrently()
+  elseif U.Call(IsControlKeyDown) then
+    UI.OpenSettings()
+  else
+    UI.Preview()
+  end
+end
+
 function UI.BuildBadge()
   if badge then return end
   badge = CreateFrame("Button", "AutoTRPBadge", UIParent)
+  UI.badge = badge
+  badge.glow, badge.pulse = false, false
   badge:SetSize(30, 30)
   badge:SetFrameStrata("MEDIUM")
   badge:SetMovable(true)
@@ -554,39 +1316,8 @@ function UI.BuildBadge()
     local point, _, relPoint, x, y = self:GetPoint()
     ns.db.badgePos = { point = point, relPoint = relPoint, x = x, y = y }
   end)
-  badge:SetScript("OnClick", function(_, button)
-    if button == "RightButton" then
-      UI.TogglePause()
-    else
-      UI.Preview()
-    end
-  end)
-  badge:SetScript("OnEnter", function(self)
-    local m = badgeMood
-    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-    GameTooltip:AddLine("Auto TRP" .. (ns.db.enabled and "" or " |cff808080(paused)|r"))
-    if m then
-      GameTooltip:AddLine(m.title, 1, 0.82, 0)
-      if m.reasons then GameTooltip:AddLine(table.concat(m.reasons, ", "), 0.8, 0.8, 0.8, true) end
-      if m.also then GameTooltip:AddLine("and " .. m.also, 0.8, 0.8, 0.8, true) end
-      GameTooltip:AddLine(" ")
-      GameTooltip:AddLine(m.tell, 1, 1, 1, true)
-      local earned = ns.Compose.Earned()
-      if earned then
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Known as \"" .. earned.nick .. "\"", 1, 0.82, 0)
-        GameTooltip:AddLine(earned.deed, 0.8, 0.8, 0.8, true)
-      end
-    end
-    local cu = TRP.Managed() and TRP.FIELDS.currently.read((TRP.Managed()))
-    if cu and cu ~= "" then
-      GameTooltip:AddLine(" ")
-      GameTooltip:AddLine("Currently: " .. cu, 0.6, 0.9, 0.6, true)
-    end
-    GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Click: preview.  Right-click: pause/resume.  Drag: move.", 0.5, 0.5, 0.5, true)
-    GameTooltip:Show()
-  end)
+  badge:SetScript("OnClick", function(_, button) UI.BadgeClick(button) end)
+  badge:SetScript("OnEnter", function(self) UI.BadgeTooltip(self) end)
   badge:SetScript("OnLeave", function() GameTooltip:Hide() end)
   UI.UpdateBadge()
 end
@@ -595,7 +1326,10 @@ function UI.UpdateBadge(mood)
   if not badge then return end
   if not ns.db.showBadge then badge:Hide() return end
   badge:Show()
-  if mood then badgeMood = mood end
+  if mood then
+    if badgeMood and badgeMood.key ~= mood.key then UI.PulseBadge() end
+    badgeMood = mood
+  end
   local icon = badgeMood and badgeMood.icon or "INV_Misc_Book_11"
   badge.icon:SetTexture("Interface\\Icons\\" .. icon)
   badge.icon:SetDesaturated(not ns.db.enabled)
@@ -610,14 +1344,18 @@ end
 -- The AddOns compartment (by the minimap) and key bindings
 ---------------------------------------------------------------------------
 function AutoTRP_OnCompartmentClick(_, button)
-  if button == "RightButton" then UI.TogglePause() else UI.Preview() end
+  if button == "RightButton" then UI.TogglePause()
+  elseif U.Call(IsControlKeyDown) then UI.OpenSettings()
+  else UI.Preview() end
 end
 function AutoTRP_OnCompartmentEnter(_, frame)
   if not GameTooltip then return end
   GameTooltip:SetOwner(frame or UIParent, "ANCHOR_LEFT")
   GameTooltip:AddLine("Auto TRP" .. (ns.db and not ns.db.enabled and " |cff808080(paused)|r" or ""))
   if badgeMood then GameTooltip:AddLine(badgeMood.title, 1, 0.82, 0) end
-  GameTooltip:AddLine("Click: preview.  Right-click: pause/resume.", 0.5, 0.5, 0.5, true)
+  local w = ns.char and ns.char.lastWrite
+  if type(w) == "table" and w.t then GameTooltip:AddLine("Profile last written " .. UI.Ago(w.t), 0.8, 0.8, 0.8) end
+  GameTooltip:AddLine("Click: preview.  Ctrl-click: settings.  Right-click: pause or resume.", 0.5, 0.5, 0.5, true)
   GameTooltip:Show()
 end
 function AutoTRP_OnCompartmentLeave() if GameTooltip then GameTooltip:Hide() end end
@@ -654,28 +1392,55 @@ do
   end
 end
 
+-- /atrp help. Keep in step with the Commands table in README.md (the offline test checks).
+-- An entry is { usage, what it does }; a plain string is printed as it is.
 local HELP = {
-  "|cffffd100/atrp|r: settings",
-  "|cffffd100/atrp preview|r: see what your profile would say",
-  "|cffffd100/atrp update|r: write it now",
-  "|cffffd100/atrp setup|r: make a profile for Auto TRP (a copy of your current one)",
-  "|cffffd100/atrp use|r: let Auto TRP write to the profile you're using now",
-  "|cffffd100/atrp claim <field|all>|r: hand a field you wrote back to Auto TRP",
-  "|cffffd100/atrp release <field|all>|r: take a field back from Auto TRP",
-  "|cffffd100/atrp mood|r: how your character feels, and why",
-  "|cffffd100/atrp feel <mood>|r: choose a mood for the next hour (|cffffd100/atrp feel|r alone lists them, |cffffd100/atrp feel clear|r lets it go)",
-  "|cffffd100/atrp intent <text>|r: add what you're up to to Currently for two hours (|cffffd100/atrp intent|r alone clears it)",
-  "|cffffd100/atrp on|r / |cffffd100off|r: pause or resume",
-  "|cffffd100/atrp restore|r: put your profile back exactly as it was before Auto TRP wrote to it",
-  "|cffffd100/atrp slot <glance> <1-5|0>|r: move a glance (mood, lately, company, ambition, marks) to another slot, or 0 to drop it",
-  "|cffffd100/atrp badge|r: show or hide the mood badge",
-  "|cffffd100/atrp days|r: the mood journal, the last week of feelings and places",
-  "|cffffd100/atrp log [n]|r: the last writes to your profile, what changed and why",
-  "|cffffd100/atrp names|r: every name you've earned, and what for",
-  "|cffffd100/atrp spells|r: the spells and abilities you cast most",
-  "|cffffd100/atrp name <number|auto>|r: wear one of your earned names (|cffffd100auto|r: the greatest deed's)",
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books)",
+  { "/atrp", "open the settings" },
+  { "/atrp help", "this list" },
+  { "/atrp preview", "see what your profile would say, and which fields are Auto TRP's and which are yours" },
+  { "/atrp update", "write it now" },
+  { "/atrp setup", "make a profile for Auto TRP (a copy of your current one)" },
+  { "/atrp use", "let Auto TRP write to the profile you're using now (your existing text stays)" },
+  { "/atrp claim <field|all>", "hand a field back to Auto TRP" },
+  { "/atrp release <field|all>", "take a field back" },
+  { "/atrp mood", "how your character feels, and why (also /atrp why)" },
+  { "/atrp feel <mood>", "choose a mood for the next hour (/atrp feel lists them, /atrp feel clear lets it go)" },
+  { "/atrp intent <text>", "add what you're up to to Currently for two hours (/atrp intent alone clears it)" },
+  { "/atrp days", "the mood journal: the last week of feelings and places" },
+  { "/atrp journal", "your character's journal, a day's entry for each day you played, newest first" },
+  { "/atrp journal today", "today's entry, in your own chat (never sent to anyone)" },
+  { "/atrp log [n]", "the last writes to your profile: what changed, from what to what, and why" },
+  { "/atrp spells", "the spells and abilities you cast most" },
+  { "/atrp names", "every name you've earned, what for, and which one you wear, plus the ones within reach in your quest log" },
+  { "/atrp name <number|auto>", "wear one of your earned names (auto: the greatest deed's)" },
+  { "/atrp slot <glance> <1-5|0>", "move a glance (mood, lately, company, ambition, marks) to another slot, or 0 to drop it" },
+  { "/atrp restore", "put your profile back as it was before Auto TRP" },
+  { "/atrp all on", "switch every option, field and statistic on (/atrp all off: off)" },
+  { "/atrp badge", "show or hide the mood badge" },
+  { "/atrp status", "which profile it writes to and which addons it reads" },
+  { "/atrp welcome", "show the welcome window again" },
+  { "/atrp on", "resume (/atrp off: pause; your profile stays as it is)" },
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, role, speciality, fish, made, gathered, duels, battles, grounds, honour, gold, inns, hit, renown, keepsake, deepest, wipes, since, festivals, kinhome, racial, kinfoes, longest, calling, escapes, given, forms, work, kinds, greatest, recipes, finest)",
 }
+UI.HELP = HELP
+
+-- "|" starts an escape in chat, so a literal one is written twice.
+function UI.HelpLines()
+  local out = {}
+  for _, h in ipairs(HELP) do
+    if type(h) == "table" then
+      out[#out + 1] = "|cffffd100" .. h[1]:gsub("|", "||") .. "|r: " .. h[2]:gsub("|", "||")
+    else
+      out[#out + 1] = h
+    end
+  end
+  return out
+end
+
+function UI.PrintHelp()
+  ns.Print("Commands (|cffffd100/autotrp|r works too):")
+  for _, l in ipairs(UI.HelpLines()) do ns.Print(l) end
+end
 
 -- The change log: each write, what it changed (from and to) and why. The newest
 -- UI.KEEP_LOG writes are kept per character; /atrp log shows them.
@@ -812,16 +1577,12 @@ end
 SLASH_AUTOTRP1, SLASH_AUTOTRP2 = "/atrp", "/autotrp"
 SlashCmdList.AUTOTRP = function(msg)
   local cmd, arg = (msg or ""):lower():match("^%s*(%S*)%s*(.-)%s*$")
-  if cmd == "" then
-    if UI.category and Settings and Settings.OpenToCategory then
-      Settings.OpenToCategory(UI.category:GetID())
-    elseif InterfaceOptionsFrame_OpenToCategory and UI.panel then
-      InterfaceOptionsFrame_OpenToCategory(UI.panel)
-    else
-      UI.Preview()
-    end
+  if cmd == "" or cmd == "settings" or cmd == "config" then
+    UI.OpenSettings()
   elseif cmd == "help" then
-    for _, l in ipairs(HELP) do ns.Print(l) end
+    UI.PrintHelp()
+  elseif cmd == "welcome" then
+    UI.ShowWelcome(true)
   elseif cmd == "preview" then UI.Preview()
   elseif cmd == "update" then UI.Update(true)
   elseif cmd == "setup" then UI.Setup()
@@ -868,12 +1629,7 @@ SlashCmdList.AUTOTRP = function(msg)
     end
     UI.Update(true)
   elseif cmd == "restore" then
-    local ok, why = TRP.Restore()
-    if ok then
-      ns.Print("Your profile is back as it was. Every field is yours again; |cffffd100/atrp claim all|r hands them back to Auto TRP.")
-    else
-      ns.Print("Couldn't restore: " .. tostring(why))
-    end
+    UI.Restore()
   elseif cmd == "slot" then
     local which, n = arg:match("^(%a+)%s+(%d)$")
     n = tonumber(n)
@@ -912,6 +1668,12 @@ SlashCmdList.AUTOTRP = function(msg)
     UI.ListLog(arg)
   elseif cmd == "days" then
     UI.ListDays()
+  elseif cmd == "journal" then
+    if arg == "today" then ns.Journal.PrintToday() else ns.Journal.Show() end
+  elseif cmd == "all" and (arg == "on" or arg == "off") then
+    UI.SetAllOptions(arg == "on")
+    ns.Print(arg == "on" and "Every option switched on." or "Every option switched off.")
+    UI.Update(true)
   elseif cmd == "badge" then
     ns.db.showBadge = not ns.db.showBadge
     UI.UpdateBadge()
@@ -933,6 +1695,7 @@ SlashCmdList.AUTOTRP = function(msg)
   elseif cmd == "name" then
     UI.ChooseName(arg)
   else
-    for _, l in ipairs(HELP) do ns.Print(l) end
+    ns.Print("No command '" .. cmd .. "'.")
+    UI.PrintHelp()
   end
 end

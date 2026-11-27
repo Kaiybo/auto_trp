@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.22.0"
+ns.VERSION = "0.23.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -27,6 +27,9 @@ ns.Unsecret = unsecret
 local function scrub(...)
   local n = select("#", ...)
   if n == 0 then return end
+  -- Clients without secret values (the classic era) pass the payload on as it is: no table
+  -- per event and handler.
+  if type(_G.issecretvalue) ~= "function" then return ... end
   local t = { ... }
   for i = 1, n do t[i] = unsecret(t[i]) end
   return unpack(t, 1, n)
@@ -43,13 +46,17 @@ function ns.On(event, fn)
   return true
 end
 
+local function dispatch(event, list, ...)
+  for i = 1, #list do
+    local ok, err = pcall(list[i], event, ...)
+    if not ok then ns.Error(event, err) end
+  end
+end
+-- The payload is scrubbed once per event, not once per handler.
 frame:SetScript("OnEvent", function(_, event, ...)
   local list = handlers[event]
   if not list then return end
-  for i = 1, #list do
-    local ok, err = pcall(list[i], event, scrub(...))
-    if not ok then ns.Error(event, err) end
-  end
+  dispatch(event, list, scrub(...))
 end)
 
 -- Unit events for one unit only (the game filters, so other units cost nothing).
@@ -141,11 +148,19 @@ ns.DEFAULTS = {
     stat_deaths = true, stat_lands = true, stat_road = true, stat_dungeons = true, stat_foes = true,
     stat_rares = true, stat_slain = true, stat_jobs = true, stat_wealth = true, stat_crafts = true,
     stat_standing = true, stat_names = true, stat_spell = true, stat_met = true, stat_books = true, stat_letters = true,
+    stat_fish = true, stat_made = true, stat_gathered = true, stat_duels = true, stat_battles = true, stat_gold = true,
+    stat_kinds = true, stat_greatest = true,
+    stat_inns = true, stat_hit = true, stat_grounds = true, stat_honour = true, stat_work = true, stat_longest = true, stat_keepsake = true, stat_deepest = true, stat_wipes = true, stat_since = true, stat_festivals = true,
+    stat_kinhome = true, stat_racial = true, stat_kinfoes = true,
+    stat_calling = true, stat_escapes = true, stat_given = true, stat_forms = true, -- the class's own work (Sources/Calling.lua)
+    stat_recipes = true, stat_finest = true,
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },
   annals = true,           -- History tells the character's moments month by month, and keeps them
   diaryExcerpt = true,     -- quote your latest RPG Dialogue diary entry in History
+  journalInProfile = true, -- without one, quote Auto TRP's own journal in History (and Lately, when nothing's fresher)
+  timeNotes = true,        -- anniversaries, returns and festivals kept, in History and Lately
   richText = true,         -- colour quotes and item names on the About page
   chronicleGoals = true,   -- your open Chronicle goals as an ambition
   nameFriends = true,      -- name players you marked friend (or gave a relationship) in Social Diary
@@ -168,6 +183,7 @@ ns.CHAR_DEFAULTS = {
   -- chosenName = nil, -- the earned name to wear (/atrp name), else the best one
   -- casts = nil,    -- { since, n = { [spell name] = times cast } }, for the most cast spell
   -- deeds = nil,    -- Auto TRP's own record of quests turned in and masters felled (Sources/Deeds.lua)
+  -- journal = nil,  -- the day-by-day journal: { days = raw logs, entries = written days } (Journal.lua)
 }
 
 local function fill(db, defaults)
@@ -268,8 +284,13 @@ function U.Humanize(id)
 end
 
 -- "The Deadmines" reads "the Deadmines" mid-sentence.
+-- Lands whose names take "the" mid-sentence though the game leaves it off: "in the
+-- Wetlands", never "in Wetlands".
+U.TAKES_THE = { ["Wetlands"] = true, ["Eastern Plaguelands"] = true, ["Western Plaguelands"] = true, ["Badlands"] = true,
+  ["Blasted Lands"] = true, ["Burning Steppes"] = true, ["Searing Gorge"] = true, ["Swamp of Sorrows"] = true }
 function U.Mid(name)
   if type(name) ~= "string" then return name end
+  if U.TAKES_THE[name] then return "the " .. name end
   return (name:gsub("^The ", "the "))
 end
 
@@ -330,9 +351,30 @@ U.Unsecret = unsecret
 -- Every game API read goes through here, so no secret value ever reaches add-on logic.
 function U.Call(fn, ...)
   if type(fn) ~= "function" then return nil end
-  local ok, a, b, c, d = pcall(fn, ...)
-  if ok then return U.Unsecret(a), U.Unsecret(b), U.Unsecret(c), U.Unsecret(d) end
+  -- Up to eleven returns (the quest log and skill lines need that many).
+  local ok, a, b, c, d, e, f, g, h, i, j, k = pcall(fn, ...)
+  if ok then
+    local S = U.Unsecret
+    return S(a), S(b), S(c), S(d), S(e), S(f), S(g), S(h), S(i), S(j), S(k)
+  end
   return nil
+end
+
+-- Another player, or something another player controls (a hunter's pet, a warlock's demon,
+-- whose names their owners chose): never named in what Auto TRP writes or keeps.
+function U.PlayerOwned(unit)
+  return (U.Call(UnitIsPlayer, unit) or U.Call(UnitPlayerControlled, unit)) and true or false
+end
+
+-- U.Call for an API that returns many values (the combat log, GetItemInfo): every value, unsecreted.
+local function passAll(ok, ...)
+  if not ok then return nil end
+  if type(_G.issecretvalue) ~= "function" then return ... end
+  return scrub(...)
+end
+function U.CallAll(fn, ...)
+  if type(fn) ~= "function" then return nil end
+  return passAll(pcall(fn, ...))
 end
 
 -- The player's pronouns for prose. Total RP 3's own pronoun field wins when it is set;
@@ -381,7 +423,8 @@ function U.BackedList(list, world)
   return out
 end
 
--- Fills {they} {them} {their} {themselves} {they've} {they're} in word lists.
+-- Fills {they} {them} {their} {themselves} {they've} {they're} {they'd} in word lists, and the
+-- verbs that agree with them: {are} {have} {does} and the endings {s} {es} {ies}.
 function U.Pron(text)
   if type(text) ~= "string" or not text:find("{") then return text end
   local p = U.Pronouns()
@@ -390,7 +433,8 @@ function U.Pron(text)
     they = p.sub, them = p.obj, their = p.pos, themselves = reflexive,
     ["they've"] = p.sub == "they" and "they've" or (p.sub .. "'s"),
     ["they're"] = p.sub == "they" and "they're" or (p.sub .. "'s"),
-    are = p.be, have = p.has,
+    ["they'd"] = p.sub .. "'d",
+    are = p.be, have = p.has, does = p.does,
     -- Verb endings after {they}: "{they} walk{s}" reads "they walk" or "she walks".
     s = p.s, es = p.s == "s" and "es" or "",
     ies = p.s == "s" and "ies" or "y",

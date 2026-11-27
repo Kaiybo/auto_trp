@@ -383,6 +383,29 @@ TRP.FIELDS = {
 }
 for _, st in ipairs(ns.Compose.STATS) do TRP.FIELDS["stat_" .. st.key] = statField(st.label, st.icon) end
 
+-- 0.23.0, more of Total RP 3 (values from Register.lua) ------------------------------------
+-- Name colour: Total RP 3 keeps six hex digits ("c79c6e"); compared without case.
+TRP.FIELDS.namecolour = {
+  section = "characteristics", clearWhenOff = true,
+  read = function(p) local v = sub(p, "characteristics").CH; return type(v) == "string" and v:lower() or "" end,
+  write = function(p, v) sub(p, "characteristics").CH = type(v) == "string" and v:lower() or nil end,
+  sig = function(v) return type(v) == "string" and v:lower() or "" end,
+  raw = function(p) return sub(p, "characteristics").CH end,
+  setRaw = function(p, v) sub(p, "characteristics").CH = v end,
+}
+-- Profile music: a file ID, as Total RP 3 keeps it. No music to suggest leaves it as it is.
+TRP.FIELDS.music = {
+  section = "about", clearWhenOff = true, keepOnNil = true,
+  read = function(p) local v = sub(p, "about").MU; return v ~= nil and tostring(v) or "" end,
+  write = function(p, v) sub(p, "about").MU = v end,
+  sig = function(v) return v ~= nil and tostring(v) or "" end,
+  raw = function(p) return sub(p, "about").MU end,
+  setRaw = function(p, v) sub(p, "about").MU = v end,
+}
+-- The OOC line can say what you're doing right now, so switched off it's taken down.
+TRP.FIELDS.ooc.clearWhenOff = true
+-- -------------------------------------------------------------------------------------------
+
 TRP.LABELS = {
   currently = "Currently", title = "Title", fulltitle = "Full title", residence = "Residence",
   birthplace = "Birthplace", motto = "Motto", nickname = "Nickname", icon = "Icon", bearing = "About: Personality",
@@ -391,6 +414,7 @@ TRP.LABELS = {
   glance_ambition = "Glance: ambition", glance_marks = "Glance: marks",
   ooc = "OOC note", relationship = "Relationship status", walkup = "Open to walk-ups",
 }
+TRP.LABELS.namecolour, TRP.LABELS.music = "Name colour", "Profile music"   -- 0.23.0
 for _, st in ipairs(ns.Compose.STATS) do TRP.LABELS["stat_" .. st.key] = "Stats: " .. st.label:lower() end
 
 -- The order fields are written in, so new entries land in Total RP 3 the same way every time
@@ -413,6 +437,7 @@ local function enabled(key)
   local f = ns.db.fields
   if key:find("^glance_") then return f.glances and f[key] ~= false and TRP.GlanceSlot(key:sub(8)) > 0 end
   if key:find("^stat_") then return f.stats and f[key] ~= false end
+  if key == "ooc" then return (f.ooc or f.ooc_doing) and true or false end   -- the note, or what you're doing OOC
   return f[key] and true or false
 end
 TRP.Enabled = enabled

@@ -69,6 +69,21 @@ have limits
 ask them about
 since setting out
 
+# Mood clichés (0.23.0)
+cat that got
+bored to tears
+bored stiff
+heavy heart
+chip on
+weight off
+weight lifted
+like a kid in
+grinning from ear
+smug as
+running on fumes
+dead tired
+spring in {their} step | max 2
+
 # Fame: the profile is public, so the character isn't made out to be widely known
 a hero to
 hero of
@@ -108,3 +123,56 @@ still thinks about it
 is not done yet
 above anything else
 makes a living
+
+# Gear prose tics (About: Physical): say what is worn plainly, not like a catalogue
+draws the eye
+catches the light
+gleaming
+glinting
+imposing figure
+cuts a fine figure
+exudes
+commanding presence
+aura of
+battle-scarred
+clad in
+adorned
+resplendent
+bedecked
+donned
+sporting
+head to toe
+
+# Clichés retired in 0.23.0
+strip paint
+storm about to break
+twice as hard
+easy grace
+da voodoo
+child at a fair
+reach the eyes
+weighs nothing
+
+# Currently: place words that crept in too often
+on the edge of | max 12
+in the thick of | max 2
+endless | max 2
+
+# Stock phrasing in the short fields (glances, Currently, journal): fine once or twice, not as a habit.
+has the look of someone | max 2
+only lately | max 7
+the best thing i've come by
+grew into my strength
+band of three
+
+# About prose tics (editorial pass): lists that read like a catalogue, or say one thing twice
+among it
+unaccompanied
+is worn over the top
+before any of this
+steady, patient
+patient bearing | max 1
+as {list} instead
+
+# Fame, from the reputation hearsay (0.23.0)
+famed
