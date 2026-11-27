@@ -3993,6 +3993,214 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- 0.22.0, the shape of their time (Sources/Seasons.lua): sessions across weeks, the hours
+-- they keep, an absence and the return, festivals kept, anniversaries, a hard autumn.
+do
+  local C, S, W = ns.Compose, ns.Sources.Seasons, ns.Words
+  local keep = { seasons = ns.char.seasons, days = ns.char.days, milestones = ns.char.milestones, journal = ns.char.journal,
+    now = NOW, zone = state.zone, sub = state.sub, buffs = state.buffs, clock = GetGameTime, mood = ns.char.mood, seed = ns.char.seedName,
+    others = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB }, own = {} }
+  local function at(y, m, d, h) return os.time({ year = y, month = m, day = d, hour = h or 20 }) end
+  local function refresh() C.SourcesChanged(); C.Refresh() end
+  -- Total RP 3 alone, and a fresh record: nothing from the earlier tests (dated in 2026)
+  -- is fresher than what's told here.
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  for _, k in ipairs({ "deeds", "life", "self", "finds", "names", "honours", "lastFight", "company", "casts", "intent", "delves" }) do
+    keep.own[k] = ns.char[k]; ns.char[k] = nil
+  end
+  keep.own.seen, ns.char.seen = ns.char.seen, {}
+  ns.char.seasons, ns.char.days, ns.char.milestones = nil, {}, {}
+  ns.char.mood = { emo = {}, t = 0 }
+  -- What moved the mood, as it happened.
+  local pushed, push = {}, ns.Mood.Push
+  ns.Mood.Push = function(name, amount, why) pushed[#pushed + 1] = { name = name, amount = amount, why = why }; return push(name, amount, why) end
+  local function moved(name, what)
+    for _, m in ipairs(pushed) do if m.name == name and m.amount <= 15 and (not what or (m.why or ""):find(what, 1, true)) then return true end end
+    return false
+  end
+  local hour = 22
+  GetGameTime = function() return hour, 0 end
+  -- A session: in, ticks for `hours`, out.
+  local function session(hours, fn)
+    S.Begin()
+    for _ = 1, math.floor(hours * 60) do
+      NOW = NOW + 60
+      if fn then fn() end
+      S.Tick(60)
+    end
+    S.End()
+  end
+  NOW = at(2025, 10, 10, 19)
+  S.Store().first = NOW
+  check(S.FestivalsOn(at(2025, 10, 25))[1].key == "hallowsend" and #S.FestivalsOn(at(2025, 11, 18)) == 0, "seasons: Hallow's End by the date, none in mid-November")
+  check(S.FestivalsOn(at(2026, 1, 1))[1].key == "winterveil" and S.FestivalsOn(at(2026, 1, 1))[1].year == 2025, "seasons: Winter Veil across the new year belongs to its December")
+  check(S.DateWords(at(2025, 3, 3), false) == "the 3rd of March" and S.DateWords(at(2025, 3, 22), true) == "the 22nd of March, 2025"
+    and S.DateWords(at(2025, 3, 11), false) == "the 11th of March", "seasons: dates in words: " .. S.DateWords(at(2025, 3, 3), false))
+  check(S.Span(11 * 86400) == "eleven days" and S.Span(21 * 86400) == "three weeks" and S.Span(400 * 86400) == "a year", "seasons: spans in words")
+  -- Twelve days running, by night, the last week of them in Undercity at Hallow's End
+  -- with the festival's debuff on.
+  state.zone, state.sub, state.buffs = "Undercity", "The Trade Quarter", {}
+  for day = 0, 11 do
+    NOW = at(2025, 10, 10 + day, 19)
+    session(3, function()
+      if day >= 8 and NOW % 3600 == 0 then state.debuffs = { { "Tricked or Treated", "" } } end
+    end)
+    state.debuffs = {}
+    if day == 8 then
+      local jd = ns.char.journal and ns.char.journal.days[ns.Mood.Day()]
+      local noted = false
+      for _, e in ipairs(jd and jd.ev or {}) do if e.k == "season" and e.text:find("Hallow's End", 1, true) then noted = true end end
+      check(noted, "journal: a line for the festival kept")
+      local entry = ns.Journal.Compose(ns.Mood.Day())
+      check(entry and entry.text:find("Hallow's End", 1, true), "journal: the day's entry tells of it: " .. tostring(entry and entry.text))
+      check(moved("merry", "Hallow's End"), "mood: a little merrier for keeping a festival")
+    end
+  end
+  local d = S.Store()
+  check(#d.sessions == 12 and d.daysN == 12 and d.streak.n == 12, "seasons: twelve sessions, twelve days, twelve running: " .. #d.sessions .. "/" .. tostring(d.daysN) .. "/" .. tostring(d.streak.n))
+  check(d.longest and d.longest.n >= 3 * 3600 - 60, "seasons: the longest session is kept")
+  refresh()
+  local se = ns.cache.seasons
+  check(se.hours == "night", "seasons: abroad after dark by the game's clock: " .. tostring(se.hours))
+  check(se.fests[1] and se.fests[1].key == "hallowsend" and se.fests[1].where == "Undercity", "seasons: Hallow's End kept, in Undercity")
+  check(se.streak == 12, "seasons: the run of days reads back")
+  local hist = C.History()
+  check(hist:find("after dark", 1, true) or hist:find("night", 1, true), "History: abroad after dark")
+  check(hist:find("Hallow's End", 1, true) and hist:find("Undercity", 1, true), "History: the festival and where it was kept")
+  check(hist:find("twelve days", 1, true) or hist:find("in twelve", 1, true) or hist:find("last twelve", 1, true), "History: twelve days running")
+  local lately = C.LatelyGlance()
+  check(lately.TI == "Hallow's End" and lately.TX:find("Undercity", 1, true), "Lately: keeping a festival: " .. tostring(lately.TI) .. ": " .. tostring(lately.TX))
+  -- Eleven days away, then back.
+  NOW = at(2025, 11, 2, 12)   -- the last session ended late on the 21st of October
+  session(1)
+  refresh()
+  se = ns.cache.seasons
+  check(se.back and math.floor(se.back.n / 86400) == 11, "seasons: back after eleven days")
+  check(se.streak == 1, "seasons: the run starts again")
+  hist = C.History()
+  check(hist:find("after eleven days", 1, true), "History: came back after eleven days away")
+  lately = C.LatelyGlance()
+  check(lately.TI == "Back on the Road" or lately.TX:find("eleven days", 1, true), "Lately: back on the road: " .. tostring(lately.TX))
+  -- Statistics: on the road since, festivals kept.
+  local stats = C.Stats()
+  check(stats.since == "The 10th of October, 2025", "Stats: on the road since: " .. tostring(stats.since))
+  check(stats.festivals and stats.festivals:find("Hallow's End", 1, true) and stats.festivals:find("^1"), "Stats: festivals kept: " .. tostring(stats.festivals))
+  check(ns.UI.TipFor({ path = { "fields", "stat_since" } }) and ns.UI.TipFor({ path = { "fields", "stat_festivals" } }) and ns.UI.TipFor({ path = { "timeNotes" } }),
+    "the new statistics and the time switch have tooltips")
+  check(ns.TRP.FIELDS.stat_since and ns.TRP.FIELDS.stat_festivals and ns.db.fields.stat_since == true, "the new statistics are Total RP 3 fields with switches")
+  -- The Darkmoon Faire: once a day, however long they stay.
+  state.zone, state.sub = "Elwynn Forest", "Darkmoon Faire"
+  session(2)
+  session(1)
+  refresh()
+  check(ns.cache.seasons.faire and ns.cache.seasons.faire.n == 1 and ns.cache.seasons.faire.zone == "Elwynn Forest", "seasons: a day at the Darkmoon Faire counts once")
+  check(C.Stats().festivals:find("Darkmoon Faire once", 1, true), "Stats: the faire with the festivals: " .. C.Stats().festivals)
+  state.sub = "Goldshire"
+  -- A hard autumn: the mood journal's bad days fold into their months.
+  for k = 1, 20 do
+    local key = os.date("%Y-%m-%d", at(2025, 10, 10) + k * 86400 * 2)
+    ns.char.days[key] = { moods = { downcast = 5, merry = 1 }, zones = { Undercity = 3 } }
+  end
+  NOW = at(2025, 12, 20, 19)
+  session(1)
+  refresh()
+  se = ns.cache.seasons
+  check(se.tone and se.tone.season == "autumn" and se.tone.tone == "hard", "seasons: a hard autumn: " .. tostring(se.tone and se.tone.season))
+  hist = C.History()
+  local hard = false
+  for _, l in ipairs(W.SEASONS.season_hard) do
+    local phrase = ns.U.Pron((l:gsub("{season}", "autumn"))):gsub("^%S+ ", "")
+    if hist:find(phrase, 1, true) then hard = true end
+  end
+  check(hard, "History: a hard autumn of it: " .. hist)
+  -- Winter Veil kept too: "Festivals kept" lists both.
+  state.zone = "Ironforge"
+  hour = 8
+  session(2, function() state.buffs = { "Winter Veil Spirit" } end)
+  state.buffs = keep.buffs
+  refresh()
+  stats = C.Stats()
+  check(stats.festivals:find("^2: Winter Veil and Hallow's End"), "Stats: two festivals, the latest first: " .. stats.festivals)
+  -- A year on: the anniversary, in History, Lately, the mood and the journal.
+  NOW = at(2026, 10, 4, 12)   -- out a week before the day
+  session(1)
+  NOW = at(2026, 10, 11, 12)
+  state.zone, state.sub = "Elwynn Forest", "Goldshire"
+  session(1)
+  refresh()
+  se = ns.cache.seasons
+  check(se.anniv and se.anniv.kind == "setout" and se.anniv.span == "a year", "seasons: a year on the road this week")
+  hist = C.History()
+  check(hist:find("a year", 1, true) and (hist:find("set out", 1, true) or hist:find("on the road", 1, true) or hist:find("road began", 1, true) or hist:find("took to the road", 1, true)),
+    "History: a year this week since setting out")
+  lately = C.LatelyGlance()
+  local yearOn
+  for _, cd in ipairs(C.TimeLately()) do if cd.g.TI == "A Year On" then yearOn = cd.g end end
+  check(yearOn and yearOn.TX:find("Aldric", 1, true) and (lately.TI == "A Year On" or lately.TI == "Back on the Road"), "Lately: a year on (or the return that came with it): " .. tostring(yearOn and yearOn.TX))
+  check(moved("proud", "a year on the road"), "mood: a little proud on the anniversary")
+  local jd = ns.char.journal.days[ns.Mood.Day()]
+  local noted = false
+  for _, e in ipairs(jd and jd.ev or {}) do if e.k == "season" and e.text:find("year", 1, true) then noted = true end end
+  check(noted, "journal: a line on the anniversary")
+  S.CheckAnniversaries()
+  check((ns.U.Count(S.Store().told)) >= 1, "seasons: an anniversary is told once")
+  -- A month since a new rank.
+  ns.char.milestones = { { level = 40, rank = "Templar", t = NOW - 30 * 86400 } }
+  refresh()
+  local a = ns.cache.seasons.anniv
+  check(a and a.kind == "setout", "seasons: the year outranks the month since a rank")
+  NOW = NOW + 9 * 86400
+  ns.char.milestones = { { level = 40, rank = "Templar", t = NOW - 30 * 86400 } }
+  refresh()
+  a = ns.cache.seasons.anniv
+  check(a and a.kind == "rank" and a.span == "a month", "seasons: a month since rising to Templar")
+  check(C.History():find("Templar", 1, true), "History: a month since rising to Templar")
+  -- Bounded: sixty more sessions over two months keep thirty.
+  for k = 1, 60 do NOW = NOW + 86400; session(0.1) end
+  d = S.Store()
+  check(#d.sessions <= S.KEEP_SESSIONS and ns.U.Count(d.months) <= S.KEEP_MONTHS and ns.U.Count(d.fests) <= S.KEEP_FESTS, "seasons: storage is bounded")
+  -- Switched off, History and Lately leave the time out.
+  ns.db.timeNotes = false
+  refresh()
+  check(#C.TimeLines().road == 0 and #C.TimeLines().now == 0 and #C.TimeLately() == 0, "seasons: the switch leaves time out")
+  ns.db.timeNotes = true
+  -- Nothing names another player, and the pronouns are only the allowed tags.
+  local badTag
+  local function scan(t) for _, v in pairs(t) do
+    if type(v) == "table" then scan(v) elseif type(v) == "string" then
+      for tag in v:gmatch("{([%a']+)}") do
+        if not ({ they = 1, them = 1, their = 1, ["they've"] = 1, ["they're"] = 1, s = 1, es = 1, name = 1, span = 1, when = 1,
+          rank = 1, day = 1, n = 1, fest = 1, zone = 1, list = 1, times = 1, season = 1, month = 1 })[tag] then badTag = tag end
+      end
+    end
+  end end
+  scan(W.SEASONS)
+  check(not badTag, "seasons: only allowed tags in the words: " .. tostring(badTag))
+  local short
+  for k, list in pairs(W.SEASONS) do if k ~= "titles" and k ~= "journal" and #list < 4 then short = k end end
+  for k, list in pairs(W.SEASONS.journal) do if #list < 4 then short = "journal." .. k end end
+  check(not short, "seasons: four or more ways to say each: " .. tostring(short))
+  if os.getenv("SAMPLES") then
+    print("\n=== The shape of their time ===")
+    for i = 1, 6 do
+      ns.char.seedName = "time" .. i
+      local tl = C.TimeLines()
+      for _, l in ipairs(tl.road) do print("road: " .. ns.U.Pron(l)) end
+      for _, l in ipairs(tl.now) do print("now:  " .. ns.U.Pron(l)) end
+      for _, cd in ipairs(C.TimeLately()) do print("lately: " .. cd.g.TI .. ": " .. cd.g.TX) end
+    end
+    print("stats: since " .. C.Stats().since .. " | festivals " .. C.Stats().festivals)
+    ns.char.seedName = keep.seed
+  end
+  ns.char.seasons, ns.char.days, ns.char.milestones, ns.char.journal, ns.char.mood = keep.seasons, keep.days, keep.milestones, keep.journal, keep.mood
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep.others[1], keep.others[2], keep.others[3]
+  ns.Mood.Push = push
+  for k, v in pairs(keep.own) do ns.char[k] = v end
+  NOW, state.zone, state.sub, state.buffs, GetGameTime = keep.now, keep.zone, keep.sub, keep.buffs, keep.clock
+  state.debuffs = {}
+  refresh()
+end
+
 -- Possessions and keepsakes (Sources/Pack.lua, Keepsakes.lua): mock bags read through the
 -- game's container API, then everything the bags give the profile, and nothing they don't.
 do
