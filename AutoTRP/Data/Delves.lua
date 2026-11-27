@@ -266,7 +266,7 @@ W.DELVE_SAY = {
   lost = { "{group} lost {n} to {boss}", "{boss} cost {group} {n} of their number", "{n} of {group} went down to {boss}" },
   lost_wiped = { "{group} lost {n} to {boss} and were thrown back {times}", "{boss} threw {group} back {times}, and {n} fell to it",
     "{group} broke against {boss} {times}, losing {n} along the way" },
-  fell_self = { "{name} went down {times} on the way", "{name} fell {times} along the way", "{name} was knocked flat {times} in there" },
+  fell_self = { "{name} went down {times} on the way", "{name} fell {times} along the way", "{name} got knocked flat {times} in there" },
   fell_some = { "{n} of {group} fell along the way", "{group} lost {n} along the way", "{n} of {group} went down before the end" },
   -- How it ended. {last} the last master down.
   before = { "before {last} fell", "before {last} finally went down", "before {they} saw {last} down" },
@@ -276,7 +276,7 @@ W.DELVE_SAY = {
   left = { "but turned back after {last}, with {n} of its masters still standing", "but came back out after {last}, {n} masters short of the end",
     "and got as far as {last} before turning back" },
   none = { "and came back out again without a master down", "but came out with none of its masters fallen", "and turned back before any master fell" },
-  loot = { "and {name} came out with {item}", "and {name} carried {item} out of it", "and {name} brought {item} back up" },
+  loot = { "and {name} left with {item}", "and {name} carried {item} out of it", "and {name} brought {item} back up" },
   -- The rest of the story of the deep, told briefly.
   hardest = { "No master has cost {them} more than {boss} in {place}, which threw {them} back {times} before it fell",
     "{boss} in {place} was the hardest of them, throwing {them} back {times} before it went down",

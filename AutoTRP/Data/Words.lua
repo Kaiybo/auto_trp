@@ -2411,7 +2411,7 @@ W.PHYS_SET = {
   full = { "{n} of the pieces make up one matched set, {set}", "Most of it is one matched set: {n} pieces of {set}" },
 }
 W.PHYS_ENCHANT = {
-  weapon = { "{main} carries an enchanter's work", "{main} has been enchanted" },
+  weapon = { "An enchanter has worked on {main}", "There is an enchanter's work on {main}" },
   it = { "It has been enchanted, too", "An enchanter has worked on it as well" },
   one = { "{item} has been enchanted", "{item} carries an enchanter's work" },
   many = { "{n} of the pieces carry an enchanter's work", "{n} pieces have been enchanted" },
@@ -3329,13 +3329,13 @@ W.PACK = {
     sold = "Let Go", auctioned = "Let Go", given = "Given Away", sent = "Sent Off", destroyed = "Thrown Out", carried = "Long Carried" },
   -- Personality: what's hoarded, once it's been kept well stocked for days. {item} is the plural.
   HABIT = {
-    bandage = { "Never seems to travel without a few {item} to spare", "Always has {item} on hand, and plenty of them",
+    bandage = { "Never seems to travel without a few {item} to spare", "Has {item} on hand, and plenty of them",
       "Keeps a stock of {item} for whoever needs one", "Is rarely caught short of {item}" },
     potion = { "Never goes far without {item}", "Keeps {item} close, for the fight that goes wrong",
-      "Always has a few {item} put by", "Carries {item} as a matter of course" },
-    food = { "Is never short of {item}", "Always has {item} packed for the road", "Keeps {their} bags well stocked with {item}",
+      "Keeps a few {item} put by", "Carries {item} as a matter of course" },
+    food = { "Is never short of {item}", "Packs {item} for every road", "Keeps {their} bags well stocked with {item}",
       "Travels with enough {item} to feed a small camp" },
-    drink = { "Is never short of {item}", "Always has {item} to hand", "Keeps more {item} in {their} bags than one person needs",
+    drink = { "Is never short of {item}", "Keeps {item} to hand", "Keeps more {item} in {their} bags than one person needs",
       "Carries {item} enough for a long dry road" },
     ammo = { "Never lets {their} stock of {item} run low", "Always carries more {item} than {they} need{s}",
       "Keeps {their} bags heavy with {item}", "Is never caught short of {item}" },

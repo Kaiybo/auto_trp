@@ -2323,7 +2323,9 @@ function Compose.History()
   end
   for k = 1, math.min(2, rpgd and #rpgd.cleared or 0) do
     local d = rpgd.cleared[k]
-    event(d.t, 4, "came back up out of " .. U.Mid(d.name), "cleared:" .. d.name)
+    -- Not when the run story below tells this very run.
+    local inTale = taleTold.name and U.Mid(taleTold.name):lower() == U.Mid(d.name):lower()
+    if not inTale then event(d.t, 4, "came back up out of " .. U.Mid(d.name), "cleared:" .. d.name) end
   end
   do
     local fresh = {}
@@ -2458,6 +2460,19 @@ function Compose.History()
     local g = groups[order[i]]
     table.sort(g, function(a, b) if a.rank ~= b.rank then return a.rank < b.rank end return a.t > b.t end)
     -- Three to a sentence, and two more at most in a second one.
+    -- "helped bring down Arcanist Doan and helped bring down Captain Greenskin": one verb.
+    local kept, help = {}, nil
+    for _, e in ipairs(g) do
+      local hit = e.text:find("^helped bring down ")
+      if hit and help then
+        help.text = help.text .. " and " .. e.text:sub(#"helped bring down " + 1)
+        toldRecent[e.key] = true
+      else
+        if hit then help = e end
+        kept[#kept + 1] = e
+      end
+    end
+    g = kept
     local preds, more = {}, {}
     for k = 1, math.min(5, #g) do
       table.insert(k <= 3 and preds or more, g[k].text); toldRecent[g[k].key] = true
@@ -2810,8 +2825,8 @@ function Compose.History()
   else
     put(folded({ roots, record }, 6))
   end
-  put(folded({ lately }, 6))
-  if tales then put(folded({ tales }, 6)) end
+  -- A lone line from the runs (one place left unfinished) joins the news.
+  put(folded({ lately, tales or {} }, 6))
   put(folded({ people, standing }, 6))
   -- What drives them closes it, after how things stand, in one paragraph when that is short.
   local drives = Compose.Drives()
