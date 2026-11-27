@@ -67,6 +67,11 @@
 - **Lately**: *Back Again* (*"Back in Westfall after a month away."*) and *Moving On* (*"After the better part of a week in Westfall, has moved on to Duskwood."*).
 - **A new statistic, Longest stay** (*"Westfall, 18 hours over 2 visits"*), with its own switch and tooltip.
 
+### The work they take on
+
+- **The work they take on.** A new record (`Sources/Work.lua`) sorts every job, when it's taken and when it's handed in, into the kind of work it is: slaying, gathering, courier work, escorts, scouting, rescues, bounties, dungeon work, jobs for your own class or trade, and festival errands. The quest log's objective types, header and tag decide it in any language; the English text tells escorts, rescues, bounties and errands apart. It also keeps who asked (NPCs only), where, the reward picked when there's a choice (kit or coin), jobs a companion shared (counted, never named), escorts seen through and lost, and jobs done again (counted apart). Nothing is read in a fight; every list is capped.
+- **Work in the profile.** History tells what most of the work has been and where the next kind was done (*"Most of his work has been the killing kind, though he's carried more letters across Westfall than anyone needs to."*), the escorts (*"Has seen four escorts home safely and lost one on the road out of Darkshore."*), escorts in the news, and the quest-giver worked for most (*"Does a lot of work for Marshal Dughan."*, not repeated when he's already named as a friend). Personality picks up the habits the counts back (couriers, bounty boards, scouting, escorts, coin over kit, the same steady work, a companion's jobs); Lately has *Seen Safely Through*, *Lost on the Road* and runs of the same work; a lost escort is a sorrow and one seen home is satisfying. A new *Work by kind* statistic, with its own switch (on by default).
+
 ## 0.21.0 (2026-11-27): Lately
 
 ### With Total RP 3 alone

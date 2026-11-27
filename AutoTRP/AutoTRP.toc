@@ -38,6 +38,7 @@ Sources\Renown.lua
 Sources\Pack.lua
 Sources\Kin.lua
 Sources\Road.lua
+Sources\Work.lua
 Mood.lua
 Journal.lua
 Compose.lua
