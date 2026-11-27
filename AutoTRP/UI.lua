@@ -19,6 +19,7 @@ local function values(sheet)
     nickname = sheet.nickname, icon = sheet.icon, bearing = sheet.bearing, history = sheet.history,
     physical = sheet.physical, traits = sheet.traits, relationship = sheet.relationship, ooc = sheet.ooc,
     walkup = sheet.walkup,
+    namecolour = sheet.namecolour, music = sheet.music,   -- 0.21.0 (Register.lua)
     glance_mood = sheet.glances.mood, glance_lately = sheet.glances.lately,
     glance_company = sheet.glances.company, glance_ambition = sheet.glances.ambition,
     glance_marks = sheet.glances.marks,
@@ -50,6 +51,8 @@ function UI.Update(force, fresh, mood)
     for k in pairs(FAST) do only[k] = true end
     any = true
   end
+  -- The OOC line says what you're doing out of character, so it isn't paused with the rest.
+  if ns.db.fields.ooc_doing and (force or now - lastFast >= gap) then only.ooc, any = true, true end
   if force or (slowDue and now - lastSlow >= UI.STORY_GAP) or now - lastSlow >= UI.STORY_EVERY then
     for k in pairs(TRP.FIELDS) do if not FAST[k] then only[k] = true end end
     any = true
@@ -307,6 +310,8 @@ function UI.PreviewText()
   add("birthplace", s.birthplace)
   add("relationship", s.relationship and ({ [2] = "Taken", [3] = "Married" })[s.relationship])
   add("ooc", s.ooc)
+  add("namecolour", s.namecolour and ("|cff" .. s.namecolour .. s.namecolour .. "|r"), "from your class colour")
+  add("music", s.music and (tostring(s.musicName) .. " (" .. tostring(s.music) .. ")"), "your home's music, or where you are")
   add("walkup", s.walkup == 2 and "Open to walk-ups" or s.walkup == 1 and "Not open to walk-ups" or "(no change)")
   add("traits", traits)
   add("bearing", s.bearing)
@@ -392,6 +397,9 @@ local OPTIONS = {
   { path = { "fields", "birthplace" }, label = "Birthplace" },
   { path = { "fields", "relationship" }, label = "Relationship status, from a partner in Social Diary" },
   { path = { "fields", "ooc" }, label = "OOC note saying the profile updates itself" },
+  { path = { "fields", "ooc_doing" }, label = "OOC: what you're doing (\"Levelling in Duskwood\", \"Looking for a group\")" },
+  { path = { "fields", "namecolour" }, label = "Name colour: your class colour" },
+  { path = { "fields", "music" }, label = "Profile music: your home's music (else where you are)" },
   { path = { "fields", "walkup" }, label = "Open to walk-ups follows your mood" },
   { head = "Statistics (Additional information on the Characteristics tab)" },
   { path = { "fields", "stats" }, label = "Write statistics (all of them; the switches below pick which)" },
@@ -700,7 +708,7 @@ local HELP = {
   "|cffffd100/atrp names|r: every name you've earned, and what for",
   "|cffffd100/atrp spells|r: the spells and abilities you cast most",
   "|cffffd100/atrp name <number|auto>|r: wear one of your earned names (|cffffd100auto|r: the greatest deed's)",
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, talents)",
 }
 
 -- Earned names: list them, or choose which to wear.

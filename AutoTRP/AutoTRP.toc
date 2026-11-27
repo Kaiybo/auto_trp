@@ -24,5 +24,6 @@ Sources\Chronicle.lua
 Sources\Deeds.lua
 Mood.lua
 Compose.lua
+Register.lua
 TRP.lua
 UI.lua

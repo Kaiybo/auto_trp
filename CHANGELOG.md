@@ -12,6 +12,12 @@
 - **Open to walk-ups by default.** The field used to be left unset unless your mood said otherwise.
 - **Auto TRP keeps more of its own record**, so the statistics fill in without RPG Dialogue or Chronicle: deaths (and who did it), lands reached, days on the road, dungeons, raids and battlegrounds entered, creatures slain (from the combat log, yours and your pet's only, and the kind you've killed most), and flights taken. History picks up flights, honourable kills and your most-killed creature.
 - Smoother prose: the deeds no longer run as a string of short "Has..." sentences, and guild and reputations share one.
+- **More of Total RP 3 filled in**, each with its own switch, and covered by backup, `/atrp restore` and "switched off means taken down":
+  - **Name colour** from your class colour (or your !ClassColors choice).
+  - **Profile music**: the game's own music for the land your hearthstone is in (Elwynn's forest theme from Goldshire, Stormwind's from the Trade District), else for where you are. Picked from Total RP 3's own music list, so only music your client has; with nothing fitting, the music is left as it is.
+  - **Faction**, **Guild** (*"Lamplighter of the Silver Lanterns"*), **Level** (*"22, Cleric of the Light"*) and **Talents** (*"Holy, 5/21/0"*) in Additional information, after the statistics and in the same ordered block. No guild or no talents spent, no entry.
+  - **What you're doing, out of character** (off by default): Currently's OOC line says *"Levelling in Duskwood."*, *"Looking for a group in the Barrens."* (listed in the group finder), *"In a group..."*, *"In the Deadmines with a group."*, *"Away from keyboard."*. It isn't paused while you're out of character, and the OOC note joins it when both are on.
+- The OOC line is now taken down when it's switched off, like the statistics and glances.
 
 ## 0.20.0 (2026-11-25): In Good Order
 

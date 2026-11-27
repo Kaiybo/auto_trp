@@ -1333,6 +1333,145 @@ do
   ns.db.quiet, ns.db.showBadge = quiet, badge
 end
 
+-- 0.21.0, more of Total RP 3 (Register.lua): name colour, profile music, the Faction, Guild,
+-- Level and Talents entries, and the out-of-character line. Each is written, becomes the
+-- player's when they edit it, comes off when switched off, and /atrp restore puts it back.
+do
+  local C, T = ns.Compose, ns.TRP
+  local quietWas, bindWas = ns.db.quiet, GetBindLocation
+  ns.db.quiet = true
+  RAID_CLASS_COLORS = { PRIEST = { r = 1, g = 1, b = 1 }, ROGUE = { r = 1, g = 0.96, b = 0.41 } }
+  local TALENTS = { { "Discipline", 5 }, { "Holy", 21 }, { "Shadow", 0 } }
+  GetNumTalentTabs = function() return #TALENTS end
+  GetTalentTabInfo = function(i) local t = TALENTS[i]; return t[1], "icon", t[2], "bg" end
+  -- Total RP 3 looks music up by name in its own list (LibRPMedia) and keeps the file ID.
+  local MUSIC_IDS = { dayforest = 53210, dayevilforest = 53220, stormwind04_zone = 53190 }
+  TRP3_API.utils = TRP3_API.utils or {}
+  TRP3_API.utils.music = { convertPathToID = function(n) assert(n, "Music path can't be nil."); return MUSIC_IDS[n] end }
+  local ch, about, char = p.characteristics, p.about, p.character
+  local function info(label)
+    for i, e in ipairs(ch.MI) do if e.ID == 1 and e.NA == label then return e.VA, i end end
+  end
+  state.zone, state.sub, state.resting, state.grouped = "Duskwood", "Raven Hill", false, false
+  C.SourcesChanged()
+  ns.UI.Update(true)   -- takes down what "all on" above left in fields switched off again
+  SlashCmdList.AUTOTRP("claim all")
+  ns.UI.Update(true)
+
+  -- Written.
+  check(ch.CH == "ffffff", "name colour from the class colour: " .. tostring(ch.CH))
+  check(about.MU == 53210, "profile music from home (Goldshire, so Elwynn Forest's): " .. tostring(about.MU))
+  check(info("Faction") == "Alliance", "Faction entry: " .. tostring(info("Faction")))
+  check(info("Guild") == "Lamplighter of the Silver Lanterns", "Guild entry, with rank: " .. tostring(info("Guild")))
+  check(info("Level") == "22, Cleric of the Light", "Level entry, with the rank title: " .. tostring(info("Level")))
+  check(info("Talents") == "Holy, 5/21/0", "Talents entry from the talent trees: " .. tostring(info("Talents")))
+  local _, iDeaths = info("Deaths")
+  local _, iF = info("Faction"); local _, iG = info("Guild"); local _, iL = info("Level"); local _, iT = info("Talents")
+  check(iDeaths and iDeaths < iF and iF < iG and iG < iL and iL < iT, "and they follow the statistics, in order")
+  check(char.CO == nil or char.CO == "", "the OOC line stays off by default: " .. tostring(char.CO))
+  -- Without a fitting piece for home, the music of where you are; with none at all, as it was.
+  GetBindLocation = function() return "Lakeshire" end
+  C.SourcesChanged(); ns.UI.Update(true)
+  check(about.MU == 53220, "no music for home: where you are (Duskwood): " .. tostring(about.MU))
+  state.zone = "Deadwind Pass"
+  C.SourcesChanged(); ns.UI.Update(true)
+  check(about.MU == 53220, "no music anywhere: the music is left as it was")
+  state.zone = "Duskwood"
+  GetBindLocation = bindWas
+  -- Wrath-style talent API (id, name, description, icon, points).
+  GetTalentTabInfo = function(i) local t = TALENTS[i]; return i, t[1], "desc", "icon", t[2] end
+  check(C.Stats().talents == "Holy, 5/21/0", "talents read on either talent API")
+  GetTalentTabInfo = function(i) local t = TALENTS[i]; return t[1], "icon", t[2], "bg" end
+  -- No talents spent, no guild: no entry.
+  local guildWas = GetGuildInfo
+  GetGuildInfo = function() return nil end
+  TALENTS[2][2], TALENTS[1][2] = 0, 0
+  C.SourcesChanged(); ns.World.slow = nil; ns.UI.Update(true)
+  check(info("Guild") == nil and info("Talents") == nil, "no guild and no talents: no entries")
+  GetGuildInfo, TALENTS[2][2], TALENTS[1][2] = guildWas, 21, 5
+  C.SourcesChanged(); ns.UI.Update(true)
+
+  -- The OOC line: what you're doing, from the game's own flags.
+  ns.db.fields.ooc_doing = true
+  ns.UI.Update(true)
+  check(char.CO == "Levelling in Duskwood.", "OOC line: levelling: " .. tostring(char.CO))
+  C_LFGList = { HasActiveEntryInfo = function() return true end }
+  ns.UI.Update(true)
+  check(char.CO == "Looking for a group in Duskwood.", "OOC line: listed in the group finder: " .. tostring(char.CO))
+  state.grouped = true
+  ns.UI.Update(true)
+  check(char.CO == "Looking for more for a group in Duskwood.", "OOC line: a group listed for more: " .. tostring(char.CO))
+  C_LFGList = nil
+  ns.UI.Update(true)
+  check(char.CO == "In a group in Duskwood.", "OOC line: in a group: " .. tostring(char.CO))
+  state.grouped = false
+  C.SourcesChanged(); C.Refresh()
+  ns.db.fields.ooc = true
+  check(C.OOCNote():find("^Levelling in Duskwood%. Parts of this profile"), "with the note too: " .. C.OOCNote())
+  ns.db.pauseOOC, char.RP = true, 2
+  NOW = NOW + 60
+  ns.UI.Update(false)
+  check(tostring(char.CO):find("^Levelling"), "the OOC line isn't paused while out of character: " .. tostring(char.CO))
+  ns.db.pauseOOC, char.RP = false, 1
+  ns.db.fields.ooc = false
+  ns.UI.Update(true)
+
+  -- Switched off: taken down. Back on: back.
+  ns.db.fields.namecolour, ns.db.fields.music, ns.db.fields.stat_guild, ns.db.fields.ooc_doing = false, false, false, false
+  ns.UI.Update(true)
+  check(ch.CH == nil and T.Status("namecolour") == "off", "name colour switched off is taken down")
+  check(about.MU == nil, "profile music switched off is taken down")
+  check(info("Guild") == nil and info("Faction") ~= nil, "the Guild entry switched off is taken down, the rest stay")
+  check(char.CO == nil, "the OOC line switched off is taken down")
+  ns.db.fields.namecolour, ns.db.fields.music, ns.db.fields.stat_guild = true, true, true
+  ns.UI.Update(true)
+  check(ch.CH == "ffffff" and about.MU == 53210 and info("Guild") ~= nil, "and they come back when switched on")
+  ns.db.fields.stat_faction = false
+  ns.db.fields.stats = false
+  ns.UI.Update(true)
+  check(info("Faction") == nil and info("Level") == nil, "the statistics' master switch covers the new entries")
+  ns.db.fields.stats, ns.db.fields.stat_faction = true, true
+  ns.UI.Update(true)
+
+  -- Edited by the player: theirs, left alone.
+  ch.CH = "C0FFEE"
+  about.MU = 99999
+  local _, iTal = info("Talents")
+  ch.MI[iTal].VA = "Holy, and proud of it"
+  ns.db.fields.ooc_doing = true
+  ns.UI.Update(true)
+  char.CO = "Back in ten."
+  ns.UI.Update(true)
+  check(ch.CH == "C0FFEE" and T.Status("namecolour") == "yours", "a name colour the player chose is theirs")
+  check(about.MU == 99999 and T.Status("music") == "yours", "music the player chose is theirs")
+  check(info("Talents") == "Holy, and proud of it" and T.Status("stat_talents") == "yours", "an edited Talents entry is theirs")
+  check(char.CO == "Back in ten." and T.Status("ooc") == "yours", "an OOC line the player wrote is theirs")
+  ns.db.fields.namecolour, ns.db.fields.ooc_doing = false, false
+  ns.UI.Update(true)
+  check(ch.CH == "C0FFEE" and char.CO == "Back in ten.", "and switching it off doesn't take the player's words down")
+  ns.db.fields.namecolour = true
+
+  -- /atrp restore puts back what was there before Auto TRP first wrote (here: nothing).
+  SlashCmdList.AUTOTRP("claim all")
+  ns.db.fields.ooc_doing = true
+  ns.UI.Update(true)
+  check(ch.CH == "ffffff" and about.MU == 53210 and char.CO == "Levelling in Duskwood.", "claimed back, all written again")
+  SlashCmdList.AUTOTRP("restore")
+  check(ch.CH == nil and about.MU == nil and info("Faction") == nil and info("Guild") == nil and info("Level") == nil
+    and info("Talents") == nil and char.CO == nil, "restore puts the new fields back as they were")
+  check(T.Status("namecolour") == "yours" and T.Status("music") == "yours" and T.Status("stat_talents") == "yours",
+    "and hands them to the player")
+  ns.db.fields.ooc_doing = false
+  SlashCmdList.AUTOTRP("claim all")
+  ns.UI.Update(true)
+
+  -- Every new switch is one of ns.db.fields, so All on / All off pick them up.
+  for _, k in ipairs({ "namecolour", "music", "ooc_doing", "stat_faction", "stat_guild", "stat_level", "stat_talents" }) do
+    check(ns.db.fields[k] ~= nil and (T.FIELDS[k] or k == "ooc_doing"), "a switch for " .. k)
+  end
+  ns.db.quiet = quietWas
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
