@@ -933,7 +933,8 @@ do
     end
   end
   local source = {}
-  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Data/Places.lua", "AutoTRP/Compose.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua" }) do
+  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Data/Places.lua", "AutoTRP/Compose.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua",
+    "AutoTRP/Data/Kin.lua", "AutoTRP/Sources/Kin.lua" }) do
     for line in io.lines(f) do
       if not line:match("^%s*%-%-") then source[#source + 1] = (line:gsub("%-%-[^\"]*$", "")):lower() end
     end
@@ -3822,6 +3823,329 @@ do
   check(not any, "no \"{they} mean\" without {s}: " .. tostring(any))
 end
 
+-- Race and homeland (Sources/Kin.lua): every hook fed a fake event, for every race, with
+-- RPG Dialogue, Social Diary and Chronicle all absent; then the writing it feeds.
+do
+  local C, K, KW = ns.Compose, ns.Sources.Kin, ns.Words.KIN
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones }
+  ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones = nil, nil, nil, nil
+  local keepG = { UnitRace = UnitRace, UnitHealth = UnitHealth, InCombatLockdown = InCombatLockdown, C_Spell = C_Spell,
+    GetFactionInfo = GetFactionInfo, GetNumFactions = GetNumFactions, UnitAffectingCombat = UnitAffectingCombat }
+  local keepNow, keepState = NOW, { state.zone, state.sub, state.combat, state.resting }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  local function setRace(r) UnitRace = function() return r, r end end
+  local function fresh(r, age)
+    setRace(r)
+    ns.char.kin = nil
+    K.ResetClock(); K.ResetFoes()
+    K.Store().since = NOW - (age or 30 * 86400)
+  end
+  local function at(zone, sub) state.zone, state.sub = zone, sub or zone; K.Tick() end
+  local function kin() return ns.char.kin end
+  local function refresh() ns.World.slow = nil; C.SourcesChanged(); C.Refresh(); return ns.cache end
+  local function log(...) local t = { ... }; CombatLogGetCurrentEventInfo = function() return unpack(t, 1, 15) end; event("COMBAT_LOG_EVENT_UNFILTERED"); CombatLogGetCurrentEventInfo = nil end
+  local ME = "Player-1-0001"
+  state.resting, state.combat = false, false
+
+  -- The clock: time in the capital, the home lands and abroad, by where the last look found them.
+  fresh("Dwarf")
+  at("Ironforge"); NOW = NOW + 30
+  at("Loch Modan"); NOW = NOW + 30
+  at("Wetlands"); NOW = NOW + 30
+  at("Wetlands")
+  check(kin().time.capital == 30 and kin().time.home == 30 and kin().time.abroad == 30,
+    "time in the capital, the home lands and abroad: " .. tostring(kin().time.capital) .. "/" .. tostring(kin().time.home) .. "/" .. tostring(kin().time.abroad))
+  check(kin().zones.Ironforge == 30 and kin().zones.Wetlands == 30, "time by zone")
+  NOW = NOW + 3600; at("Wetlands")
+  check(kin().time.abroad == 30, "a long gap (a loading screen, logged out) isn't counted")
+  check(K.Kind("Ironforge", "Gnome") == "capital" and K.Kind("Dun Morogh", "Gnome") == "home" and K.Kind("Ironforge", "Goblin") == nil,
+    "home by race (a gnome's is Ironforge; a goblin has none here)")
+
+  -- A homecoming: back in the capital after days away, with a mood and the news.
+  kin().lastCapital = NOW - 5 * 86400
+  ns.char.mood.emo.homecoming = 0
+  at("Ironforge")
+  check(kin().visits.n == 1 and kin().visits.log[1].away == 5 * 86400, "back in the capital after five days is a homecoming")
+  check((ns.char.mood.emo.homecoming or 0) > 0, "and it lifts the mood (homecoming)")
+  NOW = NOW + 30; at("Ironforge")
+  check(kin().visits.n == 1, "staying on in the capital is not another homecoming")
+  local k = refresh()
+  local lately = C.LatelyGlance()
+  check(lately.TI == "Home Again" and lately.TX:find("Ironforge", 1, true) and lately.TX:find("five days", 1, true) and not lately.TX:find("{", 1, true),
+    "Lately: home again: " .. tostring(lately.TX))
+  local hist = C.History()
+  local saidHome = false
+  for _, l in ipairs(KW.EV.homecoming) do if hist:find((l:gsub("{capital}", "Ironforge"):gsub("{days}", "five days")), 1, true) then saidHome = true end end
+  check(saidHome, "History: the homecoming is news")
+
+  -- A place of their people: the first visit is news; one seen in the record's first hour isn't.
+  at("Searing Gorge")
+  check(kin().places["Searing Gorge"] and not kin().places["Searing Gorge"].before, "a place that matters to dwarves is recorded")
+  refresh()
+  check(C.History():find("Searing Gorge", 1, true), "History: the place is news")
+  local ev = K.Events(ns.cache)
+  local placeEv
+  for _, e in ipairs(ev) do if e.key == "kin:place" then placeEv = e end end
+  check(placeEv and placeEv.text:find("Searing Gorge", 1, true), "a History predicate for the place")
+  local placeG
+  for _, g in ipairs(K.Lately(ns.cache)) do if g.g.TI == KW.PLACE.angry.title then placeG = g end end
+  check(placeG and placeG.g.TX:find("Searing Gorge", 1, true), "Lately: a place of their people, by its feeling")
+  fresh("Dwarf", 60)
+  at("Uldaman")
+  check(kin().places.Uldaman.before, "a place seen in the record's first hour was known before it")
+  check(#K.Lately(refresh()) == 0, "and isn't news")
+
+  -- Racial gifts: counted, and noted when they mattered.
+  C_Spell = { GetSpellName = function(id) return ({ [20594] = "Stoneform", [7744] = "Will of the Forsaken", [20589] = "Escape Artist",
+    [20580] = "Shadowmeld", [20572] = "Blood Fury", [20554] = "Berserking", [20549] = "War Stomp", [20577] = "Cannibalize",
+    [20600] = "Perception", [2481] = "Find Treasure", [133] = "Fireball" })[id] end }
+  local function cast(id) event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", id) end
+  fresh("Dwarf")
+  cast(20594)
+  check(kin().racials.Stoneform.n == 1 and kin().racials.Stoneform.m == 0, "Stoneform with nothing on them: counted, didn't matter")
+  log(NOW, "SPELL_PERIODIC_DAMAGE", false, "Creature-0-1-0-1-1-1", "Venom Spider", 0, 0, ME, "Aldric", 0, 0, 744, "Poison", 8)
+  cast(20594)
+  check(kin().racials.Stoneform.m == 1 and kin().mattered[1].why == "poison", "Stoneform against a poison mattered")
+  log(NOW, "SPELL_PERIODIC_DAMAGE", false, "Creature-0-1-0-1-1-1", "Gnoll", 0, 0, ME, "Aldric", 0, 0, 772, "Rend", 1)
+  cast(20594)
+  check(kin().mattered[#kin().mattered].why == "bleed", "and against a bleed")
+  cast(2481); cast(133)
+  check(kin().racials["Find Treasure"].n == 1 and not kin().racials.Fireball, "Find Treasure counted; other spells aren't racial")
+  fresh("Scourge")
+  log(NOW, "SPELL_AURA_APPLIED", false, "Creature-0-1-0-1-2-2", "Scarlet Chaplain", 0, 0, ME, "Aldric", 0, 0, 5782, "Fear", 32, "DEBUFF")
+  cast(7744)
+  check(kin().mattered[1] and kin().mattered[1].why == "fear", "Will of the Forsaken out of a fear mattered")
+  NOW = NOW + 30; cast(7744)
+  check(kin().racials["Will of the Forsaken"].m == 1, "but not half a minute after it")
+  UnitHealth = function() return 50 end
+  cast(20577)
+  check(kin().mattered[#kin().mattered].why == "mend", "Cannibalize, hurt, to mend")
+  fresh("Gnome")
+  log(NOW, "SPELL_AURA_APPLIED", false, "Creature-0-1-0-1-3-3", "Frostmane Seer", 0, 0, ME, "Aldric", 0, 0, 122, "Frost Nova", 16, "DEBUFF")
+  cast(20589)
+  check(kin().mattered[1].why == "root", "Escape Artist out of a root")
+  NOW = NOW + 10
+  log(NOW, "SPELL_AURA_APPLIED", false, "Creature-0-1-0-1-3-3", "Trogg", 0, 0, ME, "Aldric", 0, 0, 1715, "Hamstring", 1, "DEBUFF")
+  cast(20589)
+  check(kin().mattered[#kin().mattered].why == "snare", "and out of a snare")
+  fresh("NightElf")
+  InCombatLockdown = function() return true end
+  cast(20580)
+  InCombatLockdown = keepG.InCombatLockdown
+  check(kin().mattered[1].why == "fight", "Shadowmeld in the middle of a fight")
+  for _, r in ipairs({ { "Orc", 20572, "Blood Fury" }, { "Troll", 20554, "Berserking" }, { "Tauren", 20549, "War Stomp" } }) do
+    fresh(r[1])
+    UnitHealth = function() return 20 end
+    cast(r[2])
+    UnitHealth = function() return 90 end
+    cast(r[2])
+    local rec = kin().racials[r[3]]
+    check(rec and rec.n == 2 and rec.m == 1 and kin().mattered[1].why == "low", r[3] .. " with the fight going badly mattered; at full health it didn't")
+    check(K.MatteredLine(kin().mattered[1]) ~= nil, r[3] .. " has its own History line")
+  end
+  UnitHealth = keepG.UnitHealth
+  fresh("Human"); cast(20600)
+  check(kin().racials.Perception.n == 1, "Perception counted")
+  for _ = 1, 8 do kin().mattered[#kin().mattered + 1] = { t = NOW, name = "Perception", why = "x" } end
+  K.Racial("Perception", "x")
+  check(#kin().mattered <= 6, "the log of gifts that mattered stays short")
+
+  -- Lately and Marks from a gift just used.
+  fresh("Scourge")
+  UnitHealth = function() return 40 end
+  cast(20577)
+  UnitHealth = keepG.UnitHealth
+  k = refresh()
+  local lt = K.Lately(ns.cache)
+  check(#lt == 1 and lt[1].g.TI == "Cannibalize" and lt[1].g.TX:find("within the hour", 1, true) and not lt[1].g.TX:find("{", 1, true),
+    "Lately: a gift that mattered: " .. tostring(lt[1] and lt[1].g.TX))
+  local mk = K.Marks(ns.cache)
+  check(mk[1] and mk[1].title == "Fed on the Fallen", "Marks: just fed on the fallen")
+  NOW = NOW + 3600
+  check(#K.Marks(refresh()) == 0, "and the mark fades")
+
+  -- Speech: counted by language, only the player's own lines, never read.
+  fresh("NightElf")
+  GetDefaultLanguage = function() return "Common" end
+  GetNumLanguages = function() return 2 end
+  GetLanguageByIndex = function(i) return ({ "Common", "Darnassian" })[i] end
+  K.Languages()
+  for _ = 1, 15 do event("CHAT_MSG_SAY", "Ishnu-alah, friend", "Aldric", "Darnassian") end
+  for _ = 1, 10 do event("CHAT_MSG_SAY", "Good morning", "Aldric-Forever", "Common") end
+  for _ = 1, 9 do event("CHAT_MSG_SAY", "Hello there", "Brannoc", "Common") end
+  event("CHAT_MSG_YELL", "For the alliance", "Aldric", "Common")
+  check(kin().langs.Darnassian == 15 and kin().langs.Common == 11, "lines said aloud counted by language (yells too), only the player's own")
+  local seen = false
+  local function find(t, s) for kk, v in pairs(t) do if (type(v) == "string" and v:find(s, 1, true)) or kk == s or (type(v) == "table" and find(v, s)) then return true end end end
+  check(not find(kin(), "Ishnu") and not find(kin(), "Brannoc") and not find(kin(), "morning"), "what was said, and who else spoke, is never kept")
+  refresh()
+  local phys = C.Physical()
+  local voiced = false
+  for _, l in ipairs(KW.VOICE.mostly) do if phys:find((ns.U.Pron(l):gsub("{tongue}", "Darnassian"):gsub("{common}", "Common"):gsub("^%l", string.upper)), 1, true) then voiced = true end end
+  check(voiced, "Physical: the voice, by the tongue they speak most")
+  for _ = 1, 60 do event("CHAT_MSG_SAY", "x", "Aldric", "Common") end
+  check(K.Voice(refresh()) and K.Voice(ns.cache):find("now and then") or K.Voice(ns.cache):find("some of the time"), "mostly Common, some Darnassian: " .. tostring(K.Voice(ns.cache)))
+  GetDefaultLanguage, GetNumLanguages, GetLanguageByIndex = nil, nil, nil
+
+  -- The home city's regard, read outside a fight.
+  fresh("Human")
+  local calls = 0
+  GetFactionInfo = function(i) calls = calls + 1; return keepG.GetFactionInfo(i) end
+  state.combat = true
+  event("UPDATE_FACTION")
+  check(calls == 0 and not kin().rep, "standing isn't read in a fight")
+  state.combat = false
+  event("PLAYER_REGEN_ENABLED")
+  check(kin().rep and kin().rep.id == 7, "but once it ends: revered with Stormwind")
+  GetFactionInfo = keepG.GetFactionInfo
+  k = refresh()
+  local trusted = false
+  for _, l in ipairs(K.Bearing(ns.cache, 4)) do if l:find("Stormwind", 1, true) then trusted = true end end
+  check(trusted, "Personality: the trust of their home city")
+
+  -- Old enemies of their people: by the creature's name, the player's and their pet's kills only.
+  fresh("Scourge")
+  for _ = 1, 30 do log(NOW, "PARTY_KILL", false, ME, "Aldric", 0, 0, "Creature-0-1-0-1-4-4", "Scarlet Zealot", 0, 0) end
+  log(NOW, "PARTY_KILL", false, ME, "Aldric", 0, 0, "Creature-0-1-0-1-5-5", "Rotting Dead", 0, 0)
+  log(NOW, "PARTY_KILL", false, ME, "Aldric", 0, 0, "Creature-0-1-0-1-6-6", "Young Wolf", 0, 0)
+  log(NOW, "PARTY_KILL", false, "Player-1-0099", "Someone", 0, 0, "Creature-0-1-0-1-4-4", "Scarlet Zealot", 0, 0)
+  log(NOW, "PARTY_KILL", false, ME, "Aldric", 0, 0, "Player-1-0042", "Scarlet Pretender", 0, 0)
+  check(kin().foes.scarlet.n == 30 and kin().foes.scourge.n == 1 and ns.U.Count(kin().foes) == 2,
+    "Scarlet Crusade and Scourge kills counted; a wolf, another's kill and a player aren't")
+  check(K.FoeKind("Moonrage Whitescalp", "Scourge") == "worgen" and K.FoeKind("Son of Arugal", "Scourge") == "worgen", "worgen by name")
+  for _, r in ipairs({ { "NightElf", "Xavian Rogue", "satyrs" }, { "Dwarf", "Dark Iron Dwarf", "darkiron" }, { "Gnome", "Leper Gnome", "leper" },
+    { "Human", "Defias Trapper", "defias" }, { "Orc", "Burning Blade Cultist", "burningblade" }, { "Troll", "Voodoo Troll", "voodoo" },
+    { "Tauren", "Kolkar Pack Runner", "centaur" } }) do
+    K.ResetFoes()
+    check(K.FoeKind(r[2], r[1]) == r[3], r[1] .. ": " .. r[2] .. " is an old enemy (" .. r[3] .. ")")
+  end
+  K.ResetFoes()
+  check(K.FoeKind("Scarlet Zealot", "Tauren") == nil, "and only their own people's enemies")
+  k = refresh()
+  local foeLine = false
+  for _, l in ipairs(K.Bearing(ns.cache, 4)) do if l:find("the Scarlet Crusade", 1, true) and not l:find("%d") then foeLine = true end end
+  check(foeLine, "Personality: old enemies cut down")
+  check(C.History():find("of the Scarlet Crusade", 1, true), "History: the old enemies, in the longer record")
+
+  -- Long away from the capital: a fact, not a guess.
+  fresh("Dwarf", 60 * 86400)
+  at("Stranglethorn Vale")
+  kin().lastCapital = NOW - 40 * 86400
+  k = refresh()
+  local bear = C.Bearing()
+  check(bear:find("Ironforge in over a month", 1, true) or bear:find("Ironforge for over a month", 1, true),
+    "Personality: hasn't been to Ironforge in over a month: " .. bear)
+  kin().lastCapital = NOW - 3 * 86400
+  refresh()
+  check(not C.Bearing():find("over a month", 1, true), "and not when they were there this week")
+  -- Mostly at home, or mostly abroad, from the hours kept.
+  kin().time = { capital = 20 * 3600, home = 10 * 3600, abroad = 3600 }
+  refresh()
+  local homeLine = false
+  for _, l in ipairs(KW.BOND.home) do if C.Bearing():find((ns.U.Pron(l):gsub("{home}", "Dun Morogh and Khaz Modan")), 1, true) then homeLine = true end end
+  check(homeLine, "Personality: keeps close to home")
+  kin().time = { capital = 3600, home = 0, abroad = 40 * 3600 }
+  refresh()
+  local abroadLine = false
+  for _, l in ipairs(KW.BOND.abroad) do if C.Bearing():find((ns.U.Pron(l):gsub("{home}", "Dun Morogh and Khaz Modan")), 1, true) then abroadLine = true end end
+  check(abroadLine, "Personality: lives abroad")
+  -- Gone home many times.
+  kin().visits = { n = 4, log = { { t = NOW - 30 * 86400, away = 4 * 86400 } } }
+  refresh()
+  check(C.History():find("Ironforge four times", 1, true), "History: gone home four times: in the longer record")
+
+  -- Statistics: their own switches, TRP fields and tooltips.
+  fresh("Dwarf")
+  kin().time = { capital = 31 * 3600, home = 2 * 3600, abroad = 6 * 86400 }
+  kin().racials = { Stoneform = { n = 41, m = 9, t = NOW - 86400 } }
+  kin().foes = { darkiron = { n = 212, t = NOW }, troggs = { n = 40, t = NOW } }
+  refresh()
+  local st = C.Stats()
+  check(st.kinhome == "33 hours at home, 6 days abroad", "statistic: time at home / abroad: " .. tostring(st.kinhome))
+  check(st.racial == "Stoneform, 41 times, 9 of them against poison or bleeding", "statistic: racial ability most used: " .. tostring(st.racial))
+  check(st.kinfoes == "212 Dark Iron dwarves, 40 troggs", "statistic: old enemies slain: " .. tostring(st.kinfoes))
+  for _, key in ipairs({ "kinhome", "racial", "kinfoes" }) do
+    check(ns.TRP.FIELDS["stat_" .. key] ~= nil and ns.db.fields["stat_" .. key] == true, "statistic " .. key .. " has its own switch, on by default")
+    check(ns.UI.TIPS["fields.stat_" .. key] and ns.UI.TipFor({ path = { "fields", "stat_" .. key } }) == ns.UI.TIPS["fields.stat_" .. key], "statistic " .. key .. " has its own tooltip")
+  end
+  fresh("Goblin")
+  refresh()
+  st = C.Stats()
+  check(st.kinhome == "None yet" and st.racial == "None yet" and st.kinfoes == "None yet", "nothing counted yet still says so")
+
+  -- Every race: home, a homecoming in its own words, how its lands sit with it, its enemies.
+  for _, r in ipairs({ "Human", "Dwarf", "Gnome", "NightElf", "Orc", "Troll", "Tauren", "Scourge" }) do
+    fresh(r)
+    local home = KW.HOME[r]
+    at(home.capital)
+    check(K.Kind(home.capital, r) == "capital" and kin().lastCapital == NOW, r .. ": the capital is home")
+    kin().lastCapital = NOW - 9 * 86400
+    NOW = NOW + 30; at(home.capital)
+    local g
+    for _, x in ipairs(K.Lately(refresh())) do if x.g.TI == "Home Again" then g = x.g end end
+    check(g and g.TX:find(home.capital, 1, true) and g.TX:find("nine days", 1, true) and not g.TX:find("{", 1, true), r .. ": home again in its own words: " .. tostring(g and g.TX))
+    check(#KW.HOMECOMING[r] >= 4, r .. ": four or more homecoming lines")
+    local zones = 0
+    for zone, lines in pairs(KW.HERE[r]) do zones = zones + 1; check(#lines >= 2, r .. ": " .. zone .. " has more than one way of saying it") end
+    check(zones >= 4 and KW.HERE[r].abroad, r .. ": how home, the capital, old ground and a long road abroad sit with it")
+    check(#(KW.FOES[r] or {}) >= 3, r .. ": its people's old enemies")
+    local places = 0
+    for _ in pairs(ns.Words.RACE_PLACES[r]) do places = places + 1 end
+    check(places >= 6, r .. ": six or more places that matter to its people (" .. places .. ")")
+    for _, p in pairs(ns.Words.RACE_PLACES[r]) do check(KW.PLACE[p[1]] ~= nil, r .. ": every place's feeling has Lately lines (" .. p[1] .. ")") end
+    -- In a land of their own: Physical says how it sits with them.
+    local here = KW.HERE[r][home.capital]
+    state.zone, state.sub = home.capital, home.capital
+    refresh()
+    local said = false
+    for _, l in ipairs(here or {}) do if C.Physical():find((ns.U.Pron(l):gsub("^%l", string.upper)), 1, true) then said = true end end
+    check(said, r .. ": Physical, at home in " .. home.capital)
+  end
+  -- A long road far from home.
+  fresh("Scourge", 60 * 86400)
+  at("Stranglethorn Vale")
+  kin().lastCapital = NOW - 20 * 86400
+  refresh()
+  local far = false
+  for _, l in ipairs(KW.HERE.Scourge.abroad) do if C.Physical():find((ns.U.Pron(l):gsub("^%l", string.upper)), 1, true) then far = true end end
+  check(far, "Physical: a long road far from home")
+
+  -- Every line uses only the pronoun tags that read for anyone, and fills every tag it has.
+  local badTag = {}
+  local OK = { they = true, them = true, their = true, ["they've"] = true, ["they're"] = true, s = true, es = true,
+    capital = true, days = true, place = true, home = true, span = true, times = true, faction = true, n = true, foe = true,
+    list = true, tongue = true, common = true }
+  local function lint(t, depth)
+    for _, v in pairs(t) do
+      if type(v) == "string" then
+        for tag in v:gmatch("{([%a']+)}") do if not OK[tag] then badTag[#badTag + 1] = tag .. ": " .. v end end
+      elseif type(v) == "table" and depth < 6 then lint(v, depth + 1) end
+    end
+  end
+  lint(KW, 0)
+  check(#badTag == 0, "Kin lines use only {they}/{them}/{their}/{they've}/{they're} + {s}/{es}: " .. table.concat(badTag, " | "))
+
+  -- Bounded: zones and languages are capped.
+  fresh("Human")
+  for i = 1, K.CAP_ZONES do kin().zones["Zone" .. i] = i end
+  at("Elwynn Forest"); NOW = NOW + 30; at("Elwynn Forest")
+  check(ns.U.Count(kin().zones) == K.CAP_ZONES and kin().zones["Elwynn Forest"] == 30 and not kin().zones.Zone1,
+    "zones stay bounded: a new one pushes out the least visited")
+  for i = 1, 20 do K.Spoke("Lang" .. i) end
+  check(ns.U.Count(kin().langs) <= K.CAP_LANGS, "languages stay bounded")
+
+  UnitRace, UnitHealth, InCombatLockdown, C_Spell = keepG.UnitRace, keepG.UnitHealth, keepG.InCombatLockdown, keepG.C_Spell
+  GetFactionInfo, GetNumFactions, UnitAffectingCombat = keepG.GetFactionInfo, keepG.GetNumFactions, keepG.UnitAffectingCombat
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones = keep[4], keep[5], keep[6], keep[7]
+  NOW = keepNow
+  state.zone, state.sub, state.combat, state.resting = keepState[1], keepState[2], keepState[3], keepState[4]
+  ns.char.kin = nil
+  K.ResetClock(); K.ResetFoes()
+  ns.World.slow = nil
+  C.SourcesChanged(); C.Refresh()
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
@@ -3864,6 +4188,49 @@ if os.getenv("SAMPLES") then
     print("\n-- History --\n" .. sh.history)
     print("\n-- Physical --\n" .. sh.physical)
   end
+  -- Race and homeland (Sources/Kin.lua): a record a few weeks old, for four peoples.
+  local kinSamples = {
+    { "Scourge", "ROGUE", "Horde", "Tirisfal Glades", { ["Will of the Forsaken"] = { n = 34, m = 12 }, Cannibalize = { n = 50, m = 30 } },
+      { scarlet = { n = 140 }, worgen = { n = 22 } }, { Orcish = 30, Gutterspeak = 5 }, { "Gutterspeak" }, { "Ruins of Lordaeron", "Stratholme" } },
+    { "Dwarf", "HUNTER", "Alliance", "Stranglethorn Vale", { Stoneform = { n = 41, m = 9 } }, { darkiron = { n = 64 } },
+      { Common = 12, Dwarvish = 30 }, { "Dwarvish" }, { "Uldaman", "Thandol Span" } },
+    { "NightElf", "DRUID", "Alliance", "Darnassus", { Shadowmeld = { n = 80, m = 3 } }, { satyrs = { n = 31 } },
+      { Common = 50 }, { "Darnassian" }, { "Moonglade", "Felwood" } },
+    { "Tauren", "WARRIOR", "Horde", "Mulgore", { ["War Stomp"] = { n = 120, m = 18 } }, { centaur = { n = 210 }, quilboar = { n = 40 } },
+      { Orcish = 20, Taurahe = 22 }, { "Taurahe" }, { "Red Rocks" } },
+  }
+  local keepZone = { state.zone, state.sub }
+  for i, s in ipairs(kinSamples) do
+    UnitRace = function() return s[1], s[1] end
+    UnitClass = function() return s[2], s[2] end
+    UnitFactionGroup = function() return s[3] end
+    UnitLevel = function() return 44 end
+    ns.char.seedName = "kin" .. i
+    state.zone, state.sub = s[4], s[4]
+    local racials = {}
+    for name, r in pairs(s[5]) do racials[name] = { n = r.n, m = r.m, t = NOW - 2 * 86400 } end
+    local foes = {}
+    for key, f in pairs(s[6]) do foes[key] = { n = f.n, t = NOW - 86400 } end
+    local known = { [1] = s[3] == "Horde" and "Orcish" or "Common", [2] = s[8][1] }
+    local places = {}
+    for k2, p in ipairs(s[9]) do places[p] = { t = NOW - k2 * 5 * 86400, last = NOW - 86400, n = 2 } end
+    ns.char.kin = { since = NOW - 50 * 86400, time = { capital = 8 * 3600, home = 6 * 3600, abroad = 70 * 3600 }, zones = {},
+      visits = { n = 3, log = { { t = NOW - 6 * 3600, away = 12 * 86400 } } }, racials = racials,
+      mattered = { { t = NOW - 3 * 86400, name = next(s[5]), why = ({ Scourge = "fear", Dwarf = "poison", NightElf = "fight", Tauren = "low" })[s[1]] } },
+      langs = s[7], known = known, default = known[1], places = places, foes = foes, lastCapital = NOW - 6 * 3600 }
+    if i == 2 then ns.char.kin.lastCapital = NOW - 45 * 86400; ns.char.kin.visits.log = {} end
+    ns.World.slow = nil
+    ns.Compose.SourcesChanged()
+    local sh = ns.Compose.Sheet()
+    print(("\n=== kin %s %s in %s ==="):format(s[1], s[2], s[4]))
+    for _, g in ipairs({ "lately", "marks" }) do print(g .. ": " .. sh.glances[g].TI .. ": " .. sh.glances[g].TX) end
+    print("stats: " .. sh.stats.kinhome .. " | " .. sh.stats.racial .. " | " .. sh.stats.kinfoes)
+    print("\n-- Personality --\n" .. sh.bearing)
+    print("\n-- History --\n" .. sh.history)
+    print("\n-- Physical --\n" .. sh.physical)
+  end
+  ns.char.kin = nil
+  state.zone, state.sub = keepZone[1], keepZone[2]
   UnitLevel = lvl
   RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
   ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds = keep[4], keep[5], keep[6], keep[7]

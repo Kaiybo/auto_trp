@@ -825,6 +825,9 @@ UI.TIPS = {
   ["fields.music"] = "Sets your profile's music to your home's zone music, or where you are, when the game has a match.",
   ["fields.walkup"] = "Marks you open to walk-ups when your mood is sociable, and not when it isn't.",
   ["fields.stats"] = "The Statistics entries under Additional information. Your own entries there stay as they are.",
+  ["fields.stat_kinhome"] = "How much of your play is spent in your people's capital and home lands, and how much abroad. Counted while you play, not while you're away.",
+  ["fields.stat_racial"] = "Your race's gift you use most (Stoneform, Shadowmeld, War Stomp...), and how often it got you out of trouble.",
+  ["fields.stat_kinfoes"] = "Old enemies of your people you've killed, by the creature's name: the Scarlet Crusade for the Forsaken, satyrs for night elves, Dark Irons for dwarves.",
   ["sources.rpgd"] = "Your origin, alignment, choices, opinions, the people you've met, stories and diary.",
   ["sources.socialDiary"] = "The players you've marked as friends, a partner, and your recent groups.",
   ["sources.chronicle"] = "Goals, bosses, dungeons, rare beasts, professions and gear. Your private notes are never read.",
@@ -1398,7 +1401,7 @@ local HELP = {
   { "/atrp status", "which profile it writes to and which addons it reads" },
   { "/atrp welcome", "show the welcome window again" },
   { "/atrp on", "resume (/atrp off: pause; your profile stays as it is)" },
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, talents, fish, made, gathered, duels, battles, gold, inns, hit)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, talents, fish, made, gathered, duels, battles, gold, inns, hit, kinhome, racial, kinfoes)",
 }
 UI.HELP = HELP
 

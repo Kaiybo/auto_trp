@@ -72,6 +72,7 @@ function Compose.Refresh()
     c.deeds = S.Deeds.Read()
     c.self = S.Self and S.Self.Read(c) or nil
     c.life = S.Life and S.Life.Read() or nil
+    c.kin = S.Kin and S.Kin.Read() or nil
     sourcesAt, c.read = now, true
   end
   -- The company is the game's own (cheap: a party is five units, a raid forty); Social
@@ -364,6 +365,8 @@ function Compose.LatelyGlance()
       add(inn.t, 0, { TI = "A New Inn", IC = "INV_Drink_05", TX = say("lately_inn", { inn = innName }, inn.t) })
     end
   end
+  -- Their people (Sources/Kin.lua): a homecoming, a place of their people, a gift that mattered.
+  for _, k in ipairs(ns.Sources.Kin and ns.Sources.Kin.Lately(c) or {}) do add(k.t, k.prio, k.g) end
 
   -- A day-old hurt outranks everything; otherwise the newest, then the weightiest. (A strict
   -- order: table.sort may compare an entry with itself.)
@@ -723,6 +726,7 @@ function Compose.MarksGlance()
       mark(4.4, GATHER_MARK[gr.kind][1], say("mark_" .. gr.kind, nil, gr.start), GATHER_MARK[gr.kind][2])
     end
   end
+  for _, m in ipairs(ns.Sources.Kin and ns.Sources.Kin.Marks(c) or {}) do mark(m.prio, m.title, m.text, m.icon) end
   local finest = g.finest or (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
   if finest and finest.name and finest.quality >= 4 then
     mark(4, "Remarkable Gear", say("remarkable", { item = finest.name }, finest.name), "INV_Misc_Gem_Pearl_04")
@@ -1024,6 +1028,13 @@ local function freshLine(pool, s, used)
   return fallback
 end
 
+-- Their bond to their people, the gifts they use and the old enemies they cut down
+-- (Sources/Kin.lua): at most two lines, only what the record backs.
+function Compose.KinLines()
+  local K = ns.Sources.Kin
+  return K and K.Bearing(ns.cache, 2) or {}
+end
+
 -- How this race and class carry themselves together (nil for a pair the lore doesn't have).
 function Compose.RaceClassTemper(world)
   local byRace = W.RACE_CLASS_TEMPER and W.RACE_CLASS_TEMPER[world.race or ""]
@@ -1054,6 +1065,7 @@ function Compose.Bearing()
   if not rpgd then
     local after = { habit }
     for _, h in ipairs(Compose.Habits(2)) do after[#after + 1] = h end
+    for _, h in ipairs(Compose.KinLines()) do after[#after + 1] = h end
     after[#after + 1] = Compose.BooksLine()
     after[#after + 1] = Compose.WeekTone()
     return pages({ paragraph(temperLines()), paragraph(after) })
@@ -1100,6 +1112,7 @@ function Compose.Bearing()
   more[#more + 1] = Compose.BooksLine()
   if habit then more[#more + 1] = habit end
   for _, h in ipairs(Compose.Habits(2)) do more[#more + 1] = h end
+  for _, h in ipairs(Compose.KinLines()) do more[#more + 1] = h end
   -- Little recorded about the inner life yet: how this race and class carry themselves.
   local said = #first + #views + #more
   if said < 5 then
@@ -1475,6 +1488,8 @@ function Compose.History()
       event(cl.t, 6, say("ev_close", { who = cl.foe and (" with " .. (cl.named and cl.foe or article(cl.foe))) or "", zone = U.Mid(cl.zone) }, cl.t), "close")
     end
   end
+  -- Their people (Sources/Kin.lua): a homecoming, a place of their people, a gift that mattered.
+  for _, e in ipairs(ns.Sources.Kin and ns.Sources.Kin.Events(c) or {}) do event(e.t, e.rank, e.text, e.key) end
 
   local groups, order = {}, {}
   for _, e in ipairs(events) do
@@ -1547,6 +1562,8 @@ function Compose.History()
     for n, k in pairs(own.killsByName or {}) do if k > tn then top, tn = n, k end end
     if top and tn >= 20 then older[#older + 1] = "killed more " .. Compose.Plural(top) .. " than any other creature" end
   end
+  -- Their people (Sources/Kin.lua): homecomings, places of their people, old enemies.
+  for _, s in ipairs(ns.Sources.Kin and ns.Sources.Kin.Older(c, toldRecent) or {}) do older[#older + 1] = s end
   -- Auto TRP's own record: battles, duels, inns, flight masters and coin.
   if life then
     if life.battles >= 3 then
@@ -2108,6 +2125,8 @@ function Compose.Physical()
   end
   body[#body + 1] = stance
   body[#body + 1] = fillPick(W.RACE_BEARING[world.race or ""], nil, "bearing")
+  local Kin = ns.Sources.Kin
+  body[#body + 1] = Kin and Kin.Voice(c) or nil   -- the tongue they speak aloud, when it means something
 
   -- What they wear and carry, by name, and what their class keeps in the bags
   local p = Compose.GearParts(world, itemName)
@@ -2136,6 +2155,9 @@ function Compose.Physical()
   for _, m in ipairs(Compose.NowMarks(c)) do
     if #now < 4 then now[#now + 1] = m.text end
   end
+  -- How being here sits with one of their people (home soil, an old enemy's land, a long road).
+  local here = Kin and not world.combat and not world.dead and Kin.Here(c)
+  if here and #now < 4 then now[#now + 1] = here end
   local lvl = world.level or 1
   if #now < 2 and lvl < 60 and not world.dead then
     if type(world.rested) == "number" and world.rested > 0 then now[#now + 1] = fillPick(W.PHYS_RESTED, nil, "rested")
@@ -2178,6 +2200,10 @@ Compose.STATS = {
   { key = "inns", label = "Inns stayed at", icon = "INV_Drink_05" },
   { key = "hit", label = "Hardest hit", icon = "Ability_Warrior_Rampage" },
   { key = "letters", label = "Letters received", icon = "INV_Letter_15", retired = true },
+  -- From Auto TRP's record of their people (Sources/Kin.lua).
+  { key = "kinhome", label = "Time at home / abroad", icon = "INV_Misc_Rune_01" },
+  { key = "racial", label = "Racial ability most used", icon = "Spell_Nature_Strength" },
+  { key = "kinfoes", label = "Old enemies slain", icon = "INV_Sword_04" },
 }
 
 -- How well off, against what's usual at their level.
@@ -2293,8 +2319,9 @@ function Compose.Stats()
   -- Nothing counted yet still says so, so no statistic is left blank.
   if not out.road and days == 0 then out.road = "Less than a day" end
   if not out.lands and world.zone then out.lands = "1" end
+  for k, v in pairs(ns.Sources.Kin and ns.Sources.Kin.Stats(c) or {}) do out[k] = v end
   for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "crafts", "standing", "books", "names", "spell",
-    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit" }) do
+    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "kinhome", "racial", "kinfoes" }) do
     out[k] = out[k] or "None yet"
   end
   return out
