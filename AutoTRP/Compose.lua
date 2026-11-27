@@ -72,6 +72,14 @@ function Compose.Refresh()
     c.deeds = S.Deeds.Read()
     sourcesAt, c.read = now, true
   end
+  -- The company is the game's own (cheap: a party is five units, a raid forty); Social
+  -- Diary friends are only matched by name in memory, and only when naming them is allowed.
+  local friendNames
+  if c.sd and ns.db.nameFriends then
+    friendNames = {}
+    for _, f in ipairs(c.sd.friends or {}) do friendNames[f.name] = true end
+  end
+  c.company = S.Company and S.Company.Read(c.world, friendNames) or nil
   c.t = now
   return c
 end
@@ -283,19 +291,104 @@ function Compose.LatelyGlance()
   return { TI = "Lately", IC = "INV_Misc_Map_01", TX = say("around", { where = where }, world.zone) }
 end
 
+-- Company: the game's own record of who is about them (Sources/Company.lua). Other players
+-- are only ever counted (their classes, races, guild and how often they've been seen
+-- before), never named; a Social Diary friend in the group is named when that's allowed.
+local function cw(key, vars, which)
+  local line = U.Pick(W.COMPANY[key], seed("co:" .. key .. ":" .. tostring(which or "")))
+  return (line:gsub("{([%a']+)}", function(k) if vars and vars[k] ~= nil then return vars[k] end end))
+end
+Compose.CompanyWords = cw
+
+local function ofGuild(g) return g and (g:find("^The ") and U.Mid(g) or g) or nil end
+
+-- How they usually travel, from the share of time spent grouped (nil until there's enough).
+function Compose.CompanyHabit(sol)
+  local share = sol and sol.share
+  if not share then return nil end
+  if share < 0.1 then return "loner" elseif share < 0.35 then return "mostly_alone"
+  elseif share < 0.65 then return "mixed" end
+  return "social"
+end
+
+local function petKind(p)
+  local kind = p.kind and p.kind:lower() or nil
+  return kind, kind and article(kind) or nil
+end
+
+local function guildCount(n)
+  for _, b in ipairs(W.GUILD_ONLINE) do if n <= b.max then return b.words end end
+end
+
+-- What the rest of the group are to them: guildmates, familiar faces, all of one race.
+local function groupClause(g, guild)
+  local single = g.others == 1 and #g.friends == 0
+  local others = g.others - #g.friends
+  if others < 1 then return nil end
+  local which = g.others .. ":" .. g.guildmates
+  if guild and g.guildmates >= others then
+    return cw(single and "guild_single" or "guild_all", { guild = guild }, which)
+  elseif guild and g.guildmates >= 2 then
+    return cw("guild_some", { guild = guild, n = U.Number(g.guildmates) }, which)
+  elseif guild and g.guildmates == 1 then
+    return cw("guild_one", { guild = guild }, which)
+  end
+  if g.familiar >= 1 then
+    if single then return cw("familiar_single", nil, which) end
+    if g.familiar >= others then return cw("familiar_all", nil, which) end
+    if g.familiar == 1 then return cw("familiar_one", nil, which) end
+    return cw("familiar_many", { n = U.Number(g.familiar) }, which)
+  end
+  if g.others >= 2 then
+    local top, topN = nil, 0
+    for _, r in ipairs(g.raceOrder) do if g.races[r] > topN then top, topN = r, g.races[r] end end
+    local plural = top and W.RACE_PLURAL[top]
+    if plural and topN == g.others then return cw("races_all", { races = plural }, which .. top) end
+    if plural and g.raid and topN > g.others / 2 then return cw("races_most", { races = plural }, which .. top) end
+  end
+  if guild then return cw(single and "guild_none_single" or "guild_none", { guild = guild }, which) end
+  return nil
+end
+
+-- "Together for an hour or so now, and the greenest of the lot."
+local function groupTail(g)
+  local together = g.forSeconds and g.forSeconds >= 900 and ns.Sources.Company.Span(g.forSeconds)
+  local standing = g.standing and cw(g.standing, nil, g.size)
+  if together then
+    local t = cw("together", { span = together }, g.size)
+    return U.Cap(t) .. (standing and (", " .. standing) or "") .. "."
+  end
+  if standing and g.standing ~= "even" then return U.Cap(standing) .. "." end
+  return nil
+end
+
 function Compose.CompanyGlance()
   local c = ns.cache
   local world, sd, rpgd = c.world, c.sd, c.rpgd
-  local n = world.groupSize or 0
-  if world.grouped and world.raid and n > 5 then
-    return { TI = "Part of a Host", IC = "INV_BannerPVP_02",
-      TX = say("host", { n = U.Number(n) }, n) }
+  local co = c.company or {}
+  local g = co.group
+  local guild = ofGuild(world.guild)
+  local function join(s1, s2) return U.Pron(s1 .. "." .. (s2 and (" " .. s2) or "")) end
+  if g and (g.others >= 1 or (g.size or 0) > 1) then
+    local n = math.max(g.size or 0, world.groupSize or 0)
+    if g.battleground then
+      return { TI = "On the Battlefield", IC = "INV_BannerPVP_02",
+        TX = join(cw("battle", { n = U.Number(n), faction = world.faction or "cause" }, n)) }
+    end
+    local clause = groupClause(g, guild)
+    if g.raid and n > 5 then
+      local s1 = cw(g.lead and "host_lead" or "host", { n = U.Number(n) }, n)
+      return { TI = g.lead and "Leading a Host" or "Part of a Host", IC = "INV_BannerPVP_02",
+        TX = join(s1 .. (clause and (", " .. clause) or ""), groupTail(g)) }
+    end
+    local party = Compose.PartyWords(g) or (n == 2 and "a companion" or ("a band of " .. U.Number(n)))
+    local s1 = cw(g.lead and "party_lead" or "party", { party = party }, party)
+    return { TI = g.lead and "Leading the Way" or "In Company", IC = "Spell_Holy_PrayerOfSpirit",
+      TX = join(s1 .. (clause and (", " .. clause) or ""), groupTail(g)) }
   end
-  if world.grouped and n > 1 then
-    local party = Compose.PartyWords()
-    return { TI = "In Company", IC = "Spell_Holy_PrayerOfSpirit",
-      TX = say("party", { party = party or (n == 2 and "a companion" or ("a band of " .. U.Number(n))) }, party) }
-  end
+  local sol = co.solitude or {}
+  local habit = Compose.CompanyHabit(sol)
+  local habitLine = habit and (U.Cap(cw(habit, nil, world.zone)) .. ".") or nil
   if sd and ns.db.nameFriends and sd.friends[1] then
     local f = sd.friends[1]
     local tx
@@ -308,6 +401,34 @@ function Compose.CompanyGlance()
     end
     return { TI = "Keeps Company", IC = "Spell_Holy_PrayerOfSpirit", TX = tx }
   end
+  local pet = co.pet
+  if pet and (world.class == "HUNTER" or world.class == "WARLOCK") then
+    local kind, akind = petKind(pet)
+    kind, akind = kind or (world.class == "WARLOCK" and "demon" or "beast"), akind or (world.class == "WARLOCK" and "a demon" or "a beast")
+    local mood = world.class == "HUNTER" and pet.happy and W.PET_HAPPY[pet.happy]
+    local vars = { pet = pet.name, kind = kind, akind = akind, mood = mood and (", " .. mood) or "" }
+    local s1 = cw(world.class == "HUNTER" and "pet_hunter" or "pet_warlock", vars, pet.name)
+    local s2
+    local held = pet.first and (U.Now() - pet.first) or 0
+    local tracked = U.Now() - ((ns.char.company and ns.char.company.since) or U.Now())
+    if held >= 86400 then
+      vars.span = ns.Sources.Company.Span(held)
+      s2 = cw("pet_since", vars, pet.name)
+      if (pet.deaths or 0) > 0 then
+        vars.times = U.Times(pet.deaths)
+        s2 = s2 .. cw("pet_fallen", vars, pet.name)
+      end
+    elseif pet.first and tracked > 3 * 86400 then
+      s2 = cw("pet_new", vars, pet.name)
+    end
+    s2 = s2 and (U.Cap(s2) .. ".") or habitLine
+    return { TI = "Travels Light", IC = "Ability_Hunter_BeastCall", TX = join(s1, s2 and U.Pron(s2)) }
+  end
+  local gi = co.guild
+  if guild and gi and gi.online and gi.online >= 2 then
+    local s1 = cw("guild_about", { guild = guild, n = guildCount(gi.online) }, guild)
+    return { TI = "Guild Colours", IC = "INV_Shirt_GuildTabard_01", TX = join(s1, habitLine) }
+  end
   local town = rpgd and rpgd.towns[1]
   local friend = rpgd and rpgd.friends[1]
   if town and town.value >= 10 then
@@ -318,60 +439,102 @@ function Compose.CompanyGlance()
   if friend then
     return { TI = "Local Ties", IC = "INV_Misc_Bag_11", TX = U.Cap(say("getson", { who = friend.name }, friend.name)) .. "." }
   end
-  if world.pet and (world.class == "HUNTER" or world.class == "WARLOCK") then
-    local mood = world.petHappy and W.PET_HAPPY[world.petHappy]
-    return { TI = "Travels Light", IC = "Ability_Hunter_BeastCall",
-      TX = U.Pron(say("pet_only", { pet = world.pet .. (world.petKind and (" the " .. world.petKind:lower()) or ""),
-        mood = mood and (", " .. mood) or "" }, world.pet)) }
+  if guild then
+    return { TI = "Guild Colours", IC = "INV_Shirt_GuildTabard_01",
+      TX = join(cw("guild_quiet", { guild = guild }, guild), habitLine) }
   end
   local reserved = rpgd and ((rpgd.traits.reserved or 0) >= 3)
-  return { TI = "Travels Alone", IC = "Spell_Shadow_Teleport",
-    TX = U.Pron(say(reserved and "alone_reserved" or "alone", nil, world.zone)) }
+  local s1
+  if sol.aloneFor and sol.aloneFor >= 3600 and not (sol.neverGrouped and sol.aloneFor < 86400) then
+    local span = ns.Sources.Company.Span(sol.aloneFor)
+    s1 = cw("alone_for", { span = span }, span)
+  else
+    s1 = cw(reserved and "alone_reserved" or "alone", nil, world.zone)
+  end
+  return { TI = habit == "social" and "Between Companies" or "Travels Alone", IC = "Spell_Shadow_Teleport",
+    TX = join(U.Cap(s1), habitLine) }
 end
 
--- "a priest, a mage and two warriors" from the party's classes.
-function Compose.PartyWords()
-  local count, order = {}, {}
-  for i = 1, 4 do
-    local unit = "party" .. i
-    if U.Call(UnitExists, unit) then
-      local class = select(2, U.Call(UnitClass, unit))
-      if class and W.CLASS_PLURAL[class] then
-        if not count[class] then order[#order + 1] = class end
-        count[class] = (count[class] or 0) + 1
-      end
-    end
-  end
-  if #order == 0 then return nil end
+-- "Mirelle, a priest, a mage and two warriors": Social Diary friends by name (when allowed),
+-- everyone else by class. g: a group from Sources/Company.lua (read now if not given).
+function Compose.PartyWords(g)
+  g = g or (ns.Sources.Company and ns.Sources.Company.Group())
+  if not g then return nil end
   local parts = {}
-  for _, class in ipairs(order) do
-    local n, words = count[class], W.CLASS_PLURAL[class]
-    parts[#parts + 1] = n == 1 and article(words[1]) or (U.Number(n) .. " " .. words[2])
+  for _, name in ipairs(g.friends or {}) do parts[#parts + 1] = name end
+  for _, class in ipairs(g.classOrder or {}) do
+    local n, words = g.classes[class], W.CLASS_PLURAL[class]
+    if words then parts[#parts + 1] = n == 1 and article(words[1]) or (U.Number(n) .. " " .. words[2]) end
   end
+  if #parts == 0 then return nil end
   return U.Join(parts)
 end
 
-function Compose.AmbitionGlance()
+-- Ambitions, ranked (Sources/Goals.lua): the quest log and the game's own state come first
+-- and need no other addon; a Chronicle goal and an unfinished RPG Dialogue story join them
+-- when those addons are there. Each: { kind, key, score, vars, icon }.
+Compose.GOAL_SCORE = 78     -- a goal the player wrote in Chronicle
+Compose.THREAD_SCORE = 66   -- a story still unfolding in RPG Dialogue
+function Compose.Ambitions()
   local c = ns.cache
-  local rpgd, chron, world = c.rpgd, c.chronicle, c.world
-  if chron and ns.db.chronicleGoals and chron.goals[1] then
-    -- The goal as the player wrote it: a full stop only where it has no ending of its own.
-    local goal = U.Cap(U.Truncate(chron.goals[1].text, 120))
-    if not goal:find("[%.!%?]\"?$") then goal = goal .. "." end
-    return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = goal }
+  local list = ns.Goals and ns.Goals.Gather(c.world or {}, c) or {}
+  local chron, rpgd = c.chronicle, c.rpgd
+  if chron and ns.db.chronicleGoals and chron.goals and chron.goals[1] and chron.goals[1].text then
+    list[#list + 1] = { kind = "goal", key = "goal", score = Compose.GOAL_SCORE, vars = { goal = chron.goals[1].text } }
   end
   for _, t in ipairs(rpgd and rpgd.threads or {}) do
     if t.state == "unfolding" or t.state == "stirring" then
-      return { TI = "Unfinished Business", IC = "INV_Misc_Note_02",
-        TX = say("unfinished", { t = lowerFirst(t.title) }, t.id) }
+      list[#list + 1] = { kind = "thread", key = "thread:" .. tostring(t.id), id = t.id, score = Compose.THREAD_SCORE,
+        vars = { t = lowerFirst(t.title) } }
+      break
     end
   end
-  -- Nothing they've set out to do: the next rank on their road, which the game will give them.
-  local level = world.level or 1
-  local ranks = Compose.Ranks(world)
-  local now, nextRank = ranks[band(level)], ranks[band(level) + 1]
-  if nextRank and nextRank ~= now then
-    return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = U.Pron(say("nextrank", { rank = nextRank }, nextRank)) }
+  table.sort(list, function(a, b) if a.score ~= b.score then return a.score > b.score end return tostring(a.key) < tostring(b.key) end)
+  return list
+end
+
+-- One of a goal's lines with its {tags} filled; lines that need a tag the goal hasn't got
+-- are passed over. Pronoun tags are left for U.Pron.
+local PRON_TAGS = { they = true, them = true, their = true, themselves = true, ["they've"] = true, ["they're"] = true,
+  are = true, have = true, s = true, es = true, ies = true }
+local function goalLine(list, vars, key)
+  local usable = {}
+  for _, line in ipairs(list or {}) do
+    local missing = false
+    local out = line:gsub("{([%a']+)}", function(k)
+      if PRON_TAGS[k] then return nil end
+      local v = vars[k]
+      if v == nil then missing = true; return "" end
+      return tostring(v)
+    end)
+    if not missing then usable[#usable + 1] = out end
+  end
+  if #usable == 0 then return nil end
+  return U.Pron(U.Pick(usable, seed("goal:" .. key)))
+end
+Compose.GoalLine = goalLine
+local function goalVars(vars, quoteFn)
+  local out = {}
+  for k, v in pairs(vars or {}) do out[k] = v end
+  if out.q then out.q = quoteFn(out.q) end
+  return out
+end
+
+function Compose.AmbitionGlance()
+  local world = ns.cache.world or {}
+  for _, a in ipairs(Compose.Ambitions()) do
+    local g = W.GOAL_GLANCE[a.kind] or W.GOAL_GLANCE.nextrank
+    local text
+    if a.kind == "goal" then
+      -- The goal as the player wrote it: a full stop only where it has no ending of its own.
+      text = U.Cap(U.Truncate(a.vars.goal, 120))
+      if not text:find("[%.!%?]\"?$") then text = text .. "." end
+    elseif a.kind == "thread" then
+      text = say("unfinished", { t = a.vars.t }, a.id)
+    else
+      text = goalLine(a.kind == "nextrank" and W.SAY.nextrank or W.GOALS[a.kind], goalVars(a.vars, function(q) return "\"" .. q .. "\"" end), a.kind .. ":" .. tostring(a.key))
+    end
+    if text then return { TI = g[1], IC = a.icon or g[2], TX = text } end
   end
   local list = W.AMBITIONS[world.class or ""] or W.AMBITIONS.default
   return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = U.Pron(U.Pick(list, seed("ambition"))) }
@@ -424,34 +587,36 @@ local function kit(world, short, fmt)
   return table.concat(parts, ". ") .. "."
 end
 
+-- Marks: the most striking thing about them right now (a wound, drink, a spell on them, a
+-- shape), else the most striking thing they wear or carry, else their kit and bearing.
+-- Compose.NowMarks and Compose.GearParts are below, with About: Physical.
 function Compose.MarksGlance()
   local c = ns.cache
-  local world, rpgd = c.world, c.rpgd
+  local world = c.world
   local marks = {}
-  local function mark(prio, title, text, icon) marks[#marks + 1] = { prio = prio, TI = title, TX = U.Cap(U.Pron(text)), IC = icon } end
-  if world.health and world.health < 0.5 and not world.combat and not world.dead then
-    mark(9, "Bloodied", say("mark_wounded", nil, world.zone), "Ability_Rogue_FeignDeath")
-  end
-  if rpgd and (rpgd.drunk or 0) > 0 and U.Now() - (rpgd.drunkAt or 0) < 1800 then
-    mark(8, "Smells of Ale", say("mark_drunk", nil, rpgd.drunkAt), "INV_Drink_05")
-  end
-  if rpgd and (rpgd.insanity or 0) >= 30 then
-    mark(7, "Haunted Eyes", say("mark_mad"), "Spell_Shadow_Possession")
-  end
-  if rpgd and (rpgd.align.taint or 0) >= 30 then
-    mark(6, "Something Wrong", say("mark_taint"), "Spell_Shadow_ShadowWordPain")
+  for _, m in ipairs(Compose.NowMarks(c)) do
+    if m.title then marks[#marks + 1] = m end
   end
   local g = world.gear or {}
+  local parts = Compose.GearParts(world)
+  local function mark(prio, title, text, icon) if text then marks[#marks + 1] = { prio = prio, title = title, text = text, icon = icon } end end
   local wear = Compose.Wear(world)
   if wear and wear.band.glance then mark(5, wear.band.glance, U.Cap(wear.text) .. ".", "INV_Hammer_20") end
   local finest = g.finest or (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
   if finest and finest.name and finest.quality >= 4 then
     mark(4, "Remarkable Gear", say("remarkable", { item = finest.name }, finest.name), "INV_Misc_Gem_Pearl_04")
   end
-  table.sort(marks, function(a, b) return a.prio > b.prio end)
+  local M = W.PHYS_MARK
+  if parts.setN and parts.setN >= 3 then mark(3.8, M.set[1], parts.set, M.set[2]) end
+  if parts.enchantWeapon then mark(3.2, M.enchanted[1], parts.enchantWeapon, M.enchanted[2]) end
+  if parts.jewelEpic then mark(3, M.jewel[1], parts.jewel, M.jewel[2]) end
+  if parts.armsKey == "twohand" then mark(2.4, M.twohand[1], parts.arms, M.twohand[2])
+  elseif parts.armsKey == "dual" then mark(2.3, M.dual[1], parts.arms, M.dual[2]) end
+  if parts.armourType == "Plate" and not parts.mixed then mark(2, M.plate[1], parts.armour, M.plate[2]) end
+  table.sort(marks, function(a, b) if a.prio ~= b.prio then return a.prio > b.prio end return a.title < b.title end)
   if marks[1] then
     local m = marks[1]
-    return { TI = m.TI, TX = m.TX, IC = m.IC }
+    return { TI = m.title, TX = sentence(m.text), IC = m.icon }
   end
   local k = kit(world, true)
   local cl = U.BackedList(noGear(W.CLASS_LOOK[world.class or ""]), world)
@@ -788,6 +953,26 @@ function Compose.Hooks()
   return hooks
 end
 
+-- What drives them: the top three ambitions of different kinds (a mount and the coin for
+-- it are one kind), told as part of a life, for the end of History. Nil with nothing to say.
+local function goalFamily(kind) return (kind:gsub("_.*$", "")) end
+function Compose.Drives()
+  local lines, told = {}, {}
+  for _, a in ipairs(Compose.Ambitions()) do
+    if #lines >= 3 then break end
+    local family = goalFamily(a.kind)
+    if not told[family] then
+      local vars = goalVars(a.vars, quote)
+      if vars.goal then vars.goal = quote(U.Truncate(vars.goal, 120)) end
+      local line = goalLine(W.DRIVES[a.kind], vars, "drive:" .. a.kind .. ":" .. tostring(a.key))
+      if line then told[family] = true; lines[#lines + 1] = line end
+    end
+  end
+  if #lines == 0 then return nil end
+  lines[1] = firstName() .. " " .. (lines[1]:gsub("^%u", string.lower))
+  return paragraph(lines)
+end
+
 ---------------------------------------------------------------------------
 -- About: History. What happened lately comes first and is told most fully; what lasts
 -- (roots, the earned name, the people) always stays; the rest is told briefly.
@@ -1094,8 +1279,11 @@ function Compose.History()
   if #oldFinds > 0 then record[#record + 1] = say("finds", { list = U.Join(oldFinds) }, finds[1].item) end
   paras[#paras + 1] = paragraph(record)
 
-  -- 4. The people, friends and otherwise
+  -- 4. The people: friends, the company they keep, their pet, their guild, standing.
+  -- Other players are only ever counted; Social Diary friends are named when allowed.
   local people = {}
+  local co = c.company or {}
+  local Co = ns.Sources.Company
   local friends = {}
   if rpgd then
     for k = 1, math.min(2, #rpgd.friends) do friends[k] = rpgd.friends[k].name end
@@ -1117,8 +1305,65 @@ function Compose.History()
   elseif partner then
     people[#people + 1] = name .. " travels with " .. partner
   end
-  if sd and sd.recentPeople >= 4 then
-    people[#people + 1] = say("fought", { n = U.Number(sd.recentPeople) }, sd.recentPeople)
+  -- How they go about: alone or in company, and who has shared the road (counts only).
+  local sol = co.solitude or {}
+  local habit = Compose.CompanyHabit(sol)
+  local week = (sol.week or 0) > 0 and sol.week or (sd and sd.recentPeople or 0)
+  local weekLine = week >= 2 and cw("h_week", { n = U.Number(week) }, week) or nil
+  if habit then
+    local line = cw("h_" .. habit, { name = name }, habit)
+    if weekLine then
+      if habit == "loner" then
+        line = line .. ", though {they} " .. weekLine:gsub("^has ", "{have} ")
+      else
+        line = line .. ", and " .. weekLine
+      end
+    end
+    people[#people + 1] = line
+  elseif weekLine then
+    people[#people + 1] = U.Cap(weekLine)
+  end
+  if (sol.recurring or 0) >= 1 then
+    people[#people + 1] = sol.recurring == 1 and cw("h_recurring_one", nil, 1)
+      or cw("h_recurring", { n = U.Number(sol.recurring) }, sol.recurring)
+  end
+  if (sol.soloDungeons or 0) >= 1 then
+    people[#people + 1] = cw("h_solo", { times = U.Times(sol.soloDungeons) }, sol.soloDungeons)
+  end
+  -- The pet: the one at their side now (or, for a warlock, the demon called most).
+  local pets = co.pets or {}
+  if (world.class == "HUNTER" or world.class == "WARLOCK") and #pets > 0 then
+    local cur
+    if world.class == "WARLOCK" then cur = pets[1] else
+      for _, pt in ipairs(pets) do if pt.name == world.pet then cur = pt end end
+      if not cur then
+        for _, pt in ipairs(pets) do if not cur or pt.last > cur.last then cur = pt end end
+      end
+    end
+    local kind = cur.kind and cur.kind:lower() or (world.class == "WARLOCK" and "demon" or "beast")
+    local vars = { name = name, pet = cur.name, kind = kind, akind = article(kind) }
+    if world.class == "WARLOCK" then
+      if #pets >= 2 then people[#people + 1] = cw("h_demon", vars, cur.name) end
+    else
+      local held = now - (cur.first or now)
+      local line
+      if held >= 86400 then
+        vars.span = Co.Span(held)
+        line = cw("h_pet", vars, cur.name)
+        if (cur.deaths or 0) > 0 then
+          vars.times = U.Times(cur.deaths)
+          line = line .. cw("pet_fallen", vars, cur.name)
+        end
+      elseif now - ((ns.char.company and ns.char.company.since) or now) > 3 * 86400 then
+        line = cw("h_pet_new", vars, cur.name)
+      end
+      people[#people + 1] = line
+      local before = {}
+      for _, pt in ipairs(pets) do
+        if pt.name ~= cur.name and #before < 2 then before[#before + 1] = pt.name .. (pt.kind and (" the " .. pt.kind:lower()) or "") end
+      end
+      if #before > 0 then people[#people + 1] = cw("h_pets_before", { pet = cur.name, list = U.Join(before) }, cur.name) end
+    end
   end
   if rpgd then
     local good, bad = {}, nil
@@ -1144,9 +1389,21 @@ function Compose.History()
   end
   local serve = #served > 0 and ("has done good work for " .. U.Join(served)) or nil
   if world.guild then
-    people[#people + 1] = say("guild", { guild = guildName(world.guild) }, world.guild)
-      .. (world.guildRank and (" and holds the rank of " .. world.guildRank:lower() .. " there") or "")
-      .. (serve and (", and " .. serve) or "")
+    -- How long they've worn the colours: from when Auto TRP saw them join, or at least as
+    -- long as it has been watching.
+    local gi = co.guild or {}
+    local tracked = (ns.char.company and ns.char.company.since) or now
+    local since = gi.since and now - gi.since or 0
+    local vars = { name = name, guild = guildName(world.guild),
+      rank = world.guildRank and (" and holds the rank of " .. world.guildRank:lower() .. " there") or "" }
+    local line
+    if since >= 86400 then
+      vars.span = Co.Span(since) .. ((gi.since or 0) <= tracked + 600 and " at least" or "")
+      line = cw("h_guild", vars, world.guild)
+    else
+      line = cw("h_guild_now", vars, world.guild)
+    end
+    people[#people + 1] = line .. (serve and (", and " .. serve) or "")
   elseif serve then
     people[#people + 1] = U.Cap(serve)
   end
@@ -1180,20 +1437,289 @@ function Compose.History()
     nowLines[#nowLines + 1] = ns.Journal.LatestLine(quote)   -- Auto TRP's own journal (Journal.lua)
   end
   paras[#paras + 1] = paragraph(nowLines)
+  paras[6] = Compose.Drives()   -- 6. What drives them
 
   return pages(paras)
 end
 
 ---------------------------------------------------------------------------
--- About: Physical, from gear (live, or Chronicle's snapshot) and physique (stats)
+-- About: Physical, from the live game first (gear, auras, stats, health), with Chronicle's
+-- snapshot only to fill a gap. Three paragraphs: the body, what they wear and carry, and
+-- how they are right now. Nothing is named that the game doesn't show.
 ---------------------------------------------------------------------------
 local function physique(c)
-  local stats = (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.stats) or c.world.stats or {}
+  local stats = c.world.stats
+  if type(stats) ~= "table" or next(stats) == nil then
+    stats = (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.stats) or {}
+  end
   local best, bestV
   for name, v in pairs(stats) do
-    if type(v) == "number" and W.PHYSIQUE[name] and (not bestV or v > bestV) then best, bestV = name, v end
+    if type(v) == "number" and W.PHYSIQUE[name] and (not bestV or v > bestV or (v == bestV and name < best)) then best, bestV = name, v end
   end
   return best and U.Pron(U.Pick(W.PHYSIQUE[best], seed("phys" .. best))) or nil
+end
+
+-- Pronoun and verb tags are left for U.Pron; any other {tag} must be filled.
+local PRON_TAGS = { they = true, them = true, their = true, themselves = true, ["they've"] = true, ["they're"] = true,
+  s = true, es = true, ies = true, are = true, have = true }
+
+-- One line of a list, picked per character and key, with only the lines whose tags are known.
+local function fillPick(list, vars, key)
+  local ok = {}
+  for _, t in ipairs(type(list) == "table" and list or {}) do
+    local whole = true
+    for k in t:gmatch("{([%a']+)}") do
+      if not PRON_TAGS[k] and (not vars or vars[k] == nil) then whole = false end
+    end
+    if whole then ok[#ok + 1] = t end
+  end
+  if #ok == 0 then return nil end
+  local line = U.Pick(ok, seed("phys:" .. key))
+  return (line:gsub("{([%a']+)}", function(k) if not PRON_TAGS[k] then return vars[k] end end))
+end
+
+local function stage(level)
+  level = level or 1
+  if level < 20 then return "green" elseif level < 45 then return "seasoned" end
+  return "veteran"
+end
+
+local ARMOUR_RANK = { Cloth = 1, Leather = 2, Mail = 3, Plate = 4 }
+-- What a class can wear from level 40 (plate for warriors and paladins, mail for hunters and shamans).
+local CLASS_ARMOUR = { WARRIOR = 4, PALADIN = 4, HUNTER = 3, SHAMAN = 3 }
+
+-- How the hands are filled: twohand, staff, dual, shield, holdable, one, offonly or nil.
+local function armsKey(s)
+  local m, o = s[16], s[17]
+  if m then
+    if m.sub == "Staves" then return "staff" end
+    if W.TWO_HANDED[m.sub or ""] or m.loc == "INVTYPE_2HWEAPON" then return "twohand" end
+    if o then
+      if o.sub == "Shields" or o.loc == "INVTYPE_SHIELD" then return "shield" end
+      if W.WEAPONS[o.sub or ""] or (type(o.loc) == "string" and o.loc:find("WEAPON")) then return "dual" end
+      return "holdable"
+    end
+    return "one"
+  end
+  if o then return "offonly" end
+  return nil
+end
+
+-- Everything worth saying about the gear, as sentences (without full stops). fmt colours an
+-- item's name (About); without it names stay plain (the glance). `named` holds the slots
+-- already told, so nothing is said twice.
+function Compose.GearParts(world, fmt)
+  local g = world.gear or {}
+  local s = g.slots or {}
+  local out = { named = {} }
+  local function name(id) local it = s[id]; if it and it.name then return fmt and fmt(it.name, it.q) or it.name end end
+  local function told(id) out.named[id] = true; return name(id) end
+
+  -- Armour: what most of it is, and how fine
+  local counts = g.armourCount or {}
+  if g.armourType and W.ARMOUR_WORD[g.armourType] then
+    out.armourType, out.mixed = g.armourType, g.armourMixed
+    local line
+    if g.armourMixed then
+      local kinds = {}
+      for sub in pairs(counts) do kinds[#kinds + 1] = sub end
+      table.sort(kinds, function(a, b) if counts[a] ~= counts[b] then return counts[a] > counts[b] end return a < b end)
+      for i, k in ipairs(kinds) do kinds[i] = W.ARMOUR_WORD[k] end
+      line = fillPick(W.PHYS_ARMOUR_MIX, { list = U.Join(kinds) }, "mix")
+    else
+      line = fillPick(W.PHYS_ARMOUR[g.armourType], nil, "armour" .. g.armourType)
+    end
+    local total, mode, modeN, finer = 0, nil, 0, 0
+    for q, n in pairs(g.qualityCount or {}) do
+      total = total + n
+      if n > modeN or (n == modeN and q < mode) then mode, modeN = q, n end
+    end
+    if mode then for q, n in pairs(g.qualityCount) do if q > mode then finer = finer + n end end end
+    if line and total >= 3 and W.QUALITY_WORD[mode] then
+      local Q = W.PHYS_QUALITY
+      local clause = fillPick(modeN == total and Q.all or Q.most, { word = W.QUALITY_WORD[mode] }, "qual")
+      if finer == 1 then clause = clause .. ", " .. fillPick(Q.finer, nil, "finer")
+      elseif finer > 1 then clause = clause .. ", " .. fillPick(Q.finerN, { n = U.Number(finer) }, "finer") end
+      out.quality = clause
+    end
+    out.armour = line
+    -- Lighter than the class usually goes, once heavier is open to them
+    local want = CLASS_ARMOUR[world.class or ""]
+    if want and (world.level or 0) >= 40 and not g.armourMixed and (ARMOUR_RANK[g.armourType] or 4) <= want - 2 then
+      out.light = fillPick(W.PHYS_ARMOUR_LIGHT, nil, "light")
+    end
+  end
+
+  -- The pieces that show
+  local extras = {}
+  for _, id in ipairs({ 1, 3 }) do
+    if s[id] then extras[#extras + 1] = told(id) .. " " .. W.PHYS_ON[id] end
+  end
+  if s[5] then
+    local outfit = told(5) .. (#extras > 0 and (", with " .. U.Join(extras)) or "")
+    out.outfit = fillPick(out.armour and W.PHYS_OUTFIT.armoured or W.PHYS_OUTFIT.bare, { outfit = outfit }, "outfit")
+  elseif #extras > 0 then
+    out.outfit = fillPick(W.PHYS_OUTFIT.bare, { outfit = U.Join(extras) }, "outfit")
+  end
+  local L = W.PHYS_LAYERS
+  if s[15] and s[19] then out.layers = fillPick(L.both, { cloak = told(15), tabard = told(19) }, "layers")
+  elseif s[19] then out.layers = fillPick(L.tabard, { tabard = told(19) }, "tabard")
+  elseif s[15] then out.layers = fillPick(L.cloak, { cloak = told(15) }, "cloak") end
+  if s[4] and not s[5] then
+    local shirt = fillPick(L.shirt, { shirt = told(4) }, "shirt")
+    out.layers = out.layers and (out.layers .. ". " .. U.Cap(shirt)) or shirt
+  end
+
+  -- Matched pieces
+  local set = g.sets and g.sets[1]
+  if set and set.n >= 2 then
+    local vars = { n = U.Number(set.n), set = set.name and (fmt and fmt(set.name, set.q) or set.name) }
+    local S = W.PHYS_SET
+    out.set = fillPick(set.n >= 5 and vars.set and S.full or vars.set and S.named or S.unnamed, vars, "set")
+    out.setN = set.n
+  end
+
+  -- Weapons, by how they're carried
+  local key = armsKey(s)
+  if key then
+    local m, o = s[16], s[17]
+    local vars = { main = m and told(16), off = o and told(17), kind = m and W.WEAPONS[m.sub or ""] }
+    vars.shield = key == "shield" and vars.off or nil
+    out.arms = fillPick(W.PHYS_ARMS[key], vars, "arms" .. key)
+    out.armsKey = key
+  elseif not s[18] and (world.level or 1) >= 10 and not world.form then
+    out.arms = fillPick(W.PHYS_ARMS.none, nil, "unarmed")
+  end
+  if s[18] then
+    out.ranged = fillPick(W.PHYS_RANGED[s[18].sub or ""] or W.PHYS_RANGED.default, { ranged = told(18) }, "ranged")
+  end
+
+  -- Enchantments: the weapon first, else how many
+  local ench = g.enchanted or {}
+  local E = W.PHYS_ENCHANT
+  if #ench >= 3 then
+    out.enchant = fillPick(E.many, { n = U.Number(#ench) }, "ench")
+    if s[16] and s[16].enchant then out.enchantWeapon = fillPick(E.weapon, { main = name(16) }, "enchw") end
+  else
+    local others = {}
+    for _, id in ipairs(ench) do
+      if id == 16 and s[16] then
+        out.enchantWeapon = fillPick(E.weapon, { main = name(16) }, "enchw")
+        out.enchantIt = out.named[16] and fillPick(E.it, nil, "enchit") or out.enchantWeapon
+      elseif s[id] then others[#others + 1] = id end
+    end
+    local parts = {}
+    if #others == 1 then parts[#parts + 1] = fillPick(E.one, { item = name(others[1]) }, "ench1")
+    elseif #others == 2 then parts[#parts + 1] = fillPick(E.many, { n = U.Number(2) }, "ench") end
+    if #parts > 0 then out.enchant = table.concat(parts, ". ") end
+  end
+
+  -- Jewellery, only the remarkable (epic and better)
+  local function epic(id) return s[id] and (s[id].q or 0) >= 4 end
+  local J = W.PHYS_JEWEL
+  local jewel = {}
+  if epic(11) and epic(12) then jewel[#jewel + 1] = fillPick(J.rings, { item = told(11), item2 = told(12) }, "rings")
+  elseif epic(11) or epic(12) then local id = epic(11) and 11 or 12; jewel[#jewel + 1] = fillPick(J.ring, { item = told(id) }, "ring") end
+  if epic(2) then
+    if #jewel > 0 then jewel[1] = jewel[1] .. ", " .. fillPick(J.neckAlso, { item = told(2) }, "neck")
+    else jewel[#jewel + 1] = fillPick(J.neck, { item = told(2) }, "neck") end
+  end
+  local trinkets = {}
+  for _, id in ipairs({ 13, 14 }) do if epic(id) then trinkets[#trinkets + 1] = told(id) end end
+  if #trinkets > 0 then jewel[#jewel + 1] = fillPick(J.trinket, { item = U.Join(trinkets) }, "trinket") end
+  if #jewel > 0 then out.jewel = table.concat(jewel, ". "); out.jewelEpic = true end
+
+  -- The finest piece, if it hasn't been named yet
+  local finest = g.finest
+  if finest and finest.name and (finest.quality or 0) >= 4 and not out.named[finest.slot] then
+    out.finest = fillPick(W.PHYS_FINEST, { item = fmt and fmt(finest.name, finest.quality) or finest.name }, "finest")
+  end
+
+  -- How it sits with how far along the road they are
+  local level = world.level
+  if g.ilvl and level and (g.ilvlN or 0) >= 4 then
+    local F = W.PHYS_FIT
+    if level >= 60 then
+      if g.ilvl >= 70 then out.fit = fillPick(F.top, nil, "fit") end
+    elseif level >= 20 and g.ilvl <= level - 7 then out.fit = fillPick(F.behind, nil, "fit")
+    elseif g.ilvl >= level + 15 then out.fit = fillPick(F.ahead, nil, "fit") end
+  end
+  return out
+end
+
+-- What is on them right now: { prio, title (for the Marks glance, or nil), text, icon },
+-- the most striking first. From the live game; RPG Dialogue adds drink and madness.
+function Compose.NowMarks(c)
+  c = c or ns.cache
+  local world, rpgd = c.world or {}, c.rpgd
+  local auras = world.auras or {}
+  local names = auras.names or {}
+  local list = {}
+  local function add(prio, title, text, icon)
+    if text then list[#list + 1] = { prio = prio, title = title, text = text, icon = icon } end
+  end
+  if world.ghost then add(10, "A Ghost", fillPick(W.PHYS_GHOST, nil, "ghost"), "Spell_Holy_GuardianSpirit") end
+  if type(world.health) == "number" and not world.combat and not world.dead then
+    for _, b in ipairs(W.PHYS_HEALTH) do
+      if world.health < b.max then
+        -- Freshly wounded has more ways of being said (W.SAY.mark_wounded) beside its own
+        local text = fillPick(b.text, nil, "hp" .. b.max)
+        if b.max == 0.5 and W.SAY.mark_wounded and U.Hash(seed("hpsay") .. tostring(world.zone)) % 2 == 0 then
+          text = say("mark_wounded", nil, world.zone)
+        end
+        add(b.glance and (9 + (0.5 - b.max)) or 3, b.glance, text, "Ability_Rogue_FeignDeath")
+        break
+      end
+    end
+  end
+  if auras.resSick then add(8.5, "Back from Death", fillPick(W.PHYS_RESSICK, nil, "ressick"), "Spell_Shadow_DeathScream") end
+  -- Drink: the game's own word for it, or RPG Dialogue's count
+  local drunk = world.drunk
+  if not drunk and rpgd and (rpgd.drunk or 0) > 0 and U.Now() - (rpgd.drunkAt or 0) < 1800 then drunk = 2 end
+  local d = drunk and W.PHYS_DRUNK[U.Clamp(drunk, 1, #W.PHYS_DRUNK)]
+  if d then add(7.9 + drunk * 0.05, d.glance, fillPick(d.text, nil, "drunk" .. drunk), "INV_Drink_05") end
+  for kind, a in pairs(W.PHYS_AILMENT) do
+    if auras.kinds and auras.kinds[kind] then add(a.prio, a.glance, fillPick(a.text, nil, "ail" .. kind), a.icon) end
+  end
+  if rpgd and (rpgd.insanity or 0) >= 30 then
+    add(7, "Haunted Eyes", say("mark_mad"), "Spell_Shadow_Possession")
+  end
+  if rpgd and rpgd.align and (rpgd.align.taint or 0) >= 30 then
+    add(6, "Something Wrong", say("mark_taint"), "Spell_Shadow_ShadowWordPain")
+  end
+  -- A shape: druid forms, the ghost wolf, shadowform
+  if world.form then
+    local title, icon = "Another Shape", "Ability_Druid_CatForm"
+    for aura, m in pairs(W.FORM_MARK) do if names[aura] then title, icon = m[1], m[2] end end
+    add(6.5, title, fillPick(W.PHYS_FORM, { form = world.form }, "form"), icon)
+  end
+  -- Spells and blessings on them; only the strongest of the quiet blessings is told
+  local quiet = false
+  for i, e in ipairs(W.AURA_LOOK) do
+    local hit
+    for _, n in ipairs(e.names or {}) do if names[n] then hit = n; break end end
+    if not hit and e.prefix then
+      for n in pairs(names) do if n:sub(1, #e.prefix) == e.prefix then hit = n; break end end
+    end
+    if hit and (e.glance or not quiet) then
+      if not e.glance then quiet = true end
+      add(e.prio, e.glance, fillPick(e.text, { aura = hit }, "aura" .. i), e.icon)
+    end
+  end
+  if world.stealthed and not names["Shadowmeld"] then
+    add(5.4, "In the Shadows", fillPick(W.PHYS_STEALTH, nil, "stealth"), "Ability_Stealth")
+  end
+  if world.mounted and not world.taxi and ns.World and ns.World.Mount then
+    add(2.5, "Mounted", fillPick(W.PHYS_MOUNT, { mount = ns.World.Mount(world) }, "mount"), "Ability_Mount_RidingHorse")
+  end
+  if auras.eating or auras.drinking then
+    add(2.2, "At a Meal", fillPick(W.PHYS_MEAL[auras.eating and "eating" or "drinking"], nil, "meal"), "INV_Misc_Food_15")
+  end
+  if world.pet and not world.mounted and not world.taxi then
+    add(1, nil, fillPick(W.PHYS_PET, { pet = world.pet, kind = (world.petKind or "companion"):lower() }, "pet"))
+  end
+  table.sort(list, function(a, b) if a.prio ~= b.prio then return a.prio > b.prio end return a.text < b.text end)
+  return list
 end
 
 function Compose.Physical()
@@ -1201,41 +1727,57 @@ function Compose.Physical()
   local world = c.world
   local noun = W.CLASS_NOUN[world.class or ""] or "wanderer"
 
-  -- The body: only what every one of their race shares, and their build from their stats
+  -- The body: what every one of their race shares, their build from their stats, how their
+  -- class and their years on the road have taught them to stand.
   local body = {}
   local rl = U.BackedList(W.RACE_LOOK[world.race or ""], world)
   if #rl > 0 then body[#body + 1] = U.Pick(rl, seed("racelook")) end
   local build = physique(c)
   body[#body + 1] = article(seasoned(world.level, "seasoned")) .. " " .. noun .. (build and (", " .. build) or "")
+  local stances = W.PHYS_STANCE[world.class or ""]
+  local stance = stances and fillPick(stances[stage(world.level)], nil, "stance")
+  if not stance then
+    local cl = U.BackedList(noGear(W.CLASS_LOOK[world.class or ""]), world)
+    if #cl > 0 then stance = U.Pick(cl, seed("classlook")) end
+  end
+  body[#body + 1] = stance
+  body[#body + 1] = fillPick(W.RACE_BEARING[world.race or ""], nil, "bearing")
 
   -- What they wear and carry, by name, and what their class keeps in the bags
+  local p = Compose.GearParts(world, itemName)
   local dress = {}
-  local cl = U.BackedList(noGear(W.CLASS_LOOK[world.class or ""]), world)
-  if #cl > 0 then dress[#dress + 1] = U.Pick(cl, seed("classlook")) end
-  dress[#dress + 1] = kit(world, false, itemName)
-  local finest = world.gear and world.gear.finest
-  if finest and finest.name and (finest.quality or 0) >= 4 then
-    dress[#dress + 1] = "The finest piece is " .. itemName(finest.name, finest.quality)
-  end
+  local function add(line) if line then dress[#dress + 1] = line end end
+  for _, k in ipairs({ "armour", "quality", "outfit", "layers", "set", "arms", "enchantIt", "ranged", "enchant", "jewel",
+    "finest", "light", "fit" }) do add(p[k]) end
+  local wear = Compose.Wear(world)
+  add(wear and wear.text)
   local bag = {}
   for i, r in ipairs(world.reagents or {}) do
     if i > 3 then break end
     bag[#bag + 1] = r.count > 1 and (U.Number(r.count) .. " " .. Compose.Plural(r.name)) or r.name
   end
-  if #bag > 0 then dress[#dress + 1] = "Keeps " .. U.Join(bag) .. " in {their} bags" end
+  if #bag > 0 then add("Keeps " .. U.Join(bag) .. " in {their} bags") end
   local band = Compose.WealthBand(world)
-  local pouch = band and U.Backed(band.pouch, world)
-  if pouch then dress[#dress + 1] = pouch end
+  add(band and U.Backed(band.pouch, world))
+  -- Nothing worn the game can name: the kit line, as the glance has it
+  if not (p.armour or p.outfit or p.arms or p.ranged) then
+    local k = kit(world, false, itemName)
+    if k then table.insert(dress, 1, k) end
+  end
 
-  -- How they are right now
-  local marks = {}
-  if world.health and world.health < 0.5 and not world.dead then marks[#marks + 1] = say("mark_wounded", nil, world.zone) end
-  if c.rpgd and (c.rpgd.insanity or 0) >= 30 then marks[#marks + 1] = say("mark_mad") end
-  if c.rpgd and (c.rpgd.align.taint or 0) >= 30 then marks[#marks + 1] = say("mark_taint") end
-  local wear = Compose.Wear(world)
-  if wear then marks[#marks + 1] = wear.text end
+  -- How they are right now: up to four things, the most striking first
+  local now = {}
+  for _, m in ipairs(Compose.NowMarks(c)) do
+    if #now < 4 then now[#now + 1] = m.text end
+  end
+  local lvl = world.level or 1
+  if #now < 2 and lvl < 60 and not world.dead then
+    if type(world.rested) == "number" and world.rested > 0 then now[#now + 1] = fillPick(W.PHYS_RESTED, nil, "rested")
+    elseif world.rested == nil and world.restKnown and not world.resting and lvl >= 10 then now[#now + 1] = fillPick(W.PHYS_UNRESTED, nil, "unrested") end
+  end
+  if #now == 0 and not world.dead and (world.health or 1) >= 0.8 then now[1] = fillPick(W.PHYS_UNHURT, nil, "unhurt") end
 
-  return pages({ paragraph(body), paragraph(dress), paragraph(marks) })
+  return pages({ paragraph(body), paragraph(dress), paragraph(now) })
 end
 
 ---------------------------------------------------------------------------
@@ -1393,9 +1935,11 @@ end
 
 -- Open to walk-ups when the mood is open; closed when it isn't; otherwise no change.
 local WALKUP_OPEN = { sociable = true, ease = true, merry = true, company = true, elated = true, festive = true,
-  smitten = true, satisfied = true, homecoming = true, proud = true, flush = true, ["calm:charming"] = true, ["calm:kind"] = true }
+  smitten = true, satisfied = true, homecoming = true, proud = true, flush = true, ["calm:charming"] = true, ["calm:kind"] = true,
+  grateful = true, cheerful = true, smug = true, bored = true }
 local WALKUP_CLOSED = { angry = true, downcast = true, sorrowful = true, wounded = true, tense = true, shaken = true,
-  ailing = true, frustrated = true, drained = true, haunted = true, ["calm:reserved"] = true, ["calm:cruel"] = true }
+  ailing = true, frustrated = true, drained = true, haunted = true, ["calm:reserved"] = true, ["calm:cruel"] = true,
+  bitter = true, exhausted = true }
 function Compose.Walkup(mood)
   if not mood then return nil end
   if WALKUP_OPEN[mood.key] then return 2 end

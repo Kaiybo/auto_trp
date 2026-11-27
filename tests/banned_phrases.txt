@@ -69,6 +69,21 @@ have limits
 ask them about
 since setting out
 
+# Mood clichés (0.21.0)
+cat that got
+bored to tears
+bored stiff
+heavy heart
+chip on
+weight off
+weight lifted
+like a kid in
+grinning from ear
+smug as
+running on fumes
+dead tired
+spring in {their} step | max 2
+
 # Fame: the profile is public, so the character isn't made out to be widely known
 a hero to
 hero of
@@ -108,6 +123,25 @@ still thinks about it
 is not done yet
 above anything else
 makes a living
+
+# Gear prose tics (About: Physical): say what is worn plainly, not like a catalogue
+draws the eye
+catches the light
+gleaming
+glinting
+imposing figure
+cuts a fine figure
+exudes
+commanding presence
+aura of
+battle-scarred
+clad in
+adorned
+resplendent
+bedecked
+donned
+sporting
+head to toe
 
 # Clichés retired in 0.21.0
 strip paint

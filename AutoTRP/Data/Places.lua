@@ -596,7 +596,7 @@ extendAll(W.PLACE_TIME, {
 -- Battlegrounds, the seas, and the moments the game shows.
 ---------------------------------------------------------------------------
 W.BG_FLAVOR = {
-  ["Warsong Gulch"] = { "fighting over the flags in Warsong Gulch", "in the thick of the fighting at Warsong Gulch",
+  ["Warsong Gulch"] = { "fighting over the flags in Warsong Gulch", "in the running fight at Warsong Gulch",
     "in the gulch where the Warsong and the Silverwing fight", "among the trees and tunnels of Warsong Gulch" },
   ["Arathi Basin"] = { "fighting for the bases of Arathi Basin", "in the battle for Arathi Basin",
     "in the fight for the farms and mines of Arathi Basin", "on the contested fields of Arathi Basin" },
