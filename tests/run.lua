@@ -651,7 +651,7 @@ do
     end
   end
   local source = {}
-  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Compose.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua" }) do
+  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Data/Places.lua", "AutoTRP/Compose.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua" }) do
     for line in io.lines(f) do
       if not line:match("^%s*%-%-") then source[#source + 1] = (line:gsub("%-%-[^\"]*$", "")):lower() end
     end
@@ -1699,6 +1699,284 @@ do
   state.zone, state.sub, state.resting, state.combat = "Duskwood", "Raven Hill", false, false
   C.SourcesChanged(); C.Refresh()
   check(C.History():find("Back at the Lion's Pride", 1, true), "with RPG Dialogue's diary back, History quotes that instead")
+end
+
+-- Currently from the game alone: with no other addon, every place has words, every moment
+-- the game shows (a ghost, a ship, a battleground, a queue, breath, a fall, a shape, a
+-- barber's chair) reaches Currently, the hour is told once, and it reads as one line.
+do
+  local W, U, C, World = ns.Words, ns.U, ns.Compose, ns.World
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  local G = {}
+  for _, k in ipairs({ "UnitIsGhost", "UnitIsDeadOrGhost", "IsInInstance", "IsSwimming", "IsFalling", "IsStealthed", "IsMounted",
+    "IsIndoors", "GetGameTime", "UnitClass", "UnitRace", "UnitFactionGroup", "UnitDebuff", "GetBattlefieldStatus", "UnitIsDND",
+    "IsInRaid", "IsInGroup", "GetNumGroupMembers", "CanMerchantRepair", "ItemTextGetItem", "UnitExists", "date" }) do G[k] = _G[k] end
+  local function restore() for k, v in pairs(G) do _G[k] = v end end
+  local saved = { zone = state.zone, sub = state.sub, resting = state.resting, buffs = state.buffs, grouped = state.grouped }
+  state.buffs = {}
+  local function cu() C.SourcesChanged(); C.Refresh(); return C.Currently(ns.Mood.Current()) end
+  local function moment() C.Refresh(); return World.Moment(ns.cache.world, "test") end
+  -- The longest plain stretch of a line (between its tags), for finding it in what's written.
+  local function core(line)
+    local best = ""
+    for part in (line .. "{"):gmatch("([^{}]*){") do
+      part = part:gsub("^[%s,%.]+", ""):gsub("[%s,%.]+$", "")
+      if #part > #best then best = part end
+    end
+    return best:lower()
+  end
+  local function has(text, list)
+    text = (text or ""):lower()
+    for _, l in ipairs(type(list) == "table" and list or { list }) do
+      local c = core(l)
+      if #c >= 4 and text:find(c, 1, true) then return true end
+    end
+    return false
+  end
+  local function at(zone, sub, resting) state.zone, state.sub, state.resting = zone, sub, resting or false end
+
+  -- Every zone the map knows has its own words, three ways or more, and the hour where it shows.
+  local thin = {}
+  for _, name in pairs(W.ZONE_BY_MAP) do
+    local list = W.ZONE_FLAVOR[name] or W.BG_FLAVOR[name]
+    if type(list) ~= "table" or #list < 3 then thin[#thin + 1] = name end
+    if not W.BG_FLAVOR[name] and name ~= "Ironforge" and name ~= "Undercity" and not (W.PLACE_TIME[name] and W.PLACE_TIME[name].night) then
+      thin[#thin + 1] = name .. " (night)"
+    end
+  end
+  check(#thin == 0, "every zone by map ID has three lines or more and a night: " .. table.concat(thin, ", "))
+  local n, short = 0, {}
+  for name, list in pairs(W.SUBZONE_FLAVOR) do n = n + 1; if #list < 3 then short[#short + 1] = name end end
+  for name, list in pairs(W.CITY_FLAVOR) do if type(list) ~= "table" or #list < 3 then short[#short + 1] = name end end
+  check(n >= 200 and #short == 0, "over two hundred subzones and every district, three ways each (" .. n .. "): " .. table.concat(short, ", "))
+
+  -- Every new line fills its tags, whatever the pronouns.
+  local fillers = { where = "x", place = "x", around = "x", sub = "x", pet = "x", sea = "x", pole = "x", bg = "x", who = "x",
+    dest = "x", what = "x", n = "two", total = "three", mount = "x", beast = "x", kind = "x" }
+  local bad = {}
+  local function scan(v, path)
+    if type(v) == "string" then
+      local line = U.Pron((v:gsub("{(%a+)}", function(k) return fillers[k] end)))
+      if line:find("{") then bad[#bad + 1] = path .. ": " .. line end
+    elseif type(v) == "table" then for k, x in pairs(v) do scan(x, path .. "." .. tostring(k)) end end
+  end
+  for _, pron in ipairs({ "she/her", "they/them" }) do
+    local old = ns.TRP.CustomPronouns
+    ns.TRP.CustomPronouns = function() return pron end
+    for _, key in ipairs({ "SUBZONE_FLAVOR", "PLACE_TIME", "CITY_FLAVOR", "ZONE_FLAVOR", "BG_FLAVOR", "BG_AT", "QUEUED", "TRANSPORT",
+      "FORM_LINES", "STEALTH", "MOMENT", "EXTRA", "ASIDE", "FESTIVAL_TOWN", "ACTIVITY" }) do scan(W[key], key) end
+    ns.TRP.CustomPronouns = old
+  end
+  check(#bad == 0, "every Currently line fills its tags: " .. table.concat(bad, " | "))
+
+  -- Places
+  at("Westfall", "Sentinel Hill")
+  local text = cu()
+  check(has(text, W.SUBZONE_FLAVOR["Sentinel Hill"]) and text:find("Westfall"), "a town has its own words, and the land too: " .. text)
+  at("Stranglethorn Vale", "Booty Bay", true)
+  check(has(cu(), W.SUBZONE_FLAVOR["Booty Bay"]), "Booty Bay: " .. cu())
+  at("Stormwind City", "The Park", true)
+  check(has(cu(), W.CITY_FLAVOR["The Park"]), "a capital's district: " .. cu())
+  at("Orgrimmar", nil, true)
+  check(has(cu(), W.ZONE_FLAVOR["Orgrimmar"]), "a capital between its districts: " .. cu())
+  -- The hour, told once: by the place's own night line, or by "under the stars", never both.
+  IsIndoors = function() return false end
+  GetGameTime = function() return 23, 0 end
+  local nightLine, twice = false, {}
+  for _, spot in ipairs({ { "Elwynn Forest", "Goldshire" }, { "Duskwood", "Darkshire" }, { "The Barrens", "The Crossroads" },
+    { "Mulgore", nil }, { "Tanaris", nil }, { "Stormwind City", "Old Town" }, { "Durotar", "Razor Hill" }, { "Westfall", nil } }) do
+    at(spot[1], spot[2])
+    for i = 1, 4 do
+      ns.char.seedName = "night" .. i
+      local t = cu()
+      local own
+      for _, l in ipairs(W.PLACE_TIME[spot[2] or spot[1]] and W.PLACE_TIME[spot[2] or spot[1]].night or {}) do
+        local s0, e0 = t:lower():find(core(l), 1, true)
+        if s0 then own = t:sub(1, s0 - 1) .. t:sub(e0 + 1) end
+      end
+      if own then nightLine = true end
+      if own and has(own, W.TIME_OF_DAY.night) then twice[#twice + 1] = t end
+    end
+  end
+  ns.char.seedName = nil
+  check(nightLine and #twice == 0, "night has its own words, and the hour is told once: " .. table.concat(twice, " | "))
+  IsIndoors, GetGameTime = G.IsIndoors, G.GetGameTime
+
+  -- Moments
+  at("Duskwood", "Raven Hill")
+  UnitIsDeadOrGhost = function() return true end
+  check(has(cu(), W.MOMENT.fallen), "fallen and not yet risen: " .. cu())
+  UnitIsGhost = function() return true end
+  local ghost = cu()
+  check(has(ghost, W.MOMENT.ghost) or has(ghost, W.TRAVEL.ghost), "a ghost on the way back: " .. ghost)
+  UnitIsGhost, UnitIsDeadOrGhost = G.UnitIsGhost, G.UnitIsDeadOrGhost
+  UnitDebuff = function(_, i) if i == 1 then return "Resurrection Sickness" end end
+  check(has(cu(), W.ASIDE.ressick), "resurrection sickness lingers in a second sentence: " .. cu())
+  UnitDebuff = G.UnitDebuff
+
+  at("The Great Sea", nil)
+  check(has(cu(), W.TRANSPORT.ship) and cu():find("the Great Sea", 1, true), "Alliance at sea: aboard a ship: " .. cu())
+  UnitFactionGroup = function() return "Horde" end
+  check(has(cu(), W.TRANSPORT.zeppelin), "Horde between the continents: a zeppelin: " .. cu())
+  at("South Seas", nil)
+  check(has(cu(), W.TRANSPORT.ship), "the Booty Bay boat is a ship for everyone: " .. cu())
+  UnitFactionGroup = G.UnitFactionGroup
+
+  IsInInstance = function() return true, "pvp" end
+  at("Warsong Gulch", nil)
+  check(has(cu(), W.BG_FLAVOR["Warsong Gulch"]), "in a battleground, by name: " .. cu())
+  at("Arathi Basin", "Lumber Mill")
+  local ab = cu()
+  check(has(ab, W.BG_FLAVOR["Arathi Basin"]) or ab:find("Lumber Mill", 1, true), "Arathi Basin, around a base: " .. ab)
+  IsInInstance = G.IsInInstance
+  at("Elwynn Forest", "Goldshire", true)
+  GetBattlefieldStatus = function(i) if i == 1 then return "queued", "Alterac Valley" end return "none" end
+  check(cu():find("Alterac Valley", 1, true) and has(cu(), W.QUEUED), "queued for a battleground: " .. cu())
+  GetBattlefieldStatus = G.GetBattlefieldStatus
+  UnitIsDND = function() return true end
+  check(has(cu(), W.ASIDE.dnd), "do not disturb: " .. cu())
+  UnitIsDND = G.UnitIsDND
+
+  at("Loch Modan", nil)
+  IsSwimming = function() return true end
+  event("MIRROR_TIMER_START", "BREATH", 60000, 60000, -1, false, "Breath")
+  check(has(cu(), W.MOMENT.underwater), "holding a breath underwater: " .. cu())
+  event("MIRROR_TIMER_STOP", "BREATH")
+  event("MIRROR_TIMER_START", "EXHAUSTION", 60000, 60000, -1, false, "Fatigue")
+  check(has(cu(), W.MOMENT.deepwater), "too far out in deep water: " .. cu())
+  event("MIRROR_TIMER_STOP", "EXHAUSTION")
+  check(not has(cu(), W.MOMENT.underwater) and not has(cu(), W.MOMENT.deepwater), "back to plain swimming when the timer stops")
+  IsSwimming = G.IsSwimming
+  IsFalling = function() return true end
+  check(has(cu(), W.MOMENT.falling), "falling: " .. cu())
+  IsFalling = G.IsFalling
+
+  IsStealthed = function() return true end
+  UnitClass = function() return "Rogue", "ROGUE" end
+  state.buffs = { "Stealth" }
+  check(has(cu(), W.STEALTH.ROGUE), "a rogue in stealth: " .. cu())
+  UnitClass = function() return "Druid", "DRUID" end
+  state.buffs = { "Cat Form", "Prowl" }
+  check(has(cu(), W.STEALTH.DRUID), "a druid on the prowl: " .. cu())
+  IsStealthed = G.IsStealthed
+  local forms = {}
+  for buff, key in pairs({ ["Bear Form"] = "bear", ["Cat Form"] = "cat", ["Travel Form"] = "travel", ["Aquatic Form"] = "aquatic",
+    ["Moonkin Form"] = "moonkin", ["Ghost Wolf"] = "ghostwolf", ["Shadowform"] = "shadowform" }) do
+    state.buffs = { buff }
+    local m = moment()
+    if not (m.extras[1] and has(m.extras[1], W.FORM_LINES[key])) then forms[#forms + 1] = buff end
+  end
+  check(#forms == 0, "every shape has its words: " .. table.concat(forms, ", "))
+  state.buffs = {}
+  UnitClass = G.UnitClass
+
+  -- Company and kit
+  at("Redridge Mountains", nil)
+  IsInGroup = function() return true end
+  GetNumGroupMembers = function() return 4 end
+  local m = moment()
+  check(m.extras[1] and (m.extras[1]:find("three") or m.extras[1]:find("four")), "a party, counted: " .. tostring(m.extras[1]))
+  IsInRaid = function() return true end
+  GetNumGroupMembers = function() return 25 end
+  m = moment()
+  check(m.extras[1] and m.extras[1]:find("twenty%-five"), "a raid, counted: " .. tostring(m.extras[1]))
+  IsInRaid, IsInGroup, GetNumGroupMembers = G.IsInRaid, G.IsInGroup, G.GetNumGroupMembers
+  local oldMain = GEAR[16]
+  GEAR[16] = { "Strong Fishing Pole", 1, "Fishing Poles" }
+  World.Invalidate()
+  check(cu():find("Strong Fishing Pole", 1, true), "a fishing pole in hand, by its name: " .. cu())
+  GEAR[16] = oldMain
+  World.Invalidate()
+
+  -- What they're busy with: frames, casts and books, from the game's own events.
+  at("Ironforge", "The Commons", true)
+  local busy = {}
+  local function sees(evt, kind, ...)
+    World.ClearContext()
+    event(evt, ...)
+    local t = cu()
+    if not has(t, W.ACTIVITY[kind]) then busy[#busy + 1] = evt .. " -> " .. t end
+  end
+  sees("BARBER_SHOP_OPEN", "barber"); sees("PET_STABLE_SHOW", "stable"); sees("CONFIRM_BINDER", "innkeeper")
+  sees("GUILDBANKFRAME_OPENED", "guildbank"); sees("GUILD_REGISTRAR_SHOW", "registrar"); sees("TRADE_SHOW", "trade")
+  sees("CONFIRM_XP_LOSS", "spirithealer"); sees("AUTOFOLLOW_BEGIN", "follow", "Somebody")
+  CanMerchantRepair = function() return true end
+  sees("MERCHANT_SHOW", "repair")
+  CanMerchantRepair = G.CanMerchantRepair
+  ItemTextGetItem = function() return "The Seven Kingdoms" end
+  sees("ITEM_TEXT_BEGIN", "reading")
+  check(cu():find("The Seven Kingdoms", 1, true), "reading a book, by its title: " .. cu())
+  check(#busy == 0, "the game's frames reach Currently: " .. table.concat(busy, " | "))
+  World.SetContext("follow")
+  event("AUTOFOLLOW_END")
+  check(not World.Context(), "following stops when the game says so")
+  check(not cu():find("Somebody", 1, true), "never names who they follow")
+  for _, k in ipairs({ "map", "feedpet", "teleport" }) do
+    World.SetContext(k, k == "teleport" and "Darnassus" or nil)
+    local t = cu()
+    check(has(t, W.ACTIVITY[k]) and (k ~= "teleport" or t:find("Darnassus")), "context " .. k .. ": " .. t)
+  end
+  check(W.SPELLS["Feed Pet"].context == "feedpet" and W.SPELLS["Feed Pet"].mood, "Feed Pet keeps its mood and shows in Currently")
+  World.ClearContext()
+
+  -- Festivals show where the game dresses for them: the capitals, and inns for Hallow's End.
+  date = function(fmt, t) if fmt == "*t" then return { year = 2026, month = 12, day = 20, hour = 12 } end return G.date(fmt, t) end
+  at("Stormwind City", "Trade District", true)
+  check(has(cu(), W.FESTIVAL_TOWN.winterveil), "Winter Veil in Stormwind: " .. cu())
+  at("Westfall", nil)
+  check(not has(cu(), W.FESTIVAL_TOWN.winterveil), "and not out on the road")
+  date = function(fmt, t) if fmt == "*t" then return { year = 2026, month = 10, day = 25, hour = 12 } end return G.date(fmt, t) end
+  at("Elwynn Forest", "Lion's Pride Inn", true)
+  check(cu():lower():find("the inn is decked out", 1, true) or cu():find("reached the inn", 1, true), "Hallow's End at the inn: " .. cu())
+  date = G.date
+
+  -- One line, never a list; and never a mark of the other addons.
+  local lines, listy = {}, {}
+  for _, spot in ipairs({ { "Elwynn Forest", "Goldshire" }, { "Ashenvale", "Astranaar" }, { "Tanaris", "Gadgetzan" },
+    { "Silithus", "Cenarion Hold" }, { "Thunder Bluff", "Elder Rise" }, { "Felwood", nil }, { "Winterspring", "Everlook" } }) do
+    at(spot[1], spot[2])
+    IsInGroup = function() return true end
+    GetNumGroupMembers = function() return 3 end
+    UnitExists = function(u) return u == "pet" end
+    local t = cu()
+    lines[#lines + 1] = t
+    local _, commas = t:gsub(",", "")
+    if commas > 3 or #t > C.CURRENTLY_MAX or t:find("Mirelle") then listy[#listy + 1] = t end
+  end
+  print("\nCurrently, from the game alone:\n  " .. table.concat(lines, "\n  "))
+  check(#listy == 0, "Currently reads as one line, not a list: " .. table.concat(listy, " | "))
+
+  -- SAMPLES=1 also prints Currently across places, hours, shapes and company.
+  if os.getenv("SAMPLES") then
+    UnitClass = function() return "Hunter", "HUNTER" end
+    UnitExists = function(u) return u == "pet" end
+    local oldName = UnitName
+    UnitName = function(u) if u == "pet" then return "Fang" end return "Aldric" end
+    IsIndoors = function() return false end
+    local spots = { { "Duskwood", "Darkshire" }, { "Stranglethorn Vale", "Grom'gol Base Camp" }, { "Dun Morogh", "Kharanos" },
+      { "Tirisfal Glades", "Brill" }, { "The Barrens", nil }, { "Desolace", "Kodo Graveyard" }, { "Un'Goro Crater", "Marshal's Refuge" },
+      { "Eastern Plaguelands", "Light's Hope Chapel" }, { "Undercity", "The Apothecarium" }, { "Moonglade", "Nighthaven" } }
+    print("\nCurrently samples:")
+    for i, spot in ipairs(spots) do
+      at(spot[1], spot[2])
+      GetGameTime = function() return ({ 23, 6, 19, 13 })[i % 4 + 1], 0 end
+      IsMounted = function() return i % 3 == 0 end
+      IsInGroup = function() return i % 4 == 1 end
+      GetNumGroupMembers = function() return i % 4 == 1 and 5 or 0 end
+      ns.char.seedName = "sample" .. i
+      print("  " .. cu())
+    end
+    ns.char.seedName = nil
+    UnitName = oldName
+  end
+
+  restore()
+  IsMounted = function() return false end
+  for k, v in pairs(saved) do state[k] = v end
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  World.ClearContext(); World.Invalidate()
+  C.SourcesChanged(); C.Refresh()
 end
 
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))

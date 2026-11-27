@@ -656,7 +656,8 @@ function World.Moment(s, seed)
     elseif sub and W.SUBZONE_FLAVOR[sub] then
       line, timed = placeLine(s, sub, W.SUBZONE_FLAVOR[sub], seed)
       -- "on the boardwalks of Booty Bay in Stranglethorn Vale": the land too, when the line doesn't say it.
-      if line and not timed and s.zone and not s.capital and not line:find(s.zone, 1, true) then line = line .. " in " .. U.Mid(s.zone) end
+      if line and not timed and s.zone and not s.capital and not line:find(s.zone, 1, true)
+        and not line:find(" in ", 1, true) then line = line .. " in " .. U.Mid(s.zone) end
     elseif s.capital then
       line, timed = placeLine(s, s.zoneKey, W.ZONE_FLAVOR[s.zoneKey] or W.MOMENT.capital, seed)
     elseif s.resting then
