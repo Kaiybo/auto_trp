@@ -291,7 +291,7 @@ ns.char.days = {
 }
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 local hist = ns.Compose.History()
-check(hist:find("Wears the colours of the Silver Lanterns and holds the rank of lamplighter there"), "history: guild")
+check(hist:find("the Silver Lanterns and holds the rank of lamplighter there"), "history: guild")
 check(hist:find("done good work for Stormwind and the Argent Dawn"), "history: reputations")
 check(hist:find("Felt downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
 -- History favours what's recent: news within three weeks leads, older deeds join the record.
@@ -442,7 +442,7 @@ for _, d in ipairs(RPGDialogueCharDB.deaths) do if d.t > NOW - 300000 then d.t =
 ns.char.finds = nil
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 local lg = ns.Compose.LatelyGlance()
-check(lg.TX:find("Was just talking warmly with Innkeeper Farley in Elwynn Forest"), "Lately: a conversation just now: " .. lg.TX)
+check(lg.TX:find("warmly with Innkeeper Farley in Elwynn Forest"), "Lately: a conversation just now: " .. lg.TX)
 RPGDialogueCharDB.deaths[1].t = savedDeath
 
 -- Dungeon atmosphere; meeting a friend
@@ -540,7 +540,7 @@ check(ns.Compose.CompanyGlance().TX:find("with a priest and two warriors%.$") or
 IsInRaid = function() return true end
 GetNumGroupMembers = function() return 20 end
 ns.Compose.Refresh()
-check(ns.Compose.CompanyGlance().TX:find("host of twenty") or ns.Compose.CompanyGlance().TX:find("host of 20"), "a raid is a host")
+check(ns.Compose.CompanyGlance().TI == "Part of a Host" and (ns.Compose.CompanyGlance().TX:find("twenty") or ns.Compose.CompanyGlance().TX:find("20")), "a raid is a host: " .. ns.Compose.CompanyGlance().TX)
 IsInRaid = function() return false end
 IsInGroup = function() return state.grouped end
 state.grouped = false
@@ -691,6 +691,10 @@ do
   for _, l in pairs(W.RACE_LOOK) do add(l) end
   for _, l in pairs(W.CLASS_LOOK) do add(l) end
   for _, l in pairs(W.PHYSIQUE) do add(l) end
+  -- Personality lines are dispositions: they name nothing a character holds either.
+  for _, l in pairs(W.CLASS_TEMPER) do add(l) end
+  for _, l in pairs(W.RACE_TEMPER) do add(l) end
+  for _, t in pairs(W.RACE_CLASS_TEMPER) do for _, l in pairs(t) do add(l) end end
   local bad = {}
   for _, list in ipairs(lists) do
     for _, line in ipairs(list) do
@@ -1352,6 +1356,33 @@ if os.getenv("SAMPLES") then
     print("\n-- History --\n" .. sh.history)
     print("\n-- Physical --\n" .. sh.physical)
   end
+  -- The same with no other addon and nothing earned: what race and class alone give.
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds = nil, nil, nil, nil
+  local bare = { { "Dwarf", "PALADIN", "Alliance", 34 }, { "Scourge", "PRIEST", "Horde", 22 }, { "Troll", "SHAMAN", "Horde", 47 },
+    { "Human", "WARLOCK", "Alliance", 15 }, { "Goblin", "ROGUE", "Horde", 28 }, { "NightElf", "DRUID", "Alliance", 52 },
+    { "Orc", "DEATHKNIGHT", "Horde", 58 }, { "Gnome", "WARRIOR", "Alliance", 8 } }
+  local lvl = UnitLevel
+  for i, c in ipairs(bare) do
+    UnitRace = function() return c[1], c[1] end
+    UnitClass = function() return c[2], c[2] end
+    UnitFactionGroup = function() return c[3] end
+    UnitLevel = function() return c[4] end
+    ns.char.seedName = "bare" .. i
+    ns.World.slow = nil
+    ns.Compose.SourcesChanged()
+    local sh = ns.Compose.Sheet()
+    print(("\n=== bare %s %s (%d): %s / %s | %s | %s ==="):format(c[1], c[2], c[4], sh.title, sh.fulltitle, tostring(sh.nickname), tostring(sh.motto)))
+    for _, g in ipairs({ "mood", "lately", "company", "ambition", "marks" }) do print(g .. ": " .. sh.glances[g].TX) end
+    print("\n-- Personality --\n" .. sh.bearing)
+    print("\n-- History --\n" .. sh.history)
+    print("\n-- Physical --\n" .. sh.physical)
+  end
+  UnitLevel = lvl
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds = keep[4], keep[5], keep[6], keep[7]
+  ns.Compose.SourcesChanged()
 end
 
 -- Secret values (Midnight-era clients): testing one taints the add-on, so they must read as unknown.
@@ -1371,6 +1402,90 @@ do
   UnitIsAFK, issecretvalue = oldAFK, nil
 end
 
+-- Race x class temperament: every pair the lore has gets a line of its own in Personality,
+-- with no other addon and with a thin RPG Dialogue record; and no paragraph opens two
+-- sentences in a row on a bare "Has".
+do
+  local W, U, C = ns.Words, ns.U, ns.Compose
+  local RACES = { Human = "Alliance", Dwarf = "Alliance", NightElf = "Alliance", Gnome = "Alliance",
+    Orc = "Horde", Scourge = "Horde", Tauren = "Horde", Troll = "Horde", Goblin = "Horde" }
+  local CLASSES = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID", "DEATHKNIGHT" }
+  local LORE = {
+    Human = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "MAGE", "WARLOCK", "DEATHKNIGHT" },
+    Dwarf = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "DEATHKNIGHT" },
+    Gnome = { "WARRIOR", "HUNTER", "ROGUE", "PRIEST", "MAGE", "WARLOCK", "DEATHKNIGHT" },
+    NightElf = { "WARRIOR", "HUNTER", "ROGUE", "PRIEST", "MAGE", "DRUID", "DEATHKNIGHT" },
+    Orc = { "WARRIOR", "HUNTER", "ROGUE", "SHAMAN", "MAGE", "WARLOCK", "DEATHKNIGHT" },
+    Troll = { "WARRIOR", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID", "DEATHKNIGHT" },
+    Tauren = { "WARRIOR", "PALADIN", "HUNTER", "PRIEST", "SHAMAN", "DRUID", "DEATHKNIGHT" },
+    Scourge = { "WARRIOR", "HUNTER", "ROGUE", "PRIEST", "MAGE", "WARLOCK", "DEATHKNIGHT" },
+    Goblin = { "WARRIOR", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DEATHKNIGHT" },
+  }
+  local missing, thin = {}, {}
+  for race, list in pairs(LORE) do
+    for _, class in ipairs(list) do
+      local pool = W.RACE_CLASS_TEMPER[race] and W.RACE_CLASS_TEMPER[race][class]
+      if not pool then missing[#missing + 1] = race .. "/" .. class elseif #pool < 2 then thin[#thin + 1] = race .. "/" .. class end
+    end
+  end
+  check(#missing == 0 and #thin == 0, "every lore pair has race x class lines, two at least: "
+    .. table.concat(missing, ", ") .. " " .. table.concat(thin, ", "))
+  for k, pool in pairs(W.CLASS_TEMPER) do if #pool < 6 then thin[#thin + 1] = "class " .. k end end
+  for k, pool in pairs(W.RACE_TEMPER) do if #pool < 5 then thin[#thin + 1] = "race " .. k end end
+  for k, pool in pairs(W.CLASS_MOTTO) do if #pool < 6 then thin[#thin + 1] = "class motto " .. k end end
+  for k, pool in pairs(W.RACE_MOTTO) do if #pool < 6 then thin[#thin + 1] = "race motto " .. k end end
+  check(#thin == 0, "six or more class tempers and mottos, five or more race tempers: " .. table.concat(thin, ", "))
+
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds }
+  local function has(text, pool)
+    for _, l in ipairs(pool) do if text:find(U.Pron(l), 1, true) then return true end end
+    return false
+  end
+  local function hasRun(text)
+    for para in (text .. "\n\n"):gmatch("(.-)\n\n") do
+      local prev
+      for s in (para .. " "):gmatch("(.-[%.!%?]\"?) ") do
+        local w = s:match("^%s*(%a+)")
+        if w == "Has" and prev == "Has" then return s end
+        prev = w
+      end
+    end
+  end
+  local noPair, runs = {}, {}
+  for _, bare in ipairs({ true, false }) do
+    if bare then
+      RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+      ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds = nil, nil, nil, nil
+    else
+      -- A thin RPG Dialogue record: a temperament and nothing else to say.
+      RPGDialogueCharDB = { schema = 7, conversations = 2, align = { light = 40 }, traits = { kind = 3 } }
+    end
+    for race, faction in pairs(RACES) do
+      for _, class in ipairs(CLASSES) do
+        UnitRace = function() return race, race end
+        UnitClass = function() return class, class end
+        UnitFactionGroup = function() return faction end
+        ns.World.slow = nil
+        C.SourcesChanged(); C.Refresh()
+        local b = C.Bearing() or ""
+        local pool = W.RACE_CLASS_TEMPER[race] and W.RACE_CLASS_TEMPER[race][class]
+        if pool and not has(b, pool) then noPair[#noPair + 1] = (bare and "bare " or "thin ") .. race .. "/" .. class end
+        local run = hasRun(b) or hasRun(C.History() or "")
+        if run then runs[#runs + 1] = race .. "/" .. class .. ": " .. run end
+      end
+    end
+  end
+  check(#noPair == 0, "a race x class line in Personality for every pair that has one: " .. table.concat(noPair, ", "))
+  check(#runs == 0, "no two sentences in a row open on a bare Has: " .. table.concat(runs, " | "))
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds = keep[4], keep[5], keep[6], keep[7]
+  UnitRace = function() return "Human", "Human" end
+  UnitClass = function() return "Priest", "PRIEST" end
+  UnitFactionGroup = function() return "Alliance" end
+  ns.World.slow = nil
+  C.SourcesChanged(); C.Refresh()
+end
+
 -- Every line reads cleanly whoever the character is: no tag left unfilled with she/her or
 -- they/them pronouns and full gear, and every mood has lines enough to vary.
 do
@@ -1380,7 +1495,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", guild = "x", rel = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then
@@ -1398,7 +1513,8 @@ do
     ns.TRP.CustomPronouns = function() return pron end
     seen = {}
     for _, key in ipairs({ "MOODS", "CALM", "RACE_TELLS", "CLASS_TELLS", "FESTIVALS", "SAY", "TRAVEL", "ACTIVITY", "PET",
-      "AMBITIONS", "RACE_LOOK", "CLASS_LOOK", "PHYSIQUE", "WEEK_TONE", "WEALTH", "DURABILITY" }) do
+      "AMBITIONS", "RACE_LOOK", "CLASS_LOOK", "PHYSIQUE", "WEEK_TONE", "WEALTH", "DURABILITY", "CLASS_TEMPER", "RACE_TEMPER",
+      "RACE_CLASS_TEMPER", "CLASS_MOTTO", "RACE_MOTTO" }) do
       scan(W[key], key)
     end
   end
