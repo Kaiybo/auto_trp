@@ -172,10 +172,18 @@ ns.On("ENCOUNTER_END", function(_, _, name, _, _, success)
 end)
 
 ns.On("PLAYER_DEAD", function()
+  -- The last foe fought (Mood.lua keeps it as { name, named }); another player is never
+  -- named, since this reaches the Deaths statistic and the Lately glance.
   local f = ns.char and ns.char.lastFight
-  local foe = f and f.foe and U.Now() - (f.t or 0) < 20 and f.foe or nil
+  local foe
+  if f and U.Now() - (f.t or 0) < 20 then
+    if type(f.foe) == "table" then foe = not f.foe.player and f.foe.name or nil
+    elseif type(f.foe) == "string" then foe = f.foe end
+  end
   -- Still in the fight when it ended: the target is the likelier killer.
-  if U.Call(UnitExists, "target") and U.Call(UnitCanAttack, "player", "target") then foe = U.Call(UnitName, "target") or foe end
+  if U.Call(UnitExists, "target") and U.Call(UnitCanAttack, "player", "target") then
+    if U.Call(UnitIsPlayer, "target") then foe = nil else foe = U.Call(UnitName, "target") or foe end
+  end
   D.Death(foe)
 end)
 local function checkInstance()

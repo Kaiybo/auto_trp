@@ -456,6 +456,10 @@ end
 
 ns.On("MAIL_SHOW", function() World.SetContext("mail") end)
 local function talkingTo()
+  -- A quest shared by another player opens the quest window with them as "npc": never
+  -- named (Currently is public), and not "talking" to anyone either.
+  local guid = World.Safe(call("UnitGUID", "npc"))
+  if call("UnitIsPlayer", "npc") or (type(guid) == "string" and guid:find("^Player")) then return end
   local who = World.Safe(call("UnitName", "npc"))
   if type(who) == "string" and who ~= "" then World.SetContext("talk", U.Plain(who)) end
 end
@@ -464,6 +468,9 @@ ns.On("QUEST_DETAIL", talkingTo)
 ns.On("QUEST_GREETING", talkingTo)
 ns.On("ITEM_TEXT_BEGIN", function()
   local title = U.Plain(World.Safe(call("ItemTextGetItem")))
+  -- A page with a writer is a player's letter: reading, but never its title (the subject a
+  -- player wrote would land in Currently).
+  if U.Plain(World.Safe(call("ItemTextGetCreator"))) then World.SetContext("reading"); World.Context().letter = true; return end
   if title then World.SetContext("reading", title) end
 end)
 ns.On("DUEL_REQUESTED", function() World.SetContext("duel") end)
@@ -676,7 +683,7 @@ function World.Moment(s, seed)
     where = where, place = place, around = sub and ("around " .. place) or ("in " .. where), sub = U.Mid(sub) or where,
     pet = s.pet or "{their} companion", sea = s.sea and U.Mid(s.sea), pole = s.pole, bg = s.queued,
     who = ctx and ctx.detail or "someone", dest = ctx and ctx.detail or "afar",
-    what = ctx and ctx.kind == "reading" and ctx.detail and ("\"" .. ctx.detail .. "\"") or "a book",
+    what = ctx and ctx.kind == "reading" and (ctx.detail and ("\"" .. ctx.detail .. "\"") or ctx.letter and "a letter") or "a book",
   }
   local function fill(text, over)
     if type(text) ~= "string" then return nil end

@@ -367,8 +367,23 @@ function Mood.Current(world)
   local second = ranked[2]
   if second and second.v >= ranked[1].v * 0.6 then
     local d2 = def(second.name, world)
-    out.also = (pick(d2.adj, seed .. second.name, world) or ""):lower()
-    if out.also == "" then out.also = nil end
+    -- Never the same word twice ("Flushed with success and flushed with victory"): the
+    -- seeded pick first, then the rest of the list, skipping any that repeat a word of adj.
+    local words = {}
+    for w in (adj or ""):lower():gmatch("%a+") do if #w >= 4 then words[w] = true end end
+    local function clashes(s)
+      for w in s:gmatch("%a+") do if words[w] then return true end end
+      return false
+    end
+    local ok = U.BackedList(d2.adj, world)
+    local first = U.Pick(ok, seed .. second.name)
+    local start = 1
+    for i, v in ipairs(ok) do if v == first then start = i; break end end
+    out.also = nil
+    for n = 0, #ok - 1 do
+      local cand = (U.Pron(ok[(start - 1 + n) % #ok + 1]) or ""):lower()
+      if cand ~= "" and not clashes(cand) then out.also = cand; break end
+    end
     out.alsoKey = second.name
   end
   return out
@@ -431,10 +446,18 @@ ns.On("PLAYER_REGEN_DISABLED", function()
   foe = nil
   if U.Call(UnitCanAttack, "player", "target") then
     local name = U.Plain(ns.World.Safe(U.Call(UnitName, "target")))
-    -- Generic creatures take "a"; players, bosses, rares and elites are named as they are.
+    -- Generic creatures take "a"; bosses, rares and elites are named as they are. Another
+    -- player is never named (this reaches the Lately glance): only what they are, "a Horde rogue".
     local kind = ns.World.Safe(U.Call(UnitClassification, "target"))
-    local named = U.Call(UnitIsPlayer, "target") or (kind and kind ~= "normal" and kind ~= "minus" and kind ~= "trivial")
-    foe = name and { name = name, named = named and true or false } or nil
+    local named = kind and kind ~= "normal" and kind ~= "minus" and kind ~= "trivial"
+    if U.Call(UnitIsPlayer, "target") then
+      local class = ns.World.Safe(U.Call(UnitClass, "target"))
+      local faction = ns.World.Safe(U.Call(UnitFactionGroup, "target"))
+      name = (type(faction) == "string" and faction ~= "Neutral" and (faction .. " ") or "")
+        .. (type(class) == "string" and class:lower() or "enemy")
+      named = "player"
+    end
+    foe = name and { name = name, named = named == true or nil, player = named == "player" or nil } or nil
   end
   Mood.Sizeup()
 end)
@@ -455,7 +478,9 @@ local function onHealth(_, unit)
     local dead = ns.World.Safe(U.Call(UnitIsDeadOrGhost, unit)) and true or false
     local name = U.Call(UnitName, unit)
     if dead and name and not ns.partyDead[name] then
-      Mood.Push("sorrowful", 18, "watched " .. name .. " fall")
+      -- The reason is saved with the mood: only a Social Diary friend is named in it.
+      local f = Mood.Friend and Mood.Friend(name)
+      Mood.Push("sorrowful", 18, "watched " .. (f or "a companion") .. " fall")
       Mood.Push("angry", 10)
     end
     if name then ns.partyDead[name] = dead end
@@ -496,7 +521,10 @@ end)
 local QUALITY_HEX = { a335ee = 4, ["0070dd"] = 3, ff8000 = 5 }
 ns.On("CHAT_MSG_LOOT", function(_, msg)
   msg = ns.World.Safe(msg)
-  if type(msg) ~= "string" or not msg:find("^You ") or msg:find("^You create") then return end
+  -- Only "You receive loot/item": a roll won says "You won: [x]" and then "You receive
+  -- loot: [x]" for the same piece, which would count the find twice (and the roll itself
+  -- is felt below).
+  if type(msg) ~= "string" or not msg:find("^You receive") then return end
   local q = tonumber(msg:match("|cnIQ(%d+):"))
   if not q then local hex = msg:match("|cff(%x%x%x%x%x%x)"); q = hex and QUALITY_HEX[hex:lower()] end
   local item = msg:match("%[(.-)%]")
@@ -627,7 +655,7 @@ ns.On("PLAYER_TARGET_CHANGED", function()
     if f.name == name then metAt[name] = now; Mood.Push("elated", 20, "ran into " .. name) return end
   end
   for _, f in ipairs(sd and sd.foes or {}) do
-    if f.name == name then metAt[name] = now; Mood.Push("angry", 20, "crossed paths with " .. name) return end
+    if f.name == name then metAt[name] = now; Mood.Push("angry", 20, "crossed paths with an old foe") return end
   end
   -- Someone of the other faction (not a duel partner of your own).
   local theirs, mine = ns.World.Safe(U.Call(UnitFactionGroup, "target")), ns.World.Safe(U.Call(UnitFactionGroup, "player"))

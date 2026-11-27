@@ -156,7 +156,7 @@ Copy the `AutoTRP` folder into `World of Warcraft/<your Forever folder>/Interfac
 | `/atrp welcome` | show the welcome window again |
 | `/atrp on` / `off` | resume or pause |
 
-Fields: `currently`, `title`, `fulltitle`, `nickname`, `motto`, `icon`, `residence`, `birthplace`, `traits`, `bearing`, `history`, `physical`, `glance_mood`, `glance_lately`, `glance_company`, `glance_ambition`, `glance_marks`, `relationship`, `ooc`, `namecolour`, `music`, `stat_deaths`, `stat_lands`, `stat_road`, `stat_dungeons`, `stat_foes`, `stat_rares`, `stat_slain`, `stat_jobs`, `stat_wealth`, `stat_crafts`, `stat_standing`, `stat_names`, `stat_spell`, `stat_books`, `stat_faction`, `stat_guild`, `stat_level`, `stat_talents`, `stat_fish`, `stat_made`, `stat_gathered`, `stat_duels`, `stat_battles`, `stat_gold`, `stat_inns`, `stat_hit`. (`ooc_doing`, the OOC line's "what you're doing", is a switch on `ooc`.)
+Fields: `currently`, `title`, `fulltitle`, `nickname`, `motto`, `icon`, `residence`, `birthplace`, `traits`, `bearing`, `history`, `physical`, `glance_mood`, `glance_lately`, `glance_company`, `glance_ambition`, `glance_marks`, `relationship`, `ooc`, `walkup`, `namecolour`, `music`, `stat_deaths`, `stat_lands`, `stat_road`, `stat_dungeons`, `stat_foes`, `stat_rares`, `stat_slain`, `stat_jobs`, `stat_wealth`, `stat_crafts`, `stat_standing`, `stat_names`, `stat_spell`, `stat_books`, `stat_faction`, `stat_guild`, `stat_level`, `stat_talents`, `stat_fish`, `stat_made`, `stat_gathered`, `stat_duels`, `stat_battles`, `stat_gold`, `stat_inns`, `stat_hit`. (`ooc_doing`, the OOC line's "what you're doing", is a switch on `ooc`.)
 
 ## Language
 

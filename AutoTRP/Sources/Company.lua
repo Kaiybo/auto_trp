@@ -211,7 +211,12 @@ ns.On("GROUP_ROSTER_UPDATE", function() Co.Roster() end)
 ns.On("PLAYER_ENTERING_WORLD", function() Co.Roster(); Co.Entered() end)
 ns.On("ZONE_CHANGED_NEW_AREA", function() Co.Entered() end)
 ns.On("PLAYER_REGEN_ENABLED", function() if pendingRoster then Co.Roster() end end)
-ns.On("PLAYER_GUILD_UPDATE", function() rosterAt = 0; askGuildRoster() end)
+-- A guild change asks again soon, but never more than once a minute: asking for the roster
+-- can itself bring PLAYER_GUILD_UPDATE, which must not turn into a loop of requests.
+ns.On("PLAYER_GUILD_UPDATE", function()
+  rosterAt = math.min(rosterAt, U.Now() - Co.GUILD_ROSTER_EVERY + 60)
+  askGuildRoster()
+end)
 ns.OnUnit("UNIT_PET", "player", function() if not inCombat() then Co.NotePet() end end)
 ns.OnUnit("UNIT_HEALTH", "pet", function() Co.PetHealth() end)
 ns.Listen("LOGIN", function()

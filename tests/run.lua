@@ -62,7 +62,7 @@ UnitRace = function() return "Human", "Human" end
 UnitClass = function() return "Priest", "PRIEST" end
 UnitFactionGroup = function() return "Alliance" end
 UnitName = function() return "Aldric" end
-UnitGUID = function() return "Player-1-0001" end
+UnitGUID = function(u) if u == "npc" then return "Creature-0-1-0-1-295-000001" end return "Player-1-0001" end
 GetRealmName = function() return "Forever" end
 GetBindLocation = function() return "Goldshire" end
 UnitHealth = function() return 100 end
@@ -1114,7 +1114,7 @@ do
   ph = wear({ [5] = { "Robe of Power", 3, "Cloth", 40 }, [16] = { "Dagger of Wisdom", 2, "Daggers", 40, "INVTYPE_WEAPON" },
     [17] = { "Tome of Knowledge", 2, "Miscellaneous", 40, "INVTYPE_HOLDABLE" }, [18] = { "Wand of Fire", 2, "Wands", 40, "INVTYPE_RANGEDRIGHT" } }, "MAGE", 40)
   check(plain(ph):find("Tome of Knowledge held in the other hand") or plain(ph):find("Tome of Knowledge in the other hand"), "an off-hand held: " .. plain(ph))
-  check(plain(ph):find("Wand of Fire, a wand"), "a wand by name")
+  check(plain(ph):find("Wand of Fire") and not plain(ph):find("Wand of Fire, a wand"), "a wand by name, without \"Wand of Fire, a wand\": " .. plain(ph))
   -- Gear long outgrown
   ph = wear({ [5] = { "Old Robe", 2, "Cloth", 15 }, [7] = { "Old Pants", 2, "Cloth", 15 }, [8] = { "Old Boots", 2, "Cloth", 15 },
     [10] = { "Old Gloves", 2, "Cloth", 15 } }, "MAGE", 40)
@@ -2135,6 +2135,17 @@ do
   check(news:find("Slitherskin Mackerel", 1, true) and news:find("Elwynn Forest", 1, true), "History: a new kind of fish")
   check(news:find("Lion's Pride Inn", 1, true), "History: a new inn")
   check(news:find("The Fall of Ameth'Aran", 1, true) or news:find("only just came through", 1, true) or news:find("within a breath", 1, true), "History: a book or a close call")
+  do
+    local twice
+    for sent in news:gmatch("[^%.]+") do
+      local seen = {}
+      for place in sent:gmatch(" in ([%u][%a']+ ?[%u]?[%a']*)") do
+        if seen[place] then twice = sent end
+        seen[place] = true
+      end
+    end
+    check(not twice, "History's news names a place once a sentence: " .. tostring(twice))
+  end
   ns.char.honours, ns.char.seen.zones = honours, zonesSeen
   life().pvp.last.t, life().mounts.seen["Brown Horse"].t, life().gear.epic.t = NOW, NOW, NOW
   check(not hist:find("Gankalot", 1, true) and not hist:find("Brannoc", 1, true) and not hist:find("died", 1, true), "History names no other player and no death")
@@ -3675,6 +3686,134 @@ do
   GameTooltip = nil
 end
 
+
+-- Review fixes (0.21.0): names, repeats and doubles.
+do
+  -- The second feeling in Currently never repeats a word of the first ("Flushed with
+  -- success and flushed with victory").
+  local keepMood, keepSeed = ns.char.mood, ns.char.seedName
+  local bad
+  for i = 1, 120 do
+    ns.char.mood = { emo = { elated = 80, triumphant = 75 }, t = NOW, why = {} }
+    ns.char.seedName = "also" .. i
+    local m = ns.Mood.Current(ns.cache.world)
+    if m.also then
+      for w in m.adj:lower():gmatch("%a+") do
+        if #w >= 4 and (" " .. m.also .. " "):find("[^%a]" .. w .. "[^%a]") then bad = m.adj .. " / " .. m.also end
+      end
+    end
+  end
+  check(not bad, "the mood's second word never repeats the first: " .. tostring(bad))
+  ns.char.mood, ns.char.seedName = keepMood, keepSeed
+
+  -- An enemy player fought is never named: not in the Lately glance, not as a killer.
+  local saved = { UnitCanAttack, UnitIsPlayer, UnitName, UnitClass, UnitFactionGroup, UnitExists, UnitClassification }
+  UnitExists = function(u) return u == "target" or u == "player" end
+  UnitCanAttack = function(_, u) return u == "target" end
+  UnitIsPlayer = function(u) return u == "target" or u == "player" end
+  UnitName = function(u) if u == "target" then return "Gankalot" end return "Aldric" end
+  UnitClass = function(u) if u == "target" then return "Rogue", "ROGUE" end return "Priest", "PRIEST" end
+  UnitFactionGroup = function(u) if u == "target" then return "Horde" end return "Alliance" end
+  UnitClassification = function() return "normal" end
+  event("PLAYER_REGEN_DISABLED")
+  event("PLAYER_REGEN_ENABLED")
+  local f = ns.char.lastFight
+  check(f and type(f.foe) == "table" and f.foe.player and f.foe.name == "Horde rogue", "an enemy player is kept as what they are: " .. tostring(f and f.foe and f.foe.name))
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+  local lately = ns.Compose.LatelyGlance()
+  check(not (lately and lately.TX or ""):find("Gankalot", 1, true), "the Lately glance never names an enemy player: " .. tostring(lately and lately.TX))
+  local deaths = #ns.char.deeds.deaths
+  event("PLAYER_DEAD")
+  local last = ns.char.deeds.deaths[#ns.char.deeds.deaths]
+  check(#ns.char.deeds.deaths == deaths + 1 and last.killer == nil, "a death to an enemy player keeps no name: " .. tostring(last and last.killer))
+  -- A creature the fight was with still counts as the killer.
+  UnitIsPlayer = function(u) return u == "player" end
+  UnitName = function(u) if u == "target" then return "Hogger" end return "Aldric" end
+  event("PLAYER_REGEN_DISABLED")
+  event("PLAYER_REGEN_ENABLED")
+  UnitExists = function(u) return u == "player" end
+  event("PLAYER_DEAD")
+  last = ns.char.deeds.deaths[#ns.char.deeds.deaths]
+  check(last.killer == "Hogger", "a creature that killed them is still named: " .. tostring(last.killer))
+  UnitCanAttack, UnitIsPlayer, UnitName, UnitClass, UnitFactionGroup, UnitExists, UnitClassification = unpack(saved)
+  ns.char.lastFight = nil
+
+  -- A roll won is one find, not two ("You won: [x]" then "You receive loot: [x]").
+  local finds = ns.char.finds and #ns.char.finds or 0
+  ns.char.finds = ns.char.finds or {}
+  local before = #ns.char.finds
+  event("CHAT_MSG_LOOT", "You won: |cffa335ee|Hitem:9|h[Gutgore Ripper]|h|r")
+  event("CHAT_MSG_LOOT", "You receive loot: |cffa335ee|Hitem:9|h[Gutgore Ripper]|h|r.")
+  local n = 0
+  for _, fd in ipairs(ns.char.finds) do if fd.item == "Gutgore Ripper" then n = n + 1 end end
+  check(n == 1, "a roll won is one find: " .. n)
+  for i = #ns.char.finds, 1, -1 do if ns.char.finds[i].item == "Gutgore Ripper" then table.remove(ns.char.finds, i) end end
+
+  -- A player's letter: reading, but never its subject.
+  local gi, gc = ItemTextGetItem, ItemTextGetCreator
+  ItemTextGetItem = function() return "Meet me at Gankalot's" end
+  ItemTextGetCreator = function() return "Gankalot" end
+  event("ITEM_TEXT_BEGIN")
+  local ctx = ns.World.Context()
+  check(ctx and ctx.kind == "reading" and ctx.detail == nil, "a player's letter is read, its subject never kept")
+  ItemTextGetItem, ItemTextGetCreator = gi, gc
+  ns.World.SetContext("none")
+
+  -- A quest shared by another player: the quest window names them as "npc", Currently never does.
+  local keepGUID, keepName, keepIsPlayer = UnitGUID, UnitName, UnitIsPlayer
+  UnitGUID = function(u) return "Player-1-00C1" end
+  UnitName = function(u) if u == "npc" then return "Gankalot" end return "Aldric" end
+  UnitIsPlayer = function(u) return u == "npc" or u == "player" end
+  ns.World.SetContext("none")
+  event("QUEST_DETAIL")
+  local c2 = ns.World.Context()
+  check(not (c2 and c2.detail == "Gankalot"), "a quest shared by a player never names them in Currently")
+  UnitGUID, UnitName, UnitIsPlayer = keepGUID, keepName, keepIsPlayer
+  ns.World.SetContext("none")
+
+  -- A companion falling: the mood's saved reason names only a Social Diary friend.
+  local keepName2, keepDead = UnitName, UnitIsDeadOrGhost
+  UnitName = function(u) if u == "party1" then return "Brannoc" end return "Aldric" end
+  UnitIsDeadOrGhost = function(u) return u == "party1" end
+  ns.partyDead = nil
+  event("UNIT_HEALTH", "party1")
+  local why = ns.char.mood.why and ns.char.mood.why.sorrowful
+  check(why and not why:find("Brannoc", 1, true), "a companion's fall is saved without their name: " .. tostring(why))
+  UnitName, UnitIsDeadOrGhost = keepName2, keepDead
+  ns.partyDead = nil
+
+  -- Joining a guild is told once: "took up the colours of X", not then "Wears the colours of X".
+  local keepCh, keepW, keepCo = ns.char.changes, ns.char.watched, ns.char.company and ns.char.company.guild
+  ns.char.changes = { { kind = "joined", to = "The Silver Lanterns", t = NOW - 60 } }
+  ns.char.watched = { guild = "The Silver Lanterns", guildRank = "Lamplighter" }
+  if ns.char.company then ns.char.company.guild = { name = "The Silver Lanterns", since = NOW - 60, rank = "Lamplighter" } end
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+  local h = ns.Compose.History()
+  local again
+  for _, v in ipairs({ "Wears the colours of", "Belongs to the Silver", "Is one of the Silver", "Answers to the Silver",
+    "member of the Silver", "lot with the Silver" }) do if h:find(v, 1, true) then again = v end end
+  check(h:find("took up the colours of the Silver Lanterns", 1, true) and not again and h:find("Holds the rank of lamplighter", 1, true),
+    "a guild just joined is told once, with the rank: " .. tostring(again))
+  ns.char.changes, ns.char.watched = keepCh, keepW
+  if ns.char.company then ns.char.company.guild = keepCo end
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+
+  -- Pronouns agree: a dwarf's feet are planted "like he means to stay".
+  local found
+  for _, l in ipairs(ns.Words.PHYS_RACE_BEARING and ns.Words.PHYS_RACE_BEARING.Dwarf or {}) do
+    if l:find("like {they} mean") then found = l end
+  end
+  local any = false
+  local function scan(t, depth)
+    if depth > 6 then return end
+    for _, v in pairs(t) do
+      if type(v) == "string" and v:find("{they} mean ", 1, true) then any = v
+      elseif type(v) == "table" then scan(v, depth + 1) end
+    end
+  end
+  scan(ns.Words, 0)
+  check(not any, "no \"{they} mean\" without {s}: " .. tostring(any))
+end
 
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then

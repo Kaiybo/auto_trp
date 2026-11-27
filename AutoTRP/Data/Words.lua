@@ -1934,7 +1934,7 @@ W.DURABILITY = {
 -- Every one of a race shares these: voice, gait, bulk. Nothing a player can customise.
 W.RACE_BEARING = {
   Human = { "Speaks plainly, in the common tongue of the eastern kingdoms.", "Neither tall nor short, and easy to lose in a crowd." },
-  Dwarf = { "Speaks with a deep mountain burr.", "Plants {their} feet like {they} mean to stay there." },
+  Dwarf = { "Speaks with a deep mountain burr.", "Plants {their} feet like {they} mean{s} to stay there." },
   Gnome = { "Talks quickly, in a high, bright voice.", "Has to look up at almost everyone, and doesn't seem to mind." },
   NightElf = { "Moves almost without sound.", "Has the patience of a people who count their lives in centuries." },
   Orc = { "Speaks in a rough, growling voice.", "Takes up more room than most, and knows it." },

@@ -184,11 +184,33 @@ function Compose.Currently(mood)
   local m = ns.World.Moment(world, s)
   local tod = not m.timed and ns.World.TimeOfDay(world, s) or nil
   local ex = m.extras
+  -- Never the same word twice in one line ("Taking it all in ..., taking a room at the inn"):
+  -- another way to say the mood when the place line has the adjective's word, and no second
+  -- feeling that repeats one.
+  local function words(text)
+    local w = {}
+    for x in (text or ""):lower():gmatch("%a+") do if #x >= 4 then w[x] = true end end
+    return w
+  end
+  local function clash(a, b)
+    local wa = words(a)
+    for x in pairs(words(b)) do if wa[x] then return true end end
+    return false
+  end
+  local adj, also = mood.adj, mood.also
+  if adj and clash(adj, m.main) then
+    local def = W.MOODS[mood.key] or (mood.key and W.CALM[mood.key:gsub("^calm:", "")])
+    for _, a in ipairs(U.BackedList(def and def.adj, world)) do
+      a = U.Pron(a)
+      if not clash(a, m.main) and not (also and clash(a, also)) then adj = a; break end
+    end
+  end
+  if also and clash(also, m.main) then also = nil end
   local function build(withAlso, extras, withTod, withAside)
-    local text = mood.adj
+    local text = adj
     -- "Weary and uneasy", but "In no hurry, hale and hearty" rather than a run of ands.
-    if withAlso and mood.also then
-      text = text .. ((text:find(" and ") or mood.also:find(" and ")) and ", " or " and ") .. mood.also
+    if withAlso and also then
+      text = text .. ((text:find(" and ") or also:find(" and ")) and ", " or " and ") .. also
     end
     text = text .. ", " .. m.main
     if withTod and tod then text = text .. " " .. tod end
@@ -1293,7 +1315,10 @@ function Compose.History()
   -- seasoned they look) so History is never just one line.
   if #roots < 3 then
     local title = Compose.Title()
-    if title and (world.level or 1) >= 10 then roots[#roots + 1] = say("rankso", { rank = title }) end
+    -- Not when the news below tells of rising to it.
+    local lastRise = ns.char and ns.char.milestones and ns.char.milestones[#ns.char.milestones]
+    local risen = lastRise and recent(lastRise.t)
+    if title and (world.level or 1) >= 10 and not risen then roots[#roots + 1] = say("rankso", { rank = title }) end
     if world.zone then roots[#roots + 1] = say("keepsto", { zone = placeName(world.zone) }, world.zone) end
   end
   paras[#paras + 1] = paragraph(roots)
@@ -1468,6 +1493,15 @@ function Compose.History()
     local preds, more = {}, {}
     for k = 1, math.min(5, #g) do
       table.insert(k <= 3 and preds or more, g[k].text); toldRecent[g[k].key] = true
+    end
+    -- "caught a fish in Elwynn Forest and came through a fight in Elwynn Forest": the
+    -- place once, on the first that says it.
+    for _, list in ipairs({ preds, more }) do
+      local said = {}
+      for k, text in ipairs(list) do
+        local head, place = text:match("^(.*) in ([^,]-)$")
+        if place and said[place] then list[k] = head elseif place then said[place] = true end
+      end
     end
     lately[#lately + 1] = say("when_" .. order[i], nil, g[1].key) .. ", " .. subject .. " " .. U.Join(preds)
     if #more > 0 then lately[#lately + 1] = "{they} also " .. U.Join(more) end
@@ -1715,10 +1749,15 @@ function Compose.History()
     if since >= 86400 then
       vars.span = Co.Span(since) .. ((gi.since or 0) <= tracked + 600 and " at least" or "")
       line = cw("h_guild", vars, world.guild)
+    elseif toldRecent.guild and lastOf.guild and lastOf.guild.kind ~= "left" then
+      -- The news has just told of joining: not "took up the colours of X" and then "Wears
+      -- the colours of X" again. Only the rank, if there is one.
+      line = world.guildRank and ("Holds the rank of " .. world.guildRank:lower() .. " in " .. vars.guild) or nil
     else
       line = cw("h_guild_now", vars, world.guild)
     end
-    people[#people + 1] = line .. (serve and (", and " .. serve) or "")
+    if line then people[#people + 1] = line .. (serve and (", and " .. serve) or "")
+    elseif serve then people[#people + 1] = U.Cap(serve) end
   elseif serve then
     people[#people + 1] = U.Cap(serve)
   end
@@ -1791,6 +1830,17 @@ local function fillPick(list, vars, key)
   if #ok == 0 then return nil end
   local line = U.Pick(ok, seed("phys:" .. key))
   return (line:gsub("{([%a']+)}", function(k) if not PRON_TAGS[k] then return vars[k] end end))
+end
+
+-- "Walks with Staff of Westfall, a staff": when the weapon's own name already says what it
+-- is, the aside goes ("Walks with Staff of Westfall").
+local function dropKind(text, name, kind)
+  if type(text) ~= "string" or type(name) ~= "string" or type(kind) ~= "string" then return text end
+  local noun = kind:match("(%a+)$")
+  if not noun or not (" " .. name:lower() .. " "):find("[^%a]" .. noun .. "[^%a]") then return text end
+  text = text:gsub(", an? [%a ]-" .. noun .. ",", ""):gsub(", an? [%a ]-" .. noun .. "$", "")
+  text = text:gsub(", {their} " .. noun .. ",", "")
+  return text
 end
 
 local function stage(level)
@@ -1900,13 +1950,14 @@ function Compose.GearParts(world, fmt)
     local m, o = s[16], s[17]
     local vars = { main = m and told(16), off = o and told(17), kind = m and W.WEAPONS[m.sub or ""] }
     vars.shield = key == "shield" and vars.off or nil
-    out.arms = fillPick(W.PHYS_ARMS[key], vars, "arms" .. key)
+    out.arms = dropKind(fillPick(W.PHYS_ARMS[key], vars, "arms" .. key), m and m.name, key == "staff" and "a staff" or vars.kind)
     out.armsKey = key
   elseif not s[18] and (world.level or 1) >= 10 and not world.form then
     out.arms = fillPick(W.PHYS_ARMS.none, nil, "unarmed")
   end
   if s[18] then
-    out.ranged = fillPick(W.PHYS_RANGED[s[18].sub or ""] or W.PHYS_RANGED.default, { ranged = told(18) }, "ranged")
+    out.ranged = dropKind(fillPick(W.PHYS_RANGED[s[18].sub or ""] or W.PHYS_RANGED.default, { ranged = told(18) }, "ranged"),
+      s[18].name, W.WEAPONS[s[18].sub or ""])
   end
 
   -- Enchantments: the weapon first, else how many
