@@ -18,6 +18,7 @@ Core.lua
 Data\RPGDNames.lua
 Data\Words.lua
 Data\Places.lua
+Data\Delves.lua
 Sources\World.lua
 Sources\RPGDialogue.lua
 Sources\SocialDiary.lua
@@ -27,12 +28,14 @@ Sources\Self.lua
 Sources\Life.lua
 Sources\Company.lua
 Sources\Goals.lua
+Sources\Delves.lua
 Sources\Style.lua
 Sources\Renown.lua
 Sources\Pack.lua
 Mood.lua
 Journal.lua
 Compose.lua
+Runs.lua
 Keepsakes.lua
 Register.lua
 TRP.lua

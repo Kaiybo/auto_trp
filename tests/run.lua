@@ -933,7 +933,7 @@ do
     end
   end
   local source = {}
-  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Data/Places.lua", "AutoTRP/Compose.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua" }) do
+  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Data/Places.lua", "AutoTRP/Data/Delves.lua", "AutoTRP/Compose.lua", "AutoTRP/Runs.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua" }) do
     for line in io.lines(f) do
       if not line:match("^%s*%-%-") then source[#source + 1] = (line:gsub("%-%-[^\"]*$", "")):lower() end
     end
@@ -3824,6 +3824,173 @@ do
   end
   scan(ns.Words, 0)
   check(not any, "no \"{they} mean\" without {s}: " .. tostring(any))
+end
+
+-- Dungeon and raid runs as stories (Sources/Delves.lua, Runs.lua): runs simulated from game
+-- events, with wipes, deaths, loot, an early leave and a full clear, then the writing.
+do
+  local C, Dv, R, W = ns.Compose, ns.Sources.Delves, ns.Runs, ns.Words
+  local saved = { IsInInstance = IsInInstance, GetInstanceInfo = GetInstanceInfo, UnitName = UnitName, UnitGUID = UnitGUID,
+    UnitClass = UnitClass, IsInGroup = IsInGroup, IsInRaid = IsInRaid, GetNumGroupMembers = GetNumGroupMembers,
+    CL = CombatLogGetCurrentEventInfo, zone = state.zone, sub = state.sub, delves = ns.char.delves, deeds = ns.char.deeds }
+  ns.char.delves = nil
+  C.SourcesChanged(); C.Refresh()   -- Social Diary friends known (Mirelle)
+  local party = { party1 = { "Mirelle", "Player-1-0002", "WARRIOR" }, party2 = { "Tobb", "Player-1-0003", "MAGE" },
+    party3 = { "Hesk", "Player-1-0004", "MAGE" }, party4 = { "Quill", "Player-1-0005", "ROGUE" } }
+  UnitName = function(u) return party[u] and party[u][1] or "Aldric" end
+  UnitGUID = function(u) if party[u] then return party[u][2] end return "Player-1-0001" end
+  UnitClass = function(u) if party[u] then return party[u][3], party[u][3] end return "Priest", "PRIEST" end
+  IsInGroup = function() return true end
+  IsInRaid = function() return false end
+  GetNumGroupMembers = function() return 5 end
+  local inside, place, kind = false, "The Deadmines", "party"
+  IsInInstance = function() if inside then return true, kind end return false, "none" end
+  GetInstanceInfo = function() return place end
+  local log
+  CombatLogGetCurrentEventInfo = function() return unpack(log) end
+  local function died(guid, name) log = { 0, "UNIT_DIED", false, nil, nil, 0, 0, guid, name, 0x514 }; event("COMBAT_LOG_EVENT_UNFILTERED") end
+  local function go(where, k) inside, place, kind = true, where, k or "party"; state.zone = where; event("ZONE_CHANGED_NEW_AREA") end
+  local function out() inside = false; state.zone = "Westfall"; event("ZONE_CHANGED_NEW_AREA") end
+  local function kill(boss) event("ENCOUNTER_START", 1, boss, 1, 5); event("ENCOUNTER_END", 1, boss, 1, 5, 1) end
+  local function wipe(boss, deaths)
+    event("ENCOUNTER_START", 1, boss, 1, 5)
+    for k = 1, deaths or 0 do local u = party["party" .. (k % 4 + 1)]; died(u[2], u[1]) end
+    event("ENCOUNTER_END", 1, boss, 1, 5, 0)
+  end
+  local function d() return ns.char.delves end
+
+  -- A death outside a dungeon is nothing to the run record, and nothing is going on yet.
+  died("Player-1-0002", "Mirelle")
+  check(d() == nil or d().cur == nil, "the combat log is ignored outside a dungeon")
+  -- 1. The Deadmines with four others: Mr. Smite throws them back twice and takes two, then a full clear... nearly.
+  go("The Deadmines")
+  check(d().cur and d().cur.place == "The Deadmines" and d().cur.size == 5, "a run starts on entering, with the group's size")
+  check(d().cur.classes.MAGE == 2 and d().cur.classes.WARRIOR == 1 and d().cur.friends and d().cur.friends[1] == "Mirelle", "classes counted; only a Social Diary friend kept by name")
+  kill("Rhahk'Zor"); kill("Sneed"); kill("Gilnid")
+  wipe("Mr. Smite", 2); wipe("Mr. Smite", 0)
+  kill("Mr. Smite")
+  log = { 0, "SPELL_DAMAGE", false, "Creature-1", "Defias", 0, 0, "Player-1-0002", "Mirelle", 0, 0, 100 }; event("COMBAT_LOG_EVENT_UNFILTERED")
+  died("Creature-0-1-0-1-99-1", "Defias Miner")   -- not one of the group
+  event("CHAT_MSG_LOOT", "You receive loot: |cff0070dd|Hitem:5191::|h[Cruel Barb]|h|r.")
+  event("CHAT_MSG_LOOT", "You receive loot: |cff1eff00|Hitem:2::|h[Green Thing]|h|r.")
+  event("CHAT_MSG_LOOT", "Tobb receives loot: |cffa335ee|Hitem:3::|h[Someone Else's Epic]|h|r.")
+  kill("Captain Greenskin"); kill("Edwin VanCleef")
+  Dv.Died(true)
+  local cur = d().cur
+  check(cur.wipes == 2 and cur.tries["Mr. Smite"] == 2 and cur.lostTo["Mr. Smite"] == 2, "wipes from ENCOUNTER_END success 0, and who was lost to which master")
+  check(cur.deaths == 2 and cur.mine == 1, "group deaths counted from UNIT_DIED (only the group), the character's own apart")
+  check(#cur.loot == 1 and cur.loot[1].name == "Cruel Barb" and cur.loot[1].q == 3, "fine loot received inside, not plain pieces or others' rolls")
+  check(#cur.bosses == 6 and cur.bosses[4].name == "Mr. Smite" and cur.bosses[4].tries == 2, "masters in order, with the tries it took")
+  -- Out to release and run back: the same run.
+  out()
+  check(d().cur and d().cur.out, "stepping out doesn't end the run at once")
+  go("The Deadmines")
+  check(d().cur and not d().cur.out and #d().runs == 0, "back in soon: the same run")
+  out()
+  d().cur.out = NOW - Dv.AWAY - 5
+  Dv.Settle()
+  local r1 = d().runs[1]
+  check(r1 and r1.full and r1.firstClear and r1.got == 6 and r1.of == 6, "a full clear of the known masters, the first there")
+  check(d().places["The Deadmines"].clears == 1 and d().places["The Deadmines"].wipes == 2, "totals per place")
+  -- 2. Shadowfang Keep, left early after two masters.
+  go("Shadowfang Keep")
+  kill("Rethilgore"); kill("Razorclaw the Butcher")
+  out(); d().cur.out = NOW - Dv.AWAY - 5; Dv.Settle()
+  local r2 = d().runs[2]
+  check(r2 and not r2.full and r2.got == 2 and r2.of == 8 and r2.standing == "Baron Silverlaine", "left early: how far they got, and the next master standing")
+  -- 3. The Scarlet Monastery's Library, by wing.
+  go("Scarlet Monastery")
+  kill("Houndmaster Loksey"); kill("Arcanist Doan")
+  out(); d().cur.out = NOW - Dv.AWAY - 5; Dv.Settle()
+  check(d().runs[3].full and d().runs[3].wing == "the Library", "a wing cleared counts as a full clear of it")
+  -- 4. Molten Core in a raid: Magmadar throws them back three times and stands.
+  GetNumGroupMembers = function() return 40 end
+  go("Molten Core", "raid")
+  kill("Lucifron"); wipe("Magmadar", 3); wipe("Magmadar", 1); wipe("Magmadar", 0)
+  -- Entering somewhere else ends the run at once.
+  go("The Deadmines")
+  check(#d().runs == 4 and d().runs[4].place == "Molten Core" and d().runs[4].wipes == 3, "entering another place ends the run before")
+  kill("Rhahk'Zor")
+  out(); d().cur.out = NOW - Dv.AWAY - 5; Dv.Settle()
+  go("The Deadmines"); kill("Rhahk'Zor"); kill("Sneed"); out(); d().cur.out = NOW - Dv.AWAY - 5; Dv.Settle()
+  GetNumGroupMembers = function() return 5 end
+  -- Ages, so the story has a when: the full clear last week, the rest older.
+  for i, r in ipairs(d().runs) do r.stop = NOW - (#d().runs - i + 1) * 86400 * 9; r.start = r.stop - 3600 end
+  d().runs[1].stop, d().runs[1].start = NOW - 8 * 86400, NOW - 8 * 86400 - 3600
+  d().places["The Deadmines"].firstClear = d().runs[1].stop
+  C.SourcesChanged(); C.Refresh()
+  local hist = C.History()
+  print("\n--- History with dungeon runs ---\n" .. hist)
+  check(hist:find("Mr. Smite", 1, true) and hist:find("Cruel Barb", 1, true) and hist:find("Mirelle", 1, true), "History tells the run as a story: master, loot, a friend by name")
+  check(not hist:find("Tobb", 1, true) and not hist:find("Hesk", 1, true) and not hist:find("Quill", 1, true), "other players in the run are never named")
+  check(hist:find("Magmadar", 1, true), "the hardest-fought master")
+  check(hist:find("Shadowfang Keep", 1, true) or hist:find("Molten Core", 1, true), "a place left unfinished")
+  local any = false
+  for _, l in ipairs(W.DELVES["The Deadmines"].lines) do if hist:find(l, 1, true) then any = true end end
+  check(any, "with a line on what the place is like")
+  check(not hist:gsub("{col:%x+}", ""):gsub("{/col}", ""):find("[{}]") and not hist:find("  ", 1, true), "the story fills every tag")
+  local st = C.Stats()
+  check(st.deepest == "The Deadmines, all 6 masters" and st.wipes:find("^5, 3 of them to Magmadar"), "Deepest run and Wipes statistics: " .. tostring(st.deepest) .. " / " .. tostring(st.wipes))
+  check(ns.TRP.FIELDS.stat_deepest and ns.TRP.FIELDS.stat_wipes and ns.db.fields.stat_deepest and ns.db.fields.stat_wipes, "the new statistics have fields and switches")
+  local tips = 0
+  for _, k in ipairs({ "stat_deepest", "stat_wipes" }) do if ns.UI.TipFor({ path = { "fields", k } }) then tips = tips + 1 end end
+  check(tips == 2, "and tooltips")
+  -- The place they keep going back to (three runs into the Deadmines).
+  check(hist:find("Deadmines", 1, true) and (hist:find("going back", 1, true) or hist:find("runs", 1, true) or hist:find("three times", 1, true)), "the place they keep going back to")
+  -- Lately and Marks, just after a hard run.
+  local last = d().runs[#d().runs]
+  last.stop = NOW - 600; last.wipes = 2; last.tries = { Sneed = 2 }; last.lostTo = { Sneed = 1 }
+  C.SourcesChanged(); C.Refresh()
+  local lately = R.Lately(ns.cache)
+  check(lately and lately.g.TI == "A Hard Run" and lately.g.TX:find("Sneed", 1, true), "Lately: a fresh, hard run: " .. tostring(lately and lately.g.TX))
+  local mk = R.Mark(ns.cache)
+  check(mk and mk.title == "A Hard Run" and not mk.text:find("{place}", 1, true), "Marks: after a hard run")
+  last.stop = NOW - 4 * 3600
+  C.SourcesChanged(); C.Refresh()
+  check(R.Lately(ns.cache) == nil and R.Mark(ns.cache) == nil, "and not hours later")
+  -- Every pronoun and seed reads cleanly.
+  local leftovers = {}
+  local oldPron = ns.TRP.CustomPronouns
+  for _, pron in ipairs({ "she/her", "they/them", "he/him" }) do
+    ns.TRP.CustomPronouns = function() return pron end
+    for i = 1, 25 do
+      ns.char.seedName = "runs" .. i
+      local h = C.History()
+      if h:gsub("{col:%x+}", ""):gsub("{/col}", ""):find("[{}]") or h:find(" ,", 1, true) or h:find("%.%.") or h:find("she were") or h:find("he were") then leftovers[#leftovers + 1] = h end
+      if os.getenv("SAMPLES") and i <= 3 and pron == "she/her" then
+        local paras = {}
+        for p in (h .. "\n\n"):gmatch("(.-)\n\n") do paras[#paras + 1] = p end
+        for _, p in ipairs(paras) do if p:find("Deadmines", 1, true) or p:find("Molten", 1, true) then print("\nRuns, another voice:\n" .. p) end end
+      end
+    end
+  end
+  ns.TRP.CustomPronouns = oldPron
+  ns.char.seedName = "Aldric-Forever"
+  check(#leftovers == 0, "dungeon stories read cleanly in every voice: " .. (leftovers[1] or ""))
+  -- Every classic dungeon and raid, Ragefire Chasm to Naxxramas, has masters and four lines or more.
+  local n, thin = 0, {}
+  for name, e in pairs(W.DELVES) do
+    n = n + 1
+    local masters = 0
+    for _, w in ipairs(e.wings or { { bosses = e.bosses } }) do masters = masters + #w.bosses end
+    if #e.lines < 4 or masters == 0 then thin[#thin + 1] = name end
+  end
+  check(n >= 26 and #thin == 0 and W.DELVES["Ragefire Chasm"] and W.DELVES["Naxxramas"], "every classic dungeon and raid has its masters and four lines (" .. n .. "): " .. table.concat(thin, ", "))
+  -- Bounded: only the last 40 runs are kept.
+  for i = 1, 45 do go("Ragefire Chasm"); kill("Oggleflint"); out(); d().cur.out = NOW - Dv.AWAY - 5; Dv.Settle() end
+  check(#d().runs == Dv.KEEP and d().places["Ragefire Chasm"].runs == 45, "only the last 40 runs are kept; totals go on")
+  if os.getenv("SAMPLES") then
+    C.SourcesChanged(); C.Refresh()
+    local s = C.Stats()
+    print("\nDeepest run: " .. tostring(s.deepest) .. " | Wipes: " .. tostring(s.wipes))
+  end
+
+  IsInInstance, GetInstanceInfo, UnitName, UnitGUID = saved.IsInInstance, saved.GetInstanceInfo, saved.UnitName, saved.UnitGUID
+  UnitClass, IsInGroup, IsInRaid, GetNumGroupMembers = saved.UnitClass, saved.IsInGroup, saved.IsInRaid, saved.GetNumGroupMembers
+  CombatLogGetCurrentEventInfo, state.zone, state.sub = saved.CL, saved.zone, saved.sub
+  event("ZONE_CHANGED_NEW_AREA")
+  ns.char.delves, ns.char.deeds = saved.delves, saved.deeds
+  C.SourcesChanged(); C.Refresh()
 end
 
 -- Possessions and keepsakes (Sources/Pack.lua, Keepsakes.lua): mock bags read through the

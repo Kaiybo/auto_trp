@@ -72,6 +72,7 @@ function Compose.Refresh()
     c.deeds = S.Deeds.Read()
     c.self = S.Self and S.Self.Read(c) or nil
     c.life = S.Life and S.Life.Read() or nil
+    c.delves = S.Delves and S.Delves.Read() or nil
     c.pack = S.Pack and S.Pack.Read() or nil
     c.style = S.Style and S.Style.Read() or nil
     c.renown = S.Renown and S.Renown.Read() or nil
@@ -369,6 +370,10 @@ function Compose.LatelyGlance()
   end
   -- What's in the bags: something new, something long kept let go (Keepsakes.lua).
   for _, k in ipairs(Compose.KeepsakeLately and Compose.KeepsakeLately() or {}) do add(k.t, k.prio, k.g) end
+
+  -- A dungeon or raid run just over (Runs.lua).
+  local run = ns.Runs and ns.Runs.Lately(c)
+  if run then add(run.t, run.prio, run.g) end
 
   -- A day-old hurt outranks everything; otherwise the newest, then the weightiest. (A strict
   -- order: table.sort may compare an entry with itself.)
@@ -731,6 +736,9 @@ function Compose.MarksGlance()
       mark(4.4, GATHER_MARK[gr.kind][1], say("mark_" .. gr.kind, nil, gr.start), GATHER_MARK[gr.kind][2])
     end
   end
+  -- Just out of a hard dungeon or raid run (Runs.lua).
+  local rm = ns.Runs and ns.Runs.Mark(c)
+  if rm then mark(rm.prio, rm.title, rm.text, rm.icon) end
   local finest = g.finest or (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
   if finest and finest.name and finest.quality >= 4 then
     mark(4, "Remarkable Gear", say("remarkable", { item = finest.name }, finest.name), "INV_Misc_Gem_Pearl_04")
@@ -1403,10 +1411,16 @@ function Compose.History()
     for k, t in ipairs(caught) do titles[k] = lowerFirst(t.title) end
     event(caught[1].t, 3, "got caught up in " .. U.Join(titles), "thread:" .. caught[1].id)
   end
+  -- Dungeon and raid runs as stories (Runs.lua): what the story tells isn't news twice.
+  local tales, taleTold = nil, { bosses = {}, items = {} }
+  if ns.Runs then
+    local t, told = ns.Runs.Tales(c, name)
+    tales, taleTold = t, told or taleTold
+  end
   local bosses = Compose.Bosses(c)
   local nb = 0
   for _, b in ipairs(bosses) do
-    if nb < 2 and recent(b.t) and earnedKey ~= "boss:" .. b.name then
+    if nb < 2 and recent(b.t) and earnedKey ~= "boss:" .. b.name and not taleTold.bosses[b.name] then
       nb = nb + 1
       local again = b.first and b.first > 0 and not recent(b.first)
       event(b.t, 3, (again and "brought down " .. b.name .. " again" or "helped bring down " .. b.name), "boss:" .. b.name)
@@ -1454,7 +1468,7 @@ function Compose.History()
   end
   local finds = ns.char and ns.char.finds or {}
   local f = finds[#finds]
-  if f then event(f.t, 7, "came by " .. itemName(f.item, f.quality) .. (f.zone and (" in " .. U.Mid(f.zone)) or ""), "find") end
+  if f and not taleTold.items[f.item] then event(f.t, 7, "came by " .. itemName(f.item, f.quality) .. (f.zone and (" in " .. U.Mid(f.zone)) or ""), "find") end
   -- Auto TRP's own record of the rest of life on the road.
   local life = c.life
   if life then
@@ -1544,6 +1558,7 @@ function Compose.History()
     subject = "{they}"
   end
   paras[#paras + 1] = paragraph(lately)
+  if tales then paras[#paras + 1] = paragraph(tales) end
 
   -- 3. The longer record: the name and the deed behind it (these stay), then what came
   -- before the news, briefly.
@@ -1661,7 +1676,7 @@ function Compose.History()
   local oldFinds = {}
   for k = #finds, 1, -1 do
     local fd = finds[k]
-    if #oldFinds < 2 and not (k == #finds and toldRecent.find) then
+    if #oldFinds < 2 and not (k == #finds and toldRecent.find) and not taleTold.items[fd.item] then
       oldFinds[#oldFinds + 1] = itemName(fd.item, fd.quality) .. (fd.zone and (" from " .. U.Mid(fd.zone)) or "")
     end
   end
@@ -1834,7 +1849,7 @@ function Compose.History()
     nowLines[#nowLines + 1] = ns.Journal.LatestLine(quote)   -- Auto TRP's own journal (Journal.lua)
   end
   paras[#paras + 1] = paragraph(nowLines)
-  paras[6] = Compose.Drives()   -- 6. What drives them
+  paras[#paras + 1] = Compose.Drives()   -- 6. What drives them (after the runs, when there are any)
 
   return pages(paras)
 end
@@ -2224,6 +2239,9 @@ Compose.STATS = {
   { key = "gold", label = "Most gold held", icon = "INV_Misc_Coin_01" },
   { key = "inns", label = "Inns stayed at", icon = "INV_Drink_05" },
   { key = "hit", label = "Hardest hit", icon = "Ability_Warrior_Rampage" },
+  -- From Auto TRP's record of dungeon and raid runs (Sources/Delves.lua, Runs.lua).
+  { key = "deepest", label = "Deepest run", icon = "INV_Misc_Key_13" },
+  { key = "wipes", label = "Wipes", icon = "Spell_Shadow_DeathScream" },
   -- How every faction sees them (Sources/Renown.lua): "Exalted with 1, Revered with 3".
   { key = "renown", label = "Standing", icon = "INV_Misc_Token_ArgentDawn" },
   { key = "letters", label = "Letters received", icon = "INV_Letter_15", retired = true },
@@ -2342,12 +2360,13 @@ function Compose.Stats()
   local top = Compose.TopSpells(1)[1]
   if top and top.n >= 10 then out.spell = top.name .. ", " .. figure(top.n) .. " times"
   elseif top then out.spell = top.name .. ", " .. U.Times(top.n) end
+  if ns.Runs then ns.Runs.Stats(c, out) end
   out.keepsake = Compose.KeepsakeStat and Compose.KeepsakeStat() or nil
   -- Nothing counted yet still says so, so no statistic is left blank.
   if not out.road and days == 0 then out.road = "Less than a day" end
   if not out.lands and world.zone then out.lands = "1" end
   for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "crafts", "standing", "books", "names", "spell",
-    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "renown", "keepsake" }) do
+    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "renown", "keepsake", "deepest", "wipes" }) do
     out[k] = out[k] or "None yet"
   end
   return out
