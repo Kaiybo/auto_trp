@@ -17,6 +17,7 @@
 Core.lua
 Data\RPGDNames.lua
 Data\Words.lua
+Data\JournalWords.lua
 Data\Places.lua
 Data\Calling.lua
 Data\Delves.lua
