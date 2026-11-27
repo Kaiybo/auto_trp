@@ -1153,7 +1153,8 @@ do
             local v = sh.glances[g]
             if not v or not v.TX or v.TX == "" or not v.TI or not v.IC then missing[#missing + 1] = "glance " .. g end
           end
-          for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "wealth", "crafts", "standing", "books", "names", "spell" }) do
+          for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "wealth", "crafts", "standing", "books", "names", "spell",
+            "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit" }) do
             if not sh.stats[k] then missing[#missing + 1] = "stat " .. k end
           end
         end
@@ -1316,6 +1317,278 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- Life on the road (Sources/Life.lua): every hook fed a fake event, with RPG Dialogue,
+-- Social Diary and Chronicle all absent, then the writing it feeds.
+do
+  local C, L = ns.Compose, ns.Sources.Life
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones = nil, nil, nil, nil
+  ns.char.life = nil
+  L.Store().since = NOW - 7200   -- the record has been running a while, so new things are news
+  state.zone, state.sub, state.resting, state.combat = "Elwynn Forest", "Goldshire", false, false
+  local function life() return ns.char.life end
+
+  -- Fishing: a fishing loot window, fish counted (not grey junk), the first of a kind is news.
+  IsFishingLoot = function() return true end
+  event("LOOT_OPENED")
+  for _ = 1, 6 do event("CHAT_MSG_LOOT", "You receive loot: |cffffffff|Hitem:6303::|h[Raw Slitherskin Mackerel]|h|r.") end
+  event("CHAT_MSG_LOOT", "You receive loot: |cff9d9d9d|Hitem:1::|h[Waterlogged Envelope]|h|r.")
+  IsFishingLoot = function() return false end
+  check(life().fish.n == 6 and life().fish.byName["Raw Slitherskin Mackerel"] == 6, "fish caught are counted, grey junk isn't: " .. tostring(life().fish.n))
+  check(life().fish.new and life().fish.new.name == "Raw Slitherskin Mackerel" and life().fish.new.zone == "Elwynn Forest", "a new kind of fish is news, with where")
+  -- Gathering: herbs from a gathering loot window.
+  ns.World.SetContext("herbs")
+  event("LOOT_OPENED")
+  event("CHAT_MSG_LOOT", "You receive loot: |cffffffff|Hitem:2447::|h[Peacebloom]|h|rx3.")
+  check(life().gather.herbs == 3, "herbs gathered, with how many: " .. tostring(life().gather.herbs))
+  ns.World.SetContext("mining"); event("LOOT_OPENED")
+  event("CHAT_MSG_LOOT", "You receive loot: |cffffffff|Hitem:2770::|h[Copper Ore]|h|r.")
+  check(life().gather.ore == 1, "ore mined")
+  -- Crafting: "You create" at a trade.
+  ns.World.SetContext("craft", "Cooking")
+  event("CHAT_MSG_LOOT", "You create: |cffffffff|Hitem:6890::|h[Smoked Bear Meat]|h|rx5.")
+  ns.World.SetContext("none")
+  check(life().made.n == 5 and life().made.byProf.Cooking == 5 and life().made.byItem["Smoked Bear Meat"] == 5, "things made, by trade and item")
+  -- Duels, from the system line; the other side's name is never kept.
+  event("CHAT_MSG_SYSTEM", "Aldric has defeated Brannoc in a duel")
+  event("CHAT_MSG_SYSTEM", "Brannoc has defeated Aldric in a duel")
+  event("CHAT_MSG_SYSTEM", "Aldric has fled from Brannoc in a duel")
+  event("DUEL_FINISHED")
+  check(life().duels.won == 1 and life().duels.lost == 2, "duels won and lost (fleeing is a loss): " .. tostring(life().duels.won) .. "/" .. tostring(life().duels.lost))
+  local saved = false
+  local function find(t, s) for k, v in pairs(t) do if v == s or k == s or (type(v) == "table" and find(v, s)) then return true end end end
+  check(not find(life(), "Brannoc"), "the other duellist's name is never kept")
+  -- Money: looted coin, quest rewards, repairs, vendor buying and selling, the most held, auctions.
+  event("CHAT_MSG_MONEY", "You loot 2 Gold, 3 Silver, 4 Copper")
+  event("QUEST_TURNED_IN", 99, 450, 5000)
+  local purse = 250000
+  local oldMoney = GetMoney
+  GetMoney = function() return purse end
+  GetRepairAllCost = function() return 1500 end
+  event("PLAYER_MONEY")
+  event("MERCHANT_SHOW")
+  purse = 248500; event("PLAYER_MONEY")
+  purse = 248000; event("PLAYER_MONEY")
+  purse = 249000; event("PLAYER_MONEY")
+  event("MERCHANT_CLOSED")
+  purse = 5000000; event("PLAYER_MONEY")
+  purse = 250000; event("PLAYER_MONEY")
+  GetMoney, GetRepairAllCost = oldMoney, nil
+  local m = life().money
+  check(m.looted == 20304 and m.quests == 5000, "coin looted and earned from jobs: " .. tostring(m.looted) .. ", " .. tostring(m.quests))
+  check(m.repairs == 1500 and m.vendor == 500 and m.sold == 1000, "repairs, buying and selling at a vendor")
+  check(m.most == 5000000, "the most gold ever held")
+  event("CHAT_MSG_SYSTEM", "A buyer has been found for your auction of Linen Cloth.")
+  check(m.auctions == 1, "an auction sold")
+  -- Inns, the hearthstone, flight masters, a mount, a level, /played.
+  state.resting, state.sub = true, "Lion's Pride Inn"
+  event("PLAYER_UPDATE_RESTING")
+  check(life().inns["Lion's Pride Inn"] and not life().inns["Lion's Pride Inn"].before, "resting at an inn")
+  state.resting, state.sub = false, "Goldshire"
+  event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", 8690)
+  check(life().hearths == 1, "the hearthstone")
+  local nodes = { { "Stormwind, Elwynn", "CURRENT" }, { "Lakeshire, Redridge", "REACHABLE" }, { "Far Away", "NONE" } }
+  NumTaxiNodes = function() return #nodes end
+  TaxiNodeGetType = function(i) return nodes[i][2] end
+  TaxiNodeName = function(i) return nodes[i][1] end
+  event("TAXIMAP_OPENED"); event("TAXIMAP_CLOSED")
+  nodes[#nodes + 1] = { "Sentinel Hill, Westfall", "REACHABLE" }
+  event("TAXIMAP_OPENED"); event("TAXIMAP_CLOSED")
+  NumTaxiNodes, TaxiNodeGetType, TaxiNodeName = nil, nil, nil
+  check(life().paths.known["Stormwind, Elwynn"] == 1 and life().paths.known["Sentinel Hill, Westfall"] == NOW and not life().paths.known["Far Away"],
+    "flight masters: the first look takes in the known, a later one is new")
+  IsMounted = function() return true end
+  state.buffs[#state.buffs + 1] = "Brown Horse"
+  L.CheckMount()
+  table.remove(state.buffs)
+  IsMounted = function() return false end
+  L.CheckMount()
+  check(life().mounts.seen["Brown Horse"], "a mount ridden for the first time")
+  event("TIME_PLAYED_MSG", 90000, 3600)
+  event("PLAYER_LEVEL_UP", 23)
+  check(life().levels[23] and life().levels[23].played == 3600, "a level, with how long the one before took to play")
+  -- Emotes, the company kept (counted, never named), coming back.
+  for _ = 1, 30 do event("CHAT_MSG_TEXT_EMOTE", "You wave.") end
+  check(life().emotes.wave == 30, "emotes the character uses")
+  local oldName = UnitName
+  local party = { party1 = "Mirelle", party2 = "Tobb" }
+  UnitName = function(u) return party[u] or "Aldric" end
+  state.grouped = true
+  event("GROUP_ROSTER_UPDATE")
+  event("GROUP_ROSTER_UPDATE")
+  check(life().company.n == 2 and life().company.groups == 1, "people grouped with, each once per group")
+  check(not find(life(), "Tobb") and not find(life(), "Mirelle"), "and never by name")
+  check(L.TimesWith("Mirelle") == 1, "but a friend can be looked up by name")
+  state.grouped = false
+  event("GROUP_ROSTER_UPDATE")
+  party = { party1 = "Hesk" }
+  state.grouped, state.combat = true, true
+  event("GROUP_ROSTER_UPDATE")
+  check(life().company.n == 2, "nothing is counted in a fight")
+  state.combat = false
+  event("PLAYER_REGEN_ENABLED")
+  check(life().company.n == 3 and life().company.groups == 2, "the roster is read when the fight ends")
+  state.grouped = false
+  event("GROUP_ROSTER_UPDATE")
+  UnitName = oldName
+  event("RESURRECT_REQUEST", "Someone"); event("PLAYER_ALIVE")
+  event("CONFIRM_XP_LOSS"); event("PLAYER_UNGHOST")
+  check(life().rez.other == 1 and life().rez.spirit == 1, "resurrected by someone else, and by the spirit healer")
+  -- The combat log: the hardest hits, falls, killing blows on players (never by name).
+  local log
+  CombatLogGetCurrentEventInfo = function() return unpack(log) end
+  local function cl(...) log = { ... }; event("COMBAT_LOG_EVENT_UNFILTERED") end
+  cl(0, "SWING_DAMAGE", false, "Player-1-0001", "Aldric", 0, 0, "Creature-1", "Kobold", 0, 0, 120)
+  cl(0, "SPELL_DAMAGE", false, "Player-1-0001", "Aldric", 0, 0, "Creature-1", "Kobold", 0, 0, 585, "Smite", 2, 340)
+  cl(0, "SWING_DAMAGE", false, "Creature-2", "Defias Pillager", 0, 0, "Player-1-0001", "Aldric", 0, 0, 500)
+  cl(0, "SPELL_DAMAGE", false, "Player-9-0009", "Gankalot", 0, 0, "Player-1-0001", "Aldric", 0, 0, 1, "Backstab", 1, 900)
+  cl(0, "SPELL_HEAL", false, "Player-1-0001", "Aldric", 0, 0, "Player-1-0001", "Aldric", 0, 0, 2061, "Flash Heal", 2, 5000)
+  cl(0, "PARTY_KILL", false, "Player-1-0001", "Aldric", 0, 0, "Player-9-0009", "Gankalot")
+  cl(0, "ENVIRONMENTAL_DAMAGE", false, nil, nil, 0, 0, "Player-1-0001", "Aldric", 0, 0, "Falling", 80)
+  check(life().hits.dealt.n == 340 and life().hits.dealt.spell == "Smite", "the hardest hit dealt, with the spell")
+  check(life().hits.taken.n == 900 and life().hits.taken.from == nil, "the hardest hit taken; a player who dealt it isn't named")
+  check(life().pvp.kb == 1 and not (ns.char.deeds and ns.char.deeds.kills and ns.char.deeds.kills.byName.Gankalot), "a killing blow on a player, never kept by name")
+  check(life().env.Falling and life().env.Falling.n == 1, "a fall")
+  cl(0, "ENVIRONMENTAL_DAMAGE", false, nil, nil, 0, 0, "Player-1-0001", "Aldric", 0, 0, "Falling", 800)
+  event("PLAYER_DEAD")
+  local dd = ns.char.deeds.deaths
+  check(dd[#dd].cause == "Falling" and dd[#dd].killer == nil and life().env.Falling.deaths == 1, "a death from a fall is the fall's, not the last foe's")
+  CombatLogGetCurrentEventInfo = nil
+  -- A close call: under a tenth of health in a fight, and still standing at the end.
+  local oldHealth = UnitHealth
+  event("PLAYER_REGEN_DISABLED")
+  UnitHealth = function() return 6 end
+  event("UNIT_HEALTH", "player")
+  UnitHealth = oldHealth
+  event("PLAYER_REGEN_ENABLED")
+  check(life().close.n == 1 and life().close.last.zone == "Elwynn Forest", "a close call")
+  ns.char.lastFight = nil
+  -- Gear: the first rare and epic piece put on; books and letters read.
+  event("PLAYER_EQUIPMENT_CHANGED", 1, true)
+  event("PLAYER_EQUIPMENT_CHANGED", 16, true)
+  event("PLAYER_EQUIPMENT_CHANGED", 5, true)
+  check(life().gear.epic.name == "Crown of the Lost" and life().gear.rare.name == "Staff of Westfall", "the first epic and rare piece worn")
+  ItemTextGetItem = function() return "The Fall of Ameth'Aran" end
+  ItemTextGetCreator = function() return nil end
+  event("ITEM_TEXT_BEGIN")
+  ItemTextGetCreator = function() return "Brannoc" end
+  event("ITEM_TEXT_BEGIN")
+  ItemTextGetItem, ItemTextGetCreator = nil, nil
+  check(life().books["The Fall of Ameth'Aran"] and life().letters.n == 1, "a book by its title; a letter counted, its writer not kept")
+  local mails = { false, false }
+  GetInboxNumItems = function() return #mails end
+  GetInboxHeaderInfo = function(i) return nil, nil, "x", "y", 0, 0, 3, false, mails[i] end
+  event("MAIL_SHOW"); event("MAIL_INBOX_UPDATE")
+  mails[1] = true; event("MAIL_INBOX_UPDATE")
+  GetInboxNumItems, GetInboxHeaderInfo = nil, nil
+  check(life().letters.n == 2, "a letter opened at the mailbox")
+  -- A battleground: the result counted once.
+  local oldInst = IsInInstance
+  IsInInstance = function() return true, "pvp" end
+  GetInstanceInfo = function() return "Warsong Gulch" end
+  GetBattlefieldWinner = function() return 1 end
+  event("UPDATE_BATTLEFIELD_STATUS"); event("UPDATE_BATTLEFIELD_STATUS")
+  IsInInstance, GetInstanceInfo, GetBattlefieldWinner = oldInst, nil, nil
+  check(life().pvp.fought == 1 and life().pvp.won == 1, "a battleground won, counted once")
+
+  -- The writing, with no other addon at all.
+  ns.World.slow = nil
+  C.SourcesChanged(); C.Refresh()
+  local st = C.Stats()
+  check(st.fish == "6" and st.made == "5" and st.gathered == "3 herbs, 1 ore", "statistics: fish, things made, gathered: "
+    .. tostring(st.fish) .. " | " .. tostring(st.made) .. " | " .. tostring(st.gathered))
+  check(st.duels == "1 won, 2 lost" and st.battles == "1 fought, 1 won; 1 killing blow", "statistics: duels and battles: " .. tostring(st.duels) .. " | " .. tostring(st.battles))
+  check(st.gold == "9,999 gold, 99 silver" and st.inns == "1", "statistics: most gold held (or the purse now, if more), inns: " .. tostring(st.gold) .. " | " .. tostring(st.inns))
+  check(st.hit == "340 with Smite; 900 taken", "statistics: the hardest hits: " .. tostring(st.hit))
+  check(st.books == "1", "books read without RPG Dialogue: " .. tostring(st.books))
+  local hist = C.History()
+  print("\nHistory from Auto TRP's own record alone:\n" .. hist)
+  check(hist:find("Warsong Gulch", 1, true) and hist:find("Brown Horse", 1, true), "History: a battle and a new mount")
+  check(hist:find("Crown of the Lost", 1, true), "History: fine gear put on")
+  -- Five events at most make the news; with the weightier ones a month old, the rest come through.
+  local function age(t) if t then t.t = NOW - 30 * 86400 end end
+  age(life().pvp.last); age(life().mounts.seen["Brown Horse"]); age(life().gear.epic); age(life().gear.rare)
+  local honours, zonesSeen = ns.char.honours, ns.char.seen.zones
+  ns.char.honours, ns.char.seen.zones = nil, {}
+  C.SourcesChanged(); C.Refresh()
+  local news = C.History()
+  print("\nHistory, the smaller news:\n" .. news)
+  check(news:find("Slitherskin Mackerel", 1, true) and news:find("Elwynn Forest", 1, true), "History: a new kind of fish")
+  check(news:find("duels", 1, true) and news:find("Lion's Pride Inn", 1, true), "History: duels and a new inn")
+  check(news:find("The Fall of Ameth'Aran", 1, true) or news:find("only just came through", 1, true) or news:find("within a breath", 1, true), "History: a book or a close call")
+  ns.char.honours, ns.char.seen.zones = honours, zonesSeen
+  life().pvp.last.t, life().mounts.seen["Brown Horse"].t, life().gear.epic.t = NOW, NOW, NOW
+  check(not hist:find("Gankalot", 1, true) and not hist:find("Brannoc", 1, true) and not hist:find("died", 1, true), "History names no other player and no death")
+  local marks = C.MarksGlance()
+  check(marks.TI == "Sore", "Marks: a fall just now: " .. tostring(marks.TI) .. ": " .. tostring(marks.TX))
+  life().env.Falling.t = NOW - 3600
+  C.SourcesChanged(); C.Refresh()
+  check(C.MarksGlance().TI == "Fresh From a Duel", "Marks: a duel just now: " .. C.MarksGlance().TI)
+  for _, d in ipairs(life().duels.log) do d.t = NOW - 3600 end
+  C.SourcesChanged(); C.Refresh()
+  check(C.MarksGlance().TI == "Smells of Fish", "Marks: an afternoon's fishing: " .. C.MarksGlance().TI .. ": " .. C.MarksGlance().TX)
+  local lately = C.LatelyGlance()
+  local LATELY = { ["A Fresh Catch"] = true, ["Back From Battle"] = true, ["A New Mount"] = true, ["Fresh Kit"] = true,
+    Reading = true, ["At Work"] = true, ["A New Inn"] = true, Fishing = true, ["Duel Won"] = true, ["Duel Lost"] = true }
+  check(LATELY[lately.TI], "Lately: from Auto TRP's own record: " .. tostring(lately.TI) .. ": " .. tostring(lately.TX))
+  local function latelyAfter(fn) fn(); C.SourcesChanged(); C.Refresh(); return C.LatelyGlance() end
+  check(latelyAfter(function() life().pvp.last.t = NOW + 1 end).TI == "Back From Battle", "Lately: back from a battle")
+  check(latelyAfter(function() life().fish.new.t = NOW + 2 end).TX:find("Slitherskin Mackerel", 1, true), "Lately: a fresh catch")
+  check(latelyAfter(function() life().mounts.seen["Brown Horse"].t = NOW + 3 end).TX:find("a Brown Horse", 1, true), "Lately: a new mount")
+  check(latelyAfter(function() life().books["The Fall of Ameth'Aran"].t = NOW + 4 end).TI == "Reading", "Lately: a book")
+  life().made.run.n = 6
+  check(latelyAfter(function() life().made.run.last = NOW + 5 end).TX:find("cooking", 1, true), "Lately: a stretch at a trade")
+
+  -- Bigger counts: the longer record, and habits in Personality.
+  local richMoney = GetMoney
+  GetMoney = function() return 250000 end
+  life().fish.n = 150
+  life().fish.zones = { ["Elwynn Forest"] = 50, Westfall = 40, Duskwood = 30, ["Loch Modan"] = 30 }
+  life().made.byProf.Cooking = 120
+  life().gather.herbs = 140
+  life().duels.won, life().duels.lost = 14, 3
+  life().money.most, life().money.quests, life().money.repairs = 3120000, 900000, 300000
+  for i = 1, 6 do life().inns["Inn " .. i] = { t = NOW - 30 * 86400, last = NOW - 30 * 86400, n = 1 } end
+  for _ = 1, 40 do event("CHAT_MSG_TEXT_EMOTE", "You bow before Hesk.") end
+  C.SourcesChanged(); C.Refresh()
+  hist = C.History()
+  print("\nHistory with a longer record:\n" .. hist)
+  check(hist:find("caught more than a hundred fish in four different lands", 1, true), "History: fish caught, told as a count")
+  check(hist:find("cooked more than a hundred meals", 1, true) and hist:find("picked more than a hundred herbs", 1, true), "History: cooking and herbs")
+  check(hist:find("won fourteen of seventeen duels", 1, true), "History: duels")
+  check(hist:find("had as much as 312 gold to", 1, true), "History: the most gold held")
+  check(hist:find("rested at seven different inns", 1, true), "History: inns")
+  local bearing = C.Bearing()
+  print("\nPersonality:\n" .. bearing)
+  local fishHabit, bowHabit = false, false
+  for _, l in ipairs(ns.Words.LIFE.HABIT.fish_many) do if bearing:find(l, 1, true) then fishHabit = true end end
+  for _, l in ipairs(ns.Words.LIFE.EMOTE.bow) do if bearing:find(l, 1, true) then bowHabit = true end end
+  check(fishHabit and bowHabit, "Personality: habits the counts back (fishing, bowing)")
+  check(bearing:find("The Fall of Ameth'Aran", 1, true), "Personality: a book read, without RPG Dialogue")
+  life().fish.n = 10
+  C.SourcesChanged(); C.Refresh()
+  local noHabit = true
+  for _, l in ipairs(ns.Words.LIFE.HABIT.fish_many) do if C.Bearing():find(l, 1, true) then noHabit = false end end
+  for _, l in ipairs(ns.Words.LIFE.HABIT.fish_some) do if C.Bearing():find(l, 1, true) then noHabit = false end end
+  check(noHabit, "no fishing habit when the counts don't back it")
+  for _, k in ipairs({ "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit" }) do
+    check(ns.TRP.FIELDS["stat_" .. k] ~= nil and ns.db.fields["stat_" .. k] == true, "statistic " .. k .. " has its own switch, on by default")
+  end
+  -- Bounded: the least counted kinds are pushed out past the cap.
+  local t = {}
+  for i = 1, 70 do L.Bump(t, "k" .. i, i, 60) end
+  check(ns.U.Count(t) == 60 and t.k70 and not t.k1, "lists stay bounded")
+
+  GetMoney = richMoney
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones = keep[4], keep[5], keep[6], keep[7]
+  ns.char.life = nil
+  state.zone, state.sub, state.resting = "Duskwood", "Raven Hill", false
+  ns.World.slow = nil
+  C.SourcesChanged(); C.Refresh()
+end
+
 -- Every option at once, from the slash command (the panel's buttons call the same).
 do
   local before = {}
@@ -1398,7 +1671,7 @@ do
     ns.TRP.CustomPronouns = function() return pron end
     seen = {}
     for _, key in ipairs({ "MOODS", "CALM", "RACE_TELLS", "CLASS_TELLS", "FESTIVALS", "SAY", "TRAVEL", "ACTIVITY", "PET",
-      "AMBITIONS", "RACE_LOOK", "CLASS_LOOK", "PHYSIQUE", "WEEK_TONE", "WEALTH", "DURABILITY" }) do
+      "AMBITIONS", "RACE_LOOK", "CLASS_LOOK", "PHYSIQUE", "WEEK_TONE", "WEALTH", "DURABILITY", "LIFE" }) do
       scan(W[key], key)
     end
   end

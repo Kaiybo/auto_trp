@@ -70,6 +70,7 @@ function Compose.Refresh()
     c.sd = S.SocialDiary.Read()
     c.chronicle = S.Chronicle.Read()
     c.deeds = S.Deeds.Read()
+    c.life = S.Life and S.Life.Read() or nil
     sourcesAt, c.read = now, true
   end
   c.t = now
@@ -243,6 +244,53 @@ function Compose.LatelyGlance()
   if zone and within(zone.t, 86400) and #rpgd.zones > 2 then
     add(zone.t, 0, { TI = "New in Town", IC = "INV_Misc_Map_01",
       TX = say("newzone", { zone = U.Mid(zone.name) }, zone.t) })
+  end
+
+  -- Auto TRP's own record of the rest of life: a catch, a duel, a battle, a new mount or
+  -- piece of gear, a book, a long stretch at a trade, a new inn.
+  local life = c.life
+  if life then
+    local function here(z) return U.Mid(z or world.zone or "these parts") end
+    local fr = life.fishRun
+    local nf = life.fishNew
+    local fish = nf and Compose.FishName(nf.name)
+    if fish and nf.zone and within(nf.t, 3600) then
+      add(nf.t, 1, { TI = "A Fresh Catch", IC = "INV_Misc_Fish_02", TX = say("lately_fish", { item = article(fish), zone = here(nf.zone) }, nf.t) })
+    elseif fr and within(fr.last, 1800) and (fr.n or 0) >= 3 then
+      add(fr.last, 0, { TI = "Fishing", IC = "Trade_Fishing", TX = say("lately_fishing", { zone = here(fr.zone), n = U.Number(fr.n) }, fr.start) })
+    end
+    local du = life.duelLog[#life.duelLog]
+    if du and within(du.t, 1800) then
+      add(du.t, 1, { TI = du.won and "Duel Won" or "Duel Lost", IC = "Ability_Warrior_Challange",
+        TX = say(du.won and "lately_duel_won" or "lately_duel_lost", { zone = here(du.zone) }, du.t) })
+    end
+    local bl = life.battleLast
+    if bl and within(bl.t, 7200) then
+      add(bl.t, 2, { TI = "Back From Battle", IC = "INV_BannerPVP_02",
+        TX = say(bl.won and "lately_battle_won" or "lately_battle_lost", { place = U.Mid(bl.name) }, bl.t) })
+    end
+    local mount = life.mounts[1]
+    if mount and not mount.before and within(mount.t, 2 * 86400) then
+      add(mount.t, 1, { TI = "A New Mount", IC = "Ability_Mount_RidingHorse", TX = say("lately_mount", { item = article(mount.name) }, mount.t) })
+    end
+    local fine = (life.epic and not life.epic.before and life.epic) or (life.rare and not life.rare.before and life.rare) or nil
+    if fine and within(fine.t, 2 * 86400) then
+      add(fine.t, 1, { TI = "Fresh Kit", IC = "INV_Chest_Chain_05", TX = say("lately_wear", { item = fine.name }, fine.t) })
+    end
+    local book = life.books[1]
+    if book and within(book.t, 3600) then
+      add(book.t, 0, { TI = "Reading", IC = "INV_Misc_Book_09", TX = say("lately_book", { item = '"' .. book.name .. '"' }, book.t) })
+    end
+    local mr = life.madeRun
+    if mr and mr.kind ~= "other" and within(mr.last, 1800) and (mr.n or 0) >= 5 then
+      add(mr.last, 0, { TI = "At Work", IC = "Trade_Engineering",
+        TX = say("lately_made", { what = mr.kind:lower(), zone = here(mr.zone) }, mr.start) })
+    end
+    local inn = life.innNew
+    if inn and within(inn.t, 86400) then
+      local innName = inn.name:find("^The ") and U.Mid(inn.name) or ("the " .. inn.name)
+      add(inn.t, 0, { TI = "A New Inn", IC = "INV_Drink_05", TX = say("lately_inn", { inn = innName }, inn.t) })
+    end
   end
 
   -- A day-old hurt outranks everything; otherwise the newest, then the weightiest. (A strict
@@ -430,6 +478,27 @@ function Compose.MarksGlance()
   local g = world.gear or {}
   local wear = Compose.Wear(world)
   if wear and wear.band.glance then mark(5, wear.band.glance, U.Cap(wear.text) .. ".", "INV_Hammer_20") end
+  -- What the last while has left on them, from Auto TRP's own record.
+  local life = c.life
+  if life and not world.combat and not world.dead then
+    local fall = life.env.Falling
+    if fall and within(fall.t, 600) then mark(6, "Sore", say("mark_fall", nil, fall.t), "Spell_Magic_FeatherFall") end
+    if world.swimming then mark(5.5, "Soaked", say("mark_swim", nil, world.zone), "Spell_Frost_SummonWaterElemental") end
+    local du = life.duelLog[#life.duelLog]
+    if du and within(du.t, 600) then mark(4.6, "Fresh From a Duel", say("mark_duel", nil, du.t), "Ability_Warrior_Challange") end
+    local fr = life.fishRun
+    if fr and within(fr.last, 1800) and (fr.n or 0) >= 5 then mark(4.5, "Smells of Fish", say("mark_fish", nil, fr.start), "INV_Misc_Fish_02") end
+    local mr = life.madeRun
+    if mr and mr.kind == "Cooking" and within(mr.last, 1800) and (mr.n or 0) >= 3 then
+      mark(4.4, "Cooking Smoke", say("mark_cook", nil, mr.start), "INV_Misc_Food_15")
+    end
+    local gr = life.gatherRun
+    local GATHER_MARK = { herbs = { "Smells of Herbs", "Trade_Herbalism" }, mining = { "Rock Dust", "Trade_Mining" },
+      skinning = { "Smells of Hides", "INV_Misc_Pelt_Wolf_01" } }
+    if gr and GATHER_MARK[gr.kind] and within(gr.last, 1800) and (gr.n or 0) >= 3 then
+      mark(4.4, GATHER_MARK[gr.kind][1], say("mark_" .. gr.kind, nil, gr.start), GATHER_MARK[gr.kind][2])
+    end
+  end
   local finest = g.finest or (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.finest)
   if finest and finest.name and finest.quality >= 4 then
     mark(4, "Remarkable Gear", say("remarkable", { item = finest.name }, finest.name), "INV_Misc_Gem_Pearl_04")
@@ -601,6 +670,86 @@ function Compose.FavouriteSpell()
   return say("favspell", { spell = top.name, noun = noun }, top.name)
 end
 
+---------------------------------------------------------------------------
+-- Life on the road (Sources/Life.lua): small helpers shared by the fields below.
+---------------------------------------------------------------------------
+-- "Raw Brilliant Smallfish" -> "Brilliant Smallfish"; nil for what isn't a fish (a crate, a clam).
+function Compose.FishName(name)
+  if type(name) ~= "string" then return nil end
+  if name:find("^Raw ") then return (name:gsub("^Raw ", "")) end
+  if name:find("^Large Raw ") then return (name:gsub("^Large Raw ", "Large ")) end
+  if W.LIFE.FISH[name] then return name end
+  return nil
+end
+
+-- How many days, said plainly: "a day", "nine days", "three weeks".
+local function daysWords(seconds)
+  local d = math.max(1, math.floor(seconds / 86400 + 0.5))
+  if d == 1 then return "a day" end
+  if d >= 21 then return U.Number(math.floor(d / 7)) .. " weeks" end
+  return U.Number(d) .. " days"
+end
+
+-- Every book read, newest first: RPG Dialogue's, then Auto TRP's own (ITEM_TEXT_BEGIN).
+function Compose.Books()
+  local c = ns.cache
+  local out, seen = {}, {}
+  for _, b in ipairs(c.rpgd and c.rpgd.books or {}) do
+    if b.title and not seen[b.title] then seen[b.title] = true; out[#out + 1] = { title = b.title, t = b.t or 0 } end
+  end
+  for _, b in ipairs(c.life and c.life.books or {}) do
+    if not seen[b.name] then seen[b.name] = true; out[#out + 1] = { title = b.name, t = b.t or 0 } end
+  end
+  return out
+end
+function Compose.BooksLine()
+  local books = Compose.Books()
+  if #books == 0 then return nil end
+  local titles = {}
+  for i = 1, math.min(2, #books) do titles[i] = quote(books[i].title) end
+  local extra = #books - #titles
+  return "Has read " .. U.Join(titles)
+    .. (extra > 0 and (", and " .. U.Number(extra) .. " " .. U.Plural(extra, "other book") .. " besides") or "")
+end
+
+-- Habits the counts back up, strongest first: at most `k` lines for Personality.
+function Compose.Habits(k)
+  local c = ns.cache
+  local life, world = c.life, c.world or {}
+  if not life then return {} end
+  local cands = {}
+  local function add(score, key, list)
+    local pool = list or W.LIFE.HABIT[key]
+    if pool and #pool > 0 then cands[#cands + 1] = { score = score, key = key, text = U.Pick(pool, seed("habit:" .. key)) } end
+  end
+  if life.fish >= 100 and life.fishZones >= 3 then add(3, "fish_many") elseif life.fish >= 30 then add(2, "fish_some") end
+  local cooked = life.madeByProf.Cooking or 0
+  if cooked >= 50 then add(2, "cook") end
+  local craftTop, craftN = nil, 0
+  for prof, n in pairs(life.madeByProf) do
+    if prof ~= "Cooking" and prof ~= "First Aid" and prof ~= "other" and n > craftN then craftTop, craftN = prof, n end
+  end
+  if craftN >= 100 then add(1.5, "craft") end
+  if life.herbs + life.ore >= 200 then add(2, "gather") end
+  local duels = life.duelsWon + life.duelsLost
+  if duels >= 10 then
+    if life.duelsWon >= 2 * life.duelsLost then add(2.2, "duel_wins")
+    elseif life.duelsLost > life.duelsWon then add(2.2, "duel_losses")
+    else add(1.8, "duel_some") end
+  end
+  if life.battles >= 20 then add(2, "battles") end
+  if life.emoteTop and life.emoteTopN >= 30 and W.LIFE.EMOTE[life.emoteTop] then add(2.5, "emote:" .. life.emoteTop, W.LIFE.EMOTE[life.emoteTop]) end
+  if life.people >= 40 then add(1, "company")
+  elseif life.groups == 0 and (world.level or 1) >= 20 and U.Now() - (life.since or U.Now()) > 14 * 86400 then add(1, "alone") end
+  if #life.inns >= 10 then add(1, "inns") end
+  if life.falls >= 10 then add(1.2, "falls") end
+  if life.closeCalls >= 10 then add(1.1, "close") end
+  table.sort(cands, function(a, b) if a.score ~= b.score then return a.score > b.score end return a.key < b.key end)
+  local out = {}
+  for i = 1, math.min(k or 2, #cands) do out[i] = cands[i].text end
+  return out
+end
+
 function Compose.Bearing()
   local c = ns.cache
   local rpgd, world = c.rpgd, c.world
@@ -622,6 +771,8 @@ function Compose.Bearing()
     if type(r) == "string" then table.insert(lines, 2, r) end
     if type(lines[1]) ~= "string" then table.remove(lines, 1) end
     lines[#lines + 1] = habit
+    for _, h in ipairs(Compose.Habits(2)) do lines[#lines + 1] = h end
+    lines[#lines + 1] = Compose.BooksLine()
     lines[#lines + 1] = Compose.WeekTone()
     return paragraph(lines)
   end
@@ -664,14 +815,9 @@ function Compose.Bearing()
   if (rpgd.liesExposed or 0) > 0 then
     more[#more + 1] = "Has been caught in " .. (rpgd.liesExposed == 1 and "a lie" or U.Number(rpgd.liesExposed) .. " lies")
   end
-  if #rpgd.books >= 1 then
-    local titles = {}
-    for i = 1, math.min(2, #rpgd.books) do titles[i] = quote(rpgd.books[i].title) end
-    local extra = #rpgd.books - #titles
-    more[#more + 1] = "Has read " .. U.Join(titles)
-      .. (extra > 0 and (", and " .. U.Number(extra) .. " " .. U.Plural(extra, "other book") .. " besides") or "")
-  end
+  more[#more + 1] = Compose.BooksLine()
   if habit then more[#more + 1] = habit end
+  for _, h in ipairs(Compose.Habits(2)) do more[#more + 1] = h end
   local hooks = Compose.Hooks()
   local stories = #hooks > 0 and paragraph({ say("stories", { list = U.Join(hooks) }) }) or nil
 
@@ -875,7 +1021,13 @@ function Compose.History()
   local function rankOf(m) return (tonumber(m.level) and ladder[band(m.level)]) or m.rank end
   local lastMs = ms[#ms]
   if lastMs and rankOf(lastMs) then
-    event(lastMs.t, 2, "rose to " .. rankOf(lastMs) .. (lastMs.zone and (" in " .. U.Mid(lastMs.zone)) or ""), "rank")
+    -- How long the climb took, from the rank before (or Auto TRP's own record of levels).
+    local prevT = ms[#ms - 1] and ms[#ms - 1].t
+    local lv = c.life and c.life.levels and tonumber(lastMs.level) and c.life.levels[lastMs.level - 10]
+    if lv and not lv.start and tonumber(lv.t) then prevT = lv.t end
+    local pace = prevT and lastMs.t > prevT and lastMs.t - prevT <= 30 * 86400
+      and say("rankpace", { n = daysWords(lastMs.t - prevT) }, lastMs.t) or ""
+    event(lastMs.t, 2, "rose to " .. rankOf(lastMs) .. (lastMs.zone and (" in " .. U.Mid(lastMs.zone)) or "") .. pace, "rank")
   end
   for _, t in ipairs(rpgd and rpgd.threads or {}) do
     if earnedKey ~= "thread:" .. t.id then
@@ -935,6 +1087,62 @@ function Compose.History()
   local finds = ns.char and ns.char.finds or {}
   local f = finds[#finds]
   if f then event(f.t, 7, "came by " .. itemName(f.item, f.quality) .. (f.zone and (" in " .. U.Mid(f.zone)) or ""), "find") end
+  -- Auto TRP's own record of the rest of life on the road.
+  local life = c.life
+  if life then
+    local nf = life.fishNew
+    local fish = nf and Compose.FishName(nf.name)
+    if fish and nf.zone then event(nf.t, 6, say("ev_fish", { item = article(fish), zone = U.Mid(nf.zone) }, nf.t), "fish") end
+    -- Duels: one told plainly, several as a count.
+    local recentDuels, won, lastDuel = 0, 0, nil
+    for _, du in ipairs(life.duelLog) do
+      if recent(du.t) then recentDuels = recentDuels + 1; won = won + (du.won and 1 or 0); lastDuel = du end
+    end
+    if recentDuels >= 3 then
+      event(lastDuel.t, 7, say("ev_duels", { n = U.Number(recentDuels), what = won == recentDuels and "all of them"
+        or won == 0 and "none" or U.Number(won) }, lastDuel.t), "duels")
+    elseif lastDuel and lastDuel.zone then
+      event(lastDuel.t, 7, say(lastDuel.won and "ev_duel_won" or "ev_duel_lost", { zone = U.Mid(lastDuel.zone) }, lastDuel.t), "duels")
+    end
+    local bl = life.battleLast
+    if bl then event(bl.t, 5, say(bl.won and "ev_battle_won" or "ev_battle_lost", { place = U.Mid(bl.name) }, bl.t), "battle") end
+    local inn = life.innNew
+    if inn and not (rpgd and rpgd.homeInn == inn.name) then
+      event(inn.t, 7, say("ev_inn", { inn = placeName(inn.name) }, inn.t), "inn")
+    end
+    local paths = {}
+    for _, pth in ipairs(life.pathsNew) do
+      if recent(pth.t) and #paths < 3 then paths[#paths + 1] = pth end
+    end
+    if #paths == 1 then
+      event(paths[1].t, 8, say("ev_path", { place = paths[1].name:match("^([^,]+)") }, paths[1].t), "paths")
+    elseif #paths > 1 then
+      local names = {}
+      for k, pth in ipairs(paths) do names[k] = pth.name:match("^([^,]+)") end
+      event(paths[1].t, 8, say("ev_paths", { list = U.Join(names) }, paths[1].t), "paths")
+    end
+    local mount = life.mounts[1]
+    if mount and not mount.before then event(mount.t, 4, say("ev_mount", { item = article(mount.name) }, mount.t), "mount") end
+    for _, key in ipairs({ "epic", "rare" }) do
+      local gear = life[key]
+      if gear and not gear.before and not (key == "rare" and life.epic and not life.epic.before and recent(life.epic.t)) then
+        local wield = gear.slot == 16 or gear.slot == 17 or gear.slot == 18
+        event(gear.t, 5, say(wield and "ev_wield" or "ev_wear", { item = itemName(gear.name, gear.q) }, gear.name), "gear")
+        break
+      end
+    end
+    local readNow = {}
+    for _, b in ipairs(life.books) do if recent(b.t) and #readNow < 2 then readNow[#readNow + 1] = b end end
+    if #readNow > 0 then
+      local titles = {}
+      for k, b in ipairs(readNow) do titles[k] = quote(b.name) end
+      event(readNow[1].t, 8, say("ev_book", { list = U.Join(titles) }, readNow[1].name), "books")
+    end
+    local cl = life.closeLast
+    if cl and cl.zone then
+      event(cl.t, 6, say("ev_close", { who = cl.foe and (" with " .. (cl.named and cl.foe or article(cl.foe))) or "", zone = U.Mid(cl.zone) }, cl.t), "close")
+    end
+  end
 
   local groups, order = {}, {}
   for _, e in ipairs(events) do
@@ -998,6 +1206,29 @@ function Compose.History()
     for n, k in pairs(own.killsByName or {}) do if k > tn then top, tn = n, k end end
     if top and tn >= 20 then older[#older + 1] = "killed more " .. Compose.Plural(top) .. " than any other creature" end
   end
+  -- Auto TRP's own record: battles, duels, inns, flight masters and coin.
+  if life then
+    if life.battles >= 3 then
+      local where = life.battleTop and (" in " .. U.Mid(life.battleTop) .. ((life.battleKinds or 0) > 1 and " and elsewhere" or "")) or ""
+      older[#older + 1] = "fought " .. U.Number(life.battles) .. " battles" .. where .. ", winning "
+        .. (life.battlesWon == life.battles and "every one" or life.battlesWon == 0 and "none" or U.Number(life.battlesWon))
+    end
+    if life.killingBlows >= 10 then older[#older + 1] = "struck the killing blow on " .. U.Roughly(life.killingBlows) .. " enemy fighters" end
+    local duels = life.duelsWon + life.duelsLost
+    if duels >= 5 and not toldRecent.duels then
+      older[#older + 1] = life.duelsWon == 0 and ("lost all " .. U.Number(duels) .. " of {their} duels")
+        or ("won " .. U.Number(life.duelsWon) .. " of " .. U.Number(duels) .. " duels")
+    end
+    if #life.inns >= 5 then older[#older + 1] = "rested at " .. U.Number(#life.inns) .. " different inns" end
+    if life.paths >= 10 then older[#older + 1] = "found the flight masters in " .. U.Number(life.paths) .. " places" end
+    local most = math.floor(math.max(life.money.most or 0, type(world.money) == "number" and world.money or 0) / 10000)
+    if most >= 100 then older[#older + 1] = "had as much as " .. U.Number(most) .. " gold to {their} name at once" end
+    local paid = math.floor((life.money.quests or 0) / 10000)
+    if paid >= 50 then older[#older + 1] = "been paid " .. U.Number(paid) .. " gold for {their} jobs" end
+    local mend = math.floor((life.money.repairs or 0) / 10000)
+    if mend >= 20 then older[#older + 1] = "spent " .. U.Number(mend) .. " gold having {their} gear mended" end
+    if (life.money.auctions or 0) >= 5 then older[#older + 1] = "sold " .. U.Roughly(life.money.auctions) .. " things at auction" end
+  end
   if lastMs and rankOf(lastMs) and not toldRecent.rank then
     local steps = {}
     for k = math.max(1, #ms - 1), #ms do
@@ -1010,7 +1241,7 @@ function Compose.History()
     local lead = #lately > 0 and say("before", nil, older[1]) or say("alongtheway", nil, older[1])
     -- Three at most to a sentence; the rest start another.
     local a, b = {}, {}
-    for k, s in ipairs(older) do if k <= 3 then a[#a + 1] = s else b[#b + 1] = s end end
+    for k, s in ipairs(older) do if k <= 3 then a[#a + 1] = s elseif k <= 6 then b[#b + 1] = s end end
     record[#record + 1] = lead .. " {they've} " .. U.Join(a)
     if #b > 0 then record[#record + 1] = "{they've} also " .. U.Join(b) end
   end
@@ -1021,7 +1252,31 @@ function Compose.History()
     local pn = W.PROF_NOUN[pr.name:lower()]
     if pr.rank >= 50 and pn then crafts[#crafts + 1] = profWord(pr.rank) .. " " .. pn end
   end
-  if #crafts > 0 then record[#record + 1] = "Between roads {they're} " .. U.Join(crafts) end
+  -- What fills the gaps between roads, from Auto TRP's own record: fish, things made, herbs and ore.
+  local pastimes = {}
+  if life then
+    if life.fish >= 25 then
+      pastimes[#pastimes + 1] = "caught " .. U.Roughly(life.fish) .. " fish"
+        .. (life.fishZones >= 4 and (" in " .. U.Number(life.fishZones) .. " different lands") or "")
+    end
+    local profsMade = {}
+    for prof, n in pairs(life.madeByProf) do
+      if n >= 20 and W.LIFE.MADE[prof] then profsMade[#profsMade + 1] = { prof = prof, n = n } end
+    end
+    table.sort(profsMade, function(a, b) if a.n ~= b.n then return a.n > b.n end return a.prof < b.prof end)
+    for k = 1, math.min(2, #profsMade) do
+      pastimes[#pastimes + 1] = (W.LIFE.MADE[profsMade[k].prof]:gsub("{n}", U.Roughly(profsMade[k].n)))
+    end
+    for _, key in ipairs({ "herbs", "ore", "hides" }) do
+      if (life[key] or 0) >= 25 and #pastimes < 4 then pastimes[#pastimes + 1] = (W.LIFE.GATHERED[key]:gsub("{n}", U.Roughly(life[key]))) end
+    end
+  end
+  if #crafts > 0 then
+    record[#record + 1] = "Between roads {they're} " .. U.Join(crafts)
+      .. (#pastimes > 0 and (", " .. say("life_pastimes", { list = U.Join(pastimes) }, crafts[1])) or "")
+  elseif #pastimes > 0 then
+    record[#record + 1] = say("life_lead", { list = U.Join(pastimes) }, pastimes[1])
+  end
   local oldFinds = {}
   for k = #finds, 1, -1 do
     local fd = finds[k]
@@ -1054,6 +1309,19 @@ function Compose.History()
       .. (partner and (", and travels with " .. partner) or "")
   elseif partner then
     people[#people + 1] = name .. " travels with " .. partner
+  end
+  -- Company kept, from Auto TRP's own count (names are never kept; a Social Diary friend
+  -- grouped with most is named, when naming friends is on).
+  if life and life.people >= 10 then
+    local best, bestN
+    if sd and ns.db.nameFriends then
+      for _, fr in ipairs(sd.friends or {}) do
+        local n = ns.Sources.Life.TimesWith(fr.name)
+        if n >= 3 and (not bestN or n > bestN) then best, bestN = fr.name, n end
+      end
+    end
+    people[#people + 1] = say("company_count", { n = U.Number(life.people) }, life.people > 50 and "many" or "few")
+      .. (best and say("company_friend", { who = best }, best) or "")
   end
   if sd and sd.recentPeople >= 4 then
     people[#people + 1] = "Has fought beside " .. U.Number(sd.recentPeople) .. " others this past week"
@@ -1196,6 +1464,15 @@ Compose.STATS = {
   -- earlier version wrote is taken off again (they never have a value now).
   { key = "met", label = "People met", icon = "Spell_Holy_PrayerOfSpirit", retired = true },
   { key = "books", label = "Books read", icon = "INV_Misc_Book_09" },
+  -- From Auto TRP's own record of life on the road (Sources/Life.lua).
+  { key = "fish", label = "Fish caught", icon = "Trade_Fishing" },
+  { key = "made", label = "Things made", icon = "Trade_BlackSmithing" },
+  { key = "gathered", label = "Gathered", icon = "Trade_Herbalism" },
+  { key = "duels", label = "Duels", icon = "Ability_Warrior_Challange" },
+  { key = "battles", label = "Battles", icon = "INV_BannerPVP_01" },
+  { key = "gold", label = "Most gold held", icon = "INV_Misc_Coin_01" },
+  { key = "inns", label = "Inns stayed at", icon = "INV_Drink_05" },
+  { key = "hit", label = "Hardest hit", icon = "Ability_Warrior_Rampage" },
   { key = "letters", label = "Letters received", icon = "INV_Letter_15", retired = true },
 }
 
@@ -1263,7 +1540,41 @@ function Compose.Stats()
   if #crafts > 0 then out.crafts = table.concat(crafts, ", ") end
   local top = world.factions and world.factions[1]
   if top and top.word then out.standing = top.word .. " with " .. W.FactionName(top.name) end
-  if rpgd and #rpgd.books > 0 then out.books = figure(#rpgd.books) end
+  local books = #Compose.Books()
+  if books > 0 then out.books = figure(books) end
+  -- Auto TRP's own record of life on the road.
+  local life = c.life
+  if life then
+    local function most(name, n, total, noun)
+      return (name and n >= 10 and n < total) and (", most of them " .. noun(name)) or ""
+    end
+    if life.fish > 0 then
+      local fishTop = Compose.FishName(life.fishTop)
+      out.fish = figure(life.fish) .. most(fishTop, life.fishTopN, life.fish, Compose.Plural)
+    end
+    if life.made > 0 then out.made = figure(life.made) .. most(life.madeTop, life.madeTopN, life.made, Compose.Plural) end
+    local got = {}
+    if life.herbs > 0 then got[#got + 1] = figure(life.herbs) .. " " .. U.Plural(life.herbs, "herb") end
+    if life.ore > 0 then got[#got + 1] = figure(life.ore) .. " ore" end
+    if life.hides > 0 then got[#got + 1] = figure(life.hides) .. " " .. U.Plural(life.hides, "hide") end
+    if #got > 0 then out.gathered = table.concat(got, ", ") end
+    if life.duelsWon + life.duelsLost > 0 then out.duels = figure(life.duelsWon) .. " won, " .. figure(life.duelsLost) .. " lost" end
+    if life.battles > 0 or life.killingBlows > 0 then
+      local parts = {}
+      if life.battles > 0 then parts[1] = figure(life.battles) .. " fought, " .. figure(life.battlesWon) .. " won" end
+      if life.killingBlows > 0 then parts[#parts + 1] = figure(life.killingBlows) .. " " .. U.Plural(life.killingBlows, "killing blow") end
+      out.battles = table.concat(parts, "; ")
+    end
+    local held = math.max(life.money.most or 0, type(world.money) == "number" and world.money or 0)
+    if held > 0 then out.gold = money(held) end
+    local inn = life.inns[1]
+    if inn then out.inns = figure(#life.inns) .. ((#life.inns > 1 and (inn.n or 1) >= 3) and (", most often the " .. inn.name):gsub("the The ", "the ") or "") end
+    local dealt, taken = life.hitDealt, life.hitTaken
+    local parts = {}
+    if dealt then parts[1] = figure(dealt.n) .. (dealt.spell and (" with " .. dealt.spell) or " in melee") end
+    if taken then parts[#parts + 1] = figure(taken.n) .. " taken" .. (taken.from and (" from " .. taken.from) or "") end
+    if #parts > 0 then out.hit = table.concat(parts, "; ") end
+  end
   -- Every name earned, the one worn first ("Mine-Warden, Defias-Breaker and Hogger's Bane").
   local names, worn = {}, Compose.Earned()
   if worn then names[1] = worn.nick end
@@ -1278,7 +1589,8 @@ function Compose.Stats()
   -- Nothing counted yet still says so, so no statistic is left blank.
   if not out.road and days == 0 then out.road = "Less than a day" end
   if not out.lands and world.zone then out.lands = "1" end
-  for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "crafts", "standing", "books", "names", "spell" }) do
+  for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "crafts", "standing", "books", "names", "spell",
+    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit" }) do
     out[k] = out[k] or "None yet"
   end
   return out

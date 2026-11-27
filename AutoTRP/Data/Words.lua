@@ -2371,3 +2371,109 @@ W.SAY = {
   newname = { "Has lately come to be called {nick}.", "Some have started calling {them} {nick}.",
     "Answers to {nick} now, a name earned only lately." },
 }
+
+---------------------------------------------------------------------------
+-- Life on the road (Sources/Life.lua): fishing, crafts, gathering, duels, battles, money,
+-- inns, flight masters, mounts, emotes, company, close calls. A block of its own, kept apart
+-- from the lists above.
+---------------------------------------------------------------------------
+W.LIFE = {
+  -- Fishing loot that is a fish without "Raw" in its name.
+  FISH = { ["Oily Blackmouth"] = true, ["Firefin Snapper"] = true, ["Stonescale Eel"] = true, ["Deviate Fish"] = true,
+    ["Darkclaw Lobster"] = true, ["Winter Squid"] = true, ["Summer Bass"] = true, ["Nightfin Snapper"] = true,
+    ["Sunscale Salmon"] = true, ["Lightning Eel"] = true },
+  -- What a trade's "You create" lines add up to, for History: "{they've} cooked {n} meals".
+  MADE = {
+    Cooking = "cooked {n} meals", ["First Aid"] = "wound {n} bandages", Tailoring = "sewn {n} pieces of cloth",
+    Blacksmithing = "forged {n} pieces at the anvil", Leatherworking = "worked {n} pieces of leather",
+    Alchemy = "brewed {n} potions and elixirs", Engineering = "built {n} contraptions",
+    Enchanting = "made {n} things at the enchanter's trade", Jewelcrafting = "cut {n} gems and settings",
+    Mining = "smelted {n} bars of metal", Poisons = "mixed {n} batches of poison",
+  },
+  GATHERED = { herbs = "picked {n} herbs", ore = "dug out {n} loads of ore and stone", hides = "taken {n} hides and strips of leather" },
+  -- Habits for Personality, only once the counts back them.
+  HABIT = {
+    fish_many = { "Fishes whenever there's water nearby", "Rarely passes good water without casting a line",
+      "Will stop to fish at almost any lake or river" },
+    fish_some = { "Fishes when there's time for it", "Knows {their} way around a fishing line", "Has the patience for fishing" },
+    cook = { "Does a lot of {their} own cooking", "Cooks often, and plenty of it", "Is rarely short of something {they've} cooked" },
+    craft = { "Works at {their} trade whenever there's the chance", "Keeps {their} hands busy with {their} trade" },
+    gather = { "Can't walk past a herb or a seam of ore without stopping", "Stops for every herb and seam of ore along the road" },
+    duel_wins = { "Rarely turns down a duel, and mostly wins", "Takes up a duel readily, and usually comes out on top" },
+    duel_losses = { "Takes on duels often, and loses more of them than {they} win{s}", "Keeps accepting duels {they} mostly lose{s}" },
+    duel_some = { "Has a taste for duelling", "Enjoys a duel" },
+    company = { "Seldom travels alone for long", "Is usually in company on the road", "Falls in with others easily" },
+    alone = { "Keeps to {their} own company on the road", "Travels alone, as a rule" },
+    inns = { "Has rested in more inns than most", "Knows a good many inns by now" },
+    falls = { "Takes the quick way down from high places more often than is wise", "Has a habit of jumping before looking" },
+    close = { "Has walked away from more bad fights than most", "Has a knack for surviving fights that go badly" },
+    battles = { "Answers the call to battle often", "Is a familiar face on the battlefield" },
+  },
+  -- The emote a character uses most, as a habit (by the verb after "You ...").
+  EMOTE = {
+    wave = { "Waves at people a lot", "Is quick to wave" }, bow = { "Bows to people more than most do", "Is quick to bow" },
+    laugh = { "Laughs easily and often", "Laughs a lot" }, cheer = { "Cheers loudly and often", "Is quick to cheer" },
+    thank = { "Says thank you a lot", "Is quick with a thank you" }, dance = { "Dances whenever the mood takes {them}", "Dances a lot" },
+    hug = { "Hugs people freely", "Is free with hugs" }, smile = { "Smiles at people a lot", "Is quick to smile" },
+    salute = { "Salutes like a soldier, and often", "Is quick to salute" }, sigh = { "Sighs a lot", "Is given to sighing" },
+    cry = { "Weeps more often than most", "Is quick to tears" }, flex = { "Shows off {their} muscles at every chance", "Flexes a lot" },
+    roar = { "Roars when the mood takes {them}", "Is given to roaring" }, pray = { "Stops to pray often", "Prays a lot" },
+    greet = { "Greets people readily", "Is quick with a greeting" }, nod = { "Nods along a lot", "Is quick to nod" },
+    shrug = { "Shrugs a lot", "Is given to shrugging" }, applaud = { "Applauds others readily", "Is quick to applaud" },
+    clap = { "Claps for others readily", "Is quick to clap" }, grin = { "Grins a lot", "Is quick to grin" },
+    blow = { "Blows kisses freely", "Is free with blown kisses" }, flirt = { "Flirts readily", "Flirts a lot" },
+    chicken = { "Clucks like a chicken at people more than is wise", "Is fond of clucking at people" },
+    giggle = { "Giggles a lot", "Is given to giggling" }, chuckle = { "Chuckles a lot", "Is quick to chuckle" },
+    raise = { "Raises a glass often", "Is quick to raise a glass" }, kiss = { "Is free with kisses", "Kisses people readily" },
+    point = { "Points at things a lot", "Is quick to point" }, beckon = { "Beckons people over a lot", "Is quick to beckon" },
+    growl = { "Growls a lot", "Is given to growling" }, glare = { "Glares at people a lot", "Is quick to glare" },
+    yawn = { "Yawns a lot", "Is given to yawning" },
+  },
+}
+
+-- More ways for the glances and History to say what Life records (into W.SAY, by key).
+for k, v in pairs({
+  -- History, the last three weeks (past-tense predicates)
+  ev_fish = { "caught {item} in {zone}", "pulled {item} out of the water in {zone}", "landed {item} in {zone}" },
+  ev_duel_won = { "won a duel in {zone}", "came out on top of a duel in {zone}" },
+  ev_duel_lost = { "lost a duel in {zone}", "came off worse in a duel in {zone}" },
+  ev_duels = { "fought {n} duels, winning {what}", "took on {n} duels, winning {what}" },
+  ev_battle_won = { "won a battle in {place}", "came back from {place} with a win" },
+  ev_battle_lost = { "lost a battle in {place}", "came back from {place} beaten" },
+  ev_inn = { "rested at {inn} for the first time", "stopped at {inn} for the first time" },
+  ev_path = { "found the flight master at {place}", "learned the way to fly from {place}" },
+  ev_paths = { "found new flight masters at {list}", "learned the flight routes from {list}" },
+  ev_mount = { "started riding {item}", "took to riding {item}" },
+  ev_wear = { "started wearing {item}", "put on {item}" },
+  ev_wield = { "took up {item}", "started carrying {item}" },
+  ev_book = { "read {list}", "found time to read {list}" },
+  ev_close = { "only just came through a fight{who} in {zone}", "came within a breath of losing a fight{who} in {zone}" },
+  ev_made = { "spent a long stretch at {what} in {zone}", "put in a good while at {what} in {zone}" },
+  rankpace = { ", only {n} after the rank before", ", {n} after the one before" },
+  -- History, the longer record: what fills the gaps between roads
+  life_pastimes = { "and {they've} {list}", "and so far {they've} {list}" },
+  life_lead = { "Away from the fighting, {they've} {list}", "In quieter hours {they've} {list}", "Between the harder days {they've} {list}" },
+  company_count = { "Has travelled in company with {n} different people", "Has shared the road with {n} different people" },
+  company_friend = { ", most often {who}", ", {who} more than anyone" },
+  -- Lately glance
+  lately_fish = { "Pulled {item} out of the water in {zone} a short while back.", "Has been fishing in {zone}, and caught {item}." },
+  lately_fishing = { "Has been fishing in {zone}, and has {n} to show for it.", "Spent a while fishing in {zone}: {n} caught." },
+  lately_duel_won = { "Won a duel in {zone} within the hour.", "Came out on top of a duel in {zone} just now." },
+  lately_duel_lost = { "Lost a duel in {zone} within the hour.", "Came off worse in a duel in {zone} just now." },
+  lately_battle_won = { "Came back from {place} with a win.", "Fought in {place}, and the day was won." },
+  lately_battle_lost = { "Came back from {place} beaten.", "Fought in {place}, and the day was lost." },
+  lately_mount = { "Rides {item} now, and hasn't had it long.", "Has only lately started riding {item}." },
+  lately_wear = { "Has only just started wearing {item}.", "Wears {item} now, and not for long yet." },
+  lately_book = { "Was reading {item} only a short while ago.", "Has lately been reading {item}." },
+  lately_made = { "Has been busy at {what} in {zone}.", "Spent the last while at {what} in {zone}." },
+  lately_inn = { "Rested at {inn} for the first time in the last day.", "Has only lately found {inn}." },
+  -- Marks glance
+  mark_fish = { "Smells of fish.", "Smells strongly of fish, and of the water." },
+  mark_cook = { "Smells of cooking smoke.", "Carries the smell of a cooking fire." },
+  mark_herbs = { "Smells of crushed leaves and soil.", "Smells of fresh-cut herbs." },
+  mark_mining = { "Covered in rock dust.", "Rock dust clings to {their} clothes." },
+  mark_skinning = { "Smells of fresh hides.", "Smells of the hides {they've} just taken." },
+  mark_duel = { "Still breathing hard from a duel.", "Fresh from a duel, and still catching {their} breath." },
+  mark_fall = { "Moving stiffly, after a fall.", "Limping after a bad fall." },
+  mark_swim = { "Soaked through.", "Dripping wet." },
+}) do W.SAY[k] = v end

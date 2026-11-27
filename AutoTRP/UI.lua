@@ -700,7 +700,7 @@ local HELP = {
   "|cffffd100/atrp names|r: every name you've earned, and what for",
   "|cffffd100/atrp spells|r: the spells and abilities you cast most",
   "|cffffd100/atrp name <number|auto>|r: wear one of your earned names (|cffffd100auto|r: the greatest deed's)",
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, fish, made, gathered, duels, battles, gold, inns, hit)",
 }
 
 -- Earned names: list them, or choose which to wear.
