@@ -790,7 +790,7 @@ function J.Compose(key)
     if type(best) ~= "string" then return nil end
     usedLine[best] = true
     for _, r in ipairs(runs(best)) do usedRun[r] = true end
-    return fill(best, vars or {})
+    return fill(best, vars or {}), best
   end
   local function line(text, kind)
     if text and text ~= "" then

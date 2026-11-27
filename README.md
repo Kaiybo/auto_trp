@@ -148,7 +148,7 @@ Entries read like someone writing at day's end: where you woke and when you set 
 >
 > Had a line out for a while; six came in, an Oily Blackmouth the prize. Got five pieces of first aid done, Linen Bandage the most of them, and read "The Birth of the Lich King". Came out of three duels with two won and one lost, and no shortage of waving.
 >
-> Among the company was a face I'd travelled with before, and two people saw to my hurts along the way. Lost the roll for Thief's Blade, and turned up Thornstone Sledgehammer. Grew into my strength a step further, and I'm honoured with Stormwind now. Took my place in Knights of the Vale, and Grimfang came round to a good mood. Some hours on my feet, all told. Another step up isn't far off.
+> Among the company was a face I'd travelled with before, and two people saw to my hurts along the way. Lost the roll for Thief's Blade, and turned up Thornstone Sledgehammer. Felt myself grow stronger, and I'm honoured with Stormwind now. Took my place in Knights of the Vale, and Grimfang came round to a good mood. Some hours on my feet, all told. Another step up isn't far off.
 >
 > Took a room at the Lion's Pride Inn, in good cheer. The cheer lasted from start to finish. A good day, plain and simple; there's no better kind.
 
