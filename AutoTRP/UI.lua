@@ -744,6 +744,7 @@ local OPTIONS = {
   { path = { "sources", "chronicle" }, label = "Chronicle" },
   { head = "Details" },
   { path = { "diaryExcerpt" }, label = "Quote your latest diary entry in History" },
+  { path = { "journalInProfile" }, label = "Quote your Auto TRP journal in History and Lately when nothing's fresher (/atrp journal)" },
   { path = { "richText" }, label = "Colour quotes and item names on the About page" },
   { path = { "chronicleGoals" }, label = "Share your open Chronicle goal as an ambition" },
   { path = { "nameFriends" }, label = "Name the players you marked as friends in Social Diary" },
@@ -817,6 +818,7 @@ UI.TIPS = {
   ["sources.socialDiary"] = "The players you've marked as friends, a partner, and your recent groups.",
   ["sources.chronicle"] = "Goals, bosses, dungeons, rare beasts, professions and gear. Your private notes are never read.",
   ["diaryExcerpt"] = "A line from your latest RPG Dialogue diary entry at the end of History.",
+  ["journalInProfile"] = "When nothing fresher has happened, History and Lately quote a line from your Auto TRP journal.",
   ["richText"] = "Uses Total RP 3's colour markup: quotes in cream, items in their quality colour.",
   ["chronicleGoals"] = "Your open Chronicle goal becomes the Ambition glance.",
   ["nameFriends"] = "Friends you marked in Social Diary are named on your profile. Off, they're left out.",
@@ -944,7 +946,9 @@ function UI.Restore()
 end
 
 function UI.OpenJournalOrDays()
-  if type(UI.OpenJournal) == "function" then UI.OpenJournal() else UI.ListDays() end
+  if ns.Journal and type(ns.Journal.Show) == "function" then ns.Journal.Show()
+  elseif type(UI.OpenJournal) == "function" then UI.OpenJournal()
+  else UI.ListDays() end
 end
 
 function UI.OpenSettings()
@@ -1059,7 +1063,7 @@ function UI.FillPanel(panel)
   end
   local b1 = button("Preview", 90, "What your profile would say, field by field, and which fields are yours.", function() UI.Preview() end)
   local b2 = button("Write it now", 110, "Write everything now instead of waiting for the next change.", function() UI.Update(true); UI.RefreshPanel() end, b1)
-  local b3 = button("Mood journal", 110, "Each day's main feeling and place, for the last week.", function() UI.OpenJournalOrDays() end, b2)
+  local b3 = button("Journal", 90, "Your character's journal: a day's entry from each session. Without it, the mood journal's last week.", function() UI.OpenJournalOrDays() end, b2)
   local b4 = button("Restore...", 100, "Put your profile back as it was before Auto TRP wrote to it. Asks first.", function() StaticPopup_Show("AUTOTRP_RESTORE") end, b3)
   button("Make a profile for it", 160, "Make a copy of your current Total RP 3 profile for Auto TRP to write to, and switch to it.", function() UI.Setup(); UI.RefreshPanel() end, b4)
 end
@@ -1371,6 +1375,7 @@ local HELP = {
   { "/atrp feel <mood>", "choose a mood for the next hour (/atrp feel lists them, /atrp feel clear lets it go)" },
   { "/atrp intent <text>", "add what you're up to to Currently for two hours (/atrp intent alone clears it)" },
   { "/atrp days", "the mood journal: the last week of feelings and places" },
+  { "/atrp journal", "your character's journal, a day's entry written from each session (/atrp journal today prints today's in chat)" },
   { "/atrp spells", "the spells and abilities you cast most" },
   { "/atrp names", "every name you've earned, what for, and which one you wear" },
   { "/atrp name <number|auto>", "wear one of your earned names (auto: the greatest deed's)" },
@@ -1562,6 +1567,8 @@ SlashCmdList.AUTOTRP = function(msg)
     UI.Update(true)
   elseif cmd == "days" then
     UI.ListDays()
+  elseif cmd == "journal" then
+    if arg == "today" then ns.Journal.PrintToday() else ns.Journal.Show() end
   elseif cmd == "all" and (arg == "on" or arg == "off") then
     UI.SetAllOptions(arg == "on")
     ns.Print(arg == "on" and "Every option switched on." or "Every option switched off.")
