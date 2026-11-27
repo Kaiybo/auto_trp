@@ -117,6 +117,8 @@
 
 ### Fixed
 
+- Kills by name are kept for the 300 creatures killed most, so the saved record no longer grows without end (the total stays exact).
+
 - **Resurrection sickness is told once.** With the Marks glance written and showing *Back from Death*, Currently no longer adds *"still weak from being brought back"* as well.
 - **The journal's close doesn't repeat the day's mood.** When a feeling held all day it gets its own line, and the closing line says where the day ended (and the purse) without saying the feeling again.
 - **Given to others** reads *"210 blessings, 40 of them on strangers"*, and a paladin's Lay on Hands on others is told there (*"3 Lays on Hands on others"*), not again under Calling.

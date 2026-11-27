@@ -102,10 +102,27 @@ function D.Kill(name)
   name = U.Plain(name)
   if not d or not name then return end
   d.kills.total = (d.kills.total or 0) + 1
+  if not d.kills.byName[name] then d.kills.names = (d.kills.names or 0) + 1 end
   d.kills.byName[name] = (d.kills.byName[name] or 0) + 1
   local Be = ns.Sources.Bestiary   -- what it was (its kind, how strong), if they sized it up
   if Be then Be.Kill(name) end
 end
+
+-- Kills by name are kept for the 300 most killed; the rest are let go, out of combat, once
+-- the list passes 400 names (the total stays exact).
+D.KEEP_KILL_NAMES = 300
+function D.TrimKills()
+  local d = store()
+  if not d or (d.kills.names or 0) <= D.KEEP_KILL_NAMES + 100 then return end
+  local list = {}
+  for n, k in pairs(d.kills.byName) do list[#list + 1] = { n = n, k = k } end
+  table.sort(list, function(a, b) return a.k > b.k end)
+  local keep = {}
+  for i = 1, math.min(D.KEEP_KILL_NAMES, #list) do keep[list[i].n] = list[i].k end
+  d.kills.byName = keep
+  d.kills.names = math.min(D.KEEP_KILL_NAMES, #list)
+end
+ns.On("PLAYER_REGEN_ENABLED", function() D.TrimKills() end)
 
 function D.Flight()
   local d = store()

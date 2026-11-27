@@ -6985,6 +6985,22 @@ do
     .. table.concat(problems, " | "))
 end
 
+-- Kills by name stay bounded: past 400 names, the 300 most killed are kept, out of combat.
+do
+  local D = ns.Sources.Deeds
+  local keepDeeds = ns.char.deeds
+  ns.char.deeds = nil
+  for i = 1, 450 do D.Kill("Creature " .. i) end
+  for _ = 1, 5 do D.Kill("Kobold Vermin") end
+  event("PLAYER_REGEN_ENABLED")
+  local n = 0
+  for _ in pairs(ns.char.deeds.kills.byName) do n = n + 1 end
+  check(n == 300 and ns.char.deeds.kills.byName["Kobold Vermin"] == 5 and ns.char.deeds.kills.total == 455,
+    "kills by name are capped at 300, the most killed kept, the total exact: " .. n)
+  ns.char.deeds = keepDeeds
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
