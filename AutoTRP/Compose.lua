@@ -681,7 +681,11 @@ function Compose.LatelyGlance()
     if a.t ~= b.t then return a.t > b.t end
     return a.prio > b.prio
   end)
-  if cands[1] then return cands[1].g end
+  -- Every line's pronouns filled, and a capital to start ("Has got further into it than he meant to").
+  if cands[1] then
+    local g = cands[1].g
+    return { TI = g.TI, IC = g.IC, TX = U.Cap(U.Pron(g.TX)) }
+  end
 
   -- Nothing dramatic: who they were last seen with, or simply where.
   if rpgd then
@@ -766,10 +770,11 @@ local function groupTail(g)
     local t = cw("together", { span = together }, g.size)
     return U.Cap(t) .. (standing and (", " .. standing) or "") .. "."
   end
-  if standing and g.standing ~= "even" then return U.Cap(standing) .. "." end
+  if standing and g.standing ~= "even" then return firstName() .. " is " .. U.Pron(standing) .. "." end
   return nil
 end
 
+Compose.GLANCE_MAX = 170   -- characters: about what a glance's tooltip shows without crowding
 function Compose.CompanyGlance()
   local c = ns.cache
   local world, sd, rpgd = c.world, c.sd, Compose.Persona(c)
@@ -784,19 +789,28 @@ function Compose.CompanyGlance()
         TX = join(cw("battle", { n = U.Number(n), faction = world.faction or "cause" }, n), Compose.WarCompany(c)) }
     end
     local clause = groupClause(g, guild)
-    -- The part they play in it: "the group's healer" (Sources/Style.lua).
+    -- The part they play in it: "the group's healer" (Sources/Style.lua). Its own short
+    -- sentence, "He's the group's healer.", never a third clause on the first.
     local role = ns.Sources.Style and ns.Sources.Style.PartyClause(c.style)
-    if role then clause = clause and (clause .. ", " .. role) or role end
+    local function told(s1)
+      local first = s1 .. (clause and (", " .. clause) or "")
+      -- By name: "They're the group's healer" after "two priests" could be the priests.
+      local roleLine = role and (firstName() .. " is " .. U.Pron(role) .. ".") or nil
+      local tail = groupTail(g)
+      local rest = roleLine and tail and (roleLine .. " " .. tail) or roleLine or tail
+      -- A glance is read at a glance: past Compose.GLANCE_MAX, the tail goes, then the clause.
+      if rest and #first + #rest > Compose.GLANCE_MAX then rest = roleLine end
+      if rest and #first + #rest > Compose.GLANCE_MAX then first = s1 end
+      return join(first, rest)
+    end
     if g.raid and n > 5 then
       local s1 = cw(g.lead and "host_lead" or "host", { n = U.Number(n) }, n)
-      return { TI = g.lead and "Leading a Host" or "Part of a Host", IC = "INV_BannerPVP_02",
-        TX = join(s1 .. (clause and (", " .. clause) or ""), groupTail(g)) }
+      return { TI = g.lead and "Leading a Host" or "Part of a Host", IC = "INV_BannerPVP_02", TX = told(s1) }
     end
     -- n counts them too: a party of three is them and two others.
     local party = Compose.PartyWords(g) or (n == 2 and "a companion" or (U.Number(n - 1) .. " others"))
     local s1 = cw(g.lead and "party_lead" or "party", { party = party }, party)
-    return { TI = g.lead and "Leading the Way" or "In Company", IC = "Spell_Holy_PrayerOfSpirit",
-      TX = join(s1 .. (clause and (", " .. clause) or ""), groupTail(g)) }
+    return { TI = g.lead and "Leading the Way" or "In Company", IC = "Spell_Holy_PrayerOfSpirit", TX = told(s1) }
   end
   local sol = co.solitude or {}
   local habit = Compose.CompanyHabit(sol)
@@ -1536,7 +1550,9 @@ function Compose.Plural(name)
   local last = name:match("(%S+)$") or name
   local head = name:sub(1, #name - #last)
   local p
-  local same = { vermin = true, sheep = true, deer = true, fish = true, folk = true, kin = true, swine = true }
+  local same = { vermin = true, sheep = true, deer = true, fish = true, folk = true, kin = true, swine = true,
+    meat = true, bread = true, water = true, stew = true, cloth = true, leather = true, silk = true, wool = true, linen = true,
+    jerky = true, venison = true, cheese = true, armor = true, armour = true, ore = true, dust = true, mail = true }
   if same[last:lower()] then p = last
   elseif last:find("[^aeiou]y$") then p = last:sub(1, -2) .. "ies"
   elseif last:find("f$") and not last:find("ff$") then p = last:sub(1, -2) .. "ves"
@@ -3214,7 +3230,7 @@ function Compose.Stats()
       end
     end
     if grudge and grudge.n >= 10 then
-      out.slain = out.slain .. ", " .. figure(grudge.n) .. " of them " .. Compose.Plural(grudge.name)
+      out.slain = out.slain .. ", " .. (grudge.n >= kills and "all" or figure(grudge.n)) .. " of them " .. Compose.Plural(grudge.name)
     end
   end
   local questsDone = Compose.QuestsDone(c)
@@ -3316,7 +3332,9 @@ function Compose.Stats()
     if #se.fests > 0 then
       local list = {}
       for i = 1, math.min(3, #se.festKinds) do list[i] = se.festKinds[i] end
-      parts[1] = figure(#se.fests) .. ": " .. U.Join(list) .. (#se.festKinds > 3 and " and more" or "")
+      -- "Winter Veil and Hallow's End", with the count only where it says more than the list.
+      parts[1] = U.Join(list) .. (#se.festKinds > 3 and " and more" or "")
+        .. (#se.fests > #list and (", " .. figure(#se.fests) .. " in all") or "")
     end
     if se.faire then parts[#parts + 1] = (#parts == 0 and "The" or "the") .. " Darkmoon Faire " .. U.Times(se.faire.n) end
     if #parts > 0 then out.festivals = table.concat(parts, "; ") end
@@ -3341,7 +3359,7 @@ function Compose.Stats()
   -- The most cast spell, with how many times ("Flash Heal, 1,240 times").
   local top = Compose.TopSpells(1)[1]
   if top and top.n >= 10 then out.spell = top.name .. ", " .. figure(top.n) .. " times"
-  elseif top then out.spell = top.name .. ", " .. U.Times(top.n) end
+  elseif top then out.spell = top.name .. ", " .. (top.n == 1 and "once" or (figure(top.n) .. " times")) end
   if ns.Runs then ns.Runs.Stats(c, out) end
   out.keepsake = Compose.KeepsakeStat and Compose.KeepsakeStat() or nil
   -- Nothing counted yet still says so, so no statistic is left blank.

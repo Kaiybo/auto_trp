@@ -760,7 +760,7 @@ function J.Compose(key)
   -- No way of saying a thing is used twice in a day, and no sentence opens with a word
   -- another has already opened with, while the list has another way ("Went on to ...
   -- Went into ... Went by way of ..." reads like a log).
-  local opened, usedLine, usedRun = {}, {}, {}
+  local opened, usedLine, usedRun, lastWords = {}, {}, {}, {}
   local function opener(text) return ((text or ""):match("^%s*([%a']+)") or ""):lower() end
   -- The three-word runs of a line's own words ("for the first time"), its {tags} aside.
   local function runs(text)
@@ -783,6 +783,8 @@ function J.Compose(key)
         local w = opener(cand)
         if w ~= "" and opened[w] then score = score + 1 end
         for _, r in ipairs(runs(cand)) do if usedRun[r] then score = score + 2; break end end
+        -- A word the last line leaned on ("quiet in myself. A quiet day's work.").
+        for x in cand:gsub("{%a+}", " "):lower():gmatch("%a+") do if #x >= 5 and lastWords[x] then score = score + 1; break end end
         if not bestScore or score < bestScore then best, bestScore = cand, score end
         if score == 0 then break end
       end
@@ -797,6 +799,8 @@ function J.Compose(key)
       lines[#lines + 1] = { text = text, kind = kind }
       local w = opener(text)
       if w ~= "" and w ~= "i" then opened[w] = true end
+      lastWords = {}
+      for x in text:lower():gmatch("%a+") do if #x >= 5 then lastWords[x] = true end end
     end
   end
 
@@ -1020,8 +1024,8 @@ function J.Compose(key)
     local top = most(made.items)
     local prof = most(made.prof)
     if made.n == 1 and top then put(work, pick(JW.craft_one, key, "craft1", { item = itemWord(top) }))
-    elseif prof then put(work, pick(JW.craft_many, key, "craftm", { n = U.Number(made.n), craft = prof:lower(), top = top or "" }))
-    else put(work, pick(JW.craft_plain, key, "craftp", { n = U.Number(made.n), top = top or "" })) end
+    elseif prof then put(work, pick(JW.craft_many, key, "craftm", { n = U.Number(made.n), craft = prof:lower(), top = top and ns.Compose.Plural(top) or "" }))
+    else put(work, pick(JW.craft_plain, key, "craftp", { n = U.Number(made.n), top = top and ns.Compose.Plural(top) or "" })) end
   end
   if #misc.skills > 0 then
     local names = {}

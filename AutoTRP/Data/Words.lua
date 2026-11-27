@@ -3061,7 +3061,7 @@ W.SAY = {
   favspell = { "Reaches for {spell} more than any other {noun}", "{spell} is the {noun} {they} use{s} most",
     "Uses {spell} more often than any other {noun}" },
   newname = { "Has lately come to be called {nick}.", "Some have started calling {them} {nick}.",
-    "Answers to {nick} now, a name earned only lately." },
+    "Answers to {nick} now, and hasn't for long." },
 }
 
 ---------------------------------------------------------------------------
@@ -3506,7 +3506,7 @@ W.COMPANY = {
   familiar_all = { "every one of them a familiar face", "all of them no strangers by now", "all of them companions from before",
     "faces from earlier roads, every one" },
   familiar_single = { "a familiar face by now", "no stranger by now", "met on an earlier road", "a companion from before" },
-  races_all = { "all of them {races}", "{races}, every one", "every one of them {races}", "{races} to the last" },
+  races_all = { "all of them {races}", "{races}, every one", "{races}, all of them", "{races} to the last" },
   races_most = { "most of them {races}", "{races} for the most part", "mostly {races}", "the greater part of them {races}" },
   -- How long together, and where they stand among the rest
   together = { "Together for {span} now", "{span} on the road together so far", "Grouped up for {span} now",

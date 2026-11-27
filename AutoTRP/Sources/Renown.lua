@@ -580,13 +580,14 @@ function R.Stat(world, rn)
   end
   local parts = {}
   for _, w in ipairs({ "Exalted", "Revered", "Honored" }) do
-    if count[w] then parts[#parts + 1] = w .. " with " .. count[w] end
+    -- "Revered with 2 factions, Honored with 3": the noun once, on the first.
+    if count[w] then parts[#parts + 1] = w .. " with " .. count[w] .. (#parts == 0 and (" " .. U.Plural(count[w], "faction")) or "") end
   end
   local cold = 0
   for _, e in ipairs(rn and rn.factions or {}) do
     if e.st and e.st <= 3 and e.down > 0 then cold = cold + 1 end
   end
-  if cold > 0 then parts[#parts + 1] = (#parts > 0 and "out of favour with " or "Out of favour with ") .. cold end
+  if cold > 0 then parts[#parts + 1] = (#parts > 0 and ("out of favour with " .. cold) or ("Out of favour with " .. cold .. " " .. U.Plural(cold, "faction"))) end
   if #parts == 0 then return nil end
   return table.concat(parts, ", ")
 end

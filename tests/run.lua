@@ -1641,7 +1641,7 @@ do
     ns.char.seen.zones = { ["Elwynn Forest"] = NOW - 3 * 86400, Westfall = NOW - 86400 }
     C.SourcesChanged(); C.Refresh()
     local st = C.Stats()
-    check(st.slain == "12, 12 of them Defias Bandits", "kills from the combat log, only the player's: " .. tostring(st.slain))
+    check(st.slain == "12, all of them Defias Bandits", "kills from the combat log, only the player's: " .. tostring(st.slain))
     check(st.deaths == "1, to Hogger", "a death, with who did it: " .. tostring(st.deaths))
     check(st.dungeons == "1", "a dungeon entered: " .. tostring(st.dungeons))
     ns.char.seen.zones = ns.char.seen.zones or {}
@@ -4780,7 +4780,8 @@ do
       local seen = {}
       for _, k in ipairs({ "mood", "lately", "company", "ambition", "marks" }) do
         local g = sh.glances[k]
-        if g.TX:find("^%l") then lower[#lower + 1] = k .. ": " .. g.TX end
+        if g.TX:find("^%l") or g.TX:find("{", 1, true) then lower[#lower + 1] = k .. ": " .. g.TX end
+        if #g.TX > C.GLANCE_MAX then long[#long + 1] = k .. ": " .. g.TX end
         local first = true
         if g.TI:find(" ") and g.TX:lower():find(g.TI:lower(), 1, true) then titles[#titles + 1] = g.TI .. " (echoed: " .. g.TX .. ")" end
         for w in g.TI:gmatch("%S+") do
@@ -4797,11 +4798,11 @@ do
     end
   end
   M.Scores = realScores
-  check(#long == 0, "Currently stays within " .. C.CURRENTLY_MAX .. " characters for every mood: " .. (long[1] or ""))
+  check(#long == 0, "Currently and the glances stay short for every mood: " .. (long[1] or ""))
   check(#listy == 0, "Currently never runs to a list of four commas: " .. (listy[1] or ""))
   check(#joined == 0, "feelings that pull apart are joined with \"but\": " .. (joined[1] or ""))
   check(#repeated == 0, "no word on both sides of a comma: " .. (repeated[1] or ""))
-  check(#lower == 0, "every glance starts with a capital: " .. (lower[1] or ""))
+  check(#lower == 0, "every glance starts with a capital, every tag filled: " .. (lower[1] or ""))
   check(#titles == 0, "glance titles cased alike (\"Back from the Depths\"): " .. (titles[1] or ""))
   check(#ideas == 0, "no two glances say the same thing at once: " .. (ideas[1] or ""))
 
@@ -5929,7 +5930,7 @@ do
   -- Statistics: on the road since, festivals kept.
   local stats = C.Stats()
   check(stats.since == "The 10th of October, 2025", "Stats: on the road since: " .. tostring(stats.since))
-  check(stats.festivals and stats.festivals:find("Hallow's End", 1, true) and stats.festivals:find("^1"), "Stats: festivals kept: " .. tostring(stats.festivals))
+  check(stats.festivals and stats.festivals:find("^Hallow's End"), "Stats: festivals kept: " .. tostring(stats.festivals))
   check(ns.UI.TipFor({ path = { "fields", "stat_since" } }) and ns.UI.TipFor({ path = { "fields", "stat_festivals" } }) and ns.UI.TipFor({ path = { "timeNotes" } }),
     "the new statistics and the time switch have tooltips")
   check(ns.TRP.FIELDS.stat_since and ns.TRP.FIELDS.stat_festivals and ns.db.fields.stat_since == true, "the new statistics are Total RP 3 fields with switches")
@@ -5965,7 +5966,7 @@ do
   state.buffs = keep.buffs
   refresh()
   stats = C.Stats()
-  check(stats.festivals:find("^2: Winter Veil and Hallow's End"), "Stats: two festivals, the latest first: " .. stats.festivals)
+  check(stats.festivals:find("^Winter Veil and Hallow's End"), "Stats: two festivals, the latest first: " .. stats.festivals)
   -- A year on: the anniversary, in History, Lately, the mood and the journal.
   NOW = at(2026, 10, 4, 12)   -- out a week before the day
   session(1)
@@ -6368,6 +6369,8 @@ do
   check(words(W.STYLE.TEMPER.healer, bearing) ~= nil, "Personality: a healer's line: " .. bearing)
   check(words(W.STYLE.PHYSICAL.healer, C.Physical()) == nil, "Physical waits for thirty fights")
   check(Style.PartyClause(ns.cache.style) and words(W.STYLE.COMPANY.healer, C.CompanyGlance().TX), "Company: the group's healer: " .. C.CompanyGlance().TX)
+  check(#C.CompanyGlance().TX <= C.GLANCE_MAX and C.CompanyGlance().TX:find("Aldric is ", 1, true),
+    "Company: the role is its own short sentence, by name: " .. C.CompanyGlance().TX)
   check(words(W.STYLE.HISTORY.healer, C.History()) == nil, "History waits for more fights before telling the role")
   for _ = 1, 6 do fight(function() healAlly(900, 0) end) end
   C.SourcesChanged(); C.Refresh()
@@ -6681,7 +6684,7 @@ do
 
   -- The statistic, and the Full title from real standing.
   local stat = C.Stats().renown
-  check(stat == "Revered with 1, Honored with 1, out of favour with 1", "the Standing statistic: " .. tostring(stat))
+  check(stat == "Revered with 1 faction, Honored with 1, out of favour with 1", "the Standing statistic: " .. tostring(stat))
   check(ns.TRP.FIELDS.stat_renown ~= nil and ns.db.fields.stat_renown == true, "the Standing statistic has its own switch, on by default")
   local tip = ns.UI.TipFor({ path = { "fields", "stat_renown" } })
   check(tip and tip:find("Standing", 1, true), "and a tooltip: " .. tostring(tip))

@@ -175,10 +175,10 @@ JW.bg_lost = { "We lost", "The other side took it", "It went against us", "We ca
 JW.bg_mixed = { "We won {won} and lost {lost}", "Won {won}, lost {lost}", "{won} won and {lost} lost, all told",
   "The tally: {won} won, {lost} lost", "Came out {won} won to {lost} lost", "Won {won} of them and lost {lost}" }
 JW.kb = { "I struck the last blow on {n} of the enemy", "{n} of the enemy fell to my hand",
-  "I finished {n} of the other side myself", "My hand ended {n} of them", "Put {n} of the enemy down myself",
+  "I finished {n} of the other side myself", "My hand ended {n} of them", "I put {n} of the enemy down myself",
   "{n} fell to me in the fighting" }
-JW.chain_step = { "That moved {chain} a step along", "One more step in {chain}", "That brought {chain} closer to its end",
-  "Another piece of {chain} done", "I'm further along in {chain} now", "{chain} moved on a step" }
+JW.chain_step = { "That moved {chain} a step along", "That was one more step in {chain}", "That brought {chain} closer to its end",
+  "That was another piece of {chain} done", "I'm further along in {chain} now", "{chain} moved on a step" }
 JW.chain_end = { "That saw {chain} through at last", "And that was the end of {chain}", "With that, {chain} is done",
   "That closed {chain} for good", "{chain} is behind me now", "That finished {chain}" }
 
@@ -375,7 +375,7 @@ JW.reflect_trait = {
   reserved = { "Enough written. Some things stay with me" },
 }
 moreAll(JW.signoff, {
-  PRIEST = { "Rest now; the hurt will still need tending tomorrow", "Light guide whoever needs it tonight" },
+  PRIEST = { "Rest now; there'll be more to mend tomorrow", "Light guide whoever needs it tonight" },
   PALADIN = { "My oath held another day", "The Light keeps the watch tonight" },
   WARRIOR = { "Rest, and back at it tomorrow", "Sharpen, rest, and back at it" },
   ROGUE = { "Nobody followed me, I made sure of it", "Back to the shadows for the night" },

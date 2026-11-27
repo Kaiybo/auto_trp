@@ -305,5 +305,5 @@ W.DELVE_SAY = {
   -- Marks: after a hard run.
   mark_hard = { "Still has the grime of {place} on {them}, and the stiffness of a run that went wrong more than once.",
     "Moves like someone dragged back to their feet more than once today.", "Back from {place} with fresh bruises and a short temper.",
-    "Has the drawn, sooty look of someone just out of {place} the hard way.", "Smells of {place}'s smoke and stale air, and is plainly glad to be out of it." },
+    "Sooty and drawn, just out of {place} the hard way.", "Smells of smoke and stale air from {place}, and is plainly glad to be out of it." },
 }

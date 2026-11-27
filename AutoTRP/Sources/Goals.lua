@@ -306,13 +306,13 @@ function G.Gather(world, c)
     if level >= first.level and not riding then
       local gold = money / 10000
       local kind = gold >= first.gold and "mount_ready" or gold >= first.gold / 4 and "mount" or "mount_far"
-      add(kind, "mount", { mount = nouns[1], gold = tostring(math.floor(gold)), cost = tostring(first.gold) },
+      add(kind, "mount", { mount = nouns[1], gold = U.Number(math.floor(gold)), cost = U.Number(first.gold) },
         kind == "mount" and math.floor(gold / first.gold * 4) or 0)
     elseif level >= swift.level and riding and riding < 150 then
       local gold = money / 10000
       if gold >= swift.gold then add("swift_ready", "swift", { mount = nouns[2], cost = tostring(swift.gold) })
       elseif gold >= swift.gold / 4 then
-        add("swift", "swift", { mount = nouns[2], gold = tostring(math.floor(gold)), cost = tostring(swift.gold) },
+        add("swift", "swift", { mount = nouns[2], gold = U.Number(math.floor(gold)), cost = U.Number(swift.gold) },
           math.floor(gold / swift.gold * 4))
       end
     end
