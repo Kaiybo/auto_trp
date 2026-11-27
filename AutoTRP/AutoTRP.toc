@@ -27,6 +27,7 @@ Sources\Self.lua
 Sources\Life.lua
 Sources\Company.lua
 Sources\Goals.lua
+Sources\Work.lua
 Mood.lua
 Journal.lua
 Compose.lua

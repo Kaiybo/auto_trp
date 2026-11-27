@@ -2230,6 +2230,246 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- The kind of work they take on (Sources/Work.lua): quest windows and the log fed fake
+-- events, with RPG Dialogue, Social Diary and Chronicle all absent, then the writing.
+do
+  local C, Wk, W = ns.Compose, ns.Sources.Work, ns.Words
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.self, ns.char.life }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  ns.char.deeds, ns.char.self, ns.char.life, ns.char.work = nil, nil, nil, nil
+  local api, apiNames = {}, { "GetNumQuestLogEntries", "GetQuestLogTitle", "GetNumQuestLeaderBoards", "GetQuestLogLeaderBoard",
+    "IsQuestWatched", "GetTitleText", "GetObjectiveText", "GetQuestText", "GetRewardText", "GetQuestID", "UnitName",
+    "UnitIsPlayer", "UnitGUID", "GetNumQuestChoices", "GetQuestItemInfo", "GetQuestItemLink", "GetItemInfo" }
+  for _, k in ipairs(apiNames) do api[k] = _G[k] end
+  local keepZone = state.zone
+  state.zone, state.combat = "Westfall", false
+
+  -- The quest log: { header = true, title } or { title, id, obj = { type, ... }, tag }.
+  local LOG = {}
+  GetNumQuestLogEntries = function() return #LOG, #LOG end
+  GetQuestLogTitle = function(i)
+    local q = LOG[i]
+    if not q then return nil end
+    if q.header then return q.title, 0, nil, true end
+    return q.title, 20, q.tag, false, false, nil, 0, q.id
+  end
+  GetNumQuestLeaderBoards = function(i) return #(LOG[i] and LOG[i].obj or {}) end
+  GetQuestLogLeaderBoard = function(j, i) return "something: 0/1", LOG[i].obj[j], false end
+  IsQuestWatched = function() return false end
+  local npc = { name = "Marshal Dughan", player = false }
+  UnitName = function(u) if u == "npc" then return npc.name end return "Aldric" end
+  UnitIsPlayer = function(u) if u == "npc" then return npc.player end return false end
+  UnitGUID = function(u)
+    if u == "npc" then return npc.player and "Player-1-0002" or "Creature-0-1-0-1-240-000001" end
+    return "Player-1-0001"
+  end
+  local win = {}
+  GetTitleText = function() return win.title end
+  GetObjectiveText = function() return win.objective end
+  GetQuestText = function() return win.text end
+  GetRewardText = function() return win.reward end
+  GetQuestID = function() return win.id end
+  local function offer(title, id, objective, text, obj, header, tag)
+    win = { title = title, id = id, objective = objective, text = text }
+    event("QUEST_DETAIL")
+    if header then LOG[#LOG + 1] = { header = true, title = header } end
+    LOG[#LOG + 1] = { title = title, id = id, obj = obj or {}, tag = tag }
+    event("QUEST_ACCEPTED", #LOG, id)
+  end
+  local function handIn(title, id, reward)
+    win = { title = title, id = id, reward = reward or "Well done." }
+    event("QUEST_COMPLETE")
+    event("QUEST_TURNED_IN", id, 100, 500)
+    for i = #LOG, 1, -1 do if LOG[i].title == title then table.remove(LOG, i) end end
+  end
+  local function work() return ns.char.work end
+
+  -- Sorting by the game's own objective types, then the words.
+  offer("The Killing Fields", 9, "Kill 15 Harvest Watchers.", "The watchers have gone mad.", { "monster" })
+  check(work().open["The Killing Fields"] and work().open["The Killing Fields"].kind == "slaying"
+    and work().open["The Killing Fields"].giver == "Marshal Dughan", "a job taken: its kind from the log, and who asked")
+  handIn("The Killing Fields", 9)
+  check(work().kinds.slaying == 1 and work().givers["Marshal Dughan"].n == 1 and work().zones.Westfall.slaying == 1,
+    "a job turned in: counted by kind, giver and land")
+  offer("A Letter for Gryan", 10, "Take the letter to Gryan Stoutmantle.", "This letter must reach him.", {})
+  handIn("A Letter for Gryan", 10)
+  offer("Murloc Scales", 11, "Bring 8 Murloc Fins.", "Gather what you can.", { "item" })
+  handIn("Murloc Scales", 11)
+  check(work().kinds.delivery == 1 and work().kinds.gathering == 1, "a letter carried is courier work; an item to bring back is gathering")
+  check(Wk.Classify({ title = "Der Kampf", objective = "Tötet 10 Gnolle.", nobj = 1, types = { monster = 1 } }) == "slaying"
+    and Wk.Classify({ title = "Sammeln", objective = "Sammelt 8 Flossen.", nobj = 1, types = { item = 1 } }) == "gathering",
+    "on another language the objective types still sort it")
+  check(Wk.Classify({ title = "Wanted: Hogger", objective = "Bring the claw of Hogger.", nobj = 1, types = { item = 1 } }) == "bounty"
+    and Wk.Classify({ title = "The Captives", objective = "Rescue the prisoners.", nobj = 1, types = { event = 1 } }) == "rescue"
+    and Wk.Classify({ title = "Strange Lights", objective = "Investigate the old tower.", nobj = 1, types = { event = 1 } }) == "investigation",
+    "bounties, rescues and scouting from the words")
+  check(Wk.Classify({ title = "Lunar Rites", header = "Lunar Festival", nobj = 0 }) == "holiday"
+    and Wk.Classify({ title = "Shards", header = "Priest", nobj = 1, types = { item = 1 } }) == "class"
+    and Wk.Classify({ title = "The Cook", header = "Cooking", nobj = 1, types = { item = 1 } }) == "profession"
+    and Wk.Classify({ title = "Into the Mines", tag = "dungeon", nobj = 1, types = { monster = 1 } }) == "dungeon",
+    "festival, class, trade and dungeon work from the log's header and tag")
+  check(Wk.Classify({ title = "Something", nobj = 1, types = {} }) == nil, "nothing to go on: no kind")
+
+  -- An escort seen through, then one lost.
+  ns.char.mood.emo.satisfied, ns.char.mood.emo.sorrowful = 0, 0
+  offer("Rescue Keeshan", 12, "Escort Corporal Keeshan back to Lakeshire.", "Get me out of here.", {})
+  handIn("Rescue Keeshan", 12)
+  check(work().escorts.done == 1 and work().kinds.escort == 1, "an escort seen through")
+  check((ns.char.mood.emo.satisfied or 0) > 0, "seeing an escort home is satisfying")
+  offer("The Missing Miner", 13, "Escort Miran safely to the dig.", "Protect me on the way.", { "event" })
+  state.zone = "Darkshore"
+  event("CHAT_MSG_SYSTEM", "The Missing Miner failed.")
+  event("UI_INFO_MESSAGE", 0, "The Missing Miner failed.")
+  check(work().escorts.failed == 1 and work().escorts.log[#work().escorts.log].zone == "Darkshore",
+    "an escort lost, once, with where: " .. tostring(work().escorts.failed))
+  check((ns.char.mood.emo.sorrowful or 0) > 0 and ns.char.mood.why.sorrowful:find("Darkshore", 1, true),
+    "losing an escort is a sorrow: " .. tostring(ns.char.mood.why.sorrowful))
+  event("CHAT_MSG_SYSTEM", "Murloc Scales failed.")
+  check(work().escorts.failed == 1, "a job that isn't an escort failing isn't an escort lost")
+  ns.World.slow = nil
+  C.SourcesChanged(); C.Refresh()
+  local lately = C.LatelyGlance()
+  check(lately.TI == "Lost on the Road" and lately.TX:find("Darkshore", 1, true), "Lately: an escort just lost: " .. tostring(lately.TX))
+  work().escorts.log[#work().escorts.log].t = NOW - 3 * 86400
+  C.SourcesChanged(); C.Refresh()
+  lately = C.LatelyGlance()
+  check(lately.TI == "Seen Safely Through" and lately.TX:find("Westfall", 1, true), "Lately: an escort just seen through: " .. tostring(lately.TX))
+  state.zone = "Westfall"
+
+  -- Shared by a companion: counted, never named; a party-started escort.
+  npc = { name = "Mirelle", player = true }
+  offer("Shared Work", 14, "Kill 5 Defias.", "", { "monster" })
+  check(work().shared == 1 and not work().open["Shared Work"].giver, "a job a companion shared is counted, and they're never named")
+  npc = { name = "Marshal Dughan", player = false }
+  event("QUEST_ACCEPT_CONFIRM", "Mirelle", "Down the Road")
+  check(work().open["Down the Road"].kind == "escort" and work().shared == 2, "a companion starting an escort: an escort, shared")
+  local function find(t, s) for k, v in pairs(t) do if v == s or k == s or (type(v) == "table" and find(v, s)) then return true end end end
+  check(not find(work(), "Mirelle"), "no player's name is kept")
+
+  -- Done again: counted apart, so a stack of coins doesn't make a career.
+  handIn("Shared Work", 14)
+  local slaying = work().kinds.slaying
+  for _ = 1, 3 do offer("Argent Dawn Valor Tokens", 15, "Bring 30 Scourgestones.", "", { "item" }); handIn("Argent Dawn Valor Tokens", 15) end
+  check(work().repeats.n == 2 and work().repeats.byTitle["Argent Dawn Valor Tokens"] == 2 and work().kinds.gathering == 2,
+    "a job done again is a repeat, not new work: " .. tostring(work().repeats.n))
+  check(work().kinds.slaying == slaying, "and leaves the kinds alone")
+
+  -- Nothing in a fight.
+  state.combat = true
+  local opened = ns.U.Count(work().open)
+  offer("Mid-Fight", 16, "Kill 5 Kobolds.", "", { "monster" })
+  state.combat = false
+  check(ns.U.Count(work().open) == opened, "nothing is read in a fight")
+  table.remove(LOG)
+
+  -- The reward picked: kit or coin.
+  local CHOICES = { { "Leather Vest", true, "INVTYPE_CHEST", "Leather", 400 }, { "Heavy Ring", false, "INVTYPE_FINGER", "Miscellaneous", 900 } }
+  GetNumQuestChoices = function() return #CHOICES end
+  GetQuestItemInfo = function(_, i) local c = CHOICES[i]; return c[1], "", 1, 2, c[2] end
+  GetQuestItemLink = function(_, i) return "choice:" .. i end
+  GetItemInfo = function(link)
+    local c = CHOICES[tonumber(link:match("%d+"))]
+    if c then return c[1], link, 2, 20, 15, "Armor", c[4], 1, c[3], nil, c[5] end
+  end
+  check(Wk.Reward(1) == "kit" and work().rewards.kit == 1 and work().rewards.armour.Leather == 1, "a reward to wear is kit, by armour")
+  CHOICES[2][2] = false; CHOICES[1][2] = false
+  check(Wk.Reward(2) == "coin" and work().rewards.coin == 1, "the one that sells best, when it isn't for wearing, is coin")
+  GetNumQuestChoices = function() return 1 end
+  check(Wk.Reward(1) == nil, "no choice, nothing to read")
+
+  -- Bounded.
+  for i = 1, 40 do work().givers["Giver " .. i] = { n = 1, last = NOW - i } end
+  npc = { name = "Last Giver", player = false }
+  offer("Bound", 17, "Kill 1 thing.", "", { "monster" }); handIn("Bound", 17)
+  check(ns.U.Count(work().givers) == Wk.CAP_GIVERS and work().givers["Marshal Dughan"], "givers are kept bounded, the most worked for kept")
+  for i = 1, 40 do work().givers["Giver " .. i] = nil end
+  work().givers["Last Giver"] = nil
+  npc = { name = "Marshal Dughan", player = false }
+
+  -- A longer record: History, Personality, the statistic.
+  local w = work()
+  w.kinds = { slaying = 40, delivery = 22, gathering = 9, escort = 5 }
+  w.n = 76
+  w.zones = { Westfall = { n = 40, slaying = 18, delivery = 16 }, ["Elwynn Forest"] = { n = 30, slaying = 22, delivery = 6 } }
+  w.escorts.done, w.escorts.failed = 4, 1
+  for _, e in ipairs(w.escorts.log) do e.t = NOW - 30 * 86400 end
+  w.rewards.coin, w.rewards.kit = 7, 1
+  w.givers["Marshal Dughan"] = { n = 14, zone = "Elwynn Forest", last = NOW }
+  w.run = nil
+  C.SourcesChanged(); C.Refresh()
+  local hist = C.History()
+  print("\nHistory with the work they take on:\n" .. hist)
+  local function anyOf(text, pool, vars)
+    for _, l in ipairs(pool) do
+      local s = ns.U.Pron(l:gsub("{(%a+)}", function(k) return vars and vars[k] end))
+      if text:lower():find(s:lower(), 1, true) then return true end
+    end
+    return false
+  end
+  check(anyOf(hist, W.WORK.MAIN.slaying), "History: most of the work has been the killing kind")
+  check(anyOf(hist, W.WORK.THOUGH.delivery, { zone = "Westfall" }), "History: the next kind, with where it was done most")
+  check(anyOf(hist, W.WORK.ESCORTS.mixed, { n = "four", lost = "one", zone = "Darkshore" }), "History: escorts seen home and one lost on the road out of Darkshore")
+  check(anyOf(hist, W.WORK.GIVER, { who = "Marshal Dughan" }), "History: the one worked for most")
+  -- A friend already (Sources/Self.lua's people): named once, not twice.
+  ns.char.self = ns.char.self or {}
+  ns.Sources.Self.Store().npcs["Marshal Dughan"] = { n = 12, zone = "Elwynn Forest", kind = "quest", last = NOW }
+  C.SourcesChanged(); C.Refresh()
+  local h2 = C.History()
+  local _, times = h2:gsub("Marshal Dughan", "")
+  check(times == 1, "a quest-giver who is already a friend is named once: " .. times)
+  ns.Sources.Self.Store().npcs["Marshal Dughan"] = nil
+  local bearing = C.Bearing()
+  print("\nPersonality with the work they take on:\n" .. bearing)
+  check(anyOf(bearing, W.WORK.HABIT.courier) or anyOf(bearing, W.WORK.HABIT.coin), "Personality: courier work or coin over kit")
+  local st = C.Stats()
+  check(st.work == "40 slaying, 22 courier, 9 gathering, 5 escort; 1 escort lost", "statistic: work by kind: " .. tostring(st.work))
+  check(ns.TRP.FIELDS.stat_work ~= nil and ns.db.fields.stat_work == true, "the work statistic has its own switch, on by default")
+  check(ns.UI.TipFor({ path = { "fields", "stat_work" } }) ~= nil, "and a tooltip")
+  -- A run of the same kind of job: Lately.
+  w.run = { kind = "delivery", zone = "Westfall", n = 4, start = NOW - 1200, last = NOW + 5 }
+  C.SourcesChanged(); C.Refresh()
+  lately = C.LatelyGlance()
+  check(lately.TI == "On the Errand Run" and lately.TX:find("Westfall", 1, true), "Lately: a run of deliveries: " .. tostring(lately.TX))
+  -- SAMPLES=1 prints the work lines for a few characters and careers.
+  if os.getenv("SAMPLES") then
+    local seedKeep = ns.char.seedName
+    local careers = {
+      { kinds = { delivery = 30, slaying = 12 }, n = 42, zones = { Duskwood = { n = 20, delivery = 14, slaying = 9 } }, done = 0, failed = 0 },
+      { kinds = { gathering = 25, investigation = 11 }, n = 36, zones = { ["The Barrens"] = { n = 36, gathering = 25, investigation = 11 } }, done = 6, failed = 0 },
+      { kinds = { escort = 9, bounty = 6 }, n = 15, zones = { ["Stranglethorn Vale"] = { n = 15, escort = 9, bounty = 6 } }, done = 9, failed = 2 },
+      { kinds = { slaying = 60, rescue = 8 }, n = 68, zones = { Ashenvale = { n = 68, slaying = 60, rescue = 8 } }, done = 0, failed = 1 },
+    }
+    for i, cr in ipairs(careers) do
+      ns.char.seedName = "worksample" .. i
+      w.kinds, w.n, w.zones, w.escorts.done, w.escorts.failed = cr.kinds, cr.n, cr.zones, cr.done, cr.failed
+      w.escorts.log = cr.failed > 0 and { { t = NOW - 30 * 86400, zone = "Ashenvale", ok = false } } or {}
+      C.SourcesChanged(); C.Refresh()
+      local wk = ns.cache.work
+      print("\n-- work sample " .. i .. " --")
+      for _, l in ipairs(Wk.Record(wk, {})) do print(ns.U.Pron(l) .. ".") end
+      print(ns.U.Pron(Wk.GiverLine(wk, {}) or "(no giver line)"))
+      for _, h in ipairs(Wk.Habits(wk)) do print("habit: " .. ns.U.Pron(ns.U.Pick(h.pool, ns.char.seedName))) end
+      print("stat: " .. tostring(Wk.Stat(wk)))
+    end
+    ns.char.seedName = seedKeep
+  end
+  -- Little done: nothing claimed.
+  ns.char.work = nil
+  C.SourcesChanged(); C.Refresh()
+  hist = C.History()
+  check(not anyOf(hist, W.WORK.MAIN.slaying) and C.Stats().work == nil, "no work recorded: no lines and no statistic")
+  local all = table.concat({ hist, C.Bearing() }, " ")
+  check(not all:find("Mirelle", 1, true), "no other player is named")
+
+  for _, k in ipairs(apiNames) do _G[k] = api[k] end
+  state.zone = keepZone
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  ns.char.deeds, ns.char.self, ns.char.life, ns.char.work = keep[4], keep[5], keep[6], nil
+  if ns.Goals.Invalidate then ns.Goals.Invalidate() end
+  ns.World.slow = nil
+  C.SourcesChanged(); C.Refresh()
+end
+
 -- Every option at once, from the slash command (the panel's buttons call the same).
 do
   local before = {}

@@ -72,6 +72,7 @@ function Compose.Refresh()
     c.deeds = S.Deeds.Read()
     c.self = S.Self and S.Self.Read(c) or nil
     c.life = S.Life and S.Life.Read() or nil
+    c.work = S.Work and S.Work.Read() or nil
     sourcesAt, c.read = now, true
   end
   -- The company is the game's own (cheap: a party is five units, a raid forty); Social
@@ -364,6 +365,9 @@ function Compose.LatelyGlance()
       add(inn.t, 0, { TI = "A New Inn", IC = "INV_Drink_05", TX = say("lately_inn", { inn = innName }, inn.t) })
     end
   end
+
+  -- The kind of work they take on (Sources/Work.lua): an escort seen through or lost, a run of jobs.
+  for _, cd in ipairs(ns.Sources.Work and ns.Sources.Work.Lately(c.work) or {}) do add(cd.t, cd.prio, cd.g) end
 
   -- A day-old hurt outranks everything; otherwise the newest, then the weightiest. (A strict
   -- order: table.sort may compare an entry with itself.)
@@ -966,13 +970,16 @@ end
 -- Habits the counts back up, strongest first: at most `k` lines for Personality.
 function Compose.Habits(k)
   local c = ns.cache
-  local life, world = c.life, c.world or {}
-  if not life then return {} end
+  local world = c.world or {}
+  local life = c.life or { fish = 0, fishZones = 0, madeByProf = {}, herbs = 0, ore = 0, duelsWon = 0, duelsLost = 0,
+    battles = 0, inns = {}, falls = 0, closeCalls = 0 }
   local cands = {}
   local function add(score, key, list)
     local pool = list or W.LIFE.HABIT[key]
     if pool and #pool > 0 then cands[#cands + 1] = { score = score, key = key, text = U.Pick(pool, seed("habit:" .. key)) } end
   end
+  -- The kind of work they take on (Sources/Work.lua): couriers, bounty boards, coin over kit.
+  for _, h in ipairs(ns.Sources.Work and ns.Sources.Work.Habits(c.work) or {}) do add(h.score, h.key, h.pool) end
   if life.fish >= 100 and life.fishZones >= 3 then add(3, "fish_many") elseif life.fish >= 30 then add(2, "fish_some") end
   local cooked = life.madeByProf.Cooking or 0
   if cooked >= 50 then add(2, "cook") end
@@ -1476,6 +1483,9 @@ function Compose.History()
     end
   end
 
+  -- The kind of work they take on (Sources/Work.lua): an escort seen through or lost.
+  for _, e in ipairs(ns.Sources.Work and ns.Sources.Work.News(c.work, recent) or {}) do event(e.t, e.rank, e.text, e.key) end
+
   local groups, order = {}, {}
   for _, e in ipairs(events) do
     local g = whenWords(e.t)
@@ -1586,6 +1596,8 @@ function Compose.History()
     record[#record + 1] = lead .. " {they've} " .. U.Join(a)
     if #b > 0 then record[#record + 1] = "{they've} also " .. U.Join(b) end
   end
+  -- What most of the work has been, and the escorts (Sources/Work.lua).
+  for _, s in ipairs(ns.Sources.Work and ns.Sources.Work.Record(c.work, toldRecent) or {}) do record[#record + 1] = s end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}
   local crafts = {}
   for k = 1, math.min(2, #profs) do
@@ -1653,6 +1665,12 @@ function Compose.History()
       .. (partner and (", and travels with " .. partner) or "")
   elseif partner then
     people[#people + 1] = name .. " travels with " .. partner
+  end
+  -- The one they work for most (Sources/Work.lua), unless already named among their friends.
+  do
+    local named = {}
+    for _, f in ipairs(friends) do named[f] = true end
+    people[#people + 1] = ns.Sources.Work and ns.Sources.Work.GiverLine(c.work, named) or nil
   end
   -- How they go about: alone or in company, and who has shared the road (counts only).
   local sol = co.solitude or {}
@@ -2177,6 +2195,8 @@ Compose.STATS = {
   { key = "gold", label = "Most gold held", icon = "INV_Misc_Coin_01" },
   { key = "inns", label = "Inns stayed at", icon = "INV_Drink_05" },
   { key = "hit", label = "Hardest hit", icon = "Ability_Warrior_Rampage" },
+  -- From Auto TRP's record of the work they take on (Sources/Work.lua).
+  { key = "work", label = "Work by kind", icon = "INV_Misc_Note_01" },
   { key = "letters", label = "Letters received", icon = "INV_Letter_15", retired = true },
 }
 
@@ -2236,6 +2256,7 @@ function Compose.Stats()
   end
   local questsDone = Compose.QuestsDone(c)
   if questsDone > 0 then out.jobs = figure(questsDone) end
+  out.work = ns.Sources.Work and ns.Sources.Work.Stat(c.work, figure) or nil
   local band = Compose.WealthBand(world)
   if band then out.wealth = band.word .. " (" .. money(world.money) .. ")" end
   local profs = (chron and #chron.professions > 0 and chron.professions) or world.professions or {}

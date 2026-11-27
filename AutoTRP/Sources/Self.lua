@@ -179,12 +179,19 @@ ns.On("PLAYER_REGEN_DISABLED", function() S.FightStarted() end)
 -- The people you deal with: quest-givers, vendors, innkeepers, trainers (NPCs only).
 ---------------------------------------------------------------------------
 local lastNPC, lastNPCAt = nil, 0
-function S.MetNPC(kind)
+-- The NPC whose window is open, by name: a creature, never a player, never a guard or a
+-- poster. Shared with Sources/Work.lua (who asked for a job).
+function S.NPCName()
   local guid = U.Call(UnitGUID, "npc")
-  if type(guid) ~= "string" or not guid:find("^Creature") or U.Call(UnitIsPlayer, "npc") then return end
+  if type(guid) ~= "string" or not guid:find("^Creature") or U.Call(UnitIsPlayer, "npc") then return nil end
   local name = U.Plain(U.Call(UnitName, "npc"))
+  if not name then return nil end
+  for _, pat in ipairs(W.SELF_NPC_SKIP) do if name:find(pat) then return nil end end
+  return name
+end
+function S.MetNPC(kind)
+  local name = S.NPCName()
   if not name then return end
-  for _, pat in ipairs(W.SELF_NPC_SKIP) do if name:find(pat) then return end end
   local now = U.Now()
   if name == lastNPC and now - lastNPCAt < 120 then return end   -- one visit, however many windows
   lastNPC, lastNPCAt = name, now
