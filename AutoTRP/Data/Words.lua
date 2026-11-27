@@ -4261,3 +4261,120 @@ if W.JOURNAL and W.JOURNAL.feel then
     bitter = { "sour about it all", "nursing a grudge" },
   }) do W.JOURNAL.feel[k] = W.JOURNAL.feel[k] or v end
 end
+
+---------------------------------------------------------------------------
+-- THE ROAD, land by land (Sources/Road.lua; Compose.RoadStory, the Lately glance and the
+-- "Longest stay" statistic). Each line is one sentence without its full stop. {zone}: the
+-- land ("Westfall", "the Barrens"), with what it is when there's room ("Westfall, the dry
+-- farmland west of Stormwind"); {stay}: how long ("the better part of a week"); {rest}: the
+-- level and the work there, each opening with a comma, or nothing; {name}: the character.
+---------------------------------------------------------------------------
+W.ROAD = {
+  -- The first of the lands that mattered.
+  first = {
+    "Spent {stay} in {zone}{rest}",
+    "Gave {stay} to {zone}{rest}",
+    "Put in {stay} in {zone}{rest}",
+    "Stayed {stay} in {zone}{rest}",
+    "Worked {zone} for {stay}{rest}",
+  },
+  -- The ones after it, in order.
+  next = {
+    "Then came {stay} in {zone}{rest}",
+    "After that {they} spent {stay} in {zone}{rest}",
+    "From there it was on to {zone} for {stay}{rest}",
+    "Moved on to {zone} next and stayed {stay}{rest}",
+    "Later {they} gave {stay} to {zone}{rest}",
+    "{zone} came after, with {stay} there{rest}",
+  },
+  -- The one they stayed in longest (when it isn't the first).
+  longest = {
+    "{zone} held {them} longest, {stay}{rest}",
+    "The longest stay was in {zone}, {stay}{rest}",
+    "Most of {their} time went to {zone}, {stay} in all{rest}",
+    "No land kept {them} longer than {zone}: {stay}{rest}",
+    "{zone} is where {they} stayed longest, {stay}{rest}",
+  },
+  -- How long, from the days a stay lasted...
+  days = {
+    { max = 3, words = { "a couple of days", "two days or so" } },
+    { max = 5, words = { "a few days", "three or four days" } },
+    { max = 8, words = { "the better part of a week", "most of a week" } },
+    { max = 12, words = { "more than a week", "a week and more" } },
+    { max = 20, words = { "a fortnight or so", "the better part of a fortnight" } },
+    { max = 35, words = { "most of a month", "close on a month" } },
+    { max = math.huge, words = { "more than a month", "the better part of two months" } },
+  },
+  -- ...or the hours spent there, when it was all one sitting or two.
+  hours = {
+    { max = 1.5, words = { "an hour or two", "a short spell" } },
+    { max = 4, words = { "a few hours", "an afternoon or so" } },
+    { max = 8, words = { "a long day", "the length of a long day" } },
+    { max = 16, words = { "a couple of long days", "two long days" } },
+    { max = math.huge, words = { "many long days", "day after long day" } },
+  },
+  -- The level while there: {a} and {b} in words ("twelve", "seventeen").
+  climb = { ", going from level {a} to {b} there", ", arriving at level {a} and leaving at {b}", ", climbing from level {a} to {b}",
+    ", rising from level {a} to {b} along the way" },
+  level = { ", at around level {a}", ", at level {a} or so", ", somewhere about level {a}" },
+  -- The work done there: {story} (a storyline), {n} (jobs, in words).
+  story = { ", mostly on {story}", ", much of it on {story}", ", most of it caught up in {story}", ", largely on {story}" },
+  jobs = { ", seeing {n} jobs through", ", with {n} jobs done there", ", taking on {n} jobs along the way" },
+  town = { ", working out of {town}", ", mostly around {town}", ", with {town} for a base" },
+  inn = { ", putting up at {inn}", ", lodging at {inn}", ", sleeping at {inn}" },
+  -- What else happened there, after a semicolon. {dungeon}, {boss}, {times} ("twice").
+  boss = { "it's also where {they} went down into {dungeon} and brought down {boss}",
+    "from there {they} went down into {dungeon} after {boss}",
+    "{dungeon} is close by, and it was from there that {they} went after {boss}",
+    "it was from there that {they} went into {dungeon} and came out with {boss} beaten" },
+  dungeon = { "from there {they} went down into {dungeon}", "it's also where {they} first went into {dungeon}",
+    "{dungeon} lies close by, and {they} went down into it from there" },
+  deaths = { "it's also where {name} fell {times}", "{name} fell there {times}, too", "{name} was laid low there {times}",
+    "it's where {name} met {their} end {times} and came back from it" },
+  close = { "{name} came close to dying there {times}", "{name} nearly fell there {times}",
+    "it's where {name} came nearest to the end, {times}" },
+  -- The land they keep coming back to: {n} ("eleven times").
+  returns = {
+    "Keeps coming back to {zone}, {n} now",
+    "Of all the lands, {zone} is the one {they} return{s} to most, {n} so far",
+    "{zone} keeps drawing {them} back; {they've} returned {n}",
+    "Returns to {zone} more often than anywhere else, {n} so far",
+    "Has gone back to {zone} {n}, more than to anywhere else",
+  },
+  -- The land they left quickly.
+  quick = {
+    "Didn't stay long in {zone}, and hasn't been back",
+    "Passed through {zone} in under an hour and hasn't gone back since",
+    "Had seen enough of {zone} within the hour",
+    "{zone} got no more than a look before {they} moved on",
+    "Left {zone} almost as soon as {they} arrived",
+  },
+  -- Where they've been this past week ({sub}: ", around Booty Bay" or nothing).
+  lately = {
+    "These days {they're} mostly in {zone}{sub}",
+    "Lately {they've} kept to {zone}{sub}",
+    "Most of this past week has gone to {zone}{sub}",
+    "{zone} is where {they've} spent this past week{sub}",
+    "This week it has been {zone}, for the most part{sub}",
+  },
+  -- Back in a land after a long while ({away}: "a month").
+  lately_back = {
+    "Back in {zone} lately, after {away} away",
+    "Has come back to {zone} this week, after {away} elsewhere",
+    "Is in {zone} again, for the first time in {away}",
+    "Returned to {zone} only lately, {away} after last leaving it",
+  },
+  away = {
+    { max = 12, words = "a week" }, { max = 19, words = "two weeks" }, { max = 26, words = "three weeks" },
+    { max = 45, words = "a month" }, { max = 75, words = "two months" }, { max = 150, words = "a few months" },
+    { max = math.huge, words = "half a year or more" },
+  },
+}
+
+-- The Lately glance: back in a land, and moving on from a long stay.
+W.SAY.lately_back = { "Back in {zone} after {away} away.", "Has come back to {zone} after {away} elsewhere.",
+  "In {zone} again, for the first time in {away}.", "Returned to {zone} lately, {away} after last leaving it.",
+  "On the roads of {zone} again after {away}." }
+W.SAY.lately_moved = { "Has left {from} behind after {stay} there, and is new to {zone}.",
+  "After {stay} in {from}, has moved on to {zone}.", "Fresh to {zone}, with {stay} in {from} behind {them}.",
+  "Done with {from} for now, after {stay}; {zone} is next.", "Only lately came on to {zone}, after {stay} in {from}." }

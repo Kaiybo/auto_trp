@@ -824,6 +824,7 @@ UI.TIPS = {
   ["fields.namecolour"] = "Shows your name in your class colour on your profile.",
   ["fields.music"] = "Sets your profile's music to your home's zone music, or where you are, when the game has a match.",
   ["fields.walkup"] = "Marks you open to walk-ups when your mood is sociable, and not when it isn't.",
+  ["fields.stat_longest"] = "The \"Longest stay\" statistic: the land your character has spent most time in (time away from the keyboard and in fights isn't counted), with the hours and how many visits. Off, Auto TRP takes down what it wrote there.",
   ["fields.stats"] = "The Statistics entries under Additional information. Your own entries there stay as they are.",
   ["sources.rpgd"] = "Your origin, alignment, choices, opinions, the people you've met, stories and diary.",
   ["sources.socialDiary"] = "The players you've marked as friends, a partner, and your recent groups.",
@@ -1398,7 +1399,7 @@ local HELP = {
   { "/atrp status", "which profile it writes to and which addons it reads" },
   { "/atrp welcome", "show the welcome window again" },
   { "/atrp on", "resume (/atrp off: pause; your profile stays as it is)" },
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, talents, fish, made, gathered, duels, battles, gold, inns, hit)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, walkup, namecolour, music, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books, faction, guild, level, talents, fish, made, gathered, duels, battles, gold, inns, hit, longest)",
 }
 UI.HELP = HELP
 

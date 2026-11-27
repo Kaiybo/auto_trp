@@ -72,6 +72,7 @@ function Compose.Refresh()
     c.deeds = S.Deeds.Read()
     c.self = S.Self and S.Self.Read(c) or nil
     c.life = S.Life and S.Life.Read() or nil
+    c.road = S.Road and S.Road.Read() or nil
     sourcesAt, c.read = now, true
   end
   -- The company is the game's own (cheap: a party is five units, a raid forty); Social
@@ -364,6 +365,9 @@ function Compose.LatelyGlance()
       add(inn.t, 0, { TI = "A New Inn", IC = "INV_Drink_05", TX = say("lately_inn", { inn = innName }, inn.t) })
     end
   end
+
+  -- The road: back in a land after a long while, moving on after a long stay.
+  for _, r in ipairs(Compose.RoadLately and Compose.RoadLately() or {}) do add(r.t, r.prio, r.g) end
 
   -- A day-old hurt outranks everything; otherwise the newest, then the weightiest. (A strict
   -- order: table.sort may compare an entry with itself.)
@@ -1258,6 +1262,238 @@ end
 
 local function guildName(g) return g:find("^The ") and U.Mid(g) or g end
 
+---------------------------------------------------------------------------
+-- The road, land by land (Sources/Road.lua): History's road paragraph, two Lately items
+-- and the "Longest stay" statistic. Wording in W.ROAD and W.SAY.lately_back/_moved.
+---------------------------------------------------------------------------
+local function roadFill(line, vars)
+  return (line:gsub("{([%a']+)}", function(k) if vars[k] ~= nil then return vars[k] end end))
+end
+local ROAD_COMMON = { from = true, level = true, there = true, with = true, that = true, into = true, down = true,
+  them = true, they = true, their = true, where = true }
+-- The words a line brings of its own (not its tags), to keep from saying "most" thrice.
+local function ownWords(line)
+  local out = {}
+  for w in line:gsub("{[%a']+}", ""):lower():gmatch("%a+") do if #w >= 4 and not ROAD_COMMON[w] then out[#out + 1] = w end end
+  return out
+end
+local function saysAny(text, words)
+  local low = " " .. text:lower():gsub("[^%a]+", " ") .. " "
+  for _, w in ipairs(words) do if low:find(" " .. w .. " ", 1, true) then return true end end
+  return false
+end
+-- One of a list, seeded per land, that repeats none of the words already said (else the
+-- seeded one).
+local function fresh(list, which, said)
+  if type(list) ~= "table" or #list == 0 then return list end
+  local start = U.Hash(seed("road:" .. which)) % #list
+  for k = 0, #list - 1 do
+    local l = list[(start + k) % #list + 1]
+    if not saysAny(said or "", ownWords(l)) then return l end
+  end
+  return list[start + 1]
+end
+local function bucket(list, v, which, said)
+  for _, b in ipairs(list) do
+    if v < b.max then return type(b.words) == "table" and fresh(b.words, "b:" .. tostring(which), said) or b.words end
+  end
+end
+-- How long a stay was: by the days it lasted when it ran over days, else by the hours.
+function Compose.StayWords(e, said)
+  if (e.wall or 0) >= 1.5 * 86400 and (e.secs or 0) >= 7200 then return bucket(W.ROAD.days, e.wall / 86400, e.name, said) end
+  return bucket(W.ROAD.hours, (e.secs or 0) / 3600, e.name, said)
+end
+function Compose.AwayWords(seconds) return bucket(W.ROAD.away, (seconds or 0) / 86400) end
+local function isCapital(name) return W.CAPITAL_ZONES and W.CAPITAL_ZONES[name] or false end
+local ROAD_THE = { Wetlands = true, Badlands = true }
+local function roadPlace(n) return ROAD_THE[n] and ("the " .. n) or placeName(n) end
+Compose.RoadPlace = roadPlace
+
+-- One land's sentence: the stay, the level, the work, and what else happened there.
+-- said: the paragraph so far, so the words don't repeat.
+local function roadLine(e, family, used, name, withKind, said)
+  local pool = W.ROAD[family]
+  local start = U.Hash(seed("road:" .. family .. ":" .. e.name)) % #pool
+  local line
+  for k = 0, #pool - 1 do
+    local l = pool[(start + k) % #pool + 1]
+    if not used[l] and not saysAny(said, ownWords(l)) then line = l; break end
+  end
+  if not line then
+    for k = 0, #pool - 1 do
+      local l = pool[(start + k) % #pool + 1]
+      if not used[l] then line = l; break end
+    end
+  end
+  line = line or pool[start + 1]
+  used[line] = true
+  local ctx = said .. " " .. line
+  local function pick(key)
+    local l = fresh(W.ROAD[key], key .. ":" .. e.name, ctx)
+    ctx = ctx .. " " .. l
+    return l
+  end
+  local stay = Compose.StayWords(e, ctx)
+  ctx = ctx .. " " .. stay
+  local clauses = {}
+  if not isCapital(e.name) then
+    local span = e.upLo and e.upHi and (e.upHi - e.upLo + 1) or 0
+    if (e.ups or 0) >= 2 and e.ups >= span * 0.6 then
+      clauses[#clauses + 1] = roadFill(pick("climb"), { a = U.Number(e.upLo - 1), b = U.Number(e.upHi) })
+    elseif e.lvlIn then
+      clauses[#clauses + 1] = roadFill(pick("level"), { a = U.Number(e.lvlIn) })
+    end
+  end
+  local work
+  if e.story and e.story.n >= 2 then
+    local story = e.story.title
+    for _, z in ipairs({ e.name, U.Mid(e.name) }) do
+      local cut = " in " .. z
+      if story:sub(-#cut) == cut then story = story:sub(1, -#cut - 1) end
+    end
+    work = roadFill(pick("story"), { story = story })
+  elseif (e.quests or 0) >= 3 then
+    work = roadFill(pick("jobs"), { n = U.Number(e.quests) })
+  elseif e.town and not e.town:find(e.name, 1, true) then
+    work = roadFill(pick("town"), { town = U.Mid(e.town) })
+  elseif e.inn then
+    work = roadFill(pick("inn"), { inn = placeName(e.inn) })
+  end
+  if work then clauses[#clauses + 1] = work end
+  local zone = roadPlace(e.name)
+  local kind = W.ZONE_KIND and W.ZONE_KIND[e.name]
+  local kinded = false
+  if withKind and kind and #clauses <= 1 and (line:find("{zone}{rest}", 1, true) or line:find("{zone}:", 1, true)) then
+    zone = zone .. ", " .. U.Pick(kind, seed("road:kind:" .. e.name))
+    kinded = true
+  end
+  local text = roadFill(line, { zone = zone, stay = stay, rest = table.concat(clauses) })
+  -- What else happened there: a death or two outranks the dungeon next door.
+  local tail
+  local after
+  if (e.deaths or 0) >= 1 then
+    tail = roadFill(pick("deaths"), { name = name, times = U.Times(e.deaths) })
+    if e.dungeons[1] then
+      after = roadFill(pick(e.bosses[1] and "boss" or "dungeon"), { dungeon = U.Mid(e.dungeons[1].name), boss = e.bosses[1] and e.bosses[#e.bosses].name })
+    end
+  elseif e.bosses[1] and e.dungeons[1] then
+    tail = roadFill(pick("boss"), { dungeon = U.Mid(e.dungeons[1].name), boss = e.bosses[#e.bosses].name })
+  elseif e.dungeons[1] then
+    tail = roadFill(pick("dungeon"), { dungeon = U.Mid(e.dungeons[1].name) })
+  elseif (e.close or 0) >= 2 then
+    tail = roadFill(pick("close"), { name = name, times = U.Times(e.close) })
+  end
+  if tail then text = text .. "; " .. tail end
+  if after then text = text .. ". " .. U.Cap(after) end
+  return text, kinded
+end
+
+-- The road told: the three or four lands that mattered most, in the order reached, then the
+-- one left quickly, the one they keep coming back to, and where they've been lately. Nil
+-- until two lands have real time on them. Every fact is from the record.
+function Compose.RoadStory(name)
+  local road = ns.cache.road
+  if not road then return nil end
+  name = name or firstName()
+  local now = U.Now()
+  local cands = {}
+  for _, e in ipairs(road.zones) do
+    if e.secs >= 1800 and not isCapital(e.name) then
+      e.score = e.secs / 3600 + (e.quests or 0) * 0.4 + (e.deaths or 0) + #e.dungeons * 1.5 + #e.bosses + (e.ups or 0)
+      cands[#cands + 1] = e
+    end
+  end
+  if #cands < 2 then return nil end
+  table.sort(cands, function(a, b) if a.score ~= b.score then return a.score > b.score end return a.name < b.name end)
+  local picked = {}
+  for k = 1, math.min(4, #cands) do picked[k] = cands[k] end
+  table.sort(picked, function(a, b) if a.first ~= b.first then return a.first < b.first end return a.name < b.name end)
+  local longest = picked[1]
+  for _, e in ipairs(picked) do if e.secs > longest.secs then longest = e end end
+  local told, used, list, kinds = {}, {}, {}, 0
+  for k, e in ipairs(picked) do
+    local family = k == 1 and "first" or (e == longest and "longest" or "next")
+    local text, kinded = roadLine(e, family, used, name, kinds < 2 and k % 2 == 1, table.concat(list, " "))
+    if kinded then kinds = kinds + 1 end
+    list[#list + 1] = text
+    told[e.name] = true
+  end
+  -- Then at most three more (two after four lands): where they've been lately counts most,
+  -- the land left at once least; told in the order quick, returning, lately.
+  local extra = {}
+  local function more(key, vars, which, order)
+    extra[#extra + 1] = { key = key, vars = vars, which = which, order = order }
+  end
+  -- The land left almost at once.
+  local quick
+  for _, e in ipairs(road.zones) do
+    if e.visits == 1 and not e.before and not e.here and e.secs > 0 and e.secs < 1800 and (e.quests or 0) == 0
+      and now - e.last > 86400 and not isCapital(e.name) and not told[e.name] and (not quick or e.last > quick.last) then
+      quick = e
+    end
+  end
+  if quick then more("quick", { zone = roadPlace(quick.name) }, quick.name, 1) end
+  -- Back where they were a long while ago, else where they've been this past week; and the
+  -- land they keep coming back to.
+  local lately, back = road.lately, road.back
+  local latelyName
+  if back and back.zone == road.cur and now - back.t <= 7 * 86400 then
+    more("lately_back", { zone = roadPlace(back.zone), away = Compose.AwayWords(back.away) }, back.zone, 3)
+    latelyName = back.zone
+  elseif lately and lately.recent >= 3600 then
+    local sub = ""
+    if lately.sub and (lately.subN or 0) >= 3 and not ns.World.IsInn(lately.sub) then sub = ", around " .. U.Mid(lately.sub) end
+    more("lately", { zone = roadPlace(lately.name), sub = sub }, lately.name, 3)
+    latelyName = lately.name
+  end
+  local mv = road.mostVisited
+  if mv and mv.visits >= 4 and mv.name ~= latelyName then
+    more("returns", { zone = roadPlace(mv.name), n = U.Times(mv.visits - 1) }, mv.name, 2)
+  end
+  local room = #picked >= 4 and 2 or 3
+  while #extra > room do
+    local lo = 1
+    for k, x in ipairs(extra) do if x.order < extra[lo].order then lo = k end end
+    table.remove(extra, lo)
+  end
+  table.sort(extra, function(a, b) return a.order < b.order end)
+  for _, x in ipairs(extra) do
+    list[#list + 1] = roadFill(fresh(W.ROAD[x.key], x.key .. ":" .. x.which, table.concat(list, " ")), x.vars)
+  end
+  return paragraph(list)
+end
+
+-- Lately: back in a land after a long while, or moving on after a long stay.
+function Compose.RoadLately()
+  local road = ns.cache.road
+  local out = {}
+  if not road or not road.cur then return out end
+  local b = road.back
+  if b and b.zone == road.cur and within(b.t, 2 * 86400) then
+    out[#out + 1] = { t = b.t, prio = 1, g = { TI = "Back Again", IC = "INV_Misc_Map_01",
+      TX = U.Pron(say("lately_back", { zone = roadPlace(b.zone), away = Compose.AwayWords(b.away) }, b.t)) } }
+  end
+  local l = road.left
+  local here = road.byName[road.cur]
+  if l and l.zone ~= road.cur and within(l.t, 86400) and here and here.visits == 1 and not here.before
+    and ((l.stay or 0) >= 2 * 86400 or (l.secs or 0) >= 3 * 3600) then
+    local from = road.byName[l.zone]
+    out[#out + 1] = { t = l.t, prio = 0, g = { TI = "Moving On", IC = "Ability_Hunter_Pathfinding",
+      TX = U.Pron(say("lately_moved", { zone = roadPlace(road.cur), from = roadPlace(l.zone),
+        stay = Compose.StayWords({ name = l.zone, wall = from and from.wall or l.stay, secs = from and from.secs or l.secs }) }, l.t)) } }
+  end
+  return out
+end
+
+-- "Westfall, 14 hours over 3 visits"
+function Compose.LongestStay()
+  local lg = ns.cache.road and ns.cache.road.longest
+  if not lg then return nil end
+  local h = math.floor(lg.secs / 3600)
+  local span = lg.secs < 3600 and (math.max(1, math.floor(lg.secs / 60)) .. " minutes") or (h .. " " .. U.Plural(h, "hour"))
+  return lg.name .. ", " .. span .. (lg.visits > 1 and (" over " .. lg.visits .. " visits") or "")
+end
+
 -- History, in five paragraphs. The first and the last two hold what lasts: where they
 -- came from and the road, the people, how things stand. The second is the news (the last
 -- three weeks, newest first, and what has changed). The third is the longer record: the
@@ -1322,6 +1558,8 @@ function Compose.History()
     if world.zone then roots[#roots + 1] = say("keepsto", { zone = placeName(world.zone) }, world.zone) end
   end
   paras[#paras + 1] = paragraph(roots)
+  -- 1b. The road, land by land (Sources/Road.lua), once there's enough of it.
+  paras[#paras + 1] = Compose.RoadStory(name)
 
   -- 2. Lately: what happened in the last three weeks, and what changed. Each event is a
   -- past-tense predicate ("reached Duskwood for the first time"), grouped by how long ago
@@ -2177,6 +2415,8 @@ Compose.STATS = {
   { key = "gold", label = "Most gold held", icon = "INV_Misc_Coin_01" },
   { key = "inns", label = "Inns stayed at", icon = "INV_Drink_05" },
   { key = "hit", label = "Hardest hit", icon = "Ability_Warrior_Rampage" },
+  -- From Auto TRP's record of the road, land by land (Sources/Road.lua).
+  { key = "longest", label = "Longest stay", icon = "Ability_Hunter_Pathfinding" },
   { key = "letters", label = "Letters received", icon = "INV_Letter_15", retired = true },
 }
 
@@ -2279,6 +2519,8 @@ function Compose.Stats()
     if taken then parts[#parts + 1] = figure(taken.n) .. " taken" .. (taken.from and (" from " .. taken.from) or "") end
     if #parts > 0 then out.hit = table.concat(parts, "; ") end
   end
+  -- The road, land by land (Sources/Road.lua): the land they've spent longest in.
+  out.longest = Compose.LongestStay()
   -- Every name earned, the one worn first ("Mine-Warden, Defias-Breaker and Hogger's Bane").
   local names, worn = {}, Compose.Earned()
   if worn then names[1] = worn.nick end
@@ -2294,7 +2536,7 @@ function Compose.Stats()
   if not out.road and days == 0 then out.road = "Less than a day" end
   if not out.lands and world.zone then out.lands = "1" end
   for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "crafts", "standing", "books", "names", "spell",
-    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit" }) do
+    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "longest" }) do
     out[k] = out[k] or "None yet"
   end
   return out
