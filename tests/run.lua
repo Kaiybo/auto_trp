@@ -291,7 +291,7 @@ ns.char.days = {
 }
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 local hist = ns.Compose.History()
-check(hist:find("the Silver Lanterns and holds the rank of lamplighter there"), "history: guild")
+check(hist:find("the Silver Lanterns and holds the rank of lamplighter there", 1, true), "history: guild")
 check(hist:find("done good work for Stormwind and the Argent Dawn"), "history: reputations")
 check(hist:find("Felt downcast in Duskwood today and wide%-eyed in Westfall yesterday"), "history: these past days")
 -- History favours what's recent: news within three weeks leads, older deeds join the record.
@@ -536,7 +536,7 @@ UnitClass = function(u)
 end
 GetNumGroupMembers = function() return 4 end
 ns.Compose.Refresh()
-check(ns.Compose.CompanyGlance().TX:find("with a priest and two warriors%.$") or ns.Compose.CompanyGlance().TX:find("of a priest and two warriors%.$"), "party by class: " .. ns.Compose.CompanyGlance().TX)
+check(ns.Compose.CompanyGlance().TX:find("a priest and two warriors", 1, true), "party by class: " .. ns.Compose.CompanyGlance().TX)
 IsInRaid = function() return true end
 GetNumGroupMembers = function() return 20 end
 ns.Compose.Refresh()
@@ -546,6 +546,281 @@ IsInGroup = function() return state.grouped end
 state.grouped = false
 UnitExists = function() return false end
 GetNumGroupMembers = function() return 0 end
+ns.char.company = nil
+
+-- Company from the game alone: the group, pets, guild and solitude, never a stranger's name.
+do
+  local C, Co = ns.Compose, ns.Sources.Company
+  local saved = { UnitExists = UnitExists, UnitClass = UnitClass, UnitName = UnitName, UnitGUID = UnitGUID, UnitRace = UnitRace,
+    UnitLevel = UnitLevel, IsInGroup = IsInGroup, IsInRaid = IsInRaid, GetNumGroupMembers = GetNumGroupMembers,
+    IsInInstance = IsInInstance, GetGuildInfo = GetGuildInfo, UnitIsDeadOrGhost = UnitIsDeadOrGhost }
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB }
+  local STRANGERS = { "Strangerone", "Grimbold", "Thessaly", "Quillon", "Raidtwo", "Raidthree" }
+  -- Every bit of text Auto TRP would write, for the privacy checks.
+  local function everything()
+    C.SourcesChanged()
+    local sh = C.Sheet()
+    local parts = { sh.currently, sh.bearing, sh.history, sh.physical, sh.title, sh.fulltitle, sh.motto, sh.nickname }
+    for _, g in pairs(sh.glances) do parts[#parts + 1] = g.TI; parts[#parts + 1] = g.TX end
+    for _, v in pairs(sh.stats or {}) do parts[#parts + 1] = tostring(v) end
+    return table.concat(parts, "\n"), sh
+  end
+  local function noStrangers(text, what)
+    local found = {}
+    for _, n in ipairs(STRANGERS) do if text:find(n, 1, true) then found[#found + 1] = n end end
+    check(#found == 0, what .. ": no stranger is named " .. table.concat(found, ","))
+  end
+  local function saveData(t, seen)
+    seen = seen or {}
+    if type(t) ~= "table" or seen[t] then return tostring(t) end
+    seen[t] = true
+    local out = {}
+    for k, v in pairs(t) do out[#out + 1] = tostring(k) .. "=" .. saveData(v, seen) end
+    return table.concat(out, ";")
+  end
+  local function company(tx) return C.CompanyGlance().TX end
+
+  -- No other addon at all: everything below comes from the game.
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  ns.char.company = nil
+  local party = {
+    party1 = { "Strangerone", "Player-1-00A1", "Warrior", "WARRIOR", "Dwarf", 30, true },
+    party2 = { "Grimbold", "Player-1-00A2", "Mage", "MAGE", "Dwarf", 31, true },
+    party3 = { "Thessaly", "Player-1-00A3", "Mage", "MAGE", "Dwarf", 29, false },
+  }
+  local inGroup, leader = true, true
+  IsInGroup = function() return inGroup end
+  IsInRaid = function() return false end
+  GetNumGroupMembers = function() return inGroup and 4 or 0 end
+  UnitExists = function(u) return inGroup and party[u] ~= nil end
+  UnitName = function(u) if party[u] then return party[u][1] end return "Aldric" end
+  UnitGUID = function(u) if party[u] then return party[u][2] end return "Player-1-0001" end
+  UnitClass = function(u) if party[u] then return party[u][3], party[u][4] end return "Priest", "PRIEST" end
+  UnitRace = function(u) if party[u] then return party[u][5], party[u][5] end return "Human", "Human" end
+  UnitLevel = function(u) if party[u] then return party[u][6] end return 22 end
+  UnitIsInMyGuild = function(u) return party[u] and party[u][7] end
+  UnitIsGroupLeader = function(u) return u == "player" and leader end
+  event("GROUP_ROSTER_UPDATE")
+  C.SourcesChanged(); C.Refresh()
+  local g = ns.cache.company.group
+  check(g and g.others == 3 and g.guildmates == 2 and g.lead and g.classes.MAGE == 2 and g.standing == "youngest",
+    "a party read from the game: three others, two guildmates, leading, the youngest")
+  local gl = C.CompanyGlance()
+  check(gl.TI == "Leading the Way" and gl.TX:find("a warrior and two mages", 1, true), "a party they lead, by class: " .. gl.TX)
+  check(gl.TX:find("two of them") or gl.TX:find("with two from"), "guildmates are counted: " .. gl.TX)
+  local young = false
+  for _, l in ipairs(ns.Words.COMPANY.youngest) do if gl.TX:lower():find(l, 1, true) then young = true end end
+  check(young, "the youngest of the group, from the level spread: " .. gl.TX)
+  noStrangers(everything(), "a party")
+  local stored = saveData(ns.char.company)
+  check(not stored:find("Strangerone") and not stored:find("Grimbold") and not stored:find("00A1"),
+    "the saved record holds neither names nor GUIDs")
+
+  -- A while together; then they part, and meet again on another day: familiar faces.
+  ns.char.company.group.since = NOW - 4000
+  C.Refresh()
+  check(company():find("an hour or so", 1, true), "how long they've been together: " .. company())
+  inGroup = false
+  event("GROUP_ROSTER_UPDATE")
+  check(ns.char.company.group == nil and ns.char.company.lastGrouped, "a group that ends is closed")
+  NOW = NOW + 7200
+  inGroup = true
+  leader = false
+  party.party3[7] = true
+  event("GROUP_ROSTER_UPDATE")
+  C.Refresh()
+  g = ns.cache.company.group
+  check(g.familiar == 3 and ns.char.company.sessions == 2, "the same three again, on another outing, are familiar faces")
+  gl = C.CompanyGlance()
+  check(gl.TI == "In Company" and (gl.TX:find("from the Silver Lanterns") or gl.TX:find("of the Silver Lanterns")),
+    "all guildmates: " .. gl.TX)
+  party.party3[7] = false
+  gl = C.CompanyGlance()
+  C.Refresh()
+  gl = C.CompanyGlance()
+  check(gl.TX:find("two of them") or gl.TX:find("with two from"), "two guildmates of three: " .. gl.TX)
+  UnitIsInMyGuild = function() return false end
+  C.Refresh()
+  gl = C.CompanyGlance()
+  check(gl.TX:find("familiar") or gl.TX:find("no strangers") or gl.TX:find("earlier roads") or gl.TX:find("from before") or gl.TX:find("every one"),
+    "familiar faces are counted, never named: " .. gl.TX)
+  noStrangers(everything(), "familiar faces")
+
+  -- A Social Diary friend in the group is named (when allowed); the others never are.
+  SocialDiaryCharDB = { data = {
+    characters = { ["Player-1-00A1"] = { names = { { first = "Strangerone" } }, lastSeen = NOW - 400 } },
+    diary = { ["Player-1-00A1"] = { tags = { "friend" } } }, sessions = {} } }
+  C.SourcesChanged(); C.Refresh()
+  check(C.PartyWords(ns.cache.company.group) == "Strangerone and two mages", "a Social Diary friend by name: "
+    .. tostring(C.PartyWords(ns.cache.company.group)))
+  ns.db.nameFriends = false
+  C.SourcesChanged(); C.Refresh()
+  check(C.PartyWords(ns.cache.company.group) == "a warrior and two mages", "and not when naming friends is off")
+  noStrangers(everything(), "friends switched off")
+  ns.db.nameFriends = true
+  SocialDiaryCharDB = nil
+
+  -- A raid, mostly of one race; a battleground.
+  local raid = {}
+  for i = 1, 12 do raid["raid" .. i] = { "Raid" .. ({ "two", "three" })[i % 2 + 1], "Player-1-0R" .. i, "Rogue", "ROGUE",
+    i <= 8 and "Gnome" or "Human", 40, false } end
+  raid.raid1 = nil
+  IsInRaid = function() return true end
+  GetNumGroupMembers = function() return 12 end
+  UnitExists = function(u) return u == "raid1" or raid[u] ~= nil end
+  UnitIsUnit = function(a, b) return a == "raid1" and b == "player" end
+  local oldName, oldGUID, oldRace = UnitName, UnitGUID, UnitRace
+  UnitName = function(u) if raid[u] then return raid[u][1] end return "Aldric" end
+  UnitGUID = function(u) if raid[u] then return raid[u][2] end return "Player-1-0001" end
+  UnitRace = function(u) if raid[u] then return raid[u][5], raid[u][5] end return "Human", "Human" end
+  UnitClass = function(u) if raid[u] then return "Rogue", "ROGUE" end return "Priest", "PRIEST" end
+  UnitLevel = function(u) if raid[u] then return 40 end return 22 end
+  event("GROUP_ROSTER_UPDATE")
+  C.Refresh()
+  g = ns.cache.company.group
+  check(g.raid and g.others == 11 and g.races.Gnome == 7, "a raid read from raid units, without the player")
+  gl = C.CompanyGlance()
+  check(gl.TI == "Part of a Host" and gl.TX:find("twelve") and (gl.TX:find("gnomes")), "a host, mostly gnomes: " .. gl.TX)
+  IsInInstance = function() return true, "pvp" end
+  C.Refresh()
+  gl = C.CompanyGlance()
+  check(gl.TI == "On the Battlefield" and gl.TX:find("Alliance") and gl.TX:find("twelve"), "a battleground team: " .. gl.TX)
+  noStrangers(everything(), "a raid")
+  IsInInstance = saved.IsInInstance
+  UnitIsUnit = nil
+
+  -- Alone: how long, and how they usually go.
+  inGroup = false
+  IsInRaid = function() return false end
+  GetNumGroupMembers = function() return 0 end
+  UnitExists = function() return false end
+  UnitName, UnitGUID, UnitRace = saved.UnitName, saved.UnitGUID, saved.UnitRace
+  UnitClass, UnitLevel = saved.UnitClass, saved.UnitLevel
+  event("GROUP_ROSTER_UPDATE")
+  ns.char.company.lastGrouped = NOW - 3 * 86400
+  ns.char.company.time = { group = 3000, alone = 30000 }
+  GetGuildInfo = function() return nil end
+  C.SourcesChanged(); C.Refresh()
+  gl = C.CompanyGlance()
+  check(gl.TI == "Travels Alone" and gl.TX:find("three days", 1, true), "alone for three days: " .. gl.TX)
+  local mostly = false
+  for _, l in ipairs(ns.Words.COMPANY.loner) do if gl.TX:find(l, 1, true) then mostly = true end end
+  check(mostly, "and nearly always alone, from the time tracked: " .. gl.TX)
+  ns.char.company.time = { group = 20000, alone = 3000 }
+  C.Refresh()
+  check(C.CompanyGlance().TI == "Between Companies", "usually in company, alone for now")
+  ns.char.company.time = { group = 8000, alone = 20000 }
+  Co.Tick(60)
+  check(ns.char.company.time.alone == 20060, "time alone is counted by the minute")
+  -- A dungeon entered alone.
+  IsInInstance = function() return true, "party" end
+  GetRealZoneText = function() return "Shadowfang Keep" end
+  event("ZONE_CHANGED_NEW_AREA")
+  event("ZONE_CHANGED_NEW_AREA")
+  check(ns.char.company.soloDungeons == 1, "a dungeon entered alone counts once")
+  IsInInstance = saved.IsInInstance
+  GetRealZoneText = function() return state.zone end
+  event("ZONE_CHANGED_NEW_AREA")
+  C.SourcesChanged(); C.Refresh()
+  local hist = C.History()
+  check(hist:find("usually travels alone, though not always", 1, true) or hist:find("more often than not", 1, true)
+    or hist:find("joining others now and then", 1, true), "History: how they usually travel")
+  check(hist:find("dungeon", 1, true) and hist:find("once", 1, true), "History: a dungeon braved alone: " .. hist)
+  local lh = hist:lower()
+  check(lh:find("three companions", 1, true) or lh:find("three faces", 1, true) or lh:find("three have", 1, true)
+    or lh:find("three of the same", 1, true), "History: familiar companions, counted: " .. hist)
+  noStrangers(hist, "History")
+
+  -- The guild, with people about.
+  GetGuildInfo = saved.GetGuildInfo
+  IsInGuild = function() return true end
+  GetNumGuildMembers = function() return 48, 2, 14 end
+  ns.char.company.guild = { name = "The Silver Lanterns", since = NOW - 40 * 86400 }
+  ns.char.company.since = NOW - 60 * 86400
+  C.Refresh()
+  gl = C.CompanyGlance()
+  check(gl.TI == "Guild Colours" and gl.TX:find("a dozen or more") and gl.TX:find("the Silver Lanterns"), "guildmates about: " .. gl.TX)
+  hist = C.History()
+  check(hist:find("a month", 1, true) and hist:find("lamplighter", 1, true), "History: how long in the guild")
+  GetNumGuildMembers = function() return 48, 0, 1 end
+  C.Refresh()
+  gl = C.CompanyGlance()
+  check(gl.TI == "Guild Colours" and not gl.TX:find("are about"), "a guild with nobody about: " .. gl.TX)
+
+  -- A hunter's pet: its name, kind, happiness, how long, how often it fell.
+  UnitClass = function() return "Hunter", "HUNTER" end
+  UnitExists = function(u) return u == "pet" end
+  UnitName = function(u) if u == "pet" then return "Fang" end return "Aldric" end
+  UnitCreatureFamily = function() return "Wolf" end
+  GetPetHappiness = function() return 3 end
+  UnitLevel = function(u) if u == "pet" then return 21 end return 22 end
+  C.Refresh()
+  ns.char.company.pets.Fang.first = NOW - 20 * 86400
+  ns.char.company.pets.Claw = { first = NOW - 50 * 86400, last = NOW - 25 * 86400, n = 1, kind = "Cat" }
+  UnitIsDeadOrGhost = function(u) return u == "pet" end
+  event("UNIT_HEALTH", "pet")
+  UnitIsDeadOrGhost = function() return false end
+  event("UNIT_HEALTH", "pet")
+  UnitIsDeadOrGhost = function(u) return u == "pet" end
+  event("UNIT_HEALTH", "pet")
+  UnitIsDeadOrGhost = saved.UnitIsDeadOrGhost
+  event("UNIT_HEALTH", "pet")
+  check(ns.char.company.pets.Fang.deaths == 2, "a pet's falls are counted")
+  C.Refresh()
+  gl = C.CompanyGlance()
+  check(gl.TI == "Travels Light" and gl.TX:find("Fang") and gl.TX:find("wolf") and gl.TX:find("plainly devoted")
+    and gl.TX:find("three weeks") and gl.TX:find("twice"), "a hunter's pet: " .. gl.TX)
+  hist = C.History()
+  check(hist:find("Fang", 1, true) and hist:find("three weeks", 1, true) and hist:find("Claw the cat", 1, true),
+    "History: the pet, and the one before it")
+  -- A warlock's demons: the one called most.
+  UnitClass = function() return "Warlock", "WARLOCK" end
+  UnitName = function(u) if u == "pet" then return "Zigzag" end return "Aldric" end
+  UnitCreatureFamily = function() return "Imp" end
+  ns.char.company.pets = { Grubthor = { first = NOW - 9 * 86400, last = NOW - 86400, n = 3, kind = "Voidwalker" } }
+  C.Refresh()
+  ns.char.company.pets.Zigzag.n = 9
+  C.Refresh()
+  gl = C.CompanyGlance()
+  check(gl.TX:find("Zigzag") and gl.TX:find("imp"), "a warlock's demon: " .. gl.TX)
+  hist = C.History()
+  check(hist:find("Zigzag", 1, true) and hist:find("demon", 1, true), "History: the demon called most")
+
+  -- Nothing is recorded in combat; the roster is read once the fight ends.
+  UnitClass, UnitName, UnitLevel, UnitExists = saved.UnitClass, saved.UnitName, saved.UnitLevel, saved.UnitExists
+  local sessions = ns.char.company.sessions
+  inGroup = true
+  UnitExists = function(u) return u == "party1" end
+  UnitGUID = function(u) if u == "party1" then return "Player-1-00B9" end return "Player-1-0001" end
+  state.combat = true
+  event("GROUP_ROSTER_UPDATE")
+  check(ns.char.company.sessions == sessions, "nothing recorded in combat")
+  state.combat = false
+  event("PLAYER_REGEN_ENABLED")
+  check(ns.char.company.sessions == sessions + 1, "the roster is read once combat ends")
+
+  -- With no other addon, a bare character still gets a full Company glance and people paragraph.
+  inGroup = false
+  UnitExists, UnitGUID = saved.UnitExists, saved.UnitGUID
+  event("GROUP_ROSTER_UPDATE")
+  local _, sh = everything()
+  local people
+  for para in (sh.history or ""):gmatch("[^\n]+") do
+    if (para:find("alone", 1, true) or para:find("company", 1, true)) and para:find("lamplighter", 1, true) then people = para end
+  end
+  check(people and select(2, people:gsub("%. ", "")) >= 2, "a people paragraph from the game alone: " .. tostring(people))
+  print("\nCompany, game data only: " .. sh.glances.company.TX .. "\nPeople: " .. tostring(people))
+
+  IsInGroup, IsInRaid, GetNumGroupMembers = saved.IsInGroup, saved.IsInRaid, saved.GetNumGroupMembers
+  UnitExists, UnitClass, UnitName, UnitGUID, UnitRace, UnitLevel = saved.UnitExists, saved.UnitClass, saved.UnitName,
+    saved.UnitGUID, saved.UnitRace, saved.UnitLevel
+  GetGuildInfo, UnitIsDeadOrGhost = saved.GetGuildInfo, saved.UnitIsDeadOrGhost
+  UnitIsInMyGuild, UnitIsGroupLeader, GetNumGuildMembers, IsInGuild, UnitCreatureFamily, GetPetHappiness = nil, nil, nil, nil, nil, nil
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  NOW = NOW - 7200
+  ns.char.company = nil
+  C.SourcesChanged(); C.Refresh()
+end
 
 -- Walk-ups follow the mood (when switched on)
 ns.db.fields.walkup = true
@@ -1634,7 +1909,8 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", guild = "x", rel = "x" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", guild = "x", rel = "x",
+    span = "x", akind = "x", faction = "x", races = "x", times = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then
@@ -1653,7 +1929,7 @@ do
     seen = {}
     for _, key in ipairs({ "MOODS", "CALM", "RACE_TELLS", "CLASS_TELLS", "FESTIVALS", "SAY", "TRAVEL", "ACTIVITY", "PET",
       "AMBITIONS", "RACE_LOOK", "CLASS_LOOK", "PHYSIQUE", "WEEK_TONE", "WEALTH", "DURABILITY", "CLASS_TEMPER", "RACE_TEMPER",
-      "RACE_CLASS_TEMPER", "CLASS_MOTTO", "RACE_MOTTO" }) do
+      "RACE_CLASS_TEMPER", "CLASS_MOTTO", "RACE_MOTTO", "COMPANY" }) do
       scan(W[key], key)
     end
   end

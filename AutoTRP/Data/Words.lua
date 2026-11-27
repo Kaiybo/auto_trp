@@ -2419,17 +2419,7 @@ W.SAY = {
     "Spent some time talking with {who} lately.", "Has spent time with {who} in the last day." },
   around = { "Has been around {where} lately.", "Has been spending time around {where}.", "Has been keeping to {where} lately.",
     "Has been seen about {where} these last days.", "Has mostly been around {where} these last days." },
-  -- Company
-  host = { "Marching with a host of {n}.", "One of a host of {n}.", "Part of a company {n} strong.",
-    "Travelling in a great company, {n} strong.", "One of {n} under the same banner today." },
-  party = { "Travelling with {party}.", "On the road with {party}.", "In the company of {party}.",
-    "Keeping company with {party}.", "Sharing the road with {party}." },
-  alone = { "Travels alone.", "Keeps to {themselves} on the road.", "Goes about alone.",
-    "On {their} own for now.", "Makes {their} way alone, and seems used to it." },
-  alone_reserved = { "Travels alone, and keeps conversations short.", "Travels alone, and says little.",
-    "Keeps to {themselves}, and would rather it stayed that way.", "Alone on the road, and not looking for company." },
-  pet_only = { "Travels with no one but {pet}{mood}.", "Has only {pet} for company{mood}.",
-    "Alone on the road, apart from {pet}{mood}.", "Goes about with {pet} and nobody else{mood}." },
+  -- Company: see W.COMPANY at the end of this file.
   -- Ambition and Marks
   nextrank = { "Working toward the rank of {rank}.", "Aims to rise to {rank}.", "Has {their} sights on the rank of {rank}.",
     "Means to rise to {rank} one day.", "Hopes to earn the rank of {rank} before long." },
@@ -2494,6 +2484,136 @@ W.SAY = {
 }
 
 ---------------------------------------------------------------------------
+-- COMPANY (0.21.0): the group, the pet, the guild and the road alone, for the Company
+-- glance and History's people paragraph (Compose.CompanyGlance, Compose.History part 4,
+-- facts from Sources/Company.lua). Other players are only ever counted, never named
+-- (Social Diary friends aside). Glance pieces are fragments without a full stop; the
+-- composer joins them. {party} {n} {guild} {span} {pet} {kind} {akind} {faction} {races}
+-- {times} {name} {rank} {list} {mood} are filled in; pronouns as everywhere else.
+---------------------------------------------------------------------------
+W.CLASS_PLURAL.DEATHKNIGHT = { "death knight", "death knights" }
+W.RACE_PLURAL = {
+  Human = "humans", Dwarf = "dwarves", Gnome = "gnomes", NightElf = "night elves", Orc = "orcs", Troll = "trolls",
+  Tauren = "tauren", Scourge = "Forsaken", Undead = "Forsaken", Goblin = "goblins", BloodElf = "blood elves",
+  Draenei = "draenei",
+}
+-- Guildmates about, as a person would count them (never the exact number).
+W.GUILD_ONLINE = {
+  { max = 4, words = "a few" }, { max = 9, words = "a handful" }, { max = 19, words = "a dozen or more" },
+  { max = 49, words = "a good many" }, { max = math.huge, words = "dozens" },
+}
+W.COMPANY = {
+  -- The group
+  party = { "Travelling with {party}", "On the road with {party}", "In the company of {party}",
+    "Keeping company with {party}", "Out and about with {party}",
+    "Sharing the road with {party}" },
+  party_lead = { "Leading {party}", "Setting the pace for {party}", "Out in front of {party}",
+    "Calling the turns for {party}", "At the head of a small band: {party}" },
+  host = { "Marching with a host of {n}", "One of a host of {n}", "Part of a company {n} strong",
+    "One of {n} gathered under the same banner", "Among a host {n} strong",
+    "Travelling in a great company, {n} strong", "One of {n} under the same banner today" },
+  host_lead = { "Leading a host of {n}", "At the head of a host {n} strong", "In charge of a company of {n}",
+    "Setting the course for a host of {n}" },
+  battle = { "Fighting for the {faction}, one of {n} on the field", "One of {n} holding the line for the {faction}",
+    "On the battlefield with the {faction}, {n} strong", "In the thick of a battle, one of {n} for the {faction}" },
+  -- What the rest of the group are to them (after a comma)
+  guild_all = { "every one of them from {guild}", "all of them from {guild}", "every last one of them of {guild}",
+    "all of them wearing the colours of {guild}" },
+  guild_some = { "{n} of them from {guild}", "{n} of them fellow members of {guild}", "with {n} from {guild} among them",
+    "{n} of them guildmates from {guild}" },
+  guild_one = { "one of them from {guild}", "one of them a fellow member of {guild}", "with one guildmate among them",
+    "one of them out of {guild} as well" },
+  guild_single = { "a fellow member of {guild}", "from {guild} as well", "another of {guild}", "who belongs to {guild} too" },
+  guild_none = { "none of them from {guild}", "not one of them from {guild}", "none of them guildmates",
+    "with nobody from {guild} among them" },
+  guild_none_single = { "not one of {guild}", "from outside {guild}", "who isn't of {guild}", "from beyond {guild}" },
+  familiar_one = { "one of them a familiar face", "one of them no stranger by now", "with one face among them from earlier roads",
+    "one of them a companion from before" },
+  familiar_many = { "{n} of them familiar faces", "{n} of them no strangers by now", "with {n} faces among them from earlier roads",
+    "{n} of them companions from before" },
+  familiar_all = { "every one of them a familiar face", "all of them no strangers by now", "all of them companions from before",
+    "faces from earlier roads, every one" },
+  familiar_single = { "a familiar face by now", "no stranger by now", "met on an earlier road", "a companion from before" },
+  races_all = { "all of them {races}", "{races}, every one", "every one of them {races}", "{races} to the last" },
+  races_most = { "most of them {races}", "{races} for the most part", "mostly {races}", "the greater part of them {races}" },
+  -- How long together, and where they stand among the rest
+  together = { "Together for {span} now", "{span} on the road together so far", "Grouped up for {span} now",
+    "With them for {span} so far" },
+  youngest = { "the greenest of the lot", "the youngest hand among them", "the least seasoned of the group",
+    "newer to the road than the rest" },
+  eldest = { "the most seasoned of them", "the old hand of the group", "further down the road than the rest",
+    "the most travelled among them" },
+  even = { "evenly matched with the rest", "about as seasoned as the others", "no greener than the rest",
+    "much of a match for the others" },
+  -- The pet, when there's no one else
+  -- ({mood} is "who seems content" and the like, so it always follows the pet itself)
+  pet_hunter = { "Travels with {pet}, {their} {kind}{mood}", "Has no company but {pet} the {kind}{mood}",
+    "Shares the road with {pet} the {kind}{mood}", "On the road with no one but {pet}, {their} {kind}{mood}",
+    "Goes about with {akind} at heel: {pet}{mood}", "Alone on the road, apart from {pet}, {their} {kind}{mood}" },
+  pet_warlock = { "Has {pet}, {akind}, bound to {their} side", "Goes about with {pet} the {kind} at heel",
+    "Keeps {pet}, {their} {kind}, on a short leash", "Travels with no one but {pet}, {akind} of {their} own summoning" },
+  pet_since = { "{pet} has been at {their} side for {span}", "The two of them have been together {span}",
+    "Has had {pet} for {span}", "{pet} has been with {them} {span} now" },
+  pet_new = { "{pet} is a new companion", "{pet} has only lately joined {them}", "The two of them are newly met",
+    "{pet} is new to {their} side" },
+  pet_fallen = { ", and has fallen {times} in that time", ", going down {times} along the way",
+    ", and has been brought down {times} since", ", though {pet} has fallen {times}" },
+  -- The guild, when they're out alone
+  guild_about = { "Alone for now, though {n} of {guild} are about", "Travels alone today, with {n} of {guild} somewhere about",
+    "Out on {their} own, though {n} of {guild} are about", "No company on the road, but {n} of {guild} are about" },
+  guild_quiet = { "Wears the colours of {guild}, though {they} travel{s} alone for now", "Of {guild}, but on {their} own for now",
+    "Belongs to {guild}, but walks alone today", "Answers to {guild}, but keeps {their} own road for now" },
+  -- Alone
+  alone = { "Travels alone", "Keeps to {themselves} on the road", "Goes about alone", "Walks {their} road alone",
+    "Makes {their} way without company",
+    "On {their} own for now" },
+  alone_reserved = { "Travels alone, and keeps conversations short", "Travels alone, and says little",
+    "Goes about alone and keeps {their} own counsel", "Keeps to {themselves}, and speaks when spoken to",
+    "Alone on the road, and not looking for company" },
+  alone_for = { "On {their} own for {span} now", "{span} since {they} last travelled in company",
+    "Hasn't had company on the road for {span}", "Has gone {span} without a travelling companion" },
+  -- How they usually go, from the share of time spent in a group
+  loner = { "Nearly always travels alone", "Keeps {their} own company far more often than not", "Rarely travels in company",
+    "Seldom has anyone along for long" },
+  mostly_alone = { "Usually travels alone, though not always", "Travels alone more often than not",
+    "Walks alone most of the time, with company now and then", "Mostly keeps {their} own company, joining others now and then" },
+  mixed = { "Travels in company about as often as alone", "Spends as much of the road in company as out of it",
+    "Takes the road alone or in company, as it comes", "Is as often in a group as out of one" },
+  social = { "Seldom alone on the road for long", "Usually found in company", "More often in a group than not",
+    "Rarely goes far without company" },
+
+  -- History: the people paragraph
+  h_loner = { "{name} nearly always travels alone", "{name} keeps {their} own company far more often than not",
+    "{name} rarely travels in company", "{name} seldom has anyone along for long" },
+  h_mostly_alone = { "{name} usually travels alone, though not always", "{name} walks alone more often than not, with company now and then",
+    "More often than not, {name} travels alone", "{name} mostly keeps {their} own company, joining others now and then" },
+  h_mixed = { "{name} travels in company about as often as alone", "{name} spends as much of the road in company as out of it",
+    "{name} takes the road alone or in company, as it comes", "{name} is as often in a group as out of one" },
+  h_social = { "{name} is seldom alone on the road for long", "{name} is usually found in company",
+    "{name} travels in a group more often than not", "{name} rarely goes far without company" },
+  h_week = { "has travelled with {n} others this past week", "has shared the road with {n} others in the past week",
+    "has fought beside {n} others in the past week", "has fallen in with {n} others over the past week",
+    "has stood with {n} others in one fight or another this week", "has been in company with {n} others this past week" },
+  h_recurring = { "{n} companions have travelled with {them} more than once", "{n} faces have turned up at {their} side more than once",
+    "{they've} travelled with {n} of the same companions more than once", "Some faces come back: {n} have shared {their} road more than once" },
+  h_recurring_one = { "One companion has travelled with {them} more than once", "One face has turned up at {their} side more than once",
+    "{they've} travelled with one companion more than once", "One face keeps coming back to {their} road" },
+  h_solo = { "Has gone down into a dungeon single-handed {times}", "{they've} gone into a dungeon with no one at {their} back {times}",
+    "Has braved a dungeon on {their} own {times}", "Has taken on a dungeon unaccompanied {times}" },
+  h_pet = { "{pet}, {their} {kind}, has been at {their} side for {span}", "{name} has had {pet} the {kind} for {span}",
+    "For {span} now, {pet} the {kind} has gone where {name} goes", "{pet}, {akind}, has kept at {name}'s heel for {span}" },
+  h_pet_new = { "{name} has only lately taken on {pet}, {akind}", "{pet} the {kind} is a new companion",
+    "{pet}, {akind}, is newly at {name}'s side", "{name} has not had {pet} the {kind} long" },
+  h_pets_before = { "Before {pet}, there was {list}", "{list} came before {pet}", "{pet} isn't the first: {list} came before",
+    "{they've} kept {list} as well, at one time or another" },
+  h_demon = { "Of the demons {they} call{s} on, {pet} the {kind} comes most often", "{name} calls on {pet}, {akind}, more than any other demon",
+    "{pet} the {kind} is the demon most often at {name}'s side", "When {name} calls a demon, it is usually {pet}, {akind}" },
+  h_guild = { "Has worn the colours of {guild} for {span}{rank}", "Has belonged to {guild} for {span}{rank}",
+    "Has been one of {guild} for {span}{rank}", "For {span} now, {name} has worn the colours of {guild}{rank}" },
+  h_guild_now = { "Wears the colours of {guild}{rank}", "Belongs to {guild}{rank}", "Is one of {guild}{rank}",
+    "Answers to {guild}{rank}",
+    "Is a member of {guild}{rank}", "Has thrown in {their} lot with {guild}{rank}" },
+}
 -- The journal (Journal.lua): the day as the character writes it, in the first person, from
 -- what the game recorded. Each list is one beat; one line is picked per day. Placeholders:
 -- {zone} {place} {tod} {q} {list} {n} {times} {there} {company} {inn} {foe} {where} {who}
@@ -2901,10 +3021,6 @@ W.SAY.mark_taint = { "Something about {them} is off, in a way that's hard to nam
   "There's something wrong about {them} that people feel before they see.",
   "Gives off a wrongness that's hard to put a finger on.", "Makes people uneasy without doing anything at all." }
 -- History: the people, and how things stand.
-W.SAY.guild = { "Wears the colours of {guild}", "Belongs to {guild}", "Is a member of {guild}",
-  "Has thrown in {their} lot with {guild}" }
-W.SAY.fought = { "Has fought beside {n} others this past week", "Has shared the road with {n} others this past week",
-  "Has stood with {n} others in one fight or another this week", "Has been in company with {n} others this past week" }
 W.SAY.foes = { "Has made {what} on the road", "Has picked up {what} along the way", "Has made {what} out there",
   "Not everyone on the road wishes {them} well: {they've} made {what}" }
 W.SAY.diary = { "{their} latest journal entry reads {q}", "The newest page in {their} journal reads {q}",
