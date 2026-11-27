@@ -190,9 +190,11 @@ ns.On("PLAYER_ENTERING_WORLD", checkInstance)
 -- Kills: only the combat log's PARTY_KILL lines by the player or their pet, one test each.
 ns.On("COMBAT_LOG_EVENT_UNFILTERED", function()
   if type(_G.CombatLogGetCurrentEventInfo) ~= "function" then return end
-  local _, sub, _, src, _, _, _, _, destName = CombatLogGetCurrentEventInfo()
+  local _, sub, _, src, _, _, _, dest, destName = CombatLogGetCurrentEventInfo()
   if sub ~= "PARTY_KILL" then return end
   if src ~= U.Call(UnitGUID, "player") and src ~= U.Call(UnitGUID, "pet") then return end
+  -- Players killed are counted by Sources/Life.lua as killing blows, never by name.
+  if type(dest) == "string" and dest:find("^Player%-") then return end
   if type(destName) == "string" then D.Kill(destName) end
 end)
 local onTaxi = false
