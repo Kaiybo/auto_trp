@@ -628,7 +628,7 @@ end)
 local fighting, lowest, fightFoe, fightNamed = false, 1, nil, false
 ns.On("PLAYER_REGEN_DISABLED", function()
   fighting, lowest, fightFoe, fightNamed = true, 1, nil, false
-  if U.Call(UnitExists, "target") and U.Call(UnitCanAttack, "player", "target") and not U.Call(UnitIsPlayer, "target") then
+  if U.Call(UnitExists, "target") and U.Call(UnitCanAttack, "player", "target") and not U.PlayerOwned("target") then
     fightFoe = U.Call(UnitName, "target")
     local kind = U.Call(UnitClassification, "target")
     fightNamed = kind ~= nil and kind ~= "normal" and kind ~= "minus" and kind ~= "trivial"
@@ -649,7 +649,7 @@ end)
 -- and what hits the player; a player's name is never kept.
 local WATCH = { SWING_DAMAGE = 1, SPELL_DAMAGE = 2, RANGE_DAMAGE = 2, ENVIRONMENTAL_DAMAGE = 3, PARTY_KILL = 4 }
 function L.OnCombatLog(...)
-  local _, sub, _, src, srcName, _, _, dst, _, _, _, a12, a13, _, a15 = ...
+  local _, sub, _, src, srcName, srcFlags, _, dst, _, _, _, a12, a13, _, a15 = ...
   local k = WATCH[sub]
   if not k then return end
   local guid = me or myGUID()
@@ -669,7 +669,7 @@ function L.OnCombatLog(...)
     if not hits.dealt or amount > hits.dealt.n then hits.dealt = { n = amount, spell = k == 2 and a13 or nil, t = U.Now() } end
   elseif dst == guid then
     if not hits.taken or amount > hits.taken.n then
-      hits.taken = { n = amount, from = not isPlayerGUID(src) and srcName or nil, t = U.Now() }
+      hits.taken = { n = amount, from = not isPlayerGUID(src) and not (type(srcFlags) == "number" and math.floor(srcFlags / 0x100) % 2 == 1) and srcName or nil, t = U.Now() }
     end
   end
 end

@@ -5044,8 +5044,11 @@ W.WORK = {
     tailoring = true },
 
   -- The statistic: "120 slaying, 64 gathering, 31 courier".
-  STAT = { slaying = "slaying", gathering = "gathering", delivery = "courier", escort = "escort", investigation = "scouting",
-    rescue = "rescue", bounty = "bounty", dungeon = "dungeon", class = "calling", profession = "trade", holiday = "festival" },
+  -- Work counted as jobs takes a noun that agrees with its number ("1 escort", "6 bounties").
+  STAT = { slaying = "slaying", gathering = "gathering", delivery = "courier", investigation = "scouting",
+    escort = { "escort", "escorts" }, rescue = { "rescue", "rescues" }, bounty = { "bounty", "bounties" },
+    dungeon = { "dungeon job", "dungeon jobs" }, class = { "task for the calling", "tasks for the calling" },
+    profession = { "trade job", "trade jobs" }, holiday = { "festival job", "festival jobs" } },
 
   -- History, the longer record: what most of the work has been.
   MAIN = {

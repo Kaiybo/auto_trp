@@ -321,6 +321,8 @@ end
 -- sickness, a queue, a sign hung out, a festival in town), a short second sentence. When it
 -- runs long, the hour goes first, then the second extra, the aside, the first, the second mood.
 Compose.CURRENTLY_MAX = 200
+-- About > History, in letters a reader sees (markup aside): past it, the least goes (see Compose.History).
+Compose.HISTORY_BUDGET = 2300
 
 function Compose.Currently(mood)
   local world = ns.cache.world
@@ -329,6 +331,13 @@ function Compose.Currently(mood)
   local m = ns.World.Moment(world, s)
   local tod = not m.timed and ns.World.TimeOfDay(world, s) or nil
   local ex = m.extras
+  -- Resurrection sickness is told once: by the Marks glance ("Back from Death") when that
+  -- glance is written and leads with it, else here.
+  if m.ressick and Compose.MarksTellRessick() then
+    local keep = {}
+    for _, a in ipairs(m.asides) do if a ~= m.ressick then keep[#keep + 1] = a end end
+    m.asides = keep
+  end
   -- Never the same word twice in one line ("Taking it all in ..., taking a room at the inn"):
   -- another way to say the mood when the place line has the adjective's word, and no second
   -- feeling that repeats one.
@@ -1054,6 +1063,16 @@ end
 -- Marks: the most striking thing about them right now (a wound, drink, a spell on them, a
 -- shape), else the most striking thing they wear or carry, else their kit and bearing.
 -- Compose.NowMarks and Compose.GearParts are below, with About: Physical.
+-- Whether the Marks glance is written and leads with resurrection sickness.
+function Compose.MarksTellRessick()
+  local f = ns.db and ns.db.fields
+  if not f or not f.glances or not f.glance_marks then return false end
+  for _, m in ipairs(Compose.NowMarks(ns.cache)) do
+    if m.title then return m.title == "Back from Death" end
+  end
+  return false
+end
+
 function Compose.MarksGlance(avoid)
   local c = ns.cache
   local world = c.world
@@ -2590,7 +2609,9 @@ function Compose.History()
   end
   local places = {}
   for _, d in ipairs(rpgd and rpgd.cleared or {}) do
-    if #places < 3 and not toldRecent["cleared:" .. d.name] then places[#places + 1] = U.Mid(d.name) end
+    -- A place the run story tells is told there, not again in the older record.
+    local inTale = taleTold.name and U.Mid(taleTold.name):lower() == U.Mid(d.name):lower()
+    if #places < 3 and not toldRecent["cleared:" .. d.name] and not inTale then places[#places + 1] = U.Mid(d.name) end
   end
   if #places > 0 then older[#older + 1] = "been down into " .. U.Join(places) end
   local oldBosses = {}
@@ -2598,8 +2619,11 @@ function Compose.History()
     if not toldRecent["boss:" .. b.name] and earnedKey ~= "boss:" .. b.name then oldBosses[#oldBosses + 1] = b end
   end
   if #bosses >= 3 then
-    older[#older + 1] = "helped bring down " .. U.Number(#bosses) .. " named foes"
-      .. (oldBosses[1] and (", " .. oldBosses[1].name .. " among them") or "")
+    -- "helped bring down Edwin VanCleef and eleven other named foes": no comma of its own to
+    -- muddle the list it joins ("..., Edwin VanCleef among them and done most of ...").
+    older[#older + 1] = "helped bring down "
+      .. (oldBosses[1] and (oldBosses[1].name .. " and " .. U.Number(#bosses - 1) .. " other named foes")
+        or (U.Number(#bosses) .. " named foes"))
   elseif oldBosses[1] then
     older[#older + 1] = "helped bring down " .. oldBosses[1].name
   end
@@ -2773,7 +2797,8 @@ function Compose.History()
     people[#people + 1] = sol.recurring == 1 and cw("h_recurring_one", nil, 1)
       or cw("h_recurring", { n = U.Number(sol.recurring) }, sol.recurring)
   end
-  if (sol.soloDungeons or 0) >= 1 then
+  -- A single solo run the run story already tells isn't counted again here.
+  if (sol.soloDungeons or 0) >= 1 and not (sol.soloDungeons == 1 and taleTold.solo) then
     people[#people + 1] = cw("h_solo", { times = U.Times(sol.soloDungeons) }, sol.soloDungeons)
   end
   -- The pet: the one at their side now (or, for a warlock, the demon called most).
@@ -2895,6 +2920,36 @@ function Compose.History()
     nowLines[#nowLines + 1] = ns.Journal.LatestLine(quote)   -- Auto TRP's own journal (Journal.lua)
   end
 
+  -- A budget for the whole page: many records each add a line, and an About page that
+  -- runs on stops being read. The news, where it began and what drives them stay; past the
+  -- budget, the least of the rest goes first, a line at a time from the end of each list:
+  -- how things are now (its journal or diary line kept), the runs, the older record, the
+  -- people and their standing, each down to a line or two.
+  local drives = Compose.Drives()
+  do
+    local function visible(s) return #(s:gsub("{col:%x+}", ""):gsub("{/col}", ""):gsub("{[%a']+}", "they")) + 1 end
+    local function len(list)
+      local n = 0
+      for _, s in ipairs(list or {}) do if type(s) == "string" and s ~= "" then n = n + visible(s) end end
+      return n
+    end
+    local total = len(roots) + len(record) + len(lately) + len(tales) + len(people) + len(standing) + len(nowLines)
+      + (roadStory and visible(roadStory) or 0) + (drives and visible(drives) or 0)
+    local function drop(list, keep, at)
+      if not list or count(list) <= keep then return false end
+      local i = at and math.min(at, #list) or #list
+      total = total - visible(list[i] or "")
+      table.remove(list, i)
+      return true
+    end
+    -- The journal or diary line closes "how things are now": the line before it goes first.
+    local shed = { { nowLines, 2, -1 }, { tales, 1 }, { record, 2 }, { people, 3 }, { standing, 2 }, { record, 1 }, { people, 1 } }
+    for _, s in ipairs(shed) do
+      while total > Compose.HISTORY_BUDGET and drop(s[1], s[2], s[3] and (#s[1] + s[3]) or nil) do end
+      if total <= Compose.HISTORY_BUDGET then break end
+    end
+  end
+
   -- One life, in order: where it began, and the road land by land; the longer record; the
   -- news, and the runs told as stories; the people, and where they stand; how things are
   -- now, and what drives them. A lone line joins the paragraph before it; the people and
@@ -2914,7 +2969,6 @@ function Compose.History()
   put(folded({ lately, tales or {} }, 6))
   put(folded({ people, standing }, 6))
   -- What drives them closes it, after how things stand, in one paragraph when that is short.
-  local drives = Compose.Drives()
   local nowPara = paragraph(nowLines)
   if nowPara and drives and count(nowLines) <= 2 then
     paras[#paras + 1] = nowPara .. " " .. drives

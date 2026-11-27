@@ -229,6 +229,8 @@ local function who(unit)
     local faction = U.Call(UnitFactionGroup, unit)
     return { player = true, class = class, faction = faction }
   end
+  -- Another player's pet or demon goes by the name its owner gave it: never written.
+  if U.Call(UnitPlayerControlled, unit) then return nil end
   local name = U.Plain(ns.World.Safe(U.Call(UnitName, unit)))
   if not name then return nil end
   local kind = ns.World.Safe(U.Call(UnitClassification, unit))
@@ -455,16 +457,25 @@ end
 
 -- From the mood: help from others, rolls won and lost (no winner named), jobs given up.
 local Mood = ns.Mood
+-- The mood's reasons say their counts the way prose does ("three people tended ..."):
+-- read back as a number, 1 when there's none.
+local WORD_COUNT = {}
+for n = 1, 99 do WORD_COUNT[U.Number(n)] = n end
+local function countIn(s)
+  if type(s) ~= "string" then return 1 end
+  return WORD_COUNT[s:lower()] or tonumber((s:gsub(",", ""))) or 1
+end
+J.CountIn = countIn
 if Mood and Mood.Push then
   local push = Mood.Push
   Mood.Push = function(name, amount, why, ...)
     if type(why) == "string" and ns.char then
       if name == "grateful" and why:find("tended") then
         local d = day()
-        if d then d.healed = (d.healed or 0) + (tonumber(why:match("^(%d+) people")) or 1) end
+        if d then d.healed = (d.healed or 0) + countIn(why:match("^([%w%-,]+) people")) end
       elseif name == "grateful" and why:find("^blessing") then
         local d = day()
-        if d then d.blessed = (d.blessed or 0) + (tonumber(why:match("from (%d+) people")) or 1) end
+        if d then d.blessed = (d.blessed or 0) + countIn(why:match("from ([%w%-,]+) people")) end
       else
         local item = why:match("^lost the roll for (.+)$")
         if item then add({ k = "roll", item = item, won = false }) end
@@ -1179,7 +1190,14 @@ function J.Compose(key)
   local feel = pick(feelList, key, "feel" .. tostring(mood))
   local money = (d.money or 0)
   local coin = coins(money)
-  if coin and math.abs(money) >= 100 then
+  -- A feeling that held all day gets a line of its own below, so the close doesn't say it too.
+  local total = 0
+  for _, n in pairs(moods or {}) do total = total + n end
+  local domPool = mood and moodN and moodN >= 4 and moodN / total >= 0.6
+    and (JW.dominant[mood] or (val > 0 and JW.dominant.good) or (val < 0 and JW.dominant.bad)) or nil
+  if domPool then
+    feel = coin and math.abs(money) >= 100 and (coin .. (money > 0 and " up on the day" or " down on the day")) or nil
+  elseif coin and math.abs(money) >= 100 then
     local which = (money > 0 and "gain_" or "loss_") .. (val < 0 and "bad" or "good")
     feel = pick(JW.purse[which], key, "purse", { mood = feel, money = coin })
   end
@@ -1203,13 +1221,9 @@ function J.Compose(key)
   elseif last.inn then closing = pick(JW.end_inn, key, "end", vars)
   elseif flavorText then closing = pick(JW.end_flavor, key, "end", vars)
   else closing = pick(JW.end_at, key, "end", vars) end
+  if closing and not feel then closing = closing:gsub(",? ?{feel}", ""):gsub("%s+$", "") end
   line(closing, "end")
-  local total = 0
-  for _, n in pairs(moods or {}) do total = total + n end
-  if mood and moodN and moodN >= 4 and moodN / total >= 0.6 then
-    local pool = JW.dominant[mood] or (val > 0 and JW.dominant.good) or (val < 0 and JW.dominant.bad)
-    if pool then line(pick(pool, key, "dom" .. mood), "mood") end
-  end
+  if domPool then line(pick(domPool, key, "dom" .. mood), "mood") end
   -- The last thought: how the day went, in the character's own voice (race first, then
   -- temperament), and now and then a word in their class's manner.
   do

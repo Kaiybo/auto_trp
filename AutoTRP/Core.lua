@@ -27,6 +27,9 @@ ns.Unsecret = unsecret
 local function scrub(...)
   local n = select("#", ...)
   if n == 0 then return end
+  -- Clients without secret values (the classic era) pass the payload on as it is: no table
+  -- per event and handler.
+  if type(_G.issecretvalue) ~= "function" then return ... end
   local t = { ... }
   for i = 1, n do t[i] = unsecret(t[i]) end
   return unpack(t, 1, n)
@@ -43,13 +46,17 @@ function ns.On(event, fn)
   return true
 end
 
+local function dispatch(event, list, ...)
+  for i = 1, #list do
+    local ok, err = pcall(list[i], event, ...)
+    if not ok then ns.Error(event, err) end
+  end
+end
+-- The payload is scrubbed once per event, not once per handler.
 frame:SetScript("OnEvent", function(_, event, ...)
   local list = handlers[event]
   if not list then return end
-  for i = 1, #list do
-    local ok, err = pcall(list[i], event, scrub(...))
-    if not ok then ns.Error(event, err) end
-  end
+  dispatch(event, list, scrub(...))
 end)
 
 -- Unit events for one unit only (the game filters, so other units cost nothing).
@@ -350,6 +357,12 @@ function U.Call(fn, ...)
     return S(a), S(b), S(c), S(d), S(e), S(f), S(g), S(h), S(i), S(j), S(k)
   end
   return nil
+end
+
+-- Another player, or something another player controls (a hunter's pet, a warlock's demon,
+-- whose names their owners chose): never named in what Auto TRP writes or keeps.
+function U.PlayerOwned(unit)
+  return (U.Call(UnitIsPlayer, unit) or U.Call(UnitPlayerControlled, unit)) and true or false
 end
 
 -- U.Call for an API that returns many values (the combat log, GetItemInfo): every value, unsecreted.

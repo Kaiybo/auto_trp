@@ -158,6 +158,20 @@ local function ago(t)
   return U.Number(math.floor(days / 30)) .. " months ago"
 end
 
+-- How many masters were left when the run ended, or nil. A run whose last master down is
+-- the place's own last one reached the end, masters skipped or not: never "turned back
+-- after Edwin VanCleef, five masters short of the end".
+local function shortOf(run, last)
+  if not (run.of and not run.full and last) then return nil end
+  local Dv = ns.Sources and ns.Sources.Delves
+  local entry = Dv and Dv.Place and Dv.Place(run.place)
+  for _, w in ipairs(entry and (entry.wings or { { bosses = entry.bosses } }) or {}) do
+    if type(w.bosses) == "table" and w.bosses[#w.bosses] == last then return nil end
+  end
+  return run.of - (run.got or 0)
+end
+R.ShortOf = shortOf
+
 -- One run as a story: "Last week Aldric went into the Deadmines with four others; the five
 -- of them lost two to Mr. Smite before Edwin VanCleef fell, and Aldric came out with Cruel Barb."
 function R.Story(run, name)
@@ -166,7 +180,7 @@ function R.Story(run, name)
   local s = when(run.stop or run.start) .. " " .. name .. " " .. open
   -- After the opening, the subject is a pronoun: "Aldric went down into the Deadmines; he fell once".
   local setback, sb = R.Setback(run, "{they}")
-  local short = run.of and not run.full and last and (run.of - (run.got or 0)) or nil
+  local short = shortOf(run, last)
   local items = {}
   for i, l in ipairs(finest(run, 2)) do items[i] = itemName(l) end
   if setback then
@@ -217,6 +231,7 @@ function R.Tales(c, name)
   if best then
     for _, s in ipairs(R.Story(best, name)) do out[#out + 1] = s end
     told.place = best.place
+    told.solo = (best.others or 0) == 0
     if now - (best.stop or 0) <= RECENT then told.name = best.name end
     if now - (best.stop or 0) <= RECENT then
       for _, b in ipairs(best.bosses or {}) do told.bosses[b.name] = true end
@@ -277,7 +292,7 @@ function R.Lately(c)
   local run = dv and dv.runs[1]
   if not run or U.Now() - (run.stop or 0) > 3 * 3600 or not R.Eventful(run) then return nil end
   local last = run.bosses[#run.bosses] and run.bosses[#run.bosses].name
-  local short = run.of and not run.full and last and (run.of - (run.got or 0)) or nil
+  local short = shortOf(run, last)
   local vars = { place = run.name, with = R.Company(run), last = last, n = short and U.Number(short) }
   local key, ti, prio
   local setback = hard(run) and R.Setback(run, (ns.TRP and ns.TRP.FirstName and ns.TRP.FirstName()) or U.Call(UnitName, "player") or "This one")

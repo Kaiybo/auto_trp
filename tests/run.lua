@@ -2843,7 +2843,7 @@ do
   print("\nPersonality with the work they take on:\n" .. bearing)
   check(anyOf(bearing, W.WORK.HABIT.courier) or anyOf(bearing, W.WORK.HABIT.coin), "Personality: courier work or coin over kit")
   local st = C.Stats()
-  check(st.work == "40 slaying, 22 courier, 9 gathering, 5 escort; 1 escort lost", "statistic: work by kind: " .. tostring(st.work))
+  check(st.work == "40 slaying, 22 courier, 9 gathering, 5 escorts; 1 escort lost", "statistic: work by kind: " .. tostring(st.work))
   check(ns.TRP.FIELDS.stat_work ~= nil and ns.db.fields.stat_work == true, "the work statistic has its own switch, on by default")
   check(ns.UI.TipFor({ path = { "fields", "stat_work" } }) ~= nil, "and a tooltip")
   -- A run of the same kind of job: Lately.
@@ -4269,7 +4269,12 @@ do
   check(has(ghost, W.MOMENT.ghost) or has(ghost, W.TRAVEL.ghost), "a ghost on the way back: " .. ghost)
   UnitIsGhost, UnitIsDeadOrGhost = G.UnitIsGhost, G.UnitIsDeadOrGhost
   UnitDebuff = function(_, i) if i == 1 then return "Resurrection Sickness" end end
-  check(has(cu(), W.ASIDE.ressick), "resurrection sickness lingers in a second sentence: " .. cu())
+  local withMark = cu()
+  check(not has(withMark, W.ASIDE.ressick) and ns.Compose.MarksGlance().TI == "Back from Death",
+    "resurrection sickness is told once, by the Back from Death mark, not again in Currently: " .. withMark)
+  ns.db.fields.glance_marks = false
+  check(has(cu(), W.ASIDE.ressick), "without the Marks glance, resurrection sickness lingers in a second sentence: " .. cu())
+  ns.db.fields.glance_marks = true
   UnitDebuff = G.UnitDebuff
 
   at("The Great Sea", nil)
@@ -4873,6 +4878,35 @@ do
   ns.char.seedName = keepSeed
   check(#runs == 0, "journal: no three sentences running open alike: " .. (runs[1] or ""))
   check(#twice == 0, "journal: no way of saying a thing twice in one day: " .. (twice[1] or ""))
+  -- A feeling that held all day is told once: its own line, not the close as well.
+  do
+    local dk = "2099-01-02"
+    ns.char.days = ns.char.days or {}
+    local keepDay = ns.char.days[dk]
+    local doubled = {}
+    for _, money in ipairs({ 0, 800 }) do
+      for v = 1, 12 do
+        ns.char.seedName = "jdom" .. v
+        ns.char.days[dk] = { moods = { weary = 6, merry = 1 } }
+        j.days[dk] = { start = { zone = "Elwynn Forest", sub = "Goldshire", hour = 8 },
+          last = { zone = "Duskwood", sub = "Scarlet Raven Tavern", inn = true, hour = 22 }, money = money,
+          ev = { { k = "quest", title = "The Killing Fields" } }, first = 0 }
+        local e = J.Compose(dk)
+        local endLine, moodLine
+        for _, l in ipairs(e and e.lines or {}) do
+          if l.kind == "end" then endLine = l.text elseif l.kind == "mood" then moodLine = l.text end
+        end
+        local feels = ns.Words.JOURNAL.feel and ns.Words.JOURNAL.feel.weary or {}
+        for _, f in ipairs(feels) do
+          if endLine and moodLine and endLine:find(f, 1, true) then doubled[#doubled + 1] = endLine .. " / " .. moodLine end
+        end
+        if not moodLine or (endLine or ""):find("{feel}", 1, true) then doubled[#doubled + 1] = "no mood line or a raw tag: " .. tostring(endLine) end
+      end
+    end
+    j.days[dk], ns.char.days[dk] = nil, keepDay
+    ns.char.seedName = keepSeed
+    check(#doubled == 0, "journal: a feeling that held all day isn't told again in the close: " .. (doubled[1] or ""))
+  end
 end
 
 -- Race and homeland (Sources/Kin.lua): every hook fed a fake event, for every race, with
@@ -5390,7 +5424,7 @@ do
   o = refresh()
   check(o.n.rez == 8 and o.n.rezStrangers == 8 and o.n.pws == 120 and o.n.fort == 40 and o.n.mindcontrol == 25, "priest: strangers raised, shields, Fortitude, Mind Control (not on a creature)")
   st = C.Stats()
-  check(st.given == "8 raised, all of them strangers; 120 shields; 40 Fortitudes, all of them strangers" and st.calling == "25 Mind Controls", "priest statistics: " .. tostring(st.given))
+  check(st.given == "8 raised, all of them strangers; 120 shields; 40 Fortitudes, all of them on strangers" and st.calling == "25 Mind Controls", "priest statistics: " .. tostring(st.given))
   local hb = habits()
   local said = false
   for _, l in ipairs(W.CALLING.HABIT.rez_strangers) do if hb:find((U.Pron(l:gsub("{strangers}", "eight"))), 1, true) then said = true end end
@@ -5432,7 +5466,7 @@ do
   check(o.n.blessing == 210 and o.n.blessingStrangers == 40 and o.n.redemption == 22 and o.n.lohOthers == 3 and o.n.intervention == 1,
     "paladin: blessings, Redemption, Lay on Hands on others, Divine Intervention")
   st = C.Stats()
-  check(st.given == "22 raised; 210 blessings, 40 of them strangers; 3 Lays on Hands" and st.calling == "3 Lays on Hands; 1 Divine Intervention",
+  check(st.given == "22 raised; 210 blessings, 40 of them on strangers; 3 Lays on Hands on others" and st.calling == "1 Divine Intervention",
     "paladin statistics: " .. tostring(st.given) .. " | " .. tostring(st.calling))
   check(C.LatelyGlance().TI == "A Sacrifice" or C.LatelyGlance().TI == "Laid on Hands", "paladin Lately: " .. C.LatelyGlance().TI)
   check(C.History():find("Divine Intervention", 1, true) or C.History():find("laid down", 1, true), "paladin History: the sacrifice")
@@ -7040,6 +7074,124 @@ if os.getenv("SAMPLES") then
   RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
   ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds = keep[4], keep[5], keep[6], keep[7]
   ns.Compose.SourcesChanged()
+end
+
+---------------------------------------------------------------------------
+-- 0.22.0 review: regressions
+---------------------------------------------------------------------------
+print("\n--- 0.22.0 review ---")
+do
+  local C = ns.Compose
+  -- History keeps to a budget: the least goes first, the start and the close stay.
+  C.SourcesChanged(); C.Refresh()
+  local full = C.History() or ""
+  local function visible(s) return #(s:gsub("{col:%x+}", ""):gsub("{/col}", "")) end
+  local keepBudget = C.HISTORY_BUDGET
+  C.HISTORY_BUDGET = math.floor(visible(full) * 0.6)
+  C.SourcesChanged(); C.Refresh()
+  local short = C.History() or ""
+  C.HISTORY_BUDGET = keepBudget
+  local firstFull, firstShort = full:match("^[^%.]+%."), short:match("^[^%.]+%.")
+  local lastFull = full:match("([^%.!%?\"]+[%.!%?]\"?)%s*$")
+  check(visible(short) < visible(full) and firstFull == firstShort and lastFull and short:find(lastFull, 1, true),
+    ("History over its budget sheds lines but keeps where it began and how it closes: %d -> %d"):format(visible(full), visible(short)))
+  check(keepBudget >= 2000 and visible(full) <= keepBudget + 400, "History's budget is set, and the sample keeps near it: " .. visible(full))
+  check(not full:find(" among them and ", 1, true), "the named foes felled don't muddle the list they join")
+
+  -- A run that ends on the place's last master reached the end, whatever was skipped.
+  local RS = ns.Runs.ShortOf
+  check(RS({ place = "The Deadmines", of = 6, got = 1, full = false }, "Edwin VanCleef") == nil
+    and RS({ place = "The Deadmines", of = 6, got = 2, full = false }, "Sneed") == 4,
+    "never \"turned back after Edwin VanCleef, five masters short of the end\"")
+  local hist = full
+  check(not hist:find("after Edwin VanCleef, %a+ masters? short"), "History: no run turned back after the last master")
+
+  -- The journal counts the people who helped as the mood says them ("three people tended ...").
+  local jd = function() local j = ns.char.journal; return j and j.days and j.days[ns.Mood.Day()] end
+  local h0, b0 = jd() and jd().healed or 0, jd() and jd().blessed or 0
+  ns.Mood.Push("grateful", 20, "three people tended {their} wounds")
+  ns.Mood.Push("grateful", 10, "blessings from four people")
+  local h1, b1 = jd() and jd().healed or 0, jd() and jd().blessed or 0
+  check(h1 - h0 == 3 and b1 - b0 == 4 and ns.Journal.CountIn("twenty-one") == 21,
+    ("the journal counts helpers said in words: +%d healed, +%d blessed"):format(h1 - h0, b1 - b0))
+
+  -- Work kinds agree with their number in the statistic.
+  local Wk = ns.Sources.Work
+  check(Wk.Stat({ kinds = { { kind = "bounty", n = 1 }, { kind = "bounty", n = 6 }, { kind = "rescue", n = 2 } } }, tostring)
+    == "1 bounty, 6 bounties, 2 rescues", "work statistic: \"1 bounty\", \"6 bounties\", \"2 rescues\"")
+end
+
+-- Another player's pet or demon, brought down, is never kept by the name its owner gave it.
+do
+  local keepCL = CombatLogGetCurrentEventInfo
+  local function kill(guid, name, flags)
+    local line = { NOW, "PARTY_KILL", false, "Player-1-0001", "Aldric", 0x511, 0, guid, name, flags, 0 }
+    CombatLogGetCurrentEventInfo = function() return unpack(line, 1, 11) end
+    event("COMBAT_LOG_EVENT_UNFILTERED")
+  end
+  kill("Pet-0-1-0-1-300-0000AA", "Fluffy", 0x1148)
+  kill("Creature-0-1-0-1-416-0000BB", "Grimnax", 0x1148)
+  kill("Creature-0-1-0-1-300-0000CC", "Review Wolf", 0xa48)
+  CombatLogGetCurrentEventInfo = keepCL
+  local byName = ns.char.deeds and ns.char.deeds.kills and ns.char.deeds.kills.byName or {}
+  check(byName.Fluffy == nil and byName.Grimnax == nil and (byName["Review Wolf"] or 0) >= 1,
+    "a player's pet or demon killed isn't kept by name; a creature is")
+  byName["Review Wolf"] = nil
+
+  -- Killed while fighting one: the death isn't put down to it by name either.
+  local G = { UnitExists = UnitExists, UnitCanAttack = UnitCanAttack, UnitName = UnitName,
+    UnitPlayerControlled = UnitPlayerControlled, UnitIsDeadOrGhost = UnitIsDeadOrGhost }
+  UnitExists = function(u) return u == "target" or u == "player" end
+  UnitCanAttack = function(_, u) return u == "target" end
+  UnitName = function(u) if u == "target" then return "Fluffy" end return G.UnitName(u) end
+  UnitPlayerControlled = function(u) return u == "target" end
+  event("PLAYER_REGEN_DISABLED")
+  UnitIsDeadOrGhost = function() return true end
+  event("PLAYER_DEAD")
+  UnitIsDeadOrGhost = G.UnitIsDeadOrGhost
+  event("PLAYER_REGEN_ENABLED")
+  for k, v in pairs(G) do _G[k] = v end
+  local leak = {}
+  local function scan(t, path, seen)
+    seen = seen or {}
+    if seen[t] then return end
+    seen[t] = true
+    for k, v in pairs(t) do
+      if v == "Fluffy" or k == "Fluffy" then leak[#leak + 1] = path .. "." .. tostring(k) end
+      if type(v) == "string" and v:find("Fluffy", 1, true) then leak[#leak + 1] = path .. "." .. tostring(k) end
+      if type(v) == "table" then scan(v, path .. "." .. tostring(k), seen) end
+    end
+  end
+  scan(ns.char, "char")
+  check(#leak == 0, "a player's pet that killed them isn't named in anything kept: " .. table.concat(leak, ", "))
+end
+
+-- The README lists every field `/atrp claim` and `/atrp release` take (the retired ones aside).
+do
+  local fh = io.open("README.md")
+  local readme = fh and fh:read("*a") or ""
+  if fh then fh:close() end
+  local fieldsLine = readme:match("\nFields: ([^\n]+)") or ""
+  local retired, missing = {}, {}
+  for _, st in ipairs(ns.Compose.STATS) do if st.retired then retired["stat_" .. st.key] = true end end
+  for _, k in ipairs(ns.TRP.ORDER) do
+    if not retired[k] and not fieldsLine:find("`" .. k .. "`", 1, true) then missing[#missing + 1] = k end
+  end
+  check(#missing == 0, "README lists every field: " .. table.concat(missing, ", "))
+  local function slurp(p) local h = io.open(p); local s = h and h:read("*a") or ""; if h then h:close() end; return s end
+  local toc, changes = slurp("AutoTRP/AutoTRP.toc"), slurp("CHANGELOG.md")
+  local firstRelease = changes:match("\n## (%d+%.%d+%.%d+) ")
+  check(toc:find("## Version: " .. ns.VERSION, 1, true) and toc:find("|cff8a8a8a" .. ns.VERSION .. "|r", 1, true)
+    and firstRelease == ns.VERSION,
+    "the version agrees in Core.lua, the .toc and the changelog: " .. ns.VERSION)
+end
+
+-- Event payloads are passed on whole, with no table built per handler where nothing is secret.
+do
+  local got
+  ns.On("AUTOTRP_TEST_EVENT", function(_, a, b, c) got = { a, b, c } end)
+  event("AUTOTRP_TEST_EVENT", 1, nil, "x")
+  check(got and got[1] == 1 and got[2] == nil and got[3] == "x", "event arguments reach handlers, nils and all")
 end
 
 print(fails == 0 and "\nall passed" or ("\n" .. fails .. " failed"))

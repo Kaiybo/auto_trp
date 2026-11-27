@@ -305,7 +305,7 @@ end
 function R.Died()
   local byPlayer, foe = false, nil
   if U.Call(UnitExists, "target") and U.Call(UnitCanAttack, "player", "target") then
-    if U.Call(UnitIsPlayer, "target") then byPlayer = true else foe = U.Plain(U.Call(UnitName, "target")) end
+    if U.Call(UnitIsPlayer, "target") then byPlayer = true elseif not U.PlayerOwned("target") then foe = U.Plain(U.Call(UnitName, "target")) end
   else
     local f = ns.char and ns.char.lastFight
     if f and U.Now() - (f.t or 0) < 20 and type(f.foe) == "table" then

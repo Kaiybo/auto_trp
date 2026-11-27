@@ -470,6 +470,8 @@ ns.On("PLAYER_REGEN_DISABLED", function()
       name = (type(faction) == "string" and faction ~= "Neutral" and (faction .. " ") or "")
         .. (type(class) == "string" and class:lower() or "enemy")
       named = "player"
+    elseif U.Call(UnitPlayerControlled, "target") then
+      name = nil   -- another player's pet or demon: its name is its owner's choice
     end
     foe = name and { name = name, named = named == true or nil, player = named == "player" or nil } or nil
   end

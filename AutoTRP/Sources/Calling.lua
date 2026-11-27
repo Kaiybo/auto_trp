@@ -793,6 +793,8 @@ local ESCAPE_STAT = { vanish = "by Vanish", feign = "by Feign Death", shieldwall
   blink = "by Blink", bubble = "behind Divine Shield", barkskin = "in Barkskin", fade = "by Fade", deathcoil = "by Death Coil",
   icebound = "in Icebound Fortitude", reincarnation = "by Reincarnation" }
 
+local RAISED_KEYS = { rez = true, redemption = true, ancestral = true, rebirth = true, raiseally = true }
+
 function C.Stats(c)
   local o, world = c and c.calling, c and c.world or {}
   local spec = SPEC[world.class or ""]
@@ -809,6 +811,8 @@ function C.Stats(c)
     local parts = {}
     for _, k in ipairs(spec.calling) do
       local x = n[k]
+      -- Lay on Hands put on someone else is told under what was given; here only the rest.
+      if k == "layonhands" and spec.given then x = x - math.min(x, n.lohOthers) end
       if x > 0 then
         local s = item(k, x)
         if k == "pockets" and n.pocketCoin >= 10000 then s = s .. " for " .. figure(math.floor(n.pocketCoin / 10000)) .. " gold"
@@ -841,8 +845,10 @@ function C.Stats(c)
       if x > 0 then
         local s = item(k, x)
         local st = n[k .. "Strangers"]
-        if st > 0 and st < x then s = s .. ", " .. figure(st) .. " of them strangers"
-        elseif st > 0 and st == x then s = s .. ", all of them strangers" end
+        -- The raised were strangers; a blessing or a shield was put on one.
+        local on = RAISED_KEYS[k] and "" or "on "
+        if st > 0 and st < x then s = s .. ", " .. figure(st) .. " of them " .. on .. "strangers"
+        elseif st > 0 and st == x then s = s .. ", all of them " .. on .. "strangers" end
         parts[#parts + 1] = s
       end
     end

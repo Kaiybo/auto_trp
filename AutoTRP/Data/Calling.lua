@@ -572,6 +572,6 @@ W.CALLING = {
     thorns = { "Thorns", "Thorns" }, innervate = { "Innervate", "Innervates" }, soulstone = { "soulstone", "soulstones" },
     intellect = { "Arcane Intellect", "Arcane Intellects" }, mark = { "Mark of the Wild", "Marks of the Wild" },
     feeds = { "conjured meal", "conjured meals" }, stonesGiven = { "healthstone handed over", "healthstones handed over" },
-    lohOthers = { "Lay on Hands", "Lays on Hands" }, portalOthers = { "traveller sent", "travellers sent" },
+    lohOthers = { "Lay on Hands on another", "Lays on Hands on others" }, portalOthers = { "traveller sent", "travellers sent" },
   },
 }

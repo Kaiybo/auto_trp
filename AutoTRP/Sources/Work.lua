@@ -590,7 +590,9 @@ function Work.Stat(wk, figure)
   local parts = {}
   for i = 1, math.min(4, #wk.kinds) do
     local k = wk.kinds[i]
-    parts[i] = figure(k.n) .. " " .. (W.WORK.STAT[k.kind] or k.kind)
+    local w = W.WORK.STAT[k.kind] or k.kind
+    if type(w) == "table" then w = k.n == 1 and w[1] or w[2] end
+    parts[i] = figure(k.n) .. " " .. w
   end
   local s = table.concat(parts, ", ")
   if (wk.escortsFailed or 0) > 0 then

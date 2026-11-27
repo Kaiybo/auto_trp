@@ -282,7 +282,7 @@ ns.On("PLAYER_DEAD", function()
   local killer
   local f = ns.char and ns.char.lastFight
   if f and type(f.foe) == "table" and not f.foe.player then killer = f.foe.name end
-  if U.Call(UnitExists, "target") and U.Call(UnitCanAttack, "player", "target") and not U.Call(UnitIsPlayer, "target") then
+  if U.Call(UnitExists, "target") and U.Call(UnitCanAttack, "player", "target") and not U.PlayerOwned("target") then
     killer = U.Plain(U.Call(UnitName, "target")) or killer
   end
   B.Death(killer)

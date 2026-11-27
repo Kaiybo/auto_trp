@@ -792,7 +792,7 @@ function World.Moment(s, seed)
   if alive and s.pole and not (ctx and ctx.kind == "fishing") then m.extras[#m.extras + 1] = pick(W.EXTRA.pole, "pole") end
 
   -- Asides
-  if s.auras and s.auras.resSick and alive then m.asides[#m.asides + 1] = pick(W.ASIDE.ressick, "ressick") end
+  if s.auras and s.auras.resSick and alive then m.ressick = pick(W.ASIDE.ressick, "ressick"); m.asides[#m.asides + 1] = m.ressick end
   if s.queued and s.instance ~= "pvp" then m.asides[#m.asides + 1] = pick(W.QUEUED, "queued") end
   if s.dnd then m.asides[#m.asides + 1] = pick(W.ASIDE.dnd, "dnd") end
   local fest = s.festival and W.FESTIVAL_TOWN[s.festival]
