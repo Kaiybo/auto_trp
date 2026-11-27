@@ -72,6 +72,7 @@ function Compose.Refresh()
     c.deeds = S.Deeds.Read()
     c.self = S.Self and S.Self.Read(c) or nil
     c.life = S.Life and S.Life.Read() or nil
+    c.renown = S.Renown and S.Renown.Read() or nil
     sourcesAt, c.read = now, true
   end
   -- The company is the game's own (cheap: a party is five units, a raid forty); Social
@@ -817,6 +818,7 @@ end
 Compose.Colour = colour
 
 local function quote(text) return colour("\"" .. text .. "\"", QUOTE_COLOUR) end
+Compose.Quote = quote
 local function itemName(name, quality) return colour(name, ITEM_COLOUR[quality or 0]) end
 
 -- Pronouns filled in, and every sentence starts with a capital.
@@ -1258,6 +1260,20 @@ end
 
 local function guildName(g) return g:find("^The ") and U.Mid(g) or g end
 
+-- Reputation as people would see it (Sources/Renown.lua). Rumours: "What's said of them",
+-- at most k lines of hearsay (3 by default), each built from one stored record.
+function Compose.Rumours(k)
+  local R = ns.Sources.Renown
+  local out = {}
+  for i, r in ipairs(R and R.Rumours(ns.cache, k) or {}) do out[i] = r.text end
+  return out
+end
+-- Standing changes for History's news: { t, text, key }.
+function Compose.StandingNews()
+  local R = ns.Sources.Renown
+  return R and R.News(ns.cache, RECENT) or {}
+end
+
 -- History, in five paragraphs. The first and the last two hold what lasts: where they
 -- came from and the road, the people, how things stand. The second is the news (the last
 -- three weeks, newest first, and what has changed). The third is the longer record: the
@@ -1394,6 +1410,8 @@ function Compose.History()
   local hon = ns.char and ns.char.honours or {}
   local h = hon[#hon]
   if h then event(h.t, 5, "earned " .. h.standing:lower() .. " standing with " .. W.FactionName(h.faction), "honour") end
+  -- Standing lost or worked hard for (Sources/Renown.lua).
+  for _, e in ipairs(Compose.StandingNews()) do event(e.t, 5, e.text, e.key) end
   if rpgd and rpgd.homeInn and rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn then
     event(rpgd.homeSince, 5, "moved from " .. placeName(rpgd.homePrev) .. " to " .. placeName(rpgd.homeInn), "home")
   end
@@ -1767,6 +1785,8 @@ function Compose.History()
   if rpgd and rpgd.rivals[1] then
     people[#people + 1] = say("rival", { who = rpgd.rivals[1].name }, rpgd.rivals[1].name)
   end
+  -- What's said of them: hearsay, each line from a stored record (Sources/Renown.lua).
+  for _, r in ipairs(Compose.Rumours()) do people[#people + 1] = r end
   if sd and #sd.foes > 0 then
     people[#people + 1] = say("foes", { what = #sd.foes == 1 and "an enemy" or (U.Number(#sd.foes) .. " enemies") }, #sd.foes)
   end
@@ -2177,6 +2197,8 @@ Compose.STATS = {
   { key = "gold", label = "Most gold held", icon = "INV_Misc_Coin_01" },
   { key = "inns", label = "Inns stayed at", icon = "INV_Drink_05" },
   { key = "hit", label = "Hardest hit", icon = "Ability_Warrior_Rampage" },
+  -- How every faction sees them (Sources/Renown.lua): "Exalted with 1, Revered with 3".
+  { key = "renown", label = "Standing", icon = "INV_Misc_Token_ArgentDawn" },
   { key = "letters", label = "Letters received", icon = "INV_Letter_15", retired = true },
 }
 
@@ -2246,6 +2268,7 @@ function Compose.Stats()
   if top and top.word then out.standing = top.word .. " with " .. W.FactionName(top.name) end
   local books = #Compose.Books()
   if books > 0 then out.books = figure(books) end
+  out.renown = ns.Sources.Renown and ns.Sources.Renown.Stat(world, c.renown) or nil
   -- Auto TRP's own record of life on the road.
   local life = c.life
   if life then
@@ -2294,7 +2317,7 @@ function Compose.Stats()
   if not out.road and days == 0 then out.road = "Less than a day" end
   if not out.lands and world.zone then out.lands = "1" end
   for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "crafts", "standing", "books", "names", "spell",
-    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit" }) do
+    "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "renown" }) do
     out[k] = out[k] or "None yet"
   end
   return out
@@ -2330,9 +2353,10 @@ function Compose.FullTitle()
   if align and standing then return align .. ", " .. standing end
   if standing then return standing end
   local noun = U.Cap(W.CLASS_NOUN[world.class or ""] or "wanderer")
-  if align then return align .. " " .. noun end
-  local top = world.factions and world.factions[1]
-  if top and top.standing >= 7 then return "Friend of " .. W.FactionName(top.name) end
+  -- No town to name: a faction they're Revered or Exalted with (Sources/Renown.lua).
+  local friend = ns.Sources.Renown and ns.Sources.Renown.Title(world)
+  if align then return friend and (align .. ", " .. friend) or (align .. " " .. noun) end
+  if friend then return friend end
   local home = W.RACE_HOME[world.race or ""]
   return U.Cap(seasoned(world.level, "seasoned")) .. " " .. noun .. (home and (" of " .. home) or "")
 end

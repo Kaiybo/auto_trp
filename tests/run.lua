@@ -1607,7 +1607,7 @@ do
             if not v or not v.TX or v.TX == "" or not v.TI or not v.IC then missing[#missing + 1] = "glance " .. g end
           end
           for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "wealth", "crafts", "standing", "books", "names", "spell",
-            "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit" }) do
+            "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "renown" }) do
             if not sh.stats[k] then missing[#missing + 1] = "stat " .. k end
           end
         end
@@ -3820,6 +3820,207 @@ do
   end
   scan(ns.Words, 0)
   check(not any, "no \"{they} mean\" without {s}: " .. tostring(any))
+end
+
+-- Reputation as people would see it (Sources/Renown.lua): standing over time, what caused
+-- each change, guards and the war, and the hearsay built from it, every line traced.
+do
+  local C, R, W = ns.Compose, ns.Sources.Renown, ns.Words
+  local keep = { ns.char.renown, ns.char.self and ns.char.self.towns, state.zone, state.sub, GetNumFactions, GetFactionInfo,
+    GetTitleText, UnitExists, UnitCanAttack, UnitIsPlayer, ns.char.seedName, ns.char.honours, UnitName }
+  ns.char.renown, ns.char.honours = nil, nil
+  local function rep(msg) event("CHAT_MSG_COMBAT_FACTION_CHANGE", msg) end
+  -- Pirates killed on the Stranglethorn coast: Bloodsail standing lost, Booty Bay's gained.
+  state.zone, state.sub = "Stranglethorn Vale", "Wild Shore"
+  for _ = 1, 10 do
+    ns.Sources.Deeds.Kill("Bloodsail Swashbuckler")
+    rep("Reputation with Bloodsail Buccaneers decreased by 25.")
+    rep("Reputation with Booty Bay increased by 5.")
+  end
+  local r = ns.char.renown
+  local bs = r.f["Bloodsail Buccaneers"]
+  check(bs and bs.down == 250 and bs.why["k:Bloodsail Swashbuckler"] and bs.why["k:Bloodsail Swashbuckler"].down == 250
+    and bs.why["k:Bloodsail Swashbuckler"].zone == "Stranglethorn Vale", "a loss is kept with the kill that caused it, and where")
+  check(r.f["Booty Bay"].up == 50 and r.f["Booty Bay"].days[1].up == 50, "a gain is kept, by day")
+  -- A quest whose standing is announced just before the turn-in still owns the change.
+  local keepNow = NOW
+  NOW = NOW + 30
+  state.sub = "Booty Bay"
+  GetTitleText = function() return "Avast Ye, Admiral!" end
+  event("QUEST_COMPLETE")
+  rep("Reputation with Booty Bay decreased by 150.")
+  rep("Reputation with Bloodsail Buccaneers increased by 50.")
+  event("QUEST_TURNED_IN", 4621)
+  local bb = r.f["Booty Bay"]
+  check(bb.down == 150 and bb.why["q:Avast Ye, Admiral!"] and bb.why["q:Avast Ye, Admiral!"].down == 150 and not bb.why.other,
+    "a change just before the turn-in belongs to the quest")
+  -- Argent Dawn tokens turned in, four times over.
+  state.zone, state.sub = "Western Plaguelands", "Chillwind Camp"
+  GetTitleText = function() return "Minion's Scourgestones" end
+  for _ = 1, 4 do
+    event("QUEST_COMPLETE"); event("QUEST_TURNED_IN", 5401)
+    rep("Reputation with Argent Dawn increased by 75.")
+  end
+  local ad = r.f["Argent Dawn"].why["q:Minion's Scourgestones"]
+  check(ad and ad.up == 300 and ad.n == 4, "tokens turned in are counted with their quest")
+  -- Guards killed in Booty Bay; the war in Ashenvale.
+  state.zone, state.sub = "Stranglethorn Vale", "Booty Bay"
+  ns.Sources.Deeds.Kill("Booty Bay Bruiser"); ns.Sources.Deeds.Kill("Booty Bay Bruiser"); ns.Sources.Deeds.Kill("Kurzen Medicine Man")
+  check(r.guards["Booty Bay"] and r.guards["Booty Bay"].k == 2, "guards killed are counted where it happened, nobody else")
+  UnitExists = function() return true end
+  UnitCanAttack = function() return true end
+  UnitIsPlayer = function() return false end
+  UnitName = function(u) if u == "target" then return "Booty Bay Bruiser" end return "Aldric" end
+  R.Died()
+  check(r.guards["Booty Bay"].d == 1, "killed by a guard")
+  UnitIsPlayer = function() return true end
+  UnitName = function(u) if u == "target" then return "Gankalot" end return "Aldric" end
+  state.zone, state.sub = "Ashenvale", "Splintertree Post"
+  R.Died()
+  for _ = 1, 4 do event("CHAT_MSG_COMBAT_HONOR_GAIN", "Someone dies, honorable kill") end
+  UnitName, UnitExists, UnitCanAttack, UnitIsPlayer = keep[13], keep[8], keep[9], keep[10]
+  check(r.honour.Ashenvale and r.honour.Ashenvale.k == 4 and r.honour.Ashenvale.d == 1, "honour kills and deaths to the other side, by land")
+  local stored = {}
+  local function scanAll(t) for k, v in pairs(t) do stored[#stored + 1] = tostring(k); if type(v) == "table" then scanAll(v) elseif type(v) == "string" then stored[#stored + 1] = v end end end
+  scanAll(r)
+  check(not table.concat(stored, "|"):find("Gankalot", 1, true), "an enemy player is never kept by name")
+
+  -- Standings over time: read twice, a step down is seen, and felt.
+  local REPS = { { "Booty Bay", 5, 3500 }, { "Bloodsail Buccaneers", 2, -5000 }, { "Argent Dawn", 6, 1000 } }
+  GetNumFactions = function() return #REPS end
+  GetFactionInfo = function(i) local x = REPS[i]; return x[1], "", x[2], 0, 0, x[3], false, false, false, false, true end
+  R.Scan()
+  check(#r.steps == 0 and r.f["Booty Bay"].st == 5, "the first look only remembers")
+  local mood = ns.char.mood
+  mood.emo.ashamed, mood.why.ashamed = 0, nil
+  REPS[1][2] = 4
+  R.Scan()
+  check(#r.steps == 1 and r.steps[1].from == 5 and r.steps[1].to == 4, "a step down between standings is kept")
+  check((mood.emo.ashamed or 0) >= 10 and mood.why.ashamed == "fell out with Booty Bay", "falling out is felt: " .. tostring(mood.why.ashamed))
+
+  C.SourcesChanged(); C.Refresh()
+  -- The rumours: every one built from a stored record.
+  ns.char.self.towns = { Goldshire = { quests = 6, zone = "Elwynn Forest", min = 300, n = 300 } }
+  for _, q in ipairs({ "Riverpaw Gnoll Bounty", "Protect the Frontier", "Find the Lost Guards" }) do ns.Sources.Deeds.Quest(q, nil, "Elwynn Forest") end
+  C.SourcesChanged(); C.Refresh()
+  local all = R.Rumours(ns.cache, 6)
+  local kinds, untraced = {}, {}
+  local finished = C.Finished()
+  for _, x in ipairs(all) do
+    kinds[x.kind] = true
+    local f, ok = x.from, false
+    if f.kind == "faction" then
+      local fr = r.f[f.faction]
+      ok = fr ~= nil and (not f.cause or (fr.why[f.cause] and ((f.down and fr.why[f.cause].down > 0) or (f.up and fr.why[f.cause].up > 0))))
+        and (f.cause ~= nil or (f.down or 0) > 0)
+    elseif f.kind == "guards" then ok = r.guards[f.place] and ((f.killed and r.guards[f.place].k == f.killed) or (f.killedBy and r.guards[f.place].d == f.killedBy)) and true
+    elseif f.kind == "honour" then ok = r.honour[f.zone] and ((f.kills and r.honour[f.zone].k == f.kills) or (f.deaths and r.honour[f.zone].d == f.deaths)) and true
+    elseif f.kind == "town" then
+      local t = ns.char.self.towns[f.town]
+      ok = t and t.quests >= 4
+      if ok and f.story then
+        local beats = 0
+        for _, st in ipairs(W.SELF_STORIES) do
+          if st.id == f.story and st.zone == t.zone then
+            for _, q in ipairs(st.quests) do if finished[q] then beats = beats + 1 end end
+            for _, q in ipairs(st.ends or {}) do if finished[q] then beats = beats + 2 end end
+          end
+        end
+        ok = beats >= 2
+      end
+    end
+    if not ok then untraced[#untraced + 1] = x.text end
+    print("     rumour (" .. x.kind .. "): " .. ns.U.Pron(x.text))
+  end
+  check(#all == 6 and kinds.fallout and kinds.town and kinds.guards and kinds.good and kinds.honour and kinds.cooling,
+    "six kinds of hearsay from six kinds of record: " .. #all)
+  check(#untraced == 0, "every rumour traces to a stored record: " .. table.concat(untraced, " | "))
+  local fac = {}
+  local dup = false
+  for _, x in ipairs(all) do if x.from.faction then if fac[x.from.faction] then dup = true end fac[x.from.faction] = true end end
+  check(not dup, "a faction is talked of once")
+  local text = ""
+  for _, x in ipairs(all) do text = text .. x.text .. "\n" end
+  check(text:find("the Bloodsail Buccaneers", 1, true) and text:find("Stranglethorn Vale", 1, true) and not text:find("Wild Shore", 1, true),
+    "the Bloodsail grudge says where, by the land (a stretch of shore isn't a town)")
+  check(text:find("Goldshire", 1, true) and text:find("gnoll", 1, true), "the town's talk is of the story its land saw")
+  check(text:find("Minion's Scourgestones", 1, true) and text:find("four times", 1, true), "the Argent Dawn's good word is for the tokens")
+  check(text:find("Booty Bay", 1, true) and text:find("two", 1, true), "the guards of Booty Bay")
+  check(text:find("Horde", 1, true) and text:find("Ashenvale", 1, true), "the war in Ashenvale, against the other side")
+  local rest = text:gsub("{col:%x+}", ""):gsub("{/col}", ""):gsub("{they've}", ""):gsub("{they're}", ""):gsub("{they}", ""):gsub("{them}", ""):gsub("{their}", "")
+  check(not rest:find("[{}]"), "rumours leave only pronoun tags: " .. rest)
+  local h = C.History()
+  local three = C.Rumours()
+  check(#three == 3, "History tells three at most")
+  local inHistory = true
+  for _, s in ipairs(three) do if not h:find(ns.U.Pron(s):sub(8, 40), 1, true) then inHistory = false end end
+  check(inHistory, "the rumours are in History's people paragraph")
+  print("\n--- History, with what's said ---\n" .. h)
+  check(h:find("fell out with Booty Bay", 1, true) or h:find("Booty Bay turned against", 1, true) or h:find("goodwill of Booty Bay", 1, true)
+    or h:find("welcome with Booty Bay", 1, true) or h:find("favour with Booty Bay", 1, true), "falling out is History's news")
+  local fame = {}
+  for _, w in ipairs({ "hero", "legend", "renowned", "famed", "famous", "known in", "people know the name" }) do
+    if text:lower():find(w, 1, true) then fame[#fame + 1] = w end
+  end
+  check(#fame == 0, "hearsay stays local and modest: " .. table.concat(fame, ", "))
+
+  -- SAMPLES=1 prints the same records said other ways, and the news.
+  if os.getenv("SAMPLES") then
+    for i = 1, 4 do
+      ns.char.seedName = "rumour" .. i
+      print("\n=== What's said, sample " .. i .. " ===")
+      for _, x in ipairs(R.Rumours(ns.cache, 6)) do print("  " .. ns.U.Cap(ns.U.Pron(x.text)) .. ".") end
+      for _, e in ipairs(C.StandingNews()) do print("  news: " .. ns.U.Pron(e.text)) end
+      print("  title: " .. tostring(R.Title({ factions = { { name = "Argent Dawn", standing = 7 + i % 2, word = "x" } } })))
+    end
+    ns.char.seedName = keep[11]
+  end
+
+  -- Nothing recorded, nothing said.
+  local full = ns.char.renown
+  ns.char.renown, ns.char.self.towns = nil, {}
+  C.SourcesChanged(); C.Refresh()
+  check(#R.Rumours(ns.cache, 6) == 0 and #C.StandingNews() == 0, "no record, no rumour and no news")
+  ns.char.renown = full
+  C.SourcesChanged(); C.Refresh()
+
+  -- The statistic, and the Full title from real standing.
+  local stat = C.Stats().renown
+  check(stat == "Revered with 1, Honored with 1, out of favour with 1", "the Standing statistic: " .. tostring(stat))
+  check(ns.TRP.FIELDS.stat_renown ~= nil and ns.db.fields.stat_renown == true, "the Standing statistic has its own switch, on by default")
+  local tip = ns.UI.TipFor({ path = { "fields", "stat_renown" } })
+  check(tip and tip:find("Standing", 1, true), "and a tooltip: " .. tostring(tip))
+  local t8 = R.Title({ factions = { { name = "Argent Dawn", standing = 8, word = "Exalted" } } })
+  local t7 = R.Title({ factions = { { name = "Cenarion Circle", standing = 7, word = "Revered" } } })
+  check(t8 and t8:find("the Argent Dawn$") and t7 and t7:find("the Cenarion Circle$") and not R.Title({ factions = { { name = "X", standing = 6 } } }),
+    "a Full title from Revered or Exalted standing only: " .. tostring(t8) .. " / " .. tostring(t7))
+
+  -- Kept small: factions and causes are capped.
+  for i = 1, 100 do R.Change("Faction " .. i, -1, { kind = "kill", name = "Foe " .. i }) end
+  for i = 1, 20 do R.Change("Argent Dawn", 1, { kind = "kill", name = "Scourge " .. i }) end
+  check(ns.U.Count(r.f) <= R.KEEP_FACTIONS and ns.U.Count(r.f["Argent Dawn"].why) <= R.KEEP_CAUSES and #r.f["Argent Dawn"].days <= R.KEEP_DAYS,
+    "the record stays bounded: " .. ns.U.Count(r.f))
+  check(r.f["Argent Dawn"].why["q:Minion's Scourgestones"] ~= nil, "the biggest causes are the ones kept")
+
+  -- The words: four to six ways of saying each, and only the pronoun tags allowed.
+  local short, badTag = {}, {}
+  local OK = { they = 1, them = 1, their = 1, ["they've"] = 1, ["they're"] = 1, s = 1, es = 1, town = 1, story = 1, n = 1, people = 1,
+    why = 1, foes = 1, where = 1, quest = 1, times = 1, place = 1, zone = 1, enemy = 1, faction = 1, word = 1 }
+  for key, list in pairs(W.RENOWN) do
+    if type(list) == "table" and type(list[1]) == "string" and key ~= "STANDING" and key ~= "GUARDS" then
+      if #list < 4 or #list > 6 then short[#short + 1] = key .. " " .. #list end
+      for _, l in ipairs(list) do for tag in l:gmatch("{([%a']+)}") do if not OK[tag] then badTag[#badTag + 1] = tag end end end
+    end
+  end
+  check(#short == 0, "four to six variants per line: " .. table.concat(short, ", "))
+  check(#badTag == 0, "only the allowed tags: " .. table.concat(badTag, ", "))
+
+  ns.char.renown, ns.char.honours = keep[1], keep[12]
+  if ns.char.self then ns.char.self.towns = keep[2] or {} end
+  state.zone, state.sub, GetNumFactions, GetFactionInfo, GetTitleText = keep[3], keep[4], keep[5], keep[6], keep[7]
+  ns.char.seedName = keep[11]
+  NOW = keepNow
+  C.SourcesChanged(); C.Refresh()
 end
 
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.

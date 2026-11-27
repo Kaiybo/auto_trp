@@ -1313,6 +1313,138 @@ function W.FactionName(name)
 end
 
 ---------------------------------------------------------------------------
+-- Reputation as people would see it (Sources/Renown.lua). Hearsay stays local and modest:
+-- a town's regulars, a faction's people, the guards of one place. Every line is filled
+-- from one stored record ({town}, {story}, {people}, {why}, {foes}, {where}, {quest}, {n},
+-- {times}, {place}, {zone}, {enemy}, {faction}, {word}); pronouns are tags.
+---------------------------------------------------------------------------
+W.RENOWN = {
+  STANDING = { "Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted" },
+  -- Who speaks for a faction, in a sentence. Anything else reads as W.FactionName.
+  PEOPLE = {
+    ["Booty Bay"] = "the goblins of Booty Bay", ["Gadgetzan"] = "the goblins of Gadgetzan",
+    ["Ratchet"] = "the goblins of Ratchet", ["Everlook"] = "the goblins of Everlook",
+    ["Steamwheedle Cartel"] = "the goblins of Steamwheedle", ["Bloodsail Buccaneers"] = "the Bloodsail Buccaneers",
+    ["Timbermaw Hold"] = "the Timbermaw furbolgs", ["Thorium Brotherhood"] = "the smiths of the Thorium Brotherhood",
+    ["Argent Dawn"] = "the Argent Dawn", ["Cenarion Circle"] = "the druids of the Cenarion Circle",
+    ["Hydraxian Waterlords"] = "the Hydraxian Waterlords", ["Ravenholdt"] = "the folk at Ravenholdt",
+    ["Zandalar Tribe"] = "the Zandalar trolls", ["Wintersaber Trainers"] = "the Wintersaber Trainers",
+    ["Gelkis Clan Centaur"] = "the Gelkis centaur", ["Magram Clan Centaur"] = "the Magram centaur",
+    ["Syndicate"] = "the Syndicate", ["Shen'dralar"] = "the Shen'dralar",
+    ["Frostwolf Clan"] = "the Frostwolf orcs", ["Stormpike Guard"] = "the Stormpike dwarves",
+    ["Silverwing Sentinels"] = "the Silverwing Sentinels", ["Warsong Outriders"] = "the Warsong Outriders",
+    ["Stormwind"] = "the people of Stormwind", ["Ironforge"] = "the dwarves of Ironforge",
+    ["Gnomeregan Exiles"] = "the gnomes of Gnomeregan", ["Darnassus"] = "the night elves of Darnassus",
+    ["Orgrimmar"] = "the orcs of Orgrimmar", ["Thunder Bluff"] = "the tauren of Thunder Bluff",
+    ["Undercity"] = "the Forsaken of the Undercity", ["Darkspear Trolls"] = "the Darkspear trolls",
+  },
+  -- Those who keep a town's peace (creature names).
+  GUARDS = { "Guard$", "Guardian$", "Guards?man$", "Bruiser$", "Grunt$", "Sentinel$", "Deathguard", "Protector$",
+    "Patroller$", "Peacekeeper$", "Watchman$", "Mountaineer$", "Bluffwatcher$" },
+
+  -- A town where they've done many jobs, and the story of its land they saw most of.
+  TOWN_STORY = {
+    "In {town} the regulars at the inn have heard of {them}, mostly over {story}",
+    "Talk of {them} in {town} turns, sooner or later, to {story}",
+    "A few folk in {town} could put a face to {their} name, mostly because of {story}",
+    "Mention {them} in {town} and the talk soon turns to {story}",
+    "Around {town}, {their} name tends to come up alongside {story}",
+  },
+  -- The same with no story to tell: the jobs done there ({n}, four or more).
+  TOWN_JOBS = {
+    "In {town} a few people have {their} name from the {n} jobs {they've} done there",
+    "Around {town}, {their} name means work done and paid for: {n} jobs of it",
+    "The people of {town} have handed {them} {n} jobs so far, and speak of {them} kindly enough",
+    "In {town} the word is that {they} can be trusted with a job; {n} of them, so far",
+    "Folk in {town} have seen {them} through {n} of their jobs, and say so over a drink",
+  },
+  -- A faction they've lost much standing with, and why ({why} from WHY_KILL or WHY_QUEST).
+  FALLOUT = {
+    "{people} have no love for {them}, {why}",
+    "{people} won't hear a good word about {them}, {why}",
+    "There's little welcome for {them} among {people}, {why}",
+    "{people} speak of {them} sourly, {why}",
+    "Among {people}, {their} name gets a scowl, {why}",
+  },
+  WHY_KILL = {
+    "after what happened in {where}",
+    "after the {foes} {they've} cut down in {where}",
+    "not since the business with the {foes} in {where}",
+    "on account of the {foes} in {where}",
+    "for the {foes} {they} put down in {where}",
+  },
+  WHY_QUEST = { "over {quest}", "ever since {quest}", "after {quest}", "not since {quest}", "all because of {quest}" },
+  -- A faction they've done much for, and what for.
+  GOOD = {
+    "{people} speak well of {them}, mostly {why}",
+    "Among {people}, {their} name comes up kindly, {why}",
+    "{people} have a good word for {them}, {why}",
+    "{people} count {them} a help, {why}",
+    "{people} are glad of {them}, {why}",
+  },
+  GOOD_KILL = {
+    "for the {foes} {they've} cleared out of {where}",
+    "for clearing {foes} out of {where}",
+    "for the work against the {foes} in {where}",
+    "for thinning out the {foes} in {where}",
+  },
+  GOOD_QUEST = { "for {quest}", "for seeing {quest} through", "for the help with {quest}", "for {their} work on {quest}" },
+  GOOD_QUESTS = { "for {quest}, {times} over", "for answering {quest} {times}", "for coming back with {quest} {times}",
+    "for turning in {quest} {times}" },
+  -- Losses with a faction in the last two weeks.
+  COOLING = {
+    "{people} have cooled toward {them} lately",
+    "{people} have been less glad to see {them} of late",
+    "{people} have had less to say to {them} these past weeks",
+    "{their} welcome among {people} has worn thin lately",
+    "{people} are warier of {them} than they were",
+  },
+  -- Guards killed ({n}), or guards who had the better of them ({times}).
+  GUARDS_KILLED = {
+    "The guards of {place} haven't forgotten the {n} of their own who fell to {them}",
+    "In {place} the guards keep a close eye on {them}, after losing {n} of their number",
+    "The watch in {place} still counts the {n} of its guards {they've} put down",
+    "The guards around {place} have reason to remember {them}: {n} of theirs fell to {them}",
+    "Nobody on guard in {place} has forgotten {them}, or the {n} they lost",
+  },
+  GUARDS_WON = {
+    "The guards of {place} have had to put {them} down {times}",
+    "The guards in {place} have seen {them} off {times}",
+    "In {place}, the guards have had the better of {them} {times}",
+    "The guards around {place} have laid {them} out {times}",
+  },
+  -- The war: kills in one land ({n}, three or more), or deaths to the other side ({times}).
+  HONOUR = {
+    "In {zone}, the {enemy} have lost {n} fighters to {them}",
+    "The {enemy} in {zone} have learned to watch for {them}, after {n} of theirs fell",
+    "Word among the {enemy} in {zone} is to mind {them}; {they've} put down {n} of theirs there",
+    "The {enemy} count {n} of their own lost to {them} in {zone}",
+    "The {enemy} who pass through {zone} have {n} reasons to give {them} room",
+  },
+  HONOUR_LOST = {
+    "The {enemy} in {zone} have had the better of {them} {times}",
+    "In {zone}, the {enemy} have sent {them} to the spirit healer {times}",
+    "The {enemy} raiding {zone} have caught {them} out {times}",
+    "The {enemy} around {zone} have brought {them} down {times}",
+  },
+  -- History news: a step down to Neutral or worse, a step down otherwise ({word}), a run of
+  -- losses, a great deal of work.
+  EV_FELL = { "fell out with {faction}", "lost the goodwill of {faction}", "wore out {their} welcome with {faction}",
+    "fell from favour with {faction}", "found {faction} turned against {them}" },
+  EV_SLIP = { "slipped to {word} with {faction}", "dropped back to {word} with {faction}", "fell back to {word} with {faction}",
+    "lost a step with {faction}, down to {word}" },
+  EV_LOST = { "lost ground with {faction}", "lost standing with {faction}", "gave {faction} cause to think less of {them}",
+    "set {faction} against {them} a step at a time", "spent some of {their} goodwill with {faction}" },
+  EV_WORK = { "did a good deal of work for {faction}", "put in long days for {faction}", "gave {faction} plenty of help",
+    "kept busy on behalf of {faction}", "earned the thanks of {faction} more than once" },
+  -- Full title, from real standing (Revered, Exalted). Kept modest.
+  TITLE = {
+    Revered = { "Friend of {faction}", "Helper of {faction}", "Ally of {faction}" },
+    Exalted = { "Friend of {faction}", "Trusted by {faction}", "Sworn Friend of {faction}" },
+  },
+}
+
+---------------------------------------------------------------------------
 -- Racial tells: how a mood shows on this body. Used about half the time, when one fits.
 ---------------------------------------------------------------------------
 W.RACE_TELLS = {
