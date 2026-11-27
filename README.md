@@ -52,7 +52,7 @@ Dozens of signals feed it, and each feeling remembers why (`/atrp mood` shows th
 
 `/atrp feel <mood>` sets it yourself for an hour.
 
-**The mood badge**: a small icon on screen shows your current mood. Hover for the reasons and what your profile says, click for the preview, right-click to pause, drag to move (`/atrp badge` hides it). When your mood turns you get a quiet line in your own chat (never sent to anyone).
+**The mood badge**: a small icon on screen shows your current mood. Hover for the reasons, what your profile says and when it was last written; click for the preview, shift-click to see your Currently in your own chat, ctrl-click for the settings, right-click to pause, drag to move (`/atrp badge` hides it). It glows briefly when your mood turns. When your mood turns you get a quiet line in your own chat (never sent to anyone).
 
 **The mood journal** keeps each day's main feeling and place for two weeks. History sums up the last few days (*"These past days: downcast in Duskwood today and wide-eyed in Westfall yesterday."*), and `/atrp days` lists the week.
 
@@ -95,16 +95,20 @@ Copy the `AutoTRP` folder into `World of Warcraft/<your Forever folder>/Interfac
 
 ## Getting at it
 
-- **Settings**: `/atrp`, or Options > AddOns > Auto TRP.
-- **The AddOns menu** by the minimap: click Auto TRP for the preview, right-click to pause or resume.
+- **Welcome**: on first login a small window says what Auto TRP does and offers to make its profile, use your current one, open the settings, or stop asking. `/atrp welcome` brings it back.
+- **Settings**: `/atrp`, or Options > AddOns > Auto TRP. At the top, which profile it writes to and what each addon adds (Total RP 3 alone is enough; RPG Dialogue, Social Diary and Chronicle add more). Every switch explains itself when you hover over it, each heading has its own **On** / **Off**, and **All on** / **All off** do everything at once. Along the bottom: Preview, Write it now, Journal, Restore (asks first) and Make a profile for it.
+- **The preview** (`/atrp preview`, or click the badge): tabs for *Now* (mood, Currently and the glances with their icons), *About*, *Names and titles* and *Statistics*. Each field says whether it's Auto TRP's, yours (left alone), switched off or not written yet, and has a box on the right holding its text: click it, then Ctrl+C. Refresh and Write it now are at the bottom. Drag to move, drag the corner to resize; it remembers where you left it, and Escape closes it.
+- **The mood badge** on screen: hover for your mood and why, your Currently, when the profile was last written and what changed. Click for the preview, shift-click to see your Currently in your own chat, ctrl-click for the settings, right-click to pause, drag to move. It glows briefly when your mood turns.
+- **The AddOns menu** by the minimap: click Auto TRP for the preview, ctrl-click for the settings, right-click to pause or resume.
 - **Key bindings** (Key Bindings > AddOns > Auto TRP): show the preview, pause or resume, write my profile now.
-- **The mood badge** on screen (see above).
+- `/atrp help` lists every command below.
 
 ## Commands
 
 | | |
 |---|---|
 | `/atrp` | settings |
+| `/atrp help` | every command, in chat |
 | `/atrp preview` | see what your profile would say, and which fields are Auto TRP's and which are yours |
 | `/atrp update` | write it now |
 | `/atrp setup` | make a profile for Auto TRP |
@@ -124,6 +128,8 @@ Copy the `AutoTRP` folder into `World of Warcraft/<your Forever folder>/Interfac
 | `/atrp restore` | put your profile back as it was before Auto TRP |
 | `/atrp all on` / `all off` | switch every option, field and statistic on or off at once (also two buttons in the settings) |
 | `/atrp badge` | show or hide the mood badge |
+| `/atrp status` | which profile it writes to and which addons it reads |
+| `/atrp welcome` | show the welcome window again |
 | `/atrp on` / `off` | resume or pause |
 
 Fields: `currently`, `title`, `fulltitle`, `nickname`, `motto`, `icon`, `residence`, `birthplace`, `traits`, `bearing`, `history`, `physical`, `glance_mood`, `glance_lately`, `glance_company`, `glance_ambition`, `glance_marks`, `relationship`, `ooc`, `stat_deaths`, `stat_lands`, `stat_road`, `stat_dungeons`, `stat_foes`, `stat_rares`, `stat_slain`, `stat_jobs`, `stat_wealth`, `stat_crafts`, `stat_standing`, `stat_names`, `stat_spell`, `stat_books`.
