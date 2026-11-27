@@ -1985,6 +1985,284 @@ do
   ns.TRP.CustomPronouns = oldPron
 end
 
+
+-- 0.21.0 mood model: the game's own signals, with RPG Dialogue, Social Diary and Chronicle
+-- all absent. Each signal pushes its feeling, with a reason, and never names a stranger.
+do
+  local M, W = ns.Mood, ns.Words
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+  check(ns.cache.rpgd == nil and ns.cache.sd == nil and ns.cache.chronicle == nil, "mood signals: no other addon loaded")
+  local st = ns.char.mood
+  M.SetManual(nil)
+  local function fresh() for k in pairs(st.emo) do st.emo[k] = nil end for k in pairs(st.why) do st.why[k] = nil end end
+  local function got(mood, why, min)
+    return (st.emo[mood] or 0) >= (min or 10) and (why == nil or st.why[mood] == why)
+  end
+  local function show(mood) return mood .. "=" .. tostring(st.emo[mood]) .. " (" .. tostring(st.why[mood]) .. ")" end
+  local log
+  CombatLogGetCurrentEventInfo = function() return unpack(log, 1, 21) end
+  local function cleu(t) log = t; event("COMBAT_LOG_EVENT_UNFILTERED") end
+  local ME = "Player-1-0001"
+
+  -- Temperament without RPG Dialogue: race and class still bend, and Auto TRP's own traits.
+  check(M.Bias("grateful") >= 1.19, "a priest takes kindness to heart, with no RPG Dialogue: " .. M.Bias("grateful"))
+  ns.cache.self = { kind = 5 }
+  check(M.Bias("grateful") > 1.5 and M.TopTrait() == "kind", "and Auto TRP's own traits bend it too")
+  fresh()
+  st.road, st.session, st.afk, st.awayPlayed, st.quests, st.fights, st.lastSocial = 0, 0, 0, 0, {}, {}, NOW
+  local calmWorld = { level = 22, race = "Human", class = "PRIEST", auras = {}, resting = true, indoors = true }
+  local cw = M.Current(calmWorld)
+  check(cw.key == "calm:kind", "nothing stands out (" .. cw.key .. " " .. tostring(cw.reasons and cw.reasons[1]) .. "): calm, tinted by Auto TRP's own traits")
+  ns.cache.self = nil
+
+  -- Emotes aimed at you: a stranger isn't named, and is throttled.
+  fresh()
+  event("CHAT_MSG_TEXT_EMOTE", "Borin waves at you.", "Borin")
+  check(got("cheerful", "someone waved at {them}"), "a wave from a stranger cheers them: " .. show("cheerful"))
+  local c1 = st.emo.cheerful or 0
+  event("CHAT_MSG_TEXT_EMOTE", "Borin waves at you.", "Borin")
+  check((st.emo.cheerful or 0) == c1, "the same person waving again isn't news")
+  event("CHAT_MSG_TEXT_EMOTE", "Grukk spits on you.", "Grukk")
+  check(got("bitter", "someone spat at {them}"), "being spat on: bitter")
+  event("CHAT_MSG_TEXT_EMOTE", "Sela waves.", "Sela")
+  check(st.why.cheerful == "someone waved at {them}" and not tostring(st.why.cheerful):find("Sela"), "an emote not aimed at you is ignored")
+  local named = false
+  for _, w in pairs(st.why) do if w:find("Borin") or w:find("Grukk") then named = true end end
+  check(not named, "no stranger's name is kept in the reasons")
+
+  -- The combat log: heals and blessings from others.
+  fresh()
+  cleu({ 0, "SPELL_HEAL", false, "Player-9-0009", "Stranger", 0x511, 0, ME, "Aldric", 0, 0, 2050, "Lesser Heal", 2, 300, 0, 0, false })
+  check(next(M.pending.healers) ~= nil and (st.emo.grateful or 0) == 0, "a heal is only noted in the fight")
+  M.Flush()
+  check(got("grateful", "someone tended {their} wounds", 15), "healed by someone: grateful " .. show("grateful"))
+  local g1 = st.emo.grateful
+  cleu({ 0, "SPELL_HEAL", false, "Player-9-0009", "Stranger", 0x511, 0, ME, "Aldric", 0, 0, 2050, "Lesser Heal", 2, 300, 0, 0, false })
+  M.Flush()
+  check(st.emo.grateful == g1, "the same healer again isn't a new kindness")
+  cleu({ 0, "SPELL_HEAL", false, "Player-8-0008", "Other", 0x511, 0, ME, "Aldric", 0, 0, 2050, "Lesser Heal", 2, 300, 300, 0, false })
+  M.Flush()
+  check(st.emo.grateful == g1, "a heal that did nothing (all overhealing) doesn't count")
+  fresh()
+  cleu({ 0, "SPELL_AURA_APPLIED", false, "Player-7-0007", "Other", 0x511, 0, ME, "Aldric", 0, 0, 1243, "Power Word: Fortitude", 2, "BUFF" })
+  M.Flush()
+  check(got("grateful", "a blessing from a stranger"), "a blessing from someone: " .. show("grateful"))
+  -- Not about you: out at once.
+  cleu({ 0, "SPELL_HEAL", false, "Player-7-0007", "Other", 0x511, 0, "Player-6-0006", "Someone", 0, 0, 2050, "Lesser Heal", 2, 300, 0, 0, false })
+  check(next(M.pending.healers) == nil, "the combat log ignores what isn't about you")
+
+  -- Crowd control on you
+  fresh()
+  cleu({ 0, "SPELL_AURA_APPLIED", false, "Creature-0-1", "Mage", 0xa48, 0, ME, "Aldric", 0, 0, 118, "Polymorph", 64, "DEBUFF" })
+  M.Flush()
+  check(got("humbled", "turned into an animal", 20), "polymorphed: humbled " .. show("humbled"))
+  fresh()
+  cleu({ 0, "SPELL_AURA_APPLIED", false, "Creature-0-1", "Priest", 0xa48, 0, ME, "Aldric", 0, 0, 8122, "Psychic Scream", 32, "DEBUFF" })
+  M.Flush()
+  check(got("shaken", "sent running in terror"), "feared: shaken " .. show("shaken"))
+
+  -- A crit streak
+  fresh()
+  for _ = 1, 3 do cleu({ 0, "SWING_DAMAGE", false, ME, "Aldric", 0x511, 0, "Creature-0-2", "Kobold", 0, 0, 50, 0, 1, 0, 0, 0, true }) end
+  cleu({ 0, "SPELL_DAMAGE", false, ME, "Aldric", 0x511, 0, "Creature-0-2", "Kobold", 0, 0, 585, "Smite", 2, 40, 0, 2, 0, 0, 0, false })
+  M.Flush()
+  check(got("smug", "a run of telling blows", 20), "three crits in a row: smug " .. show("smug"))
+
+  -- A long fall, deep water
+  fresh()
+  cleu({ 0, "ENVIRONMENTAL_DAMAGE", false, nil, nil, 0, 0, ME, "Aldric", 0, 0, "Falling", 60 })
+  M.Flush()
+  check(got("rattled", "a long fall", 20), "a long fall survived: rattled " .. show("rattled"))
+  fresh()
+  cleu({ 0, "ENVIRONMENTAL_DAMAGE", false, nil, nil, 0, 0, ME, "Aldric", 0, 0, "Drowning", 10 })
+  M.Flush()
+  check(got("shaken", "nearly drowned"), "drowning: shaken")
+  event("MIRROR_TIMER_START", "EXHAUSTION", 60000, 60000, -1, false, "Fatigue")
+  check(got("uneasy", "out too far in deep water"), "fatigue in deep water: uneasy")
+
+  -- Fleeing: low, on the move, and no kill to show for it
+  fresh()
+  NOW = NOW + 60
+  local oldHP, oldCan = UnitHealth, UnitCanAttack
+  UnitCanAttack = function() return false end
+  event("PLAYER_REGEN_DISABLED")
+  UnitHealth = function() return 15 end
+  GetUnitSpeed = function() return 7 end
+  event("UNIT_HEALTH", "player")
+  event("PLAYER_REGEN_ENABLED")
+  UnitHealth, GetUnitSpeed = oldHP, nil
+  check(got("humbled", "ran for {their} life", 20), "fled a fight on low health: humbled " .. show("humbled"))
+  NOW = NOW - 60
+
+  -- Something far stronger, and easy prey
+  fresh()
+  local oldLevel, oldGUID = UnitLevel, UnitGUID
+  UnitCanAttack = function() return true end
+  UnitIsPlayer = function() return false end
+  UnitClassification = function() return "normal" end
+  UnitGUID = function(u) if u == "target" then return "Creature-0-77" end return ME end
+  UnitLevel = function(u) if u == "target" then return 27 end return 22 end
+  event("PLAYER_REGEN_DISABLED")
+  cleu({ 0, "PARTY_KILL", false, ME, "Aldric", 0x511, 0, "Creature-0-77", "Ogre", 0 })
+  event("PLAYER_REGEN_ENABLED")
+  check(got("proud", "brought down something far stronger", 25), "killed something five levels up: proud " .. show("proud"))
+  fresh()
+  UnitLevel = function(u) if u == "target" then return 10 end return 22 end
+  for _ = 1, 5 do
+    event("PLAYER_REGEN_DISABLED")
+    cleu({ 0, "PARTY_KILL", false, ME, "Aldric", 0x511, 0, "Creature-0-77", "Kobold", 0 })
+    event("PLAYER_REGEN_ENABLED")
+  end
+  check(got("bored", "nothing here is a match for {them} now"), "a run of easy prey: bored " .. show("bored"))
+  st.greys = nil
+  UnitLevel, UnitGUID, UnitCanAttack = oldLevel, oldGUID, oldCan
+
+  -- Ganked by the enemy
+  fresh()
+  cleu({ 0, "SWING_DAMAGE", false, "Player-5-0005", "Grukk", 0x548, 0, ME, "Aldric", 0, 0, 90, 0, 1, 0, 0, 0, false })
+  event("PLAYER_DEAD")
+  check(got("bitter", "cut down by the enemy", 30), "killed by an enemy player: bitter " .. show("bitter"))
+  fresh()
+  event("PLAYER_DEAD")
+  check((st.emo.bitter or 0) == 0, "a death to a beast isn't a grudge")
+
+  -- Brought back, rolls, failure, duels, honour
+  fresh()
+  event("RESURRECT_REQUEST", "Borin")
+  check(got("grateful", "someone came back for {them}", 30), "resurrected by someone: grateful")
+  fresh()
+  event("CHAT_MSG_LOOT", "You have selected Need for: |cff0070dd|Hitem:1|h[Blade of Hanna]|h|r")
+  event("CHAT_MSG_LOOT", "Borin won: |cff0070dd|Hitem:1|h[Blade of Hanna]|h|r")
+  check(got("bitter", "lost the roll for Blade of Hanna", 20), "a roll lost: bitter " .. show("bitter"))
+  event("CHAT_MSG_LOOT", "You won: |cff1eff00|Hitem:2|h[Shiny Bauble]|h|r")
+  check(got("smug", "won the roll for Shiny Bauble"), "a roll won: smug " .. show("smug"))
+  fresh()
+  event("CHAT_MSG_SYSTEM", "The Missing Diplomat failed.")
+  check(got("bitter", "failed at \"The Missing Diplomat\""), "a job failed: bitter " .. show("bitter"))
+  M.Abandoned("Hogger")
+  check(got("humbled", "gave up on \"Hogger\""), "a job given up: humbled")
+  fresh()
+  event("CHAT_MSG_SYSTEM", "Aldric has defeated Borin in a duel")
+  check(got("smug", "won a duel"), "a duel won: smug, the loser not named " .. show("smug"))
+  event("CHAT_MSG_SYSTEM", "Borin has defeated Aldric in a duel")
+  check(got("humbled", "lost a duel", 20), "a duel lost: humbled")
+  fresh()
+  event("CHAT_MSG_SYSTEM", "Aldric has fled from Borin in a duel")
+  check(got("humbled", "lost a duel", 20), "fleeing a duel counts as losing it")
+  fresh()
+  event("CHAT_MSG_COMBAT_HONOR_GAIN", "Grukk dies, honorable kill Rank: Grunt (Estimated Honor Points: 12)")
+  check(got("proud", "an honourable kill"), "an honourable kill: proud")
+
+  -- The pet, learning, a craft
+  fresh()
+  GetPetHappiness = function() return 2 end
+  event("UNIT_HAPPINESS", "pet")
+  GetPetHappiness = function() return 1 end
+  UnitName = function(u) if u == "pet" then return "Fang" end return "Aldric" end
+  event("UNIT_HAPPINESS", "pet")
+  UnitName = function() return "Aldric" end
+  GetPetHappiness = nil
+  check(got("worried", "Fang is going hungry"), "a pet going hungry: worried " .. show("worried"))
+  fresh()
+  local oldInfo = GetSpellInfo
+  GetSpellInfo = function(id) return id == 585 and "Smite" or "Renew" end
+  event("LEARNED_SPELL_IN_TAB", 585, 1)
+  check(got("satisfied", "learned Smite"), "a new spell learned: " .. show("satisfied"))
+  event("LEARNED_SPELL_IN_TAB", 139, 1)
+  check(st.why.satisfied == "learned two new things", "a trainer visit is one feeling: " .. tostring(st.why.satisfied))
+  GetSpellInfo = oldInfo
+  event("CHAT_MSG_SKILL", "Your skill in Herbalism has increased to 150.")
+  check(got("accomplished", "Herbalism up to 150", 20), "a new rank in a craft: accomplished " .. show("accomplished"))
+
+  -- A level after a long climb; a new mount; back after days away
+  fresh()
+  st.played, st.levelPlayed = 12000, 0
+  event("PLAYER_LEVEL_UP", 23)
+  check(got("proud", "a long climb, over at last", 25), "a level after a long climb: proud " .. show("proud"))
+  fresh()
+  event("PLAYER_LEVEL_UP", 23)
+  check((st.emo.proud or 0) == 0, "a quick level isn't a long climb")
+  fresh()
+  ns.char.seen.mounts = nil
+  M.CheckMount({ mounted = true, auras = { names = { ["Brown Horse"] = true } } })
+  check((st.emo.cheerful or 0) == 0, "the mounts on the first look aren't new")
+  M.CheckMount({ mounted = true, auras = { names = { ["Black Stallion"] = true } } })
+  check(got("cheerful", "a new mount: Black Stallion", 30), "a new mount: cheerful " .. show("cheerful"))
+  fresh()
+  st.lastSeen = NOW - 5 * 86400
+  M.Welcome()
+  check(got("cheerful", "back on the road after five days", 30), "back after days away: " .. show("cheerful"))
+
+  -- New land after dark
+  fresh()
+  state.resting = false
+  local oldZone = state.zone
+  state.zone = "Thousand Needles"
+  event("ZONE_CHANGED_NEW_AREA")
+  check(got("uneasy", "somewhere new, after dark"), "a new land at night: uneasy " .. show("uneasy"))
+  state.zone, state.resting = oldZone, true
+
+  -- The moment: the hour, a long session, idleness, home, rest, the season
+  fresh()
+  local w = { level = 22, race = "Human", class = "PRIEST", auras = {}, hour = 2, night = true, indoors = true,
+    away = true, bind = "Goldshire", rested = 1500, festival = "midsummer" }
+  st.session, st.afk, st.awayPlayed, st.road = 4 * 3600, 1200, 5 * 3600, 0
+  local sc, why = M.Scores(w)
+  local function has(mood, text)
+    for _, r in ipairs(why[mood] or {}) do if r == text then return true end end
+    return false
+  end
+  check(has("exhausted", "on the go for four hours") and has("exhausted", "the small hours"), "a long session in the small hours: exhausted")
+  check(has("bored", "idle twenty minutes"), "idle a long while: bored")
+  check(has("homesick", "a long way from Goldshire") and (sc.homesick or 0) >= 30, "a long way from home: homesick")
+  check(has("cheerful", "well rested") and has("cheerful", "the long summer days"), "well rested, and summer: cheerful")
+  check((sc.exhausted or 0) >= 30, "and exhausted wins out: " .. tostring(sc.exhausted))
+  st.session, st.afk, st.awayPlayed = 0, 0, 0
+  fresh()
+  st.stirred = NOW - 3 * 3600
+  st.session = 4000
+  sc, why = M.Scores({ level = 22, race = "Human", class = "PRIEST", auras = {} })
+  check(has("bored", "nothing much happening"), "nothing happening for an hour: bored")
+  st.session, st.stirred = 0, nil
+
+  -- Lively with no other addon: a game event alone sets the mood.
+  fresh()
+  event("RESURRECT_REQUEST", "Borin")
+  local cur = M.Current({ level = 22, race = "Human", class = "PRIEST", auras = {}, resting = true })
+  check(cur.key == "grateful" and cur.title == "Grateful" and cur.tell and cur.adj, "the mood from a game signal alone: " .. cur.key)
+  check(ns.Compose.Walkup(cur) == 2, "grateful: open to walk-ups")
+  check(ns.Compose.Walkup({ key = "bitter" }) == 1 and ns.Compose.Walkup({ key = "exhausted" }) == 1, "bitter or exhausted: not open")
+
+  -- Every new mood is fully written.
+  local thin = {}
+  for _, k in ipairs({ "grateful", "humbled", "bored", "homesick", "smug", "exhausted", "cheerful", "bitter" }) do
+    local m = W.MOODS[k]
+    if not m or #m.tells < 5 or #m.adj < 5 or not m.icon or not m.title then thin[#thin + 1] = k
+    else
+      if k ~= "humbled" and not W.VALENCE[k] then thin[#thin + 1] = k .. " valence" end
+      for _, race in ipairs({ "Human", "Dwarf", "Gnome", "NightElf", "Orc", "Troll", "Tauren", "Scourge", "Goblin" }) do
+        if not (W.RACE_TELLS[race] and W.RACE_TELLS[race][k]) then thin[#thin + 1] = k .. " " .. race end
+      end
+      local classes = 0
+      for _, t in pairs(W.CLASS_TELLS) do if t[k] then classes = classes + 1 end end
+      if classes < 3 then thin[#thin + 1] = k .. " classes" end
+    end
+  end
+  check(#thin == 0, "every new mood has titles, lines, icon, valence, race and class tells: " .. table.concat(thin, ", "))
+
+  fresh()
+  CombatLogGetCurrentEventInfo = nil
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  ns.Compose.SourcesChanged(); ns.Compose.Refresh()
+
+  -- With Social Diary back, a friend is named.
+  event("CHAT_MSG_TEXT_EMOTE", "Mirelle hugs you.", "Mirelle")
+  check(got("cheerful", "Mirelle hugged {them}", 20), "a Social Diary friend is named: " .. show("cheerful"))
+  fresh()
+end
+
 -- The journal: a session played through the game's own events, written down at logout.
 do
   local J, C = ns.Journal, ns.Compose
