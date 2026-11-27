@@ -93,6 +93,18 @@ function Compose.Stats()
   local world = ns.cache.world
   out.faction, out.guild, out.level = More.Faction(world), More.Guild(world), More.Level(world)
   out.role, out.speciality = More.Role(ns.cache.style), More.Speciality()
+  -- No group fights read (a client that keeps the combat log to itself): the part their
+  -- tree plays, by the spells most cast.
+  if not out.role then
+    local habit = Compose.HabitSpec and Compose.HabitSpec()
+    local roles = habit and ns.Words.TREE_ROLE[world and world.class or ""]
+    local word = roles and ns.Words.STYLE.ROLE[roles[habit.index]]
+    if word then out.role = word .. ", by the spells most cast" end
+  end
+  -- No statistic left blank (0.24.0): one with nothing to say yet says so.
+  for _, st in ipairs(Compose.STATS) do
+    if not st.retired and out[st.key] == nil then out[st.key] = st.key == "guild" and "None" or "None yet" end
+  end
   return out
 end
 

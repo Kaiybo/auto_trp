@@ -886,6 +886,13 @@ W.SPEC_TREES = {
   MAGE = { "Arcane", "Fire", "Frost" }, WARLOCK = { "Affliction", "Demonology", "Destruction" },
   DRUID = { "Balance", "Feral Combat", "Restoration" }, DEATHKNIGHT = { "Blood", "Frost", "Unholy" },
 }
+-- The part each tree plays (W.STYLE.ROLE's keys), for Role where no group fight is read.
+W.TREE_ROLE = {
+  WARRIOR = { "melee", "melee", "tank" }, PALADIN = { "healer", "tank", "melee" }, HUNTER = { "ranged", "ranged", "ranged" },
+  ROGUE = { "melee", "melee", "melee" }, PRIEST = { "healer", "healer", "spell" }, SHAMAN = { "spell", "melee", "healer" },
+  MAGE = { "spell", "spell", "spell" }, WARLOCK = { "spell", "spell", "spell" }, DRUID = { "spell", "melee", "healer" },
+  DEATHKNIGHT = { "tank", "melee", "melee" },
+}
 W.SPEC_SPELLS = {
   WARRIOR = { { "Mortal Strike", "Overpower", "Rend", "Sweeping Strikes", "Thunder Clap" },
     { "Bloodthirst", "Whirlwind", "Berserker Rage", "Rampage", "Cleave", "Slam" },

@@ -2905,7 +2905,7 @@ do
   ns.char.work = nil
   C.SourcesChanged(); C.Refresh()
   hist = C.History()
-  check(not anyOf(hist, W.WORK.MAIN.slaying) and C.Stats().work == nil, "no work recorded: no lines and no statistic")
+  check(not anyOf(hist, W.WORK.MAIN.slaying) and C.Stats().work == "None yet", "no work recorded: no lines, and the statistic says so")
   local all = table.concat({ hist, C.Bearing() }, " ")
   check(not all:find("Mirelle", 1, true), "no other player is named")
 
@@ -2998,7 +2998,7 @@ do
   GetGuildInfo = function() return nil end
   TALENTS[2][2], TALENTS[1][2] = 0, 0
   C.SourcesChanged(); ns.World.slow = nil; ns.UI.Update(true)
-  check(info("Guild") == nil and info("Speciality") == nil, "no guild and no talents: no entries")
+  check(info("Guild") == "None" and info("Speciality") == "None yet", "no guild and no talents: entries that say so, never blank: " .. tostring(info("Guild")) .. " / " .. tostring(info("Speciality")))
   GetGuildInfo, TALENTS[2][2], TALENTS[1][2] = guildWas, 21, 5
   C.SourcesChanged(); ns.UI.Update(true)
 
@@ -5347,7 +5347,7 @@ do
   check(st.calling == "90 charges; 30 intercepts" and st.escapes == "12 behind Shield Wall"
     and st.forms == "Defensive Stance 6 hours, Battle Stance 3 hours, Berserker Stance 10 minutes",
     "warrior statistics: " .. tostring(st.calling) .. " | " .. tostring(st.escapes) .. " | " .. tostring(st.forms))
-  check(st.given == nil, "warrior: no \"Given to others\" statistic")
+  check(st.given == "None yet", "warrior: \"Given to others\" has nothing yet: " .. tostring(st.given))
   check(habits():find("defensive stance", 1, true) or habits():find("guarded stance", 1, true) or habits():find("hold a line", 1, true)
     or habits():find("defender's stance", 1, true) or habits():find("covering", 1, true), "warrior Personality: the stance most used: " .. habits())
   check(C.MarksGlance().TI == "Hard Pressed", "warrior Marks: just through a stand: " .. C.MarksGlance().TI)
@@ -5370,7 +5370,7 @@ do
   check(o.n.pockets == 60 and o.n.pocketCoin == 60 * 340 and o.n.pocketItems == 60, "rogue: pockets picked, coin and things lifted")
   check(o.n.locks == 30 and o.n.vanishSave == 6 and o.n.poisons == 55, "rogue: locks, vanishings in time, poisons (not those mixed at the trade)")
   st = C.Stats()
-  check(st.calling == "60 pockets picked for 2 gold; 30 locks picked; 55 poisons applied" and st.escapes == "6 by Vanish" and st.forms == nil,
+  check(st.calling == "60 pockets picked for 2 gold; 30 locks picked; 55 poisons applied" and st.escapes == "6 by Vanish" and st.forms == "None yet",
     "rogue statistics: " .. tostring(st.calling) .. " | " .. tostring(st.escapes))
   check(#C.Habits(3) >= 2, "rogue Personality: habits from the counts: " .. habits())
   local h1, h2 = C.Habits(3)[1], C.Habits(3)[2]
@@ -5511,7 +5511,7 @@ do
   o = refresh()
   check(o.n.rebirth == 6 and o.n.innervate == 22 and o.n.thorns == 110 and o.forms[1].name == "Cat Form", "druid: shapes, Rebirth, Innervate, Thorns")
   st = C.Stats()
-  check(st.forms == "Cat Form 12 hours, Bear Form 2 hours, Dire Bear Form 1 hour" and st.given == "6 Rebirths; 22 Innervates; 110 Thorns" and st.calling == nil,
+  check(st.forms == "Cat Form 12 hours, Bear Form 2 hours, Dire Bear Form 1 hour" and st.given == "6 Rebirths; 22 Innervates; 110 Thorns" and st.calling == "None yet",
     "druid statistics: " .. tostring(st.forms) .. " | " .. tostring(st.given))
   check(habits():find("cat", 1, true) or habits():find("Rebirth", 1, true) or habits():find("Innervate", 1, true), "druid Personality: " .. habits())
   sample("DRUID")
@@ -7429,6 +7429,10 @@ do
   GetFileIDFromPath = nil
   check(icon() == "Spell_Nature_StarFall", "no talent functions: Starfall for a druid who casts Wrath most: " .. tostring(C.Icon()))
   check(ns.More.Speciality() == "Balance, by the spells most cast", "and Speciality says so: " .. tostring(ns.More.Speciality()))
+  local styleWas = ns.cache.style
+  ns.cache.style = nil
+  check(C.Stats().role == "Spellcaster, by the spells most cast", "no group fights read: Role by the tree's part: " .. tostring(C.Stats().role))
+  ns.cache.style = styleWas
   ns.char.casts = { n = { Wrath = 12, Regrowth = 10 } }
   check(C.HabitSpec() == nil, "too few casts to tell: no tree")
   ns.char.casts = { n = { Wrath = 300, Regrowth = 200, Rejuvenation = 150, Shred = 200 } }
