@@ -103,6 +103,8 @@ function D.Kill(name)
   if not d or not name then return end
   d.kills.total = (d.kills.total or 0) + 1
   d.kills.byName[name] = (d.kills.byName[name] or 0) + 1
+  local Be = ns.Sources.Bestiary   -- what it was (its kind, how strong), if they sized it up
+  if Be then Be.Kill(name) end
 end
 
 function D.Flight()

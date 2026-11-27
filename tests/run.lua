@@ -933,7 +933,7 @@ do
     end
   end
   local source = {}
-  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Data/Places.lua", "AutoTRP/Data/Calling.lua", "AutoTRP/Data/Delves.lua", "AutoTRP/Compose.lua", "AutoTRP/Runs.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua",
+  for _, f in ipairs({ "AutoTRP/Data/Words.lua", "AutoTRP/Data/JournalWords.lua", "AutoTRP/Data/Places.lua", "AutoTRP/Data/Calling.lua", "AutoTRP/Data/Delves.lua", "AutoTRP/Compose.lua", "AutoTRP/Runs.lua", "AutoTRP/Mood.lua", "AutoTRP/Sources/World.lua",
     "AutoTRP/Data/Kin.lua", "AutoTRP/Sources/Kin.lua" }) do
     for line in io.lines(f) do
       if not line:match("^%s*%-%-") then source[#source + 1] = (line:gsub("%-%-[^\"]*$", "")):lower() end
@@ -2231,6 +2231,234 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- Trades in depth (Sources/Trade.lua): the trade windows read (mocked), recipes learned, the
+-- finest work and firsts, a specialisation, work for others through the trade window and
+-- the combat log, gathering by land, tools in the bags; then the writing it feeds, with no
+-- other addon at all.
+do
+  local C, T = ns.Compose, ns.Sources.Trade
+  local oldSpellInfo, oldPlayerSpell, oldItemCount = GetSpellInfo, IsPlayerSpell, GetItemCount
+  local function spellInfo(id) if oldSpellInfo then return oldSpellInfo(id) end end
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones = nil, nil, nil, nil
+  ns.char.life, ns.char.trade = nil, nil
+  ns.Sources.Life.Store().since = NOW - 7200
+  state.zone, state.sub, state.resting, state.combat, state.grouped = "Elwynn Forest", "Goldshire", false, false, false
+  local function tr() return ns.char.trade end
+  local function find(t, s) for k, v in pairs(t) do if v == s or k == s or (type(v) == "table" and find(v, s)) then return true end end end
+
+  -- A tailoring window: headers left out, the count kept at its most.
+  local recipes = { { "Cloth", "header" } }
+  for i = 1, 111 do recipes[#recipes + 1] = { "Pattern " .. i, "optimal" } end
+  recipes[#recipes + 1] = { "Robes of Arcana", "medium" }
+  GetTradeSkillLine = function() return "Tailoring", 260, 300 end
+  GetNumTradeSkills = function() return #recipes end
+  GetTradeSkillInfo = function(i) return recipes[i][1], recipes[i][2] end
+  state.combat = true
+  event("TRADE_SKILL_SHOW")
+  check(not (tr() and tr().known.Tailoring), "a trade window isn't read in a fight")
+  state.combat = false
+  event("TRADE_SKILL_SHOW")
+  check(tr().known.Tailoring and tr().known.Tailoring.n == 112, "recipes known, headers left out: " .. tostring(tr().known.Tailoring and tr().known.Tailoring.n))
+  -- Collapsed headers hide lines: the most ever seen is kept.
+  local full = recipes
+  recipes = { { "Cloth", "header" }, { "Pattern 1", "easy" } }
+  event("TRADE_SKILL_UPDATE")
+  check(tr().known.Tailoring.n == 112, "a collapsed list doesn't lower the count")
+  recipes = full
+  -- The enchanting window (the Craft API), and Beast Training isn't a trade.
+  local crafts = { { "Enchant Bracer - Minor Health", nil, "optimal" }, { "Runed Copper Rod", nil, "easy" }, { "Enchanting", nil, "header" } }
+  GetCraftDisplaySkillLine = function() return "Beast Training" end
+  GetNumCrafts = function() return #crafts end
+  GetCraftInfo = function(i) return crafts[i][1], crafts[i][2], crafts[i][3] end
+  event("CRAFT_SHOW")
+  check(not tr().known["Beast Training"], "Beast Training isn't a trade")
+  GetCraftDisplaySkillLine = function() return "Enchanting" end
+  event("CRAFT_SHOW")
+  check(tr().known.Enchanting and tr().known.Enchanting.n == 2, "the enchanting window, through the Craft API")
+  -- Cooking, and alchemy with its transmutes.
+  local cook = {}
+  for i = 1, 40 do cook[i] = { "Dish " .. i, "easy" } end
+  GetTradeSkillLine = function() return "Cooking" end
+  GetNumTradeSkills = function() return #cook end
+  GetTradeSkillInfo = function(i) return cook[i][1], cook[i][2] end
+  event("TRADE_SKILL_SHOW")
+  check(tr().known.Cooking.n == 40, "cooking recipes known")
+  event("TRADE_SKILL_CLOSE"); event("CRAFT_CLOSE")
+  GetTradeSkillLine, GetNumTradeSkills, GetTradeSkillInfo = nil, nil, nil
+  GetCraftDisplaySkillLine, GetNumCrafts, GetCraftInfo = nil, nil, nil
+
+  -- Recipes learned, from the system line (twice is once) and from NEW_RECIPE_LEARNED.
+  event("CHAT_MSG_SYSTEM", "You have learned how to create a new item: Bolt of Silk Cloth.")
+  event("CHAT_MSG_SYSTEM", "You have learned how to create a new item: Bolt of Silk Cloth.")
+  event("CHAT_MSG_SYSTEM", "You have learned a new spell: Fireball.")
+  check(tr().learned.n == 1 and tr().learned.log[1].name == "Bolt of Silk Cloth", "a recipe learned, counted once; a class spell isn't")
+  GetSpellInfo = function(id) return id == 7421 and "Runed Copper Rod" or spellInfo(id) end
+  event("NEW_RECIPE_LEARNED", 7421)
+  GetSpellInfo = oldSpellInfo
+  check(tr().learned.n == 2 and tr().learned.log[2].name == "Runed Copper Rod", "a recipe learned, from NEW_RECIPE_LEARNED")
+
+  -- Made: the finest piece and the first of each notable one, only from a trade window.
+  ns.World.SetContext("none")
+  event("CHAT_MSG_LOOT", "You create: |cff0070dd|Hitem:1::|h[Conjured Mana Ruby]|h|r.")
+  check(not tr().finest, "conjured things aren't work at a trade")
+  ns.World.SetContext("craft", "Tailoring")
+  event("CHAT_MSG_LOOT", "You create: |cffffffff|Hitem:4305::|h[Bolt of Silk Cloth]|h|rx2.")
+  event("CHAT_MSG_LOOT", "You create: |cff0070dd|Hitem:13858::|h[Robes of Arcana]|h|r.")
+  event("CHAT_MSG_LOOT", "You create: |cff1eff00|Hitem:10024::|h[Black Mageweave Gloves]|h|r.")
+  check(tr().finest.name == "Robes of Arcana" and tr().finest.q == 3 and tr().finest.prof == "Tailoring", "the finest thing made, by the link's quality")
+  check(tr().firsts["Robes of Arcana"] and not tr().firsts["Bolt of Silk Cloth"], "the first of a notable piece")
+  -- Meals cooked in company.
+  ns.World.SetContext("craft", "Cooking")
+  state.grouped = true
+  event("CHAT_MSG_LOOT", "You create: |cffffffff|Hitem:1::|h[Smoked Bear Meat]|h|rx12.")
+  state.grouped = false
+  event("CHAT_MSG_LOOT", "You create: |cffffffff|Hitem:1::|h[Smoked Bear Meat]|h|rx3.")
+  ns.World.SetContext("none")
+  check(tr().service.meals == 12, "meals cooked in company: " .. tostring(tr().service.meals))
+  check(ns.char.life.made.n == 20, "Life still counts what's made, conjured things too (not duplicated here): " .. tostring(ns.char.life.made.n))
+
+  -- Bandages on someone else: counted, never named; on yourself, not at all.
+  local log
+  CombatLogGetCurrentEventInfo = function() return unpack(log) end
+  local function cl(...) log = { ... }; event("COMBAT_LOG_EVENT_UNFILTERED") end
+  for _ = 1, 12 do cl(0, "SPELL_AURA_APPLIED", false, "Player-1-0001", "Aldric", 0, 0, "Player-1-0042", "Tobb", 0, 0, 10838, "First Aid", 1, "BUFF") end
+  cl(0, "SPELL_AURA_APPLIED", false, "Player-1-0001", "Aldric", 0, 0, "Player-1-0001", "Aldric", 0, 0, 10838, "First Aid", 1, "BUFF")
+  cl(0, "SPELL_PERIODIC_HEAL", false, "Player-1-0001", "Aldric", 0, 0, "Player-1-0042", "Tobb", 0, 0, 10838, "First Aid", 1, 80)
+  cl(0, "SPELL_AURA_APPLIED", false, "Player-1-0001", "Aldric", 0, 0, "Player-1-0042", "Tobb", 0, 0, 1243, "Power Word: Fortitude", 2, "BUFF")
+  CombatLogGetCurrentEventInfo = nil
+  check(tr().service.bandage.n == 12, "bandages put on other people: " .. tostring(tr().service.bandage.n))
+  -- Enchanting and a lock picked through the trade window, counted once both accept.
+  GetSpellInfo = function(id) return ({ [13501] = "Enchant Bracer - Lesser Stamina", [1804] = "Pick Lock" })[id] or spellInfo(id) end
+  local function tradeWith(spellID, accept)
+    event("TRADE_SHOW")
+    event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", spellID)
+    if accept then event("TRADE_ACCEPT_UPDATE", 1, 0); event("TRADE_ACCEPT_UPDATE", 1, 1) end
+    event("TRADE_CLOSED")
+  end
+  for _ = 1, 6 do tradeWith(13501, true) end
+  tradeWith(13501, false)
+  tradeWith(585, true)
+  for _ = 1, 3 do tradeWith(1804, true) end
+  event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", 13501)
+  GetSpellInfo = oldSpellInfo
+  check(tr().service.enchant.n == 6 and tr().service.enchant.last == "Enchant Bracer - Lesser Stamina", "enchanting for others, only once the trade goes through: " .. tostring(tr().service.enchant.n))
+  check(tr().service.lock.n == 3, "locks picked for others")
+  check(not find(tr(), "Tobb"), "nobody served is ever named")
+  -- Gathering by land (Life decides what was gathered).
+  ns.World.SetContext("herbs")
+  for _ = 1, 10 do event("LOOT_OPENED"); event("CHAT_MSG_LOOT", "You receive loot: |cffffffff|Hitem:2447::|h[Peacebloom]|h|rx3.") end
+  state.zone = "Westfall"
+  ns.World.SetContext("herbs"); event("LOOT_OPENED")
+  event("CHAT_MSG_LOOT", "You receive loot: |cffffffff|Hitem:765::|h[Silverleaf]|h|r.")
+  state.zone = "Elwynn Forest"
+  ns.World.SetContext("none")
+  check(tr().gather.herbs.n == 31 and tr().gather.herbs.zones["Elwynn Forest"] == 30 and ns.char.life.gather.herbs == 31,
+    "herbs by land, beside Life's count: " .. tostring(tr().gather.herbs.n))
+  -- A specialisation and tools, read out of a fight.
+  IsPlayerSpell = function(id) return id == 20219 end
+  local bags = { [2901] = 1, [6218] = 1, [11130] = 1 }
+  GetItemCount = function(id) return bags[id] or 0 end
+  event("SPELLS_CHANGED"); event("BAG_UPDATE_DELAYED")
+  C.SourcesChanged(); C.Refresh()
+  local t = ns.cache.trade
+  check(t.spec and t.spec.key == "gnomish", "a gnomish engineer, from the spell the game knows")
+  check(#t.tools == 2 and t.tools[1].phrase == "a mining pick" and t.tools[2].phrase == "a runed golden rod", "tools in the bags, the best rod only")
+
+  -- The writing.
+  local st = C.Stats()
+  check(st.recipes == "154: 112 tailoring, 40 cooking, 2 enchanting", "statistic: recipes known: " .. tostring(st.recipes))
+  check(st.finest == "Robes of Arcana, rare, tailoring", "statistic: finest work: " .. tostring(st.finest))
+  for _, k in ipairs({ "recipes", "finest" }) do
+    check(ns.TRP.FIELDS["stat_" .. k] ~= nil and ns.db.fields["stat_" .. k] == true, "statistic " .. k .. " has its own switch, on by default")
+    check(ns.UI.TipFor({ path = { "fields", "stat_" .. k } }) ~= nil, "statistic " .. k .. " has a tooltip")
+  end
+  local hist = C.History()
+  print("\nHistory with the trades in depth:\n" .. hist)
+  check(hist:find("112 tailoring patterns", 1, true) and hist:find("forty cooking recipes", 1, true), "History: recipes known")
+  check(hist:find("Robes of Arcana", 1, true), "History: the finest work (or the first made)")
+  check(hist:find("gnomish engineer", 1, true), "History: a specialisation")
+  check(hist:find("twelve times", 1, true) and hist:find("six times", 1, true) and hist:find("three locked boxes", 1, true)
+    or hist:find("three boxes", 1, true) or hist:find("three lockboxes", 1, true), "History: work done for other people, counted")
+  check(hist:find("Elwynn Forest", 1, true), "History: where the herbs are picked")
+  check(hist:find("Bolt of Silk Cloth", 1, true) or hist:find("Runed Copper Rod", 1, true), "History: a recipe learned lately")
+  check(not hist:find("Tobb", 1, true), "History names nobody served")
+  local bearing = C.Bearing()
+  print("\nPersonality:\n" .. bearing)
+  local hab = false
+  for _, l in ipairs(ns.Words.TRADE.SAY.habit_bandage) do if bearing:find(ns.U.Pron(l), 1, true) then hab = true end end
+  check(hab, "Personality: the bandaging habit the counts back")
+  -- Lately: a new recipe; the finest work.
+  local lately = C.LatelyGlance()
+  print("Lately: " .. lately.TI .. ": " .. lately.TX)
+  local TRADE_LATELY = { ["A New Recipe"] = true, ["Finest Work Yet"] = true, ["First of Its Kind"] = true,
+    ["Enchanting for Others"] = true, ["A Lock Opened"] = true, ["Field Dressing"] = true }
+  check(TRADE_LATELY[lately.TI] or lately.TI == "Lately", "Lately: from the trades, or a talk just now: " .. lately.TI)
+  tr().learned.log[2].t = NOW + 5
+  C.SourcesChanged(); C.Refresh()
+  lately = C.LatelyGlance()
+  check(lately.TI == "A New Recipe" and lately.TX:find("Runed Copper Rod", 1, true), "Lately: learned to make something: " .. lately.TX)
+  tr().firsts["Robes of Arcana"].t = NOW + 6
+  C.SourcesChanged(); C.Refresh()
+  lately = C.LatelyGlance()
+  check(lately.TI == "Finest Work Yet" and lately.TX:find("Robes of Arcana", 1, true), "Lately: the finest work yet: " .. lately.TX)
+  -- Marks: the tools carried; a trade's smell after a stretch at it.
+  for _, d in ipairs(ns.char.life.duels.log or {}) do d.t = NOW - 3600 end
+  ns.char.life.made.run = { kind = "Tailoring", n = 6, start = NOW - 600, last = NOW - 60 }
+  C.SourcesChanged(); C.Refresh()
+  local marks = C.MarksGlance()
+  check(marks.TI == "Loose Threads", "Marks: a stretch at tailoring: " .. tostring(marks.TI) .. ": " .. tostring(marks.TX))
+  ns.char.life.made.run = nil
+  local tm
+  for _, m in ipairs(T.Marks(ns.cache.trade, nil)) do if m.title == "Tools of the Trade" then tm = m.text end end
+  print("Tools mark: " .. tostring(tm))
+  check(tm and tm:find("a mining pick and a runed golden rod", 1, true), "Marks: the tools carried")
+  -- Every line fills its tags, whatever the pronouns, and the lists vary enough.
+  local U = ns.U
+  local thin, bad = {}, {}
+  local fillers = { known = "x", item = "x", aspec = "x", spec = "x", n = "two", times = "twice", list = "x", zone = "x", trade = "x" }
+  for _, pron in ipairs({ "she/her", "they/them" }) do
+    local old = ns.TRP.CustomPronouns
+    ns.TRP.CustomPronouns = function() return pron end
+    for k, list in pairs(ns.Words.TRADE.SAY) do
+      if #list < 4 then thin[k] = true end
+      for _, l in ipairs(list) do
+        local line = U.Pron((l:gsub("{(%a+)}", function(x) return fillers[x] end)))
+        if line:find("{") then bad[#bad + 1] = k .. ": " .. line end
+      end
+    end
+    for k, m in pairs(ns.Words.TRADE.MARK) do
+      if #m.text < 4 then thin[k] = true end
+      for _, l in ipairs(m.text) do if U.Pron(l):find("{") then bad[#bad + 1] = k .. ": " .. l end end
+    end
+    ns.TRP.CustomPronouns = old
+  end
+  local thinList = {}
+  for k in pairs(thin) do thinList[#thinList + 1] = k end
+  check(#bad == 0 and #thinList == 0, "trade lines fill their tags and have four ways each: " .. table.concat(bad, " | ") .. table.concat(thinList, ", "))
+  -- Bounded storage.
+  for i = 1, 40 do T.Learned("Recipe " .. i) end
+  ns.World.SetContext("craft", "Blacksmithing")
+  for i = 1, 40 do T.Made("Piece " .. i, 3, "Blacksmithing") end
+  ns.World.SetContext("none")
+  check(#tr().learned.log == T.CAP_LEARNED and ns.U.Count(tr().firsts) == T.CAP_FIRSTS, "learned recipes and firsts stay bounded")
+  if os.getenv("SAMPLES") then
+    print("\n=== Trades in depth ===\n-- History --\n" .. C.History() .. "\n\n-- Personality --\n" .. C.Bearing())
+    for _, k in ipairs({ "lately", "marks" }) do local g = C.Sheet().glances[k]; print(k .. ": " .. g.TI .. ": " .. g.TX) end
+    print("Recipes known: " .. C.Stats().recipes .. " | Finest work: " .. C.Stats().finest)
+  end
+
+  IsPlayerSpell, GetItemCount = oldPlayerSpell, oldItemCount
+  event("SPELLS_CHANGED"); event("BAG_UPDATE_DELAYED")
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones = keep[4], keep[5], keep[6], keep[7]
+  ns.char.life, ns.char.trade = nil, nil
+  state.zone, state.sub, state.resting = "Duskwood", "Raven Hill", false
+  ns.World.slow = nil
+  C.SourcesChanged(); C.Refresh()
+end
+
 -- The kind of work they take on (Sources/Work.lua): quest windows and the log fed fake
 -- events, with RPG Dialogue, Social Diary and Chronicle all absent, then the writing.
 do
@@ -3017,7 +3245,7 @@ do
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
     mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", guild = "x", rel = "x",
-    span = "x", akind = "x", faction = "x", races = "x", times = "x",
+    span = "x", akind = "x", faction = "x", races = "x", times = "x", family = "x", one = "x", aone = "x",
     away = "x", from = "x", stay = "x", rest = "", a = "x", b = "x", story = "x", town = "x", dungeon = "x", boss = "x", sub = "" }
   local bad, seen = {}, {}
   local function scan(v, path)
@@ -3500,6 +3728,240 @@ do
   state.zone, state.sub, state.resting, state.combat = "Duskwood", "Raven Hill", false, false
   C.SourcesChanged(); C.Refresh()
   check(C.History():find("Back at the Lion's Pride", 1, true), "with RPG Dialogue's diary back, History quotes that instead")
+end
+
+-- The journal, much deeper (0.22.0): a rich session drawn from Life, Company, Goals and Mood;
+-- a milestone opening; a week looked back on; each race in its own voice.
+do
+  local J, C, W = ns.Journal, ns.Compose, ns.Words
+  local Life = ns.Sources.Life
+  local keepNOW = NOW
+  local keepChar = deepcopy(ns.char)   -- everything the day records elsewhere goes back after
+  local saved = { deeds = ns.char.deeds, days = ns.char.days, milestones = ns.char.milestones, journal = ns.char.journal,
+    levels = ns.char.life.levels, since = ns.char.life.since, seedName = ns.char.seedName,
+    GetGameTime = GetGameTime, UnitName = UnitName, UnitExists = UnitExists, IsInGroup = IsInGroup,
+    GetNumGroupMembers = GetNumGroupMembers, IsInInstance = IsInInstance, GetInstanceInfo = GetInstanceInfo,
+    UnitIsDeadOrGhost = UnitIsDeadOrGhost, GetPetHappiness = GetPetHappiness, GetGuildInfo = GetGuildInfo,
+    IsInGuild = IsInGuild, UnitRace = UnitRace }
+  local banned = {}
+  for l in io.lines("tests/banned_phrases.txt") do
+    if not l:match("^%s*#") and l:match("%S") then banned[#banned + 1] = (l:match("^(.-)%s*|") or l):gsub("^%s+", ""):gsub("%s+$", ""):lower() end
+  end
+  local function clean(t)
+    if t:find("[{}]") or t:find('""', 1, true) or t:find("  ", 1, true) or t:find(" ,", 1, true) or t:find("%.%.") or t:find(",%.") then return false end
+    for _, b in ipairs(banned) do if t:lower():find(b, 1, true) then return false end end
+    return true
+  end
+  -- A character Auto TRP has known from their first steps, so a first is a first.
+  ns.char.journal, ns.char.days, ns.char.deeds = nil, {}, nil
+  ns.char.life.levels = { [1] = { t = NOW - 86400 * 20, start = true } }
+  ns.char.life.since = NOW - 86400 * 20
+  ns.char.life.mounts.seen = {}
+  ns.char.company.companions[ns.Sources.Company.Mark("Player-1-0001")] = { n = 3, last = NOW }
+  ns.char.company.pets.Grimfang = { first = NOW - 86400, n = 4, last = NOW }
+  local hour = 6
+  GetGameTime = function() return hour, 0 end
+  local names = { party1 = "Mirelle", party2 = "Thorvald", pet = "Grimfang" }
+  UnitName = function(u) return names[u] or "Aldric" end
+  GetGuildInfo = function() return nil end
+  IsInGuild = function() return false end
+  state.zone, state.sub, state.resting, state.combat = "Elwynn Forest", "Lion's Pride Inn", true, false
+  event("PLAYER_ENTERING_WORLD")
+  event("PLAYER_GUILD_UPDATE")   -- the first look only notes where things stand
+  local key = ns.Mood.Day()
+  -- The morning by the water and at the bench.
+  NOW = NOW + 1800
+  state.sub, state.resting = "Crystal Lake", false
+  event("ZONE_CHANGED")
+  for _ = 1, 5 do Life.Fish("Raw Brilliant Smallfish", 1, 1) end
+  Life.Fish("Oily Blackmouth", 1, 2)
+  Life.Make("Linen Bandage", 3, "First Aid")
+  Life.Make("Heavy Linen Bandage", 2, "First Aid")
+  Life.Page("The Birth of the Lich King", false)
+  Life.Page("A letter from home", true)   -- a letter: never named
+  for _ = 1, 7 do Life.Emote("wave") end
+  Life.Duel(true); Life.Duel(true); Life.Duel(false)
+  -- A first mount; a guild; a standing; a job given up; a storyline moved along.
+  Life.Mount("Brown Horse")
+  GetGuildInfo = function() return "Knights of the Vale", "Initiate", 5 end
+  IsInGuild = function() return true end
+  event("PLAYER_GUILD_UPDATE")
+  event("CHAT_MSG_COMBAT_FACTION_CHANGE", "You are now Honored with Stormwind.")
+  ns.Mood.Abandoned("Elmore's Task")
+  local step, chain
+  local steps = {}
+  for s, c in pairs(W.CHAIN_STEPS) do if W.CHAIN_GOAL[c] then steps[#steps + 1] = s end end
+  table.sort(steps)
+  step = steps[1]; chain = W.CHAIN_GOAL[W.CHAIN_STEPS[step]]
+  GetTitleText = function() return step end
+  GetQuestID = function() return 7001 end
+  event("QUEST_COMPLETE"); event("QUEST_TURNED_IN", 7001, 0, 0)
+  -- Company: a Social Diary friend, a face met before and a stranger; help from others; a roll lost.
+  UnitExists = function(u) return u == "party1" or u == "party2" or u == "pet" end
+  IsInGroup = function() return false end
+  event("GROUP_ROSTER_UPDATE")
+  IsInGroup = function() return true end
+  GetNumGroupMembers = function() return 3 end
+  C.SourcesChanged(); C.Refresh()
+  event("GROUP_ROSTER_UPDATE")
+  ns.Mood.Push("grateful", 26, "2 people tended {their} wounds")
+  event("CHAT_MSG_LOOT", "You have selected Need for: |cff0070dd|Hitem:3|h[Thief's Blade]|h|r")
+  event("CHAT_MSG_LOOT", "Thorvald won: |cff0070dd|Hitem:3|h[Thief's Blade]|h|r")
+  -- A battleground won, with blows struck.
+  NOW = NOW + 3600
+  IsInInstance = function() return true, "pvp" end
+  GetInstanceInfo = function() return "Warsong Gulch", "pvp" end
+  state.zone, state.sub = "Warsong Gulch", nil
+  event("ZONE_CHANGED_NEW_AREA")
+  Life.Battle("Warsong Gulch", true)
+  Life.KillingBlow(); Life.KillingBlow(); Life.KillingBlow()
+  IsInInstance = function() return false, "none" end
+  IsInGroup = function() return false end
+  GetNumGroupMembers = function() return 0 end
+  event("GROUP_ROSTER_UPDATE")
+  -- The pet: hungry, content again, and a fall.
+  local happy = 2
+  GetPetHappiness = function() return happy end
+  event("UNIT_HAPPINESS", "pet")
+  happy = 1; event("UNIT_HAPPINESS", "pet")
+  happy = 3; event("UNIT_HAPPINESS", "pet")
+  UnitIsDeadOrGhost = function(u) return u == "pet" end
+  event("UNIT_HEALTH", "pet")
+  UnitIsDeadOrGhost = saved.UnitIsDeadOrGhost
+  event("UNIT_HEALTH", "pet")
+  -- Back to Elwynn, a level, a rare find, and the night at the inn after a long day.
+  NOW = NOW + 9000
+  state.zone, state.sub = "Elwynn Forest", "Goldshire"
+  event("ZONE_CHANGED_NEW_AREA")
+  event("PLAYER_LEVEL_UP", 23)
+  event("CHAT_MSG_LOOT", "You receive loot: |cff0070dd|Hitem:4|h[Thornstone Sledgehammer]|h|r.")
+  hour = 23
+  state.sub, state.resting = "Lion's Pride Inn", true
+  event("ZONE_CHANGED")
+  ns.char.days[key] = { moods = { merry = 6, proud = 1 }, zones = { ["Elwynn Forest"] = 6 } }
+  event("PLAYER_LOGOUT")
+  local e = J.Entry(key)
+  local text = e and e.text or ""
+  print("\nJournal, a full day:\n" .. text)
+  for _, want in ipairs({ "Oily Blackmouth", "first aid", "The Birth of the Lich King", "waving", "Brown Horse", "Knights of the Vale",
+    "Stormwind", "Elmore's Task", chain, "Thief's Blade", "Warsong Gulch", "Grimfang", "Thornstone Sledgehammer",
+    "the Lion's Pride Inn" }) do
+    check(text:find(want, 1, true), "a full day: the journal tells of " .. want)
+  end
+  check(e and e.lines[1].kind == "milestone" and e.lines[1].text:find("Brown Horse", 1, true),
+    "a first mount opens the day as a milestone: " .. tostring(e and e.lines[1].text))
+  check(not text:find("Thorvald", 1, true) and not text:find("letter from home", 1, true),
+    "a full day: no stranger named (not even the roll's winner), no letter")
+  check(text:find("Mirelle", 1, true) == nil or true, "friends may be named")
+  local familiar = false
+  for _, l in ipairs(W.JOURNAL.familiar_one) do if text:find(l, 1, true) then familiar = true end end
+  check(familiar, "a face met before is counted, never named")
+  local healed = false
+  for _, l in ipairs(W.JOURNAL.healed_many) do if text:lower():find((l:gsub("{n}", "two"):gsub("{times}", "twice")):lower(), 1, true) then healed = true end end
+  check(healed, "help from others is told, by count")
+  local woke = false
+  for _, l in ipairs(W.JOURNAL.open_inn_move) do if text:find((l:gsub(" {tod}", "")):gsub("{place}", "the Lion's Pride Inn"), 1, true) then woke = true end end
+  check(woke, "the day opens where I woke, at the inn")
+  local long = false
+  for _, l in ipairs(W.JOURNAL.long_day) do if text:find((l:gsub("{span}", "some hours")), 1, true) or text:find((l:gsub("{span}", "Some hours")), 1, true) then long = true end end
+  check(long, "a long day is told as one")
+  local dom = false
+  for _, l in ipairs(W.JOURNAL.dominant.merry) do if text:find(l, 1, true) then dom = true end end
+  check(dom, "a mood that held all day is told")
+  check(clean(text), "a full day reads cleanly")
+  check(e.mood == "merry" and e.sum and e.sum.fish == 6 and e.sum.mount == "Brown Horse", "the day keeps its mood and its tally for the week")
+  -- The frame: dates, the week, the mood icon.
+  local body = J.Text()
+  check(body:find(J.Heading(key), 1, true) and body:find("|TInterface\\Icons\\" .. W.MOODS.merry.icon, 1, true)
+    and body:find(J.WeekLabel(J.WeekOf(key)), 1, true), "/atrp journal shows the date, the week and the day's mood icon")
+  check(J.Heading("2026-11-26") == "Thursday, 26 November" and J.WeekOf("2026-11-26") == "2026-11-23"
+    and J.WeekOf("2026-11-23") == "2026-11-23" and J.WeekOf("2026-11-29") == "2026-11-23" and J.KeyOf(J.DaysOf("2024-02-29")) == "2024-02-29",
+    "dates are worked out by hand: " .. J.Heading("2026-11-26"))
+  -- Every variant reads cleanly.
+  local bad = {}
+  for i = 1, 40 do
+    ns.char.seedName = "deep" .. i
+    local t = J.Compose(key).text
+    if not clean(t) then bad[#bad + 1] = t end
+    if i <= 2 then print("\nJournal, a full day in another voice:\n" .. t) end
+  end
+  check(#bad == 0, "a full day: every variant reads cleanly: " .. (bad[1] or ""))
+  -- Each race in its own voice: its own closing thoughts, never another race's.
+  for _, race in ipairs({ "Scourge", "Dwarf", "NightElf", "Orc", "Troll", "Gnome", "Tauren" }) do
+    UnitRace = function() return race, race end
+    local own, other = false, nil
+    for i = 1, 16 do
+      ns.char.seedName = race .. i
+      local t = J.Compose(key).text
+      for _, l in ipairs(W.JOURNAL.reflect.good[race]) do if t:find(l, 1, true) then own = true end end
+      for r, list in pairs(W.JOURNAL.reflect.good) do
+        if r ~= race and r ~= "default" then for _, l in ipairs(list) do if t:find(l, 1, true) then other = r end end end
+      end
+      if race == "Scourge" and i == 1 then print("\nJournal, a Forsaken's day:\n" .. t) end
+    end
+    check(own and not other, race .. " writes in their own voice" .. (other and (", not " .. other) or ""))
+  end
+  UnitRace = saved.UnitRace
+  ns.char.seedName = saved.seedName
+
+  -- A milestone: the first time at a tenth level opens the day on it; so does a first death.
+  local j = ns.char.journal
+  local mk = "2026-01-05"
+  j.days[mk] = { start = { zone = "Elwynn Forest", sub = "Goldshire", hour = 9, t = NOW }, last = { zone = "Elwynn Forest", sub = "Goldshire", hour = 14, t = NOW },
+    cur = "Elwynn Forest", ev = { { k = "level", level = 20, rank = "Squire", ms = true, t = NOW } }, money = 0, first = NOW }
+  local me = J.Compose(mk)
+  local lv = false
+  for _, l in ipairs(W.JOURNAL.milestone.level[20]) do if me.lines[1].text:find(l, 1, true) then lv = true end end
+  for _, l in ipairs(W.JOURNAL.milestone.level.any) do if me.lines[1].text:find((l:gsub("{rank}", "a Squire")), 1, true) then lv = true end end
+  check(me.lines[1].kind == "milestone" and lv, "a first time at level 20 opens on it: " .. me.lines[1].text)
+  print("\nJournal, a milestone:\n" .. me.text)
+  j.days[mk].ev = { { k = "death", first = true, zone = "Elwynn Forest", t = NOW } }
+  me = J.Compose(mk)
+  local died = false
+  for _, l in ipairs(W.JOURNAL.milestone.death) do if me.lines[1].text:find(l, 1, true) then died = true end end
+  check(me.lines[1].kind == "milestone" and died and clean(me.text), "a first death opens on it: " .. me.lines[1].text)
+  j.days[mk] = nil
+
+  -- The week looked back on, on the first session of the next.
+  local z = J.DaysOf(key)
+  local monday = J.WeekOf(key)
+  local otherDay = (z + 3) % 7 < 6 and J.KeyOf(z + 1) or J.KeyOf(z - 1)
+  j.entries[otherDay] = { text = "A day in Duskwood.", lines = {}, mood = "weary",
+    sum = { zones = { "Duskwood", "Elwynn Forest" }, new = { "Duskwood" }, q = 4, bosses = { "Mor'Ladim" }, deaths = 1, lv = 1,
+      fish = 0, made = 0, books = 0, duels = 0, bg = 0, mood = "weary", val = -1 } }
+  check(J.WeekDue() == nil, "no look back in the middle of a week")
+  NOW = NOW + (7 - (z + 3) % 7) * 86400 + 3600
+  state.zone, state.sub = "Duskwood", "Darkshire"
+  event("ZONE_CHANGED_NEW_AREA")
+  event("PLAYER_LOGOUT")
+  local wk = J.Week(monday)
+  local wtext = wk and wk.text or ""
+  print("\nJournal, the week behind:\n" .. wtext)
+  check(wtext:find("Elwynn Forest", 1, true) and wtext:find("Duskwood", 1, true) and wtext:find("Mor'Ladim", 1, true)
+    and wtext:find("Brown Horse", 1, true) and clean(wtext), "the first session of a new week looks back on the last")
+  check(J.Text():find(wk and wk.title or "?", 1, true), "the journal shows the look back under its week")
+  local again = J.WeekDue()
+  check(again == nil and J.Week(monday).text == wtext, "the look back is written once")
+  local weeks = 0
+  for _ = 1, 10 do j.weeks["2020-01-0" .. _] = { text = "x" } end
+  J.WriteAll()
+  for _ in pairs(j.weeks) do weeks = weeks + 1 end
+  check(weeks <= J.KEEP_WEEKS, "weeks kept are bounded: " .. weeks)
+
+  NOW = keepNOW
+  for k, v in pairs(saved) do
+    if k == "levels" or k == "since" then ns.char.life[k] = v
+    elseif k == "deeds" or k == "days" or k == "milestones" or k == "journal" or k == "seedName" then ns.char[k] = v
+    else _G[k] = v end
+  end
+  GetTitleText, GetQuestID = nil, nil
+  -- Mocks that weren't there before go again (pairs skips the nils).
+  for _, k in ipairs({ "GetPetHappiness", "GetGuildInfo", "IsInGuild" }) do if saved[k] == nil then _G[k] = nil end end
+  ns.World.Invalidate()
+  for k in pairs(ns.char) do ns.char[k] = nil end
+  for k, v in pairs(keepChar) do ns.char[k] = v end
+  state.zone, state.sub, state.resting, state.combat = "Duskwood", "Raven Hill", false, false
+  C.SourcesChanged(); C.Refresh()
 end
 
 -- Currently from the game alone: with no other addon, every place has words, every moment
@@ -6061,6 +6523,150 @@ do
   state.zone, state.sub, GetNumFactions, GetFactionInfo, GetTitleText = keep[3], keep[4], keep[5], keep[6], keep[7]
   ns.char.seedName = keep[11]
   NOW = keepNow
+  C.SourcesChanged(); C.Refresh()
+end
+
+-- The bestiary (Sources/Bestiary.lua): creatures sized up at engage, kills joined by name,
+-- and the writing it feeds. Other players and their pets are never taken in.
+do
+  local C, Be = ns.Compose, ns.Sources.Bestiary
+  local names = { "UnitName", "UnitLevel", "UnitIsPlayer", "UnitExists", "UnitCanAttack", "UnitClassification",
+    "UnitCreatureType", "UnitCreatureFamily", "UnitPlayerControlled", "UnitGUID", "CombatLogGetCurrentEventInfo",
+    "InCombatLockdown", "IsInInstance" }
+  local keepAPI = {}
+  for _, k in ipairs(names) do keepAPI[k] = _G[k] end
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.bestiary, ns.char.lastFight }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  ns.char.deeds, ns.char.bestiary, ns.char.lastFight = nil, nil, nil
+  local keepZone = state.zone
+  local level = 3
+  local tg = {}
+  UnitName = function(u) if u == "target" then return tg.name end return "Aldric" end
+  UnitLevel = function(u) if u == "target" then return tg.level end return level end
+  UnitIsPlayer = function(u) return u == "player" or (u == "target" and tg.player) or false end
+  UnitPlayerControlled = function(u) return u == "target" and tg.pet or false end
+  UnitExists = function(u) return u == "player" or (u == "target" and tg.name ~= nil) end
+  UnitCanAttack = function(_, u) return u == "target" and tg.name ~= nil and not tg.friendly end
+  UnitClassification = function() return tg.class or "normal" end
+  UnitCreatureType = function() return tg.type end
+  UnitCreatureFamily = function() return tg.family end
+  UnitGUID = function() return "Player-1-0001" end
+  local fighting = false
+  InCombatLockdown = function() return fighting end
+  IsInInstance = function() return false, "none" end
+  local log
+  CombatLogGetCurrentEventInfo = function() return unpack(log) end
+  Be.Store()   -- the record starts at level 3: firsts can be claimed
+  local function fight(t, kill)
+    tg = t
+    event("PLAYER_TARGET_CHANGED")
+    fighting = true
+    event("PLAYER_REGEN_DISABLED")
+    if kill then
+      log = { 0, "PARTY_KILL", false, "Player-1-0001", "Aldric", 0, 0, "Creature-0-1-" .. t.name, t.name }
+      event("COMBAT_LOG_EVENT_UNFILTERED")
+    end
+    fighting = false
+    event("PLAYER_REGEN_ENABLED")
+  end
+  state.zone = "Elwynn Forest"
+  for _ = 1, 40 do fight({ name = "Young Wolf", level = 3, type = "Beast", family = "Wolf" }, true) end
+  for _ = 1, 12 do fight({ name = "Kobold Vermin", level = 3, type = "Humanoid" }, true) end
+  level = 10
+  fight({ name = "Hogger", level = 11, type = "Humanoid", class = "elite" }, true)
+  local b = ns.char.bestiary
+  check(b.types.Beast.kills == 40 and b.families.Wolf.kills == 40 and b.types.Humanoid.kills == 13,
+    "kills counted by kind and family: " .. tostring(b.types.Beast.kills) .. "/" .. tostring(b.types.Humanoid.kills))
+  check(b.types.Beast.firstName == "Young Wolf" and b.types.Beast.firstZone == "Elwynn Forest", "the first of a kind, with where")
+  check(b.greatest and b.greatest.name == "Hogger" and b.greatest.class == "elite", "the greatest kill: " .. tostring(b.greatest and b.greatest.name))
+  check(b.notable.Hogger ~= nil, "a notable creature met by name")
+  -- Duskwood: the undead, lately, and a rare left be.
+  level = 25
+  state.zone = "Duskwood"
+  for _ = 1, 15 do fight({ name = "Rotting Horror", level = 25, type = "Undead" }, true) end
+  fight({ name = "Mor'Ladim", level = 35, type = "Undead", class = "rareelite" }, true)
+  tg = { name = "Naraxis", level = 27, type = "Beast", family = "Spider", class = "rare" }
+  event("PLAYER_TARGET_CHANGED")
+  tg = {}
+  event("PLAYER_TARGET_CHANGED")
+  b.seen.Naraxis.last = NOW - 600
+  -- A leader met; a world boss seen; another player and a player's pet are never kept.
+  tg = { name = "Highlord Bolvar Fordragon", level = 63, type = "Humanoid", class = "elite", friendly = true }
+  event("PLAYER_TARGET_CHANGED")
+  tg = { name = "Gankalot", level = 25, player = true, type = "Humanoid" }
+  event("PLAYER_TARGET_CHANGED")
+  tg = { name = "Fluffy", level = 25, pet = true, type = "Beast", family = "Cat" }
+  event("PLAYER_TARGET_CHANGED")
+  check(not b.names.Gankalot and not b.names.Fluffy and not b.seen.Gankalot, "other players and their pets are never taken in")
+  state.zone = "Azshara"
+  local wonder = ns.char.mood and ns.char.mood.emo and ns.char.mood.emo.wonder or 0
+  tg = { name = "Azuregos", level = -1, type = "Dragonkin", class = "worldboss" }
+  event("PLAYER_TARGET_CHANGED")
+  tg = {}
+  check(b.seen.Azuregos and b.seen.Azuregos.world and (ns.char.mood.emo.wonder or 0) > wonder, "a world boss seen in the open is something to see")
+  check(b.dragonSeen and b.dragonSeen.name == "Azuregos", "a first dragon sighted")
+  state.zone = "Duskwood"
+  -- Deaths to a kind.
+  for _ = 1, 3 do
+    tg = { name = "Rotting Horror", level = 25, type = "Undead" }
+    event("PLAYER_REGEN_DISABLED")
+    event("PLAYER_DEAD")
+  end
+  tg = {}
+  check(b.types.Undead.deaths == 3, "deaths counted by the kind that did it: " .. tostring(b.types.Undead.deaths))
+  -- Bounded.
+  for i = 1, 120 do Be.Note({ name = "Thing " .. i, type = "Beast", hostile = true }, false) end
+  Be.Trim()
+  check(ns.U.Count(b.names) <= Be.KEEP_NAMES, "creatures kept by name stay bounded: " .. ns.U.Count(b.names))
+  -- The wolves and kobolds were weeks ago; the undead are lately.
+  b.types.Beast.recent.since, b.types.Humanoid.recent.since = NOW - 20 * 86400, NOW - 20 * 86400
+
+  C.SourcesChanged(); C.Refresh()
+  local hist = C.History()
+  print("\nHistory with a bestiary:\n" .. hist)
+  local fought = table.concat(C.FoughtLines(), ". ")
+  print("\nWhat they've fought: " .. fought)
+  if os.getenv("SAMPLES") then
+    local keepSeed = ns.char.seedName
+    for i = 1, 4 do
+      ns.char.seedName = "bestiary" .. i
+      print("  " .. ns.U.Pron(table.concat(C.FoughtLines(), ". ")) .. ".")
+      print("  " .. ns.U.Pron(table.concat(C.BestiaryTraits(3), ". ")) .. ".")
+    end
+    ns.char.seedName = keepSeed
+  end
+  check(fought:find("Mor'Ladim", 1, true) and fought:find("far beyond", 1, true), "the greatest kill, told with its gap: " .. fought)
+  local anyKind = false
+  for _, w in ipairs(ns.Words.BESTIARY.TYPE.Beast) do if fought:find(w, 1, true) then anyKind = true end end
+  check(anyKind, "the kind fought most, in words")
+  local undead = false
+  for _, w in ipairs(ns.Words.BESTIARY.TYPE.Undead) do if fought:find(w .. " in Duskwood", 1, true) then undead = true end end
+  check(undead, "the undead of Duskwood, lately")
+  check(fought:find("Highlord Bolvar Fordragon", 1, true) or fought:find("Azuregos", 1, true), "a leader met or a world boss seen")
+  check(hist:find("Mor'Ladim", 1, true) ~= nil, "History tells what they've fought")
+  check(not hist:find("Gankalot", 1, true) and not hist:find("Fluffy", 1, true), "History names no other player")
+  local bearing = C.Bearing()
+  print("\nPersonality with a bestiary:\n" .. bearing)
+  local wary = false
+  for _, l in ipairs(ns.Words.BESTIARY.WARY.Undead) do if bearing:find((l:gsub("{times}", "three times")):sub(1, 30), 1, true) then wary = true end end
+  check(wary, "Personality: wary of the kind that has killed them")
+  local lately = C.BestiaryLately()
+  local tis = {}
+  for _, l in ipairs(lately) do tis[#tis + 1] = l.g.TI .. ": " .. l.g.TX end
+  print("\nLately from the bestiary:\n  " .. table.concat(tis, "\n  "))
+  local left = false
+  for _, l in ipairs(lately) do if l.g.TI == "Left Be" and l.g.TX:find("spider", 1, true) and l.g.TX:find("Duskwood", 1, true) then left = true end end
+  check(left, "Lately: a rare seen and left be")
+  local st = C.Stats()
+  check(st.kinds and st.kinds:find("beasts", 1, true) and st.kinds:find("undead", 1, true), "statistic: foes by kind: " .. tostring(st.kinds))
+  check(st.greatest and st.greatest:find("Mor'Ladim, rare elite, level 35", 1, true), "statistic: greatest kill: " .. tostring(st.greatest))
+  for _, k in ipairs({ "kinds", "greatest" }) do
+    check(ns.TRP.FIELDS["stat_" .. k] ~= nil and ns.db.fields["stat_" .. k] == true, "statistic " .. k .. " has its own switch, on by default")
+  end
+  for _, k in ipairs(names) do _G[k] = keepAPI[k] end
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  ns.char.deeds, ns.char.bestiary, ns.char.lastFight = keep[4], keep[5], keep[6]
+  state.zone = keepZone
   C.SourcesChanged(); C.Refresh()
 end
 

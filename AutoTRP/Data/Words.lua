@@ -5231,3 +5231,329 @@ W.STYLE = {
   MOOD = { "cut off {n} spells in one fight", "stopped {n} casters mid-word in a single fight",
     "broke {n} castings in one fight" },
 }
+
+---------------------------------------------------------------------------
+-- TRADES IN DEPTH 0.22.0 (Sources/Trade.lua): recipes known and learned, the finest work,
+-- specialisations, work done for others, where the gathering is done, tools carried.
+-- History lines are facts only; other players are only ever counted. {known} {item}
+-- {aspec} {spec} {n} {times} {list} {zone} {trade} are filled in; pronouns as everywhere.
+---------------------------------------------------------------------------
+W.TRADE = {
+  -- What a trade's recipes are called: "112 tailoring patterns".
+  RECIPE = {
+    Tailoring = "tailoring patterns", Leatherworking = "leatherworking patterns", Blacksmithing = "smithing plans",
+    Engineering = "engineering schematics", Alchemy = "alchemy recipes", Enchanting = "enchanting formulae",
+    Cooking = "cooking recipes", ["First Aid"] = "first aid recipes", Jewelcrafting = "jewelcrafting designs",
+    Poisons = "poison recipes", Mining = "smelting methods",
+  },
+  -- The trade as a word in a sentence ("{their} tailoring").
+  TRADE_WORD = {
+    Tailoring = "tailoring", Leatherworking = "leatherworking", Blacksmithing = "smithing", Engineering = "engineering",
+    Alchemy = "alchemy", Enchanting = "enchanting", Cooking = "cooking", ["First Aid"] = "first aid",
+    Jewelcrafting = "jewelcrafting",
+  },
+  ICON = {
+    Tailoring = "Trade_Tailoring", Leatherworking = "Trade_LeatherWorking", Blacksmithing = "Trade_BlackSmithing",
+    Engineering = "Trade_Engineering", Alchemy = "Trade_Alchemy", Enchanting = "Trade_Engraving",
+    Cooking = "INV_Misc_Food_15", ["First Aid"] = "Spell_Holy_SealOfSacrifice", Mining = "Trade_Mining",
+  },
+  -- Specialisations, by the spell the game knows (masters before their school).
+  SPECS = {
+    { id = 17039, key = "swordsmith", noun = "master swordsmith", prof = "Blacksmithing" },
+    { id = 17040, key = "hammersmith", noun = "master hammersmith", prof = "Blacksmithing" },
+    { id = 17041, key = "axesmith", noun = "master axesmith", prof = "Blacksmithing" },
+    { id = 9787, key = "weaponsmith", noun = "weaponsmith", prof = "Blacksmithing" },
+    { id = 9788, key = "armorsmith", noun = "armorsmith", prof = "Blacksmithing" },
+    { id = 20219, key = "gnomish", noun = "gnomish engineer", prof = "Engineering" },
+    { id = 20222, key = "goblin", noun = "goblin engineer", prof = "Engineering" },
+    { id = 10656, key = "dragonscale", noun = "dragonscale leatherworker", prof = "Leatherworking" },
+    { id = 10658, key = "elemental", noun = "elemental leatherworker", prof = "Leatherworking" },
+    { id = 10660, key = "tribal", noun = "tribal leatherworker", prof = "Leatherworking" },
+  },
+  -- Said after a specialisation now and then (the empty one leaves it plain).
+  SPEC_TAIL = {
+    gnomish = { ", for better or worse", "" },
+    goblin = { ", and keeps the explosives that come with it", "" },
+  },
+  -- First Aid's bandages and anti-venoms, by spell.
+  BANDAGE_IDS = {
+    [746] = true, [1159] = true, [3267] = true, [3268] = true, [7926] = true, [7927] = true, [10838] = true,
+    [10839] = true, [18608] = true, [18610] = true, [23567] = true, [23568] = true, [23569] = true, [23696] = true,
+    [24412] = true, [24413] = true, [24414] = true, [7932] = true, [7933] = true, [23786] = true,
+  },
+  -- Tools of a trade, by item; a group keeps only the best of its kind (the first listed).
+  TOOLS = {
+    { id = 2901, phrase = "a mining pick", icon = "INV_Pick_02" },
+    { id = 7005, phrase = "a skinning knife", icon = "INV_Weapon_ShortBlade_01" },
+    { id = 5956, phrase = "a blacksmith's hammer", icon = "INV_Hammer_20" },
+    { id = 10498, phrase = "a gyromatic micro-adjustor", icon = "INV_Gizmo_02", group = "wrench" },
+    { id = 6219, phrase = "an arclight spanner", icon = "INV_Misc_Wrench_01", group = "wrench" },
+    { id = 16207, phrase = "a runed arcanite rod", icon = "INV_Staff_Medivh", group = "rod" },
+    { id = 11145, phrase = "a runed truesilver rod", icon = "INV_Staff_Goldfeathered_01", group = "rod" },
+    { id = 11130, phrase = "a runed golden rod", icon = "INV_Staff_10", group = "rod" },
+    { id = 6339, phrase = "a runed silver rod", icon = "INV_Staff_01", group = "rod" },
+    { id = 6218, phrase = "a runed copper rod", icon = "INV_Misc_Flute_01", group = "rod" },
+    { id = 9149, phrase = "a philosopher's stone", icon = "INV_Misc_StoneTablet_07" },
+    { id = 5060, phrase = "a set of thieves' tools", icon = "INV_Misc_Bag_11" },
+    { id = 4471, phrase = "flint and tinder", icon = "INV_Misc_Bag_10" },
+  },
+  -- Well-known pieces whose first making is news even when they aren't rare.
+  NOTABLE = {
+    ["Arcanite Bar"] = true, ["Flask of the Titans"] = true, ["Flask of Distilled Wisdom"] = true,
+    ["Flask of Supreme Power"] = true, ["Flask of Chromatic Resistance"] = true, ["Elixir of the Mongoose"] = true,
+    ["Elixir of Giants"] = true, ["Mooncloth"] = true, ["Mooncloth Bag"] = true, ["Runecloth Bag"] = true,
+    ["Thorium Grenade"] = true, ["Dark Iron Bomb"] = true, ["Field Repair Bot 74A"] = true, ["Goblin Rocket Boots"] = true,
+    ["Gnomish Cloaking Device"] = true, ["Goblin Jumper Cables"] = true, ["Dirge's Kickin' Chimaerok Chops"] = true,
+    ["Smoked Desert Dumplings"] = true, ["Runn Tum Tuber Surprise"] = true, ["Heavy Runecloth Bandage"] = true,
+    ["Bolt of Runecloth"] = true, ["Rugged Armor Kit"] = true, ["Dense Sharpening Stone"] = true,
+    ["Elemental Sharpening Stone"] = true, ["Truesilver Bar"] = true, ["Thorium Bar"] = true,
+  },
+  -- The smell a long stretch at a trade leaves (cooking, fishing and gathering are Life's).
+  MARK = {
+    Blacksmithing = { title = "Forge Soot", icon = "Trade_BlackSmithing", text = { "Smells of the forge.",
+      "Has forge soot on {their} hands.", "Carries the heat and smell of the anvil.", "Smells of hot iron and coal smoke." } },
+    Alchemy = { title = "Alchemist's Fingers", icon = "Trade_Alchemy", text = { "Smells sharply of something just brewed.",
+      "{their} fingers are stained from the alchemy table.", "Smells of bitter herbs and boiled reagents.",
+      "Carries the sour smell of the alchemy table." } },
+    Leatherworking = { title = "Smells of Tanning", icon = "Trade_LeatherWorking", text = { "Smells of tanning salts.",
+      "Smells of fresh-worked leather.", "Has the smell of the tanning rack about {them}.", "Leather dust clings to {their} hands." } },
+    Tailoring = { title = "Loose Threads", icon = "Trade_Tailoring", text = { "Loose threads cling to {their} clothes.",
+      "Has a needle-prick or two on {their} fingers.", "Bits of cloth and thread cling to {them}.",
+      "Smells of new cloth." } },
+    Engineering = { title = "Black Powder", icon = "Trade_Engineering", text = { "Smells of black powder and machine oil.",
+      "Has grease on {their} fingers from some contraption.", "Smells of scorched metal.",
+      "Has a smudge of black powder on {their} face." } },
+    Enchanting = { title = "Arcane Dust", icon = "Trade_Engraving", text = { "A faint glitter of arcane dust clings to {their} hands.",
+      "Smells of ozone, from the enchanting.", "Arcane dust glints on {their} clothes.",
+      "Has the sheen of enchanting dust on {their} fingers." } },
+    ["First Aid"] = { title = "Smells of Salve", icon = "Spell_Holy_SealOfSacrifice", text = { "Smells of clean linen and salve.",
+      "Has bandage lint on {their} clothes.", "Smells of the salves used on bandages.", "Carries the clean smell of fresh bandages." } },
+    Mining = { title = "Smelter's Smoke", icon = "Trade_Mining", text = { "Smells of the smelter.",
+      "Smells of molten ore and smoke.", "Has smelter soot on {their} hands.", "Carries the heat of the smelter about {them}." } },
+    Jewelcrafting = { title = "Gem Dust", icon = "INV_Misc_Gem_01", text = { "Gem dust glints on {their} fingertips.",
+      "Has fine stone dust on {their} hands.", "Squints a little, after close work at the gems.", "Smells of polishing oil." } },
+    Poisons = { title = "Something Bitter", icon = "Trade_BrewPoison", text = { "Smells bitter, from mixing poisons.",
+      "Has stained fingertips, and doesn't offer to shake hands.", "Smells of something nobody should taste.",
+      "Carries a faint, bitter smell." } },
+  },
+  SAY = {
+    -- History, the longer record: what they know and the finest thing they've made.
+    know_made = { "Knows {known} and has made {item}", "Knows {known}, and {their} finest work so far is {item}",
+      "Has learned {known}, and the best of what {they've} made is {item}", "Has {known} to work from, and has made {item}",
+      "Has picked up {known}, and has turned out {item}" },
+    know = { "Knows {known}", "Has learned {known}", "Has {known} to work from", "Has picked up {known} so far",
+      "Can work from {known}" },
+    made = { "Has made {item}", "Has turned out {item}", "Counts {item} among the things {they've} made",
+      "{their} finest work so far is {item}", "Has {item} to {their} name" },
+    spec_after = { "is {aspec}", "trained as {aspec}", "is {aspec} by training", "took {their} training as {aspec}" },
+    spec = { "Is {aspec}", "Trained as {aspec}", "Is {aspec} by training", "Took {their} training as {aspec}" },
+    transmutes = { "knows {n} transmutations", "can carry out {n} transmutations", "has {n} transmutations to {their} name",
+      "has learned {n} transmutations" },
+    -- Done for other people (counted, never who): predicates after "{they've}".
+    ev_bandage = { "bandaged other people's wounds {times}", "dressed someone else's wounds {times}",
+      "put bandages on other people {times}", "patched up other people {times}" },
+    ev_enchant = { "enchanted other people's gear {times}", "put enchantments on gear for others {times}",
+      "enchanted things for other people {times}", "worked enchantments for others {times}" },
+    ev_lock = { "opened {n} locked boxes for other people", "picked the locks on {n} boxes for others",
+      "opened {n} lockboxes for whoever asked", "got {n} locked boxes open for other people" },
+    ev_meals = { "cooked {n} meals in company", "made {n} meals while in a group", "cooked {n} meals with others about",
+      "cooked {n} meals for a group" },
+    served = { "{they've} {list}", "Along the way {they've} {list}", "So far {they've} {list}", "Over time {they've} {list}",
+      "Now and then {they've} {list}" },
+    -- Where the gathering is done.
+    gather_herbs = { "Picks most of {their} herbs in {zone}", "Does most of {their} herb-picking in {zone}",
+      "Knows the herb patches of {zone} best", "Gathers {their} herbs mostly in {zone}", "Has picked more herbs in {zone} than anywhere" },
+    gather_mining = { "Does most of {their} mining in {zone}", "Knows the seams of {zone} best", "Mines mostly in {zone}",
+      "Takes most of {their} ore out of {zone}", "Has dug more ore in {zone} than anywhere" },
+    gather_skinning = { "Does most of {their} skinning in {zone}", "Takes most of {their} hides in {zone}",
+      "Has skinned more beasts in {zone} than anywhere", "Skins mostly in {zone}", "Gets most of {their} leather from {zone}" },
+    -- Personality: what the counts back.
+    habit_bandage = { "Is quick to bandage other people's wounds", "Stops to patch up whoever needs it",
+      "Has bandaged a good many people in {their} time", "Rarely lets someone else's wound go untended" },
+    habit_enchant = { "Is generous with {their} enchanting", "Enchants other people's gear when asked",
+      "Puts {their} enchanting at other people's service", "Will enchant a stranger's gear if asked" },
+    habit_lock = { "Opens locked boxes for anyone who asks", "Puts {their} lockpicks at other people's service",
+      "Is often asked to open a lockbox, and obliges", "Will pick a lock for whoever asks" },
+    habit_meals = { "Likes to cook when there's company", "Cooks for the group more often than not",
+      "Is usually the one who cooks when travelling with others", "Feeds whoever {they're} travelling with" },
+    habit_learned = { "Has learned {their} {trade} thoroughly", "Takes {their} {trade} seriously",
+      "Has put real time into {their} {trade}", "Knows {their} {trade} inside out" },
+    habit_learning = { "Keeps learning new recipes", "Is always after another recipe", "Collects recipes",
+      "Seeks out new recipes wherever {they} go{es}" },
+    -- History, the last three weeks (past-tense predicates).
+    ev_learned = { "learned to make {item}", "learned how to make {item}", "picked up the recipe for {item}",
+      "learned the making of {item}" },
+    ev_learned_spell = { "learned {item}", "picked up {item}", "learned how to do {item}", "was taught {item}" },
+    ev_learned_many = { "learned {n} new recipes, {item} the latest", "picked up {n} new recipes, the latest {item}",
+      "learned {n} new recipes, most recently {item}", "added {n} recipes to {their} trade, {item} the last" },
+    ev_first = { "made {their} first {item}", "turned out {their} first {item}", "made {item} for the first time",
+      "finished {their} first {item}" },
+    -- Lately glance
+    lately_learned = { "Learned to make {item} a short while back.", "Has only just learned to make {item}.",
+      "Learned how to make {item} within the day.", "Has a new recipe: {item}.", "Picked up the recipe for {item} today." },
+    lately_learned_spell = { "Learned {item} in the last day.", "Has only just learned {item}.", "Picked up {item} within the day.",
+      "Was taught {item} today." },
+    lately_learned_many = { "Learned {n} new recipes in the last day, {item} the latest.",
+      "Has picked up {n} new recipes today, the last of them {item}.", "Learned {n} recipes within the day, most recently {item}.",
+      "Added {n} recipes to {their} trade today, {item} the last." },
+    lately_finest = { "Made {item} lately, the finest thing {they've} made yet.", "Has just finished {item}, {their} best work so far.",
+      "Turned out {item} lately, and nothing {they've} made is finer.", "Finished {item} within the last day or two: {their} finest work." },
+    lately_first = { "Made {their} first {item} a short while back.", "Has only just made {item} for the first time.",
+      "Turned out {their} first {item} lately.", "Finished {their} first {item} within the last day or two." },
+    lately_enchant = { "Enchanted someone's gear within the hour.", "Put an enchantment on someone else's gear just now.",
+      "Did some enchanting for someone a short while ago.", "Has just enchanted something for someone." },
+    lately_lock = { "Opened a locked box for someone within the hour.", "Picked a lock for someone just now.",
+      "Got someone's lockbox open a short while ago.", "Has just opened a locked box for someone." },
+    lately_bandage = { "Bandaged someone's wounds a short while ago.", "Has just patched someone up.",
+      "Dressed someone else's wounds just now.", "Put a bandage on someone a few minutes ago." },
+    -- Marks glance: the tools carried.
+    mark_tools = { "Carries {list}.", "Has {list} close at hand.", "Keeps {list} in {their} bags.",
+      "Never goes far without {list}.", "Has {list} packed away." },
+  },
+}
+
+---------------------------------------------------------------------------
+-- THE BESTIARY (0.22.0, Sources/Bestiary.lua): what the character has fought and seen, by
+-- the game's own creature kinds (UnitCreatureType) and families (UnitCreatureFamily), for
+-- History's older record, Personality, the Lately glance and the statistics. Facts only:
+-- each line is told when the counts back it. {kind} {family} {one} {aone} {who} {what}
+-- {zone} {list} {n} {how} {times} are filled in; pronouns as everywhere else.
+---------------------------------------------------------------------------
+W.BESTIARY = {
+  -- Each kind, as prose says many of them.
+  TYPE = {
+    Beast = { "beasts", "wild beasts", "the beasts of the wilds", "animals of the wild", "creatures of fang and hoof" },
+    Humanoid = { "humanoids", "foes on two legs", "people of one kind or another", "armed foes who walk upright" },
+    Undead = { "the undead", "the walking dead", "the risen dead", "the restless dead" },
+    Demon = { "demons", "demonkind", "fel creatures", "things out of the Twisting Nether" },
+    Elemental = { "elementals", "elemental spirits", "living stone, flame and storm", "creatures of the raw elements" },
+    Dragonkin = { "dragonkin", "dragons and their kin", "the brood of the dragonflights", "creatures of dragon blood" },
+    Giant = { "giants", "giants and their kind", "towering giants", "the great giants of the wilds" },
+    Mechanical = { "machines", "clockwork and constructs", "mechanical constructs", "contraptions of gears and steam" },
+    Critter = { "small creatures", "critters", "harmless little creatures", "rabbits, rats and the like" },
+  },
+  -- One of each kind ("the first demon to fall to them").
+  ONE = { Beast = "beast", Humanoid = "humanoid foe", Undead = "undead creature", Demon = "demon", Elemental = "elemental",
+    Dragonkin = "dragon", Giant = "giant", Mechanical = "machine", Critter = "critter" },
+  -- The kinds, as the statistics count them.
+  PLAIN = { Beast = "beasts", Humanoid = "humanoids", Undead = "undead", Demon = "demons", Elemental = "elementals",
+    Dragonkin = "dragonkin", Giant = "giants", Mechanical = "machines", Critter = "critters" },
+  -- Kinds whose first kill is worth a line of History.
+  FIRST_TOLD = { Demon = true, Dragonkin = true, Giant = true, Undead = true, Elemental = true },
+  -- How strong the game calls a creature, for prose ("a rare elite") and the statistics.
+  CLASS = { elite = "elite", rareelite = "rare elite", rare = "rare", worldboss = "world boss" },
+  -- Each family, as prose says many of them.
+  FAMILY = {
+    Wolf = { "wolves", "wolf packs", "prowling wolves", "the wolves of the wilds" },
+    Cat = { "big cats", "the great cats", "lions, tigers and their like", "prowling cats" },
+    Spider = { "spiders", "great spiders", "web-spinners", "the spiders of the deep woods" },
+    Bear = { "bears", "great bears", "bears of the hills and forests", "shaggy bears" },
+    Boar = { "boars", "wild boars", "tusked boars", "the boars of the scrublands" },
+    Crocolisk = { "crocolisks", "river crocolisks", "the crocolisks of the shallows", "snapping crocolisks" },
+    ["Carrion Bird"] = { "carrion birds", "vultures and buzzards", "the birds that circle the dead", "scavenging birds" },
+    Crab = { "crabs", "shore crabs", "the crabs of the coast", "armoured crabs" },
+    Gorilla = { "gorillas", "great apes", "jungle gorillas", "the gorillas of the jungle" },
+    Raptor = { "raptors", "the raptor packs", "sickle-clawed raptors", "the raptors of the plains" },
+    Tallstrider = { "tallstriders", "long-legged striders", "the striders of the plains", "plainstriders" },
+    Scorpid = { "scorpids", "desert scorpids", "stinging scorpids", "the scorpids of the dry lands" },
+    Turtle = { "turtles", "snapping turtles", "shelled turtles", "the great turtles of the shore" },
+    Bat = { "bats", "cave bats", "the bats of the caves", "leathery-winged bats" },
+    Hyena = { "hyenas", "laughing hyenas", "the hyena packs", "scavenging hyenas" },
+    Owl = { "owls", "great owls", "night owls", "the owls of the old forests" },
+    ["Wind Serpent"] = { "wind serpents", "winged serpents", "the serpents of the high winds", "crackling wind serpents" },
+    Felhunter = { "felhunters", "fel hounds", "the Legion's hunting hounds", "magic-eating felhunters" },
+    Imp = { "imps", "fel imps", "cackling imps", "the Legion's little fire-starters" },
+    Voidwalker = { "voidwalkers", "creatures of the void", "hulking voidwalkers", "things of living shadow" },
+    Succubus = { "succubi", "the Legion's temptresses", "whip-wielding succubi", "the succubi of the Legion" },
+    Infernal = { "infernals", "burning infernals", "fallen infernals", "the Legion's living siege stones" },
+    Doomguard = { "doomguards", "the Legion's doomguard", "winged doomguards", "the Legion's great warriors" },
+  },
+  -- Notable people and creatures met (targeted) by name: leaders and figures of the world
+  -- ("leader"), or a creature with a name to it ("foe"). A leader met goes into History;
+  -- a foe only counts when it is brought down.
+  NOTABLE = {
+    ["Highlord Bolvar Fordragon"] = "leader", ["Lady Katrana Prestor"] = "leader", ["Anduin Wrynn"] = "leader",
+    ["King Magni Bronzebeard"] = "leader", ["High Tinker Mekkatorque"] = "leader", ["Tyrande Whisperwind"] = "leader",
+    ["Fandral Staghelm"] = "leader", ["Lady Jaina Proudmoore"] = "leader", ["Thrall"] = "leader",
+    ["Cairne Bloodhoof"] = "leader", ["Lady Sylvanas Windrunner"] = "leader", ["Vol'jin"] = "leader",
+    ["Varimathras"] = "leader", ["Eitrigg"] = "leader", ["Rexxar"] = "leader", ["Tirion Fordring"] = "leader",
+    ["Archbishop Benedictus"] = "leader",
+    ["Hogger"] = "foe", ["Princess"] = "foe", ["Mor'Ladim"] = "foe", ["Stitches"] = "foe", ["Gath'Ilzogg"] = "foe",
+    ["Bellygrub"] = "foe", ["Mother Fang"] = "foe", ["Old Murk-Eye"] = "foe", ["Mazzranache"] = "foe",
+    ["Gazz'uz"] = "foe", ["Sarkoth"] = "foe", ["Azuregos"] = "foe", ["Lord Kazzak"] = "foe", ["Ysondre"] = "foe",
+    ["Lethon"] = "foe", ["Emeriss"] = "foe", ["Taerar"] = "foe", ["Rak'shiri"] = "foe", ["Fenros"] = "foe",
+    ["Morgaine the Sly"] = "foe",
+  },
+}
+
+for k, v in pairs({
+  -- History, the older record: what they've fought.
+  bst_lead = { "Has fought mostly {list} so far", "Most of {their} fights so far have been with {list}",
+    "Has spent most of {their} fights on {list}", "Has mostly taken on {list} so far" },
+  bst_lately = { "{kind} in {zone} since", "lately, {kind} in {zone}", "with {kind} in {zone} taking over of late",
+    "{kind} in {zone} more often of late" },
+  bst_family = { "{family} more than any", "{family} above all", "most of all {family}", "{family} most often" },
+  bst_greatest = { "The greatest thing {they've} brought down is {who}{how}", "{their} greatest kill so far is {who}{how}",
+    "The hardest foe {they've} put down is {who}{how}", "Of everything {they've} felled, {who} stands out{how}" },
+  bst_again = { "; {they've} done it {times}", ", and not just the once: {times} in all" },
+  bst_first = { "{their} first {one} was {who}, in {zone}", "The first {one} to fall to {them} was {who}, in {zone}",
+    "{they} brought down {their} first {one}, {who}, in {zone}", "{their} first {one} fell in {zone}: {who}" },
+  bst_leaders = { "Has stood before {list}", "Has been in the presence of {list}", "Has seen {list} in person",
+    "Has come face to face with {list}" },
+  bst_worldboss = { "Has laid eyes on {list}, out in the open", "Has seen {list} in the open world",
+    "Has seen {list} up close", "Has seen {list} with {their} own eyes" },
+  bst_named = { "Has put an end to {list}", "Counts {list} among {their} kills", "Has brought down {list}, among others",
+    "Has seen the end of {list}" },
+  -- Personality, from the counts.
+  bst_left = { "Has let more than one rare creature go by without a fight", "Tends to leave rare quarry be",
+    "Has walked away from several rare creatures rather than take them on", "Lets rare creatures pass more often than not" },
+  bst_hunts = { "Goes after rare quarry whenever it turns up", "Has a habit of chasing down rare creatures",
+    "Is quick to go after anything rare", "Rarely lets a rare creature get away" },
+  bst_bigger = { "Picks fights with things bigger than {them}, and has won a fair few", "Takes on elites more readily than most",
+    "Has a habit of taking on foes stronger than {them}", "Doesn't shy from an elite, and has the kills to show for it" },
+  -- Lately glance.
+  lately_rare_left = { "Saw a rare {what} in {zone} and left it be.", "Came across a rare {what} in {zone}, and let it go.",
+    "Spotted a rare {what} in {zone}, and chose not to start anything.", "Crossed paths with a rare {what} in {zone} and walked on." },
+  lately_worldboss = { "Saw {who} in {zone}, out in the open.", "Has lately laid eyes on {who}, in {zone}.",
+    "Came near enough to {who} in {zone} to see it plainly.", "Saw {who} with {their} own eyes in {zone}." },
+  lately_first = { "Brought down {their} first {one} in {zone}: {who}.", "Put down {aone} for the first time, in {zone}.",
+    "Felled {aone} in {zone}, {their} first.", "Has just brought down {their} first {one}, in {zone}." },
+  lately_greatest = { "Brought down {who} in {zone}, the greatest kill of {their} road so far.",
+    "Has just put down {who} in {zone}, the strongest foe {they've} beaten.",
+    "Felled {who} in {zone}, and nothing {they've} beaten before compares.",
+    "Came out of {zone} having felled {who}, {their} hardest kill yet." },
+  lately_leader = { "Stood before {who} in {zone} lately.", "Was lately in {zone}, in the presence of {who}.",
+    "Has lately seen {who} in person, in {zone}.", "Met {who} in {zone} within the last day." },
+  lately_dragon = { "Saw a dragon for the first time lately, in {zone}.", "Has lately set eyes on dragonkin for the first time, in {zone}.",
+    "Met {their} first dragon in {zone}.", "Saw a dragon in {zone}, the first {they've} seen." },
+}) do W.SAY[k] = v end
+
+-- Personality from the bestiary: a kind hunted far more than any other, and a kind that has
+-- killed them often.
+W.BESTIARY.FOE = {
+  Undead = { "Has no patience for the walking dead, and has put down a great many", "Is a sworn enemy of the undead, by the count of them {they've} put down",
+    "Has put more of the undead back in the ground than most" },
+  Demon = { "Has hunted demons far more than anything else", "Is an enemy of demonkind, by the count of them {they've} killed",
+    "Has killed more demons than most will ever see" },
+  Humanoid = { "Has fought far more people than beasts", "Has spent most of {their} fights on foes who could fight back with a blade",
+    "Has made foes on two legs {their} usual quarry" },
+  Beast = { "Has spent most of {their} fights among the beasts of the wilds", "Knows the beasts of the wilds better than most, from fighting them",
+    "Has hunted the wilds far more than anything else" },
+  Elemental = { "Has fought more elementals than most will ever meet", "Has spent a great many fights against living stone and flame",
+    "Has a long count of elementals behind {them}" },
+  Dragonkin = { "Has fought more dragonkin than most will ever see", "Has a long count of dragonkin behind {them}",
+    "Has made dragonkin {their} quarry more than anything else" },
+  Giant = { "Has felled more giants than most would dare face", "Has a long count of giants behind {them}",
+    "Has made a habit of bringing down giants" },
+  Mechanical = { "Has broken a great many machines", "Has taken apart more constructs than most", "Has a long count of machines behind {them}" },
+}
+W.BESTIARY.WARY = {
+  Undead = { "Is warier of the undead than of most things, having died to them {times}", "Has died to the undead {times}, and keeps a closer watch for them now" },
+  Demon = { "Is uneasy around demons, having died to them {times}", "Has died to demons {times}, and keeps well clear of them now" },
+  Humanoid = { "Is wary of armed strangers, having died to them {times}", "Has died to foes on two legs {times}, and watches them closely now" },
+  Beast = { "Watches the undergrowth closely, having died to beasts {times}", "Has died to the beasts of the wilds {times}, and is warier of them for it" },
+  Elemental = { "Is wary of elementals, having died to them {times}", "Has died to elementals {times}, and keeps clear of them now" },
+  Dragonkin = { "Is wary of dragonkin, having died to them {times}", "Has died to dragonkin {times}, and gives them room" },
+  Giant = { "Is wary of giants, having died under them {times}", "Has died to giants {times}, and gives them room" },
+  Mechanical = { "Is wary of machines, having died to them {times}", "Has died to machines {times}, and trusts none of them" },
+}

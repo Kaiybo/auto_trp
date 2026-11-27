@@ -17,6 +17,7 @@
 Core.lua
 Data\RPGDNames.lua
 Data\Words.lua
+Data\JournalWords.lua
 Data\Places.lua
 Data\Calling.lua
 Data\Delves.lua
@@ -39,6 +40,8 @@ Sources\Pack.lua
 Sources\Kin.lua
 Sources\Road.lua
 Sources\Work.lua
+Sources\Bestiary.lua
+Sources\Trade.lua
 Mood.lua
 Journal.lua
 Compose.lua
