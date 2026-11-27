@@ -2735,6 +2735,110 @@ W.SAY = {
 }
 
 ---------------------------------------------------------------------------
+-- Auto TRP's own reading of the character (Sources/Self.lua), for when RPG Dialogue isn't
+-- there to say: the stories quest chains tell, the towns and their factions, what counts as
+-- holy, playful or not a book, and the few lines History needs for it.
+---------------------------------------------------------------------------
+-- Storylines, by the quests that make them up (English titles, as the game shows them).
+-- ends: the quests that settle it (then it's seen through); otherwise it's only followed.
+-- title reads after "saw ... through to the end", "got caught up in ...", "stories about ...".
+W.SELF_STORIES = {
+  -- Eastern Kingdoms
+  { id = "echo_ridge", zone = "Elwynn Forest", title = "the kobold trouble at Echo Ridge",
+    quests = { "Kobold Camp Cleanup", "Investigate Echo Ridge" }, ends = { "Skirmish at Echo Ridge" } },
+  { id = "riverpaw", zone = "Elwynn Forest", title = "the gnoll raids on Elwynn's border",
+    quests = { "Riverpaw Gnoll Bounty", "Protect the Frontier", "Find the Lost Guards", "Discover Rolf's Fate", "Report to Thomas" },
+    ends = { "Wanted: \"Hogger\"" } },
+  { id = "young_lovers", zone = "Elwynn Forest", title = "the Maclure girl's secret romance",
+    quests = { "Young Lovers", "Speak with Gramma", "Note to William", "Collecting Kelp" }, ends = { "The Escape" } },
+  { id = "stonefield", zone = "Elwynn Forest", title = "the Stonefields' trouble with a pig",
+    quests = {}, ends = { "Princess Must Die!" } },
+  { id = "westfall_farms", zone = "Westfall", title = "the hunger on Westfall's farms",
+    quests = { "The Killing Fields", "Poor Old Blanchy", "Westfall Stew", "Goretusk Liver Pie", "The Forgotten Heirloom" } },
+  { id = "defias", zone = "Westfall", title = "the Defias trouble in Westfall",
+    quests = { "Red Leather Bandanas", "The People's Militia", "Patrolling Westfall" }, ends = { "The Defias Brotherhood" } },
+  { id = "redridge_blackrock", zone = "Redridge Mountains", title = "the Blackrock threat to Lakeshire",
+    quests = { "Blackrock Menace", "Blackrock Bounty", "Shadow Magic", "Assessing the Threat", "Solomon's Law", "Wanted: Lieutenant Fangore" } },
+  { id = "stalvan", zone = "Duskwood", title = "the old story of Stalvan Mistmantle",
+    quests = { "An Old History Book", "Mistmantle's Revenge" }, ends = { "The Legend of Stalvan", "Stalvan Mistmantle" } },
+  { id = "morbent", zone = "Duskwood", title = "the trouble with Duskwood's walking dead",
+    quests = { "The Hermit", "Seeking Wisdom", "The Daughter Who Lived", "A Daughter's Love" }, ends = { "Morbent Fel" } },
+  { id = "morladim", zone = "Duskwood", title = "the haunting of Raven Hill",
+    quests = { "The Totem of Infliction" }, ends = { "Mor'Ladim" } },
+  { id = "nesingwary", zone = "Stranglethorn Vale", title = "Nesingwary's great hunt",
+    quests = { "Welcome to the Jungle", "Raptor Mastery", "Tiger Mastery", "Panther Mastery" }, ends = { "Big Game Hunter" } },
+  { id = "coldridge", zone = "Dun Morogh", title = "the troll trouble in Coldridge Valley",
+    quests = { "Dwarven Outfitters", "Coldridge Valley Mail Delivery", "A New Threat" }, ends = { "The Troll Cave" } },
+  { id = "darrowshire", zone = "Eastern Plaguelands", title = "the ghosts of Darrowshire",
+    quests = { "Sister Pamela", "Pamela's Doll", "Uncle Carlin" }, ends = { "Battle of Darrowshire" } },
+  -- Kalimdor
+  { id = "burning_blade", zone = "Durotar", title = "the Burning Blade's hold on Durotar",
+    quests = { "Vile Familiars", "Dark Storms" }, ends = { "Burning Blade Medallion" } },
+  { id = "zalazane", zone = "Durotar", title = "the trouble with Zalazane on the Echo Isles",
+    quests = { "Minshina's Skull", "Report to Sen'jin Village" }, ends = { "Zalazane" } },
+  { id = "earthmother", zone = "Mulgore", title = "the rites of the Earthmother",
+    quests = { "Rite of Strength", "Rites of the Earthmother", "Rite of Vision", "Rite of Wisdom" }, ends = { "Journey into Thunder Bluff" } },
+  { id = "kolkar", zone = "The Barrens", title = "the Kolkar war in the Barrens",
+    quests = { "Centaur Bracers", "Kolkar Leaders" }, ends = { "Counterattack!" } },
+  { id = "mankrik", zone = "The Barrens", title = "the search for Mankrik's wife", quests = {}, ends = { "Lost in Battle" } },
+  { id = "shadowglen", zone = "Teldrassil", title = "the sickness in Shadowglen",
+    quests = { "The Balance of Nature", "Webwood Venom", "Webwood Egg", "Tenaron's Summons" }, ends = { "Crown of the Earth" } },
+  { id = "prospector", zone = "Darkshore", title = "the rescue of Prospector Remtravel",
+    quests = {}, ends = { "The Absent Minded Prospector" } },
+  { id = "althalaxx", zone = "Darkshore", title = "the business of the Tower of Althalaxx", quests = {}, ends = { "The Tower of Althalaxx" } },
+}
+
+-- A land where many jobs were done, and no chain above tells it: its troubles in a phrase.
+W.SELF_ZONE_STORY = {
+  ["Elwynn Forest"] = "the troubles of Elwynn's farms and mines", ["Westfall"] = "the troubles of Westfall's farmers",
+  ["Redridge Mountains"] = "the troubles of Lakeshire", ["Duskwood"] = "the long night over Duskwood",
+  ["Loch Modan"] = "the troubles of Loch Modan", ["Dun Morogh"] = "the troubles of Dun Morogh",
+  ["Wetlands"] = "the troubles of Menethil Harbor", ["Stranglethorn Vale"] = "the troubles of Stranglethorn",
+  ["Teldrassil"] = "the troubles of Teldrassil", ["Darkshore"] = "the troubles of Darkshore",
+  ["Durotar"] = "the troubles of Durotar", ["Mulgore"] = "the troubles of Mulgore",
+  ["Tirisfal Glades"] = "the troubles of Tirisfal", ["Silverpine Forest"] = "the troubles of Silverpine",
+  ["The Barrens"] = "the troubles of the Barrens", ["Ashenvale"] = "the troubles of Ashenvale",
+}
+
+-- A town's people, by the faction they answer to (for how well thought of you are there).
+W.SELF_TOWN_FACTION = {
+  ["Goldshire"] = "Stormwind", ["Northshire Abbey"] = "Stormwind", ["Sentinel Hill"] = "Stormwind",
+  ["Lakeshire"] = "Stormwind", ["Darkshire"] = "Stormwind", ["Stormwind City"] = "Stormwind",
+  ["Ironforge"] = "Ironforge", ["Kharanos"] = "Ironforge", ["Thelsamar"] = "Ironforge", ["Menethil Harbor"] = "Ironforge",
+  ["Darnassus"] = "Darnassus", ["Dolanaar"] = "Darnassus", ["Auberdine"] = "Darnassus", ["Astranaar"] = "Darnassus",
+  ["Orgrimmar"] = "Orgrimmar", ["Razor Hill"] = "Orgrimmar", ["The Crossroads"] = "Orgrimmar",
+  ["Thunder Bluff"] = "Thunder Bluff", ["Bloodhoof Village"] = "Thunder Bluff", ["Camp Taurajo"] = "Thunder Bluff",
+  ["Undercity"] = "Undercity", ["Brill"] = "Undercity", ["The Sepulcher"] = "Undercity", ["Tarren Mill"] = "Undercity",
+  ["Sen'jin Village"] = "Darkspear Trolls", ["Booty Bay"] = "Booty Bay", ["Ratchet"] = "Ratchet",
+  ["Gadgetzan"] = "Gadgetzan", ["Everlook"] = "Everlook",
+}
+-- Inns whose town the game doesn't say while you're inside (the subzone is the inn).
+W.SELF_INN_TOWN = {
+  ["Lion's Pride Inn"] = "Goldshire", ["Scarlet Raven Tavern"] = "Darkshire", ["Lakeshire Inn"] = "Lakeshire",
+  ["Thunderbrew Distillery"] = "Kharanos", ["Stoutlager Inn"] = "Thelsamar", ["Deepwater Tavern"] = "Menethil Harbor",
+  ["Gallows' End Tavern"] = "Brill",
+}
+
+-- NPCs who are part of the scenery, not people one gets to know.
+W.SELF_NPC_SKIP = { "Guard$", "Guardian$", "Patroller$", "Grunt$", "Sentinel$", "Deathguard", "Protector$", "Bruiser$" }
+
+-- Spells that are holy work (prayer, the Light, the spirits and the Earthmother's gifts).
+W.SELF_HOLY = { "^Holy ", "^Flash of Light", "^Flash Heal", "^Heal$", "^Greater Heal", "^Lesser Heal", "^Renew",
+  "^Prayer of ", "^Blessing of ", "^Seal of ", "^Smite", "^Resurrection", "^Redemption", "^Divine ", "^Ancestral Spirit",
+  "^Healing Wave", "^Lesser Healing Wave", "^Rejuvenation", "^Healing Touch", "^Power Word: Fortitude", "^Inner Fire" }
+-- Your own emotes that are in fun ("You dance", "You tell a joke"...), and toys.
+W.SELF_PLAYFUL_EMOTES = { "^you dance", "^you burst into dance", "joke", "silly", "^you giggle", "^you laugh", "^you tickle",
+  "^you flex", "^you chicken", "^you cackle", "^you wink", "^you moo", "^you train" }
+W.SELF_PLAYFUL_SPELLS = { ["Snowball"] = true, ["Fireworks"] = true, ["Blue Firework"] = true, ["Green Firework"] = true,
+  ["Red Firework"] = true, ["Rocket"] = true, ["Toasting Goblet"] = true, ["Party Grenade"] = true, ["Noggenfogger Elixir"] = true }
+-- Text items that aren't books.
+W.SELF_NOT_BOOKS = { ["Plain Letter"] = true, ["Letter"] = true }
+
+-- History: the trainer where it began, or the one gone back to.
+W.SAY.trainer_first = { "Had {their} first lessons from {who} in {place}", "Learned the first of {their} trade from {who} in {place}" }
+W.SAY.trainer_usual = { "Still goes back to {who} in {place} for lessons", "Takes {their} lessons from {who} in {place}" }
+
+---------------------------------------------------------------------------
 -- COMPANY (0.21.0): the group, the pet, the guild and the road alone, for the Company
 -- glance and History's people paragraph (Compose.CompanyGlance, Compose.History part 4,
 -- facts from Sources/Company.lua). Other players are only ever counted, never named

@@ -1769,6 +1769,171 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- Total RP 3 alone: no RPG Dialogue, Social Diary or Chronicle. A session of play is
+-- simulated through game events, and Auto TRP's own reading (Sources/Self.lua) has to give
+-- a profile as full as the addons would: traits, Personality, five paragraphs of History,
+-- an alignment in the Full title, real glances and statistics, and no other player named.
+do
+  local C, Self = ns.Compose, ns.Sources.Self
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB }
+  local keepChar = {}
+  for _, k in ipairs({ "self", "deeds", "names", "milestones", "finds", "casts", "lastFight", "chosenName", "changes", "watched" }) do keepChar[k] = ns.char[k] end
+  local keepZones = ns.char.seen.zones
+  local apiNames = { "UnitGUID", "UnitName", "UnitLevel", "UnitIsPlayer", "UnitExists", "UnitCanAttack", "UnitClassification",
+    "GetTitleText", "GetQuestID", "ItemTextGetItem", "ItemTextGetCreator", "CombatLogGetCurrentEventInfo", "GetPlayerTradeMoney",
+    "GetTargetTradeMoney" }
+  local keepAPI = {}
+  for _, k in ipairs(apiNames) do keepAPI[k] = _G[k] end
+  local keepState = { zone = state.zone, sub = state.sub, resting = state.resting, grouped = state.grouped }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  for k in pairs(keepChar) do ns.char[k] = nil end
+  ns.char.seen.zones = { ["Elwynn Forest"] = NOW - 20 * 86400, Westfall = NOW - 9 * 86400, ["Redridge Mountains"] = NOW - 4 * 86400,
+    Duskwood = NOW - 86400 }
+  state.zone, state.sub, state.resting = "Elwynn Forest", "Lion's Pride Inn", true
+
+  -- The unit under the cursor: the NPC in a window, the target in a fight.
+  local npc, target = {}, {}
+  UnitGUID = function(u) if u == "npc" then return npc.guid end return "Player-1-0001" end
+  UnitName = function(u) if u == "npc" then return npc.name end if u == "target" then return target.name end return "Aldric" end
+  UnitIsPlayer = function(u) return (u == "target" and target.player) or (u == "npc" and npc.player) or false end
+  local level = 2
+  UnitLevel = function(u) if u == "target" then return target.level end return level end
+  UnitExists = function(u) return u == "target" and target.name ~= nil end
+  UnitCanAttack = function() return target.name ~= nil end
+  UnitClassification = function() return target.class or "normal" end
+  local function visit(ev, name, guid) npc.name, npc.guid = name, guid or ("Creature-0-1-" .. name); event(ev) end
+
+  -- The first trainer, at the very start; then the people of Goldshire, again and again.
+  visit("TRAINER_SHOW", "Priestess Josetta")
+  level = 22
+  for _ = 1, 10 do visit("GOSSIP_SHOW", "Innkeeper Farley"); visit("QUEST_DETAIL", "Marshal Dughan") end
+  for _ = 1, 9 do visit("MERCHANT_SHOW", "Brog Hamfist"); visit("GOSSIP_SHOW", "Innkeeper Farley") end
+  visit("GOSSIP_SHOW", "Stormwind City Guard")
+  visit("QUEST_DETAIL", "Wanted Poster", "GameObject-0-1-99")
+  npc.player = true; visit("GOSSIP_SHOW", "Brannigan", "Player-9-0009"); npc.player = false
+  event("MERCHANT_CLOSED")
+
+  -- Jobs done in Goldshire: storylines, one of them seen through.
+  local qid = 500
+  local function turnIn(title, zone)
+    state.zone = zone or "Elwynn Forest"
+    qid = qid + 1
+    GetTitleText = function() return title end
+    GetQuestID = function() return qid end
+    event("QUEST_COMPLETE"); event("QUEST_TURNED_IN", qid, 0, 0)
+  end
+  for _, q in ipairs({ "Riverpaw Gnoll Bounty", "Protect the Frontier", "Find the Lost Guards", "Wanted: \"Hogger\"",
+    "Young Lovers", "Kobold Camp Cleanup", "A Fishy Peril" }) do turnIn(q) end
+  state.resting = false
+  turnIn("The Killing Fields", "Westfall"); turnIn("Poor Old Blanchy", "Westfall")
+  state.zone, state.resting = "Elwynn Forest", true
+
+  -- Kindness to strangers (and a party member), from the combat log; others' lines cost nothing.
+  local log
+  CombatLogGetCurrentEventInfo = function() return unpack(log) end
+  local function cl(sub, src, destFlags, aura)
+    log = { 0, sub, false, src, "x", 0, 0, "Player-9-0009", "Brannigan", destFlags, 0, 2061, "Flash Heal", 2, aura }
+    event("COMBAT_LOG_EVENT_UNFILTERED")
+  end
+  for _ = 1, 400 do cl("SPELL_HEAL", "Player-1-0001", 0x408) end
+  for _ = 1, 40 do cl("SPELL_HEAL", "Player-1-0001", 0x402) end
+  for _ = 1, 12 do cl("SPELL_AURA_APPLIED", "Player-1-0001", 0x408, "BUFF") end
+  for _ = 1, 3 do cl("SPELL_RESURRECT", "Player-1-0001", 0x408) end
+  for _ = 1, 50 do cl("SPELL_HEAL", "Player-7-0007", 0x408) end
+  local n = ns.char.self.n
+  check(n.strangerHeals == 400 and n.heals == 40 and n.strangerBuffs == 12 and n.rez == 3,
+    "the player's own heals, buffs and resurrections on others are counted, strangers apart: "
+    .. n.strangerHeals .. "/" .. n.heals .. "/" .. n.strangerBuffs .. "/" .. n.rez)
+
+  -- Fights: elites and stronger foes are brave; a lowbie of the other side is a gank.
+  state.resting = false
+  for _ = 1, 30 do target = { name = "Defias Pillager", level = 25, class = "elite" }; event("PLAYER_REGEN_DISABLED") end
+  target = { name = "Kestrel", level = 9, player = true }; event("PLAYER_REGEN_DISABLED")
+  target = {}
+  state.resting = true
+  check(n.hardFights == 30 and n.ganks == 1, "fights are read by who they're against: " .. n.hardFights .. "/" .. n.ganks)
+
+  -- Words and gestures, counted (whose, not what); a book, and a player's letter left out.
+  for _ = 1, 20 do event("CHAT_MSG_SAY", "well met", "Aldric") end
+  for _ = 1, 5 do event("CHAT_MSG_SAY", "hello Aldric", "Kestrel") end
+  for _ = 1, 4 do event("CHAT_MSG_TEXT_EMOTE", "You dance with joy.") end
+  for _ = 1, 3 do event("CHAT_MSG_TEXT_EMOTE", "You pray to the Gods.") end
+  event("CHAT_MSG_TEXT_EMOTE", "Kestrel dances.")
+  check(n.says == 20 and n.prayers == 3 and n.playful == 4, "your own /say, prayers and dances are counted, no one else's")
+  ItemTextGetItem = function() return "The Kaldorei and the Well of Eternity" end
+  ItemTextGetCreator = function() return nil end
+  event("ITEM_TEXT_BEGIN")
+  ItemTextGetItem = function() return "A note for you" end
+  ItemTextGetCreator = function() return "Mirelle" end
+  event("ITEM_TEXT_BEGIN")
+  check(ns.char.self.books["The Kaldorei and the Well of Eternity"] and not ns.char.self.books["A note for you"],
+    "books are kept, a player's letter isn't")
+  -- A gift: something handed over for nothing back.
+  GetPlayerTradeMoney, GetTargetTradeMoney = function() return 50000 end, function() return 0 end
+  event("TRADE_ACCEPT_UPDATE", 1, 1)
+  check(n.gifts == 1, "a gift in a trade is counted")
+
+  -- Five hours resting in Goldshire, the last of them in company.
+  for i = 1, 300 do state.grouped = i > 240; Self.Tick(60) end
+  state.grouped = false
+  check(ns.char.self.towns["Goldshire"] and ns.char.self.towns["Goldshire"].min >= 300 and ns.char.self.towns["Goldshire"].quests == 7,
+    "time and jobs in Goldshire count for Goldshire, inn and all")
+
+  C.SourcesChanged()
+  local sh = C.Sheet()
+  local own = C.Persona()
+  check(own and own.own, "with Total RP 3 alone, the character is read from what the player does")
+  check(own.npcs == nil and own.friends[1] and own.friends[1].name == "Innkeeper Farley" and own.friends[2].name == "Marshal Dughan",
+    "the NPCs dealt with most are the people: " .. tostring(own.friends[1] and own.friends[1].name))
+  local tr = {}
+  for _, t in ipairs(sh.traits or {}) do tr[t.LT] = t.V2 end
+  check(#(sh.traits or {}) >= 5 and (tr.Kind or 0) >= 17 and (tr.Good or 0) >= 14 and (tr.Brave or 0) >= 14,
+    "the trait bars come from what was done (kind to strangers, brave against elites): Kind " .. tostring(tr.Kind)
+    .. ", Good " .. tostring(tr.Good) .. ", Brave " .. tostring(tr.Brave) .. ", " .. #(sh.traits or {}) .. " bars")
+  local b = sh.bearing or ""
+  check(b:find("Aldric is kind", 1, true) and b:find("Kaldorei and the Well of Eternity", 1, true)
+    and b:find("gnoll raids on Elwynn's border", 1, true),
+    "Personality: temperament from behaviour, the book read and the stories followed: " .. b)
+  local h = sh.history or ""
+  local paras = 1
+  for _ in h:gmatch("\n\n") do paras = paras + 1 end
+  check(paras >= 5, "History has all its paragraphs: " .. paras)
+  check(h:find("Priestess Josetta in Elwynn Forest", 1, true), "History tells where the training began")
+  check(h:find("saw the gnoll raids on Elwynn's border through to the end", 1, true), "a storyline seen through is news")
+  check(h:find("Innkeeper Farley", 1, true) and h:find("liked in Goldshire", 1, true), "History names the people and the town")
+  check(sh.fulltitle == "Lightsworn, Friend of Goldshire", "the Full title has alignment and standing: " .. tostring(sh.fulltitle))
+  check(sh.glances.company.TI == "Local Ties" and sh.glances.company.TX:find("Goldshire", 1, true),
+    "Company: local ties: " .. sh.glances.company.TX)
+  check(sh.glances.lately.TI ~= "Lately" or not sh.glances.lately.TX:find("around"), "Lately has news: " .. sh.glances.lately.TX)
+  check(sh.stats.books == "1" and sh.stats.jobs == "9" and sh.stats.names:find("Hogger's Bane", 1, true)
+    and sh.stats.crafts ~= "None yet", "the statistics fill: books " .. sh.stats.books .. ", jobs " .. sh.stats.jobs .. ", names " .. sh.stats.names)
+  local all = {}
+  local function gather(v) if type(v) == "string" then all[#all + 1] = v elseif type(v) == "table" then for _, x in pairs(v) do gather(x) end end end
+  gather(sh)
+  local text = table.concat(all, "\n")
+  check(not text:find("Brannigan") and not text:find("Kestrel") and not text:find("Mirelle"), "no other player is named anywhere")
+  if os.getenv("SAMPLES") then
+    print("\n=== Total RP 3 alone ===\n" .. sh.title .. " / " .. sh.fulltitle .. "\n\n-- Personality --\n" .. b .. "\n\n-- History --\n" .. h)
+    for _, k in ipairs({ "mood", "lately", "company", "ambition", "marks" }) do print(k .. ": " .. sh.glances[k].TI .. ": " .. sh.glances[k].TX) end
+    local bars = {}
+    for _, t in ipairs(sh.traits) do bars[#bars + 1] = t.LT .. "/" .. t.RT .. " " .. t.V2 end
+    print("traits: " .. table.concat(bars, ", "))
+  end
+
+  -- With RPG Dialogue back, its choices lead and Auto TRP's own reading only fills gaps.
+  RPGDialogueCharDB = keep[1]
+  C.SourcesChanged(); C.Refresh()
+  check(not C.Persona().own and C.FullTitle() == "Lightsworn, Friend of Goldshire" and C.Persona().friends[1].name == "Marshal Dughan",
+    "with RPG Dialogue, its reading comes first")
+
+  for _, k in ipairs(apiNames) do _G[k] = keepAPI[k] end
+  for k, v in pairs(keepState) do state[k] = v end
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  for _, k in ipairs({ "self", "deeds", "names", "milestones", "finds", "casts", "lastFight", "chosenName", "changes", "watched" }) do ns.char[k] = keepChar[k] end
+  ns.char.seen.zones = keepZones
+  C.SourcesChanged(); C.Refresh()
+end
+
 -- Every option at once, from the slash command (the panel's buttons call the same).
 do
   local before = {}

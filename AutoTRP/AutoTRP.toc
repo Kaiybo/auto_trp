@@ -1,6 +1,6 @@
 ## Interface: 16001, 16002
 ## Title: Auto TRP |cff8a8a8a0.21.0|r
-## Notes: Keeps your Total RP 3 profile in step with your story: RPG Dialogue, Social Diary and Chronicle.
+## Notes: Keeps your Total RP 3 profile in step with your story, from what you do in the game. RPG Dialogue, Social Diary and Chronicle add more.
 ## Author: Kaiybo
 ## Version: 0.21.0
 ## Dependencies: totalRP3
@@ -23,6 +23,7 @@ Sources\RPGDialogue.lua
 Sources\SocialDiary.lua
 Sources\Chronicle.lua
 Sources\Deeds.lua
+Sources\Self.lua
 Sources\Company.lua
 Sources\Goals.lua
 Mood.lua

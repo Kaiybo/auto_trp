@@ -385,7 +385,7 @@ end
 -- their race and class. Gives the pools to look in, most particular first.
 local function temperKeys()
   local keys = {}
-  local rpgd = ns.cache and ns.cache.rpgd
+  local rpgd = ns.Compose and ns.cache and ns.Compose.Persona(ns.cache)
   for _, t in ipairs(rpgd and rpgd.dominant or {}) do keys[#keys + 1] = t end
   local race = select(2, U.Call(UnitRace, "player"))
   local class = select(2, U.Call(UnitClass, "player"))
