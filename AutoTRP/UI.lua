@@ -72,10 +72,7 @@ function UI.Update(force, fresh, mood)
   if only.history then lastSlow, slowDue = now, false end
   if force then
     if #changed > 0 then
-      local names = {}
-      for i, k in ipairs(changed) do names[i] = TRP.LABELS[k] or k end
-      table.sort(names)
-      ns.Print("Updated: " .. table.concat(names, ", ") .. ".")
+      ns.Print("Updated " .. TRP.Describe(changed) .. ".")
     else
       ns.Print("Your profile is already up to date.")
     end
@@ -240,6 +237,7 @@ ns.Listen("LOGIN", function()
   ns.After(6, function() firstRun(0) end)
   ns.Ticker(ns.Mood.TICK, function()
     ns.Mood.Road(ns.Mood.TICK)
+    ns.World.CountTime(ns.Mood.TICK)
     if U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") then return end
     ns.Compose.Refresh()
     ns.Mood.Watch()
@@ -268,6 +266,15 @@ local STATUS_WORDS = { auto = "|cff80ff80written by Auto TRP|r", yours = "|cffff
 local function glanceText(g)
   if not g then return "(nothing to say yet)" end
   return g.TI .. ": " .. g.TX
+end
+
+-- Total RP 3's About markup, shown the way a reader sees it: colours as colours, headings in
+-- gold, rather than the raw {col:...} tags.
+function UI.Render(text)
+  if type(text) ~= "string" then return text end
+  text = text:gsub("{col:(%x%x%x%x%x%x)}", "|cff%1"):gsub("{/col}", "|r")
+  text = text:gsub("{h%d}(.-){/h%d}", "|cffffd100%1|r")
+  return text
 end
 
 function UI.PreviewText()
@@ -312,8 +319,33 @@ function UI.PreviewText()
   add("bearing", s.bearing)
   add("history", s.history)
   add("physical", s.physical)
+  -- The statistics as one block, one line each, the way Total RP 3 lists them; the ones with
+  -- nothing to count yet gathered at the end rather than a dozen "(nothing yet)"s.
   if s.stats then
-    for _, st in ipairs(ns.Compose.STATS) do if not st.retired then add("stat_" .. st.key, s.stats[st.key]) end end
+    -- A status said once in the heading when they all share it, else beside each that differs.
+    local shared
+    for _, st in ipairs(ns.Compose.STATS) do
+      if not st.retired then
+        local status = TRP.Status("stat_" .. st.key)
+        if shared == nil then shared = status elseif shared ~= status then shared = false end
+      end
+    end
+    out[#out + 1] = "|cffc8a165Statistics|r" .. (shared and ("  " .. STATUS_WORDS[shared]) or "")
+    local empty = {}
+    for _, st in ipairs(ns.Compose.STATS) do
+      if not st.retired then
+        local key, v = "stat_" .. st.key, s.stats[st.key]
+        local status = TRP.Status(key)
+        if v and v ~= "" then
+          local note = (shared or status == "auto") and "" or ("  " .. STATUS_WORDS[status])
+          out[#out + 1] = "  " .. st.label .. ": " .. v .. note
+        else
+          empty[#empty + 1] = st.label:lower()
+        end
+      end
+    end
+    if #empty > 0 then out[#out + 1] = "  |cff808080Nothing to count yet: " .. U.Join(empty) .. ".|r" end
+    out[#out + 1] = ""
   end
   return table.concat(out, "\n")
 end
@@ -356,7 +388,7 @@ function UI.Preview()
     refresh:SetText("Refresh")
     refresh:SetScript("OnClick", function() f.Refresh() end)
     function f.Refresh()
-      f.body = UI.PreviewText()
+      f.body = UI.Render(UI.PreviewText())
       f.text:SetText(f.body)
       f.text:SetCursorPosition(0)
     end
@@ -401,7 +433,7 @@ local OPTIONS = {
   { path = { "sources", "chronicle" }, label = "Chronicle" },
   { head = "Details" },
   { path = { "diaryExcerpt" }, label = "Quote your latest diary entry in History" },
-  { path = { "richText" }, label = "Colour quotes and item names on the About page" },
+  { path = { "richText" }, label = "Colour quotes and item names, and head History's paragraphs, on the About page" },
   { path = { "chronicleGoals" }, label = "Share your open Chronicle goal as an ambition" },
   { path = { "nameFriends" }, label = "Name the players you marked as friends in Social Diary" },
   { path = { "pauseOOC" }, label = "Pause Currently and glances while out of character" },
@@ -670,8 +702,9 @@ local HELP = {
   "|cffffd100/atrp days|r: the mood journal, the last week of feelings and places",
   "|cffffd100/atrp names|r: every name you've earned, and what for",
   "|cffffd100/atrp spells|r: the spells and abilities you cast most",
+  "|cffffd100/atrp places|r: the lands you've spent the most time in",
   "|cffffd100/atrp name <number|auto>|r: wear one of your earned names (|cffffd100auto|r: the greatest deed's)",
-  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, books)",
+  "Fields: currently, title, fulltitle, nickname, motto, icon, residence, birthplace, relationship, ooc, traits, bearing, history, physical, glance_mood, glance_lately, glance_company, glance_ambition, glance_marks, stat_<name> (deaths, lands, road, flights, dungeons, foes, rares, slain, jobs, wealth, crafts, standing, names, spell, place, books)",
 }
 
 -- Earned names: list them, or choose which to wear.
@@ -859,6 +892,16 @@ SlashCmdList.AUTOTRP = function(msg)
       for i, s in ipairs(top) do parts[i] = ("%s %d"):format(s.name, s.n) end
       local since = ns.char.casts and ns.char.casts.since
       ns.Print("Cast most" .. (since and date and (" since " .. date("%d %b %Y", since)) or "") .. ": " .. table.concat(parts, ", ") .. ".")
+    end
+  elseif cmd == "places" then
+    local top = ns.Compose.TopPlaces(5)
+    if #top == 0 then
+      ns.Print("No time counted yet. From now on Auto TRP notes how long you spend in each land (not while away or on a flight).")
+    else
+      local parts = {}
+      for i, p in ipairs(top) do parts[i] = p.name .. " " .. ns.Compose.Duration(p.s) end
+      local since = ns.char.haunts and ns.char.haunts.since
+      ns.Print("Time spent" .. (since and date and (" since " .. date("%d %b %Y", since)) or "") .. ": " .. table.concat(parts, ", ") .. ".")
     end
   elseif cmd == "name" then
     UI.ChooseName(arg)

@@ -427,6 +427,33 @@ function World.CountCast(name, spellID)
   return true
 end
 
+-- Time spent in each land, for where the character spends their days (History and the
+-- Statistics). Counted on the mood tick; nothing while away from the keyboard or on a
+-- flight, and a long gap (a loading screen, a stall) counts as one tick at most.
+function World.CountTime(seconds, where)
+  if not ns.char or type(seconds) ~= "number" or seconds <= 0 then return false end
+  where = where or (ns.cache and ns.cache.world and ns.cache.world.zone) or U.Plain(call("GetRealZoneText"))
+  if type(where) ~= "string" or where == "" then return false end
+  if call("UnitIsAFK", "player") or call("UnitOnTaxi", "player") then return false end
+  local h = ns.char.haunts
+  if type(h) ~= "table" then h = { since = U.Now(), t = {} }; ns.char.haunts = h end
+  if type(h.t) ~= "table" then h.t = {} end
+  h.t[where] = (h.t[where] or 0) + math.min(seconds, 120)
+  return true
+end
+
+-- Flights taken, counted once each: control is lost when a flight starts, so look a moment
+-- later whether it was a flight, and not again until control comes back.
+local flying = false
+function World.CountFlight()
+  if not ns.char or flying or not call("UnitOnTaxi", "player") then return false end
+  flying = true
+  ns.char.flights = (tonumber(ns.char.flights) or 0) + 1
+  return true
+end
+ns.On("PLAYER_CONTROL_LOST", function() ns.After(1, World.CountFlight) end)
+ns.On("PLAYER_CONTROL_GAINED", function() flying = false end)
+
 ns.OnUnit("UNIT_SPELLCAST_SUCCEEDED", "player", function(_, _, _, spellID)
   local name = spellName(spellID)
   if type(name) ~= "string" then return end

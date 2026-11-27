@@ -176,6 +176,13 @@ local function lowerFirst(s)
   return s
 end
 
+-- "the Scarlet Raven Tavern", "Stormwind City", "the Barrens".
+local function placeName(n)
+  if n:find("^The ") then return U.Mid(n) end
+  if ns.World.IsInn(n) then return "the " .. n end
+  return n
+end
+
 function Compose.LatelyGlance()
   local c = ns.cache
   local rpgd, chron, world = c.rpgd, c.chronicle, c.world
@@ -186,8 +193,10 @@ function Compose.LatelyGlance()
   local cdeath = chron and chron.deaths[1]
   if cdeath and (not death or cdeath.t > death.t) then death = cdeath end
   if death and within(death.t, 2 * 86400) then
+    -- Fresh, it's still with them; a day or two on, they're plainly up and about again,
+    -- which is what a reader sees in Currently and the mood.
     local tx = "Was badly hurt" .. (death.killer and (" by " .. death.killer) or "") .. (death.zone and (" in " .. death.zone) or "")
-      .. (within(death.t, 3 * 3600) and ", within the last few hours" or ", a day or two ago")
+      .. (within(death.t, 3 * 3600) and ", within the last few hours" or U.Pron(" a day or two ago, but is back on {their} feet now"))
     add(death.t, 3, { TI = "Hurt", TX = tx .. ".", IC = "Spell_Holy_Resurrection" })
   end
   local boss = Compose.Bosses(c)[1]
@@ -210,6 +219,12 @@ function Compose.LatelyGlance()
   if fresh then
     add(freshT, 2, { TI = "A Name Earned", IC = fresh.icon or "INV_Misc_Note_04",
       TX = U.Pron(say("newname", { nick = "\"" .. fresh.nick .. "\"" }, fresh.key)) })
+  end
+  -- A new home ground: more of their days in a land than the one before it
+  local hg = Compose.NoteHomeGround()
+  if hg and hg.prev and within(hg.t, 2 * 86400) then
+    add(hg.t, 1, { TI = "New Haunts", IC = "INV_Misc_Map_02",
+      TX = U.Pron(say("newground", { place = placeName(hg.name), was = placeName(hg.prev) }, hg.t)) })
   end
   -- A fight just now
   local fight = ns.char and ns.char.lastFight
@@ -504,6 +519,15 @@ local function paragraph(list)
   return prose(table.concat(out, " "))
 end
 
+-- A small heading over a paragraph ("{h3}Deeds{/h3}"), so a long History can be read at a
+-- glance. Total RP 3 renders the tags; the "richText" setting leaves them out.
+local function headed(title, para)
+  if not para then return nil end
+  if ns.db and ns.db.richText == false then return para end
+  return "{h3}" .. title .. "{/h3}\n" .. para
+end
+Compose.Headed = headed
+
 local function pages(paras)
   local out = {}
   for i = 1, table.maxn(paras) do if paras[i] then out[#out + 1] = paras[i] end end
@@ -573,6 +597,56 @@ function Compose.TopSpells(k)
   return list
 end
 
+-- The lands the most time has been spent in: { { name, s (seconds) }, ... } most first.
+function Compose.TopPlaces(k)
+  local h = ns.char and ns.char.haunts
+  local list = {}
+  for name, sec in pairs(h and h.t or {}) do
+    if type(sec) == "number" and sec > 0 then list[#list + 1] = { name = name, s = sec } end
+  end
+  table.sort(list, function(a, b) if a.s ~= b.s then return a.s > b.s end return a.name < b.name end)
+  for i = #list, (k or #list) + 1, -1 do list[i] = nil end
+  return list
+end
+
+-- "40 minutes", "an hour", "14 hours", "3 days".
+function Compose.Duration(sec)
+  local m = math.floor(sec / 60)
+  if m < 1 then return "under a minute" end
+  if m < 60 then return (m == 1 and "a minute" or (m .. " minutes")) end
+  local h = math.floor(m / 60)
+  if h < 48 then return h == 1 and "an hour" or (h .. " hours") end
+  return math.floor(h / 24) .. " days"
+end
+
+-- Where they spend their days, once one land clearly holds more of them than any other:
+-- at least three hours there, and a quarter of all the time counted.
+function Compose.HomeGround()
+  local top = Compose.TopPlaces()
+  local first = top[1]
+  if not first or first.s < 3 * 3600 then return nil end
+  local all = 0
+  for _, p in ipairs(top) do all = all + p.s end
+  if first.s < all / 4 then return nil end
+  if top[2] and top[2].s > first.s * 0.9 then return nil end
+  return first.name
+end
+
+-- The home ground, remembered: { name, t } with when it last changed. The first one found
+-- is taken in quietly (t = 1); one that takes over from another later is news for Lately.
+function Compose.NoteHomeGround()
+  if not ns.char then return nil end
+  local now = Compose.HomeGround()
+  if not now then return ns.char.homeGround end
+  local was = ns.char.homeGround
+  if type(was) ~= "table" or not was.name then
+    ns.char.homeGround = { name = now, t = 1 }
+  elseif was.name ~= now then
+    ns.char.homeGround = { name = now, t = U.Now(), prev = was.name }
+  end
+  return ns.char.homeGround
+end
+
 -- The most cast spell, said plainly, once it has been cast often enough to mean something.
 function Compose.FavouriteSpell()
   local top = Compose.TopSpells(1)[1]
@@ -610,7 +684,14 @@ function Compose.Bearing()
 
   -- Beliefs, and where they have shifted
   local views = {}
-  local ops = opinions(rpgd, 3)
+  -- A belief the temperament line has already said ("keeps to the Light", then "keeps
+  -- faith in the Light") is left out rather than read twice.
+  local said = table.concat(first, " "):lower()
+  local ops = {}
+  for _, op in ipairs(opinions(rpgd, 4)) do
+    local topic = op:match("(the %u[%w']+)$") or op:match("(%u[%w']+)$")
+    if #ops < 3 and not (topic and said:find(topic:lower(), 1, true)) then ops[#ops + 1] = op end
+  end
   if #ops > 0 then views[#views + 1] = U.Join(ops) end
   for _, o in ipairs(rpgd.opinions) do
     local topic = o.topic ~= "peace" and topicName(o.topic)
@@ -700,12 +781,6 @@ local function profWord(rank)
   return "an apprentice"
 end
 
--- "the Scarlet Raven Tavern", "Stormwind City", "the Barrens".
-local function placeName(n)
-  if n:find("^The ") then return U.Mid(n) end
-  if ns.World.IsInn(n) then return "the " .. n end
-  return n
-end
 
 function Compose.History()
   local c = ns.cache
@@ -731,7 +806,7 @@ function Compose.History()
       roots[#roots + 1] = name .. " is " .. what .. (home and (" who started out in " .. home) or "")
     end
   end
-  paras[#paras + 1] = paragraph(roots)
+  paras[#paras + 1] = headed("Beginnings", paragraph(roots))
 
   -- 2. The road so far
   local road = {}
@@ -764,6 +839,8 @@ function Compose.History()
     end
     if #steps > 0 then road[#road + 1] = "Was made " .. U.Join(steps) end
   end
+  local ground = Compose.HomeGround()
+  if ground then road[#road + 1] = say("homeground", { place = placeName(ground) }, ground) end
   if rpgd and rpgd.homeInn then
     local s = "Home these days is " .. placeName(rpgd.homeInn)
     if rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and within(rpgd.homeSince, 14 * 86400) then
@@ -771,7 +848,7 @@ function Compose.History()
     end
     road[#road + 1] = s
   end
-  paras[#paras + 1] = paragraph(road)
+  paras[#paras + 1] = headed("The Road So Far", paragraph(road))
 
   -- 3. What they've done, and the name it earned them. (Deaths and kills are counted in the
   -- Statistics, not told here.)
@@ -787,16 +864,32 @@ function Compose.History()
     end
   end
   for _, s in ipairs(earned or {}) do deeds[#deeds + 1] = s end
-  if rpgd then
-    local places = {}
-    for k = 1, math.min(3, #rpgd.cleared) do places[k] = U.Mid(rpgd.cleared[k].name) end
-    if #places > 0 then deeds[#deeds + 1] = say("delved", { list = U.Join(places) }, places[1]) end
-  end
   local bosses = Compose.Bosses(c)
   local latest = bosses[1]
   local named = earnedKey and latest and earnedKey == "boss:" .. latest.name
+  local bossTold = named or #bosses >= 3
+  if rpgd then
+    local places, joined = {}, nil
+    for k = 1, math.min(3, #rpgd.cleared) do places[k] = U.Mid(rpgd.cleared[k].name) end
+    if #places > 0 then
+      local line = say("delved", { list = U.Join(places) }, places[1])
+      -- One master, felled in a place just named: one sentence, not two.
+      if latest and not bossTold and latest.where then
+        local where = U.Mid(latest.where):lower()
+        for _, p in ipairs(places) do
+          if p:lower() == where then joined = true end
+        end
+        if joined then
+          local here = #places == 1 and "there" or ("in " .. U.Mid(latest.where))
+          line = say("delvedboss", { list = U.Join(places), who = latest.name, here = here }, latest.name)
+          bossTold = true
+        end
+      end
+      deeds[#deeds + 1] = line
+    end
+  end
   if #bosses >= 3 then deeds[#deeds + 1] = say("bosses", { n = U.Number(#bosses), who = latest.name }, latest.name)
-  elseif latest and not named then deeds[#deeds + 1] = say("boss", { who = latest.name, where = "" }, latest.name) end
+  elseif latest and not bossTold then deeds[#deeds + 1] = say("boss", { who = latest.name, where = "" }, latest.name) end
   if chron and chron.rares >= 5 then deeds[#deeds + 1] = say("rares", { n = U.Number(chron.rares) }) end
   local questsDone = Compose.QuestsDone(c)
   if questsDone >= 25 then deeds[#deeds + 1] = say("jobs", { n = U.Roughly(questsDone) }) end
@@ -817,7 +910,7 @@ function Compose.History()
     end
     deeds[#deeds + 1] = say("finds", { list = U.Join(items) }, finds[#finds].item)
   end
-  paras[#paras + 1] = paragraph(deeds)
+  paras[#paras + 1] = headed("Deeds", paragraph(deeds))
 
   -- 4. The people, friends and otherwise
   local people = {}
@@ -886,7 +979,7 @@ function Compose.History()
   if sd and #sd.foes > 0 then
     people[#people + 1] = "Has made " .. (#sd.foes == 1 and "an enemy" or (U.Number(#sd.foes) .. " enemies")) .. " on the road"
   end
-  paras[#paras + 1] = paragraph(people)
+  paras[#paras + 1] = headed("Friends and Foes", paragraph(people))
 
   -- 5. How things stand now
   local now = {}
@@ -904,7 +997,7 @@ function Compose.History()
   if rpgd and ns.db.diaryExcerpt and rpgd.lastEntry and rpgd.lastEntry.text then
     now[#now + 1] = "{their} latest journal entry reads " .. quote(U.Truncate(rpgd.lastEntry.text, 280))
   end
-  paras[#paras + 1] = paragraph(now)
+  paras[#paras + 1] = headed("These Days", paragraph(now))
 
   return pages(paras)
 end
@@ -912,6 +1005,17 @@ end
 ---------------------------------------------------------------------------
 -- About: Physical, from gear (live, or Chronicle's snapshot) and physique (stats)
 ---------------------------------------------------------------------------
+-- Whether two descriptions lean on the same word ("calm-faced" and "Calm-eyed"): any word
+-- of five letters or more, or its first five, shared between them.
+local ECHO_SKIP = { their = true, there = true, about = true, other = true, which = true, every = true }
+function Compose.Echoes(a, b)
+  if type(a) ~= "string" or type(b) ~= "string" then return false end
+  local stems = {}
+  for w in b:lower():gmatch("%a+") do if #w >= 4 and not ECHO_SKIP[w] then stems[w:sub(1, 5)] = true end end
+  for w in a:lower():gmatch("%a+") do if #w >= 4 and not ECHO_SKIP[w] and stems[w:sub(1, 5)] then return true end end
+  return false
+end
+
 local function physique(c)
   local stats = (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.stats) or c.world.stats or {}
   local best, bestV
@@ -936,10 +1040,16 @@ function Compose.Physical()
   -- What they wear and carry, by name, and what their class keeps in the bags
   local dress = {}
   local cl = U.BackedList(noGear(W.CLASS_LOOK[world.class or ""]), world)
-  if #cl > 0 then dress[#dress + 1] = U.Pick(cl, seed("classlook")) end
-  dress[#dress + 1] = kit(world, false, itemName)
+  if #cl > 0 then
+    -- Not one that echoes the build just given ("calm-faced", then "Calm-eyed").
+    local fresh = {}
+    for _, l in ipairs(cl) do if not Compose.Echoes(l, build) then fresh[#fresh + 1] = l end end
+    if #fresh > 0 then dress[#dress + 1] = U.Pick(fresh, seed("classlook")) end
+  end
+  local worn = kit(world, false, itemName)
+  dress[#dress + 1] = worn
   local finest = world.gear and world.gear.finest
-  if finest and finest.name and (finest.quality or 0) >= 4 then
+  if finest and finest.name and (finest.quality or 0) >= 4 and not (worn or ""):find(finest.name, 1, true) then
     dress[#dress + 1] = "The finest piece is " .. itemName(finest.name, finest.quality)
   end
   local bag = {}
@@ -971,6 +1081,7 @@ Compose.STATS = {
   { key = "deaths", label = "Deaths", icon = "Ability_Rogue_FeignDeath" },
   { key = "lands", label = "Lands explored", icon = "INV_Misc_Map_01" },
   { key = "road", label = "Days on the road", icon = "INV_Misc_PocketWatch_01" },
+  { key = "flights", label = "Flights taken", icon = "Ability_Mount_Gryphon_01" },
   { key = "dungeons", label = "Dungeons", icon = "INV_Misc_Key_14" },
   { key = "foes", label = "Named foes felled", icon = "INV_Misc_Head_Dragon_01" },
   { key = "rares", label = "Rare beasts", icon = "Ability_Hunter_BeastCall" },
@@ -981,6 +1092,7 @@ Compose.STATS = {
   { key = "standing", label = "Best standing", icon = "INV_BannerPVP_02" },
   { key = "names", label = "Names earned", icon = "INV_Misc_Note_04" },
   { key = "spell", label = "Most cast spell", icon = "Spell_Holy_MagicalSentry" },
+  { key = "place", label = "Most time spent", icon = "INV_Misc_Map_02" },
   -- Retired: they meant little to anyone reading the profile. Kept so that what an
   -- earlier version wrote is taken off again (they never have a value now).
   { key = "met", label = "People met", icon = "Spell_Holy_PrayerOfSpirit", retired = true },
@@ -1023,6 +1135,8 @@ function Compose.Stats()
   if lands > 0 then out.lands = figure(lands) end
   local days = roadDays(c)
   if days and days > 0 then out.road = figure(days) end
+  local flights = ns.char and tonumber(ns.char.flights) or 0
+  if flights > 0 then out.flights = figure(flights) end
   local dungeons = math.max(chron and chron.dungeons or 0, rpgd and #rpgd.cleared or 0)
   if dungeons > 0 then out.dungeons = figure(dungeons) end
   local felled = #Compose.Bosses(c)
@@ -1056,6 +1170,9 @@ function Compose.Stats()
   -- The most cast spell, with how many times ("Flash Heal, 1,240 times").
   local top = Compose.TopSpells(1)[1]
   if top and top.n >= 10 then out.spell = top.name .. ", " .. figure(top.n) .. " times" end
+  -- The land most time has been spent in ("Westfall, 14 hours").
+  local place = Compose.TopPlaces(1)[1]
+  if place and place.s >= 3600 then out.place = place.name .. ", " .. Compose.Duration(place.s) end
   return out
 end
 

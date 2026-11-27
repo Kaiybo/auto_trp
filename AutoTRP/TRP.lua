@@ -393,6 +393,36 @@ TRP.LABELS = {
 }
 for _, st in ipairs(ns.Compose.STATS) do TRP.LABELS["stat_" .. st.key] = "Stats: " .. st.label:lower() end
 
+-- A list of fields, said the way a person would: in profile order, with the glances and the
+-- statistics each gathered into one ("Currently, About: History, the mood and lately glances
+-- and three statistics (deaths, crafts and wealth)").
+function TRP.Describe(keys)
+  local set = {}
+  for _, k in ipairs(keys or {}) do set[k] = true end
+  local out, glances, stats = {}, {}, {}
+  for _, k in ipairs(TRP.ORDER) do
+    if set[k] then
+      set[k] = nil
+      local g = k:match("^glance_(.+)$")
+      local st = k:match("^stat_(.+)$")
+      if g then glances[#glances + 1] = g
+      elseif st then stats[#stats + 1] = (TRP.LABELS[k] or st):gsub("^Stats: ", "")
+      else out[#out + 1] = TRP.LABELS[k] or k end
+    end
+  end
+  for k in pairs(set) do out[#out + 1] = TRP.LABELS[k] or k end   -- anything not in the order
+  if #glances > 0 then
+    out[#out + 1] = (#glances == 1 and ("the " .. glances[1] .. " glance")
+      or (#glances == 5 and "all five glances") or ("the " .. ns.U.Join(glances) .. " glances"))
+  end
+  if #stats > 0 then
+    out[#out + 1] = #stats == 1 and ("the " .. stats[1] .. " statistic")
+      or (#stats > 4 and (ns.U.Number(#stats) .. " statistics"))
+      or (ns.U.Number(#stats) .. " statistics (" .. ns.U.Join(stats) .. ")")
+  end
+  return ns.U.Join(out)
+end
+
 -- The order fields are written in, so new entries land in Total RP 3 the same way every time
 -- (nickname and motto before the statistics, the statistics in their own order).
 TRP.ORDER = { "currently", "title", "fulltitle", "nickname", "motto", "icon", "residence", "birthplace", "relationship",
@@ -620,10 +650,7 @@ function TRP.Apply(values, only)
   end
   if next(dirty) then fire(id, dirty) end
   if #left > 0 and not ns.db.quiet then
-    local names = {}
-    for i, key in ipairs(left) do names[i] = TRP.LABELS[key] or key end
-    table.sort(names)
-    ns.Print("Leaving your own words alone in: " .. table.concat(names, ", ")
+    ns.Print("Leaving your own words alone in " .. TRP.Describe(left)
       .. ". |cffffd100/atrp claim <field>|r (or |cffffd100/atrp claim all|r) hands them to Auto TRP.")
   end
   return changed

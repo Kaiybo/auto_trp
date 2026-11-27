@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.21.0 (2026-11-26): Home Ground
+
+- **Where the days go.** Auto TRP now notes how long your character spends in each land (counted every half minute; not while you're away from the keyboard or on a flight, and a loading screen never counts as more than one tick).
+- A new statistic, *Most time spent*: "Westfall, 14 hours". It has its own switch and appears after an hour in one place.
+- History says it once one land clearly holds the most of your time (at least three hours, a quarter of all of it, and well ahead of the next): "Spends more of her days in Westfall than anywhere else."
+- The *Lately* glance notices when another land takes over (for a couple of days): "Lately he's been seen more in Duskwood than in Westfall." The first land found is taken in quietly.
+- A new statistic, *Flights taken*: every flight from a flight master, counted once, with its own switch. It sits after *Days on the road*.
+- `/atrp places` lists the five lands you've spent the most time in, and since when.
+- **Plainer chat lines.** "Updated Currently, About: History and two statistics (deaths and wealth)." instead of "Updated: About: History, Currently, Stats: deaths, Stats: wealth.", in the order the profile reads, with the glances and statistics gathered together. The same for the fields left alone because they're yours.
+- *Lately* no longer leaves a death hanging: a day or two on, it says the character is back on their feet, which matches what Currently and the mood show.
+- **Easier to read.** History's five paragraphs have small headings (*Beginnings*, *The Road So Far*, *Deeds*, *Friends and Foes*, *These Days*), so a reader can find the part they want. Switching off coloured text in the settings leaves them out too.
+- The preview shows colours and headings as a reader sees them, not as `{col:...}` tags.
+- **A tidier preview.** The statistics read as one block, a line each, the way Total RP 3 lists them, with the ones that have nothing to count yet gathered into one line at the end instead of a dozen "(nothing yet)"s.
+- **Reads as one piece.** The About pages no longer say the same thing twice or break one event into scraps:
+  - Personality leaves out a belief the opening line already gave ("keeps to the Light", then "keeps faith in the Light").
+  - History tells a master felled in a dungeon it has just named in the same sentence: "Has been down into the Deadmines and helped bring down Edwin VanCleef there.", not "Has seen the inside of the Deadmines. Helped bring down Edwin VanCleef."
+  - Physical no longer names your finest piece a second time after listing what you wear, and the class look never echoes your build ("calm-faced", then "Calm-eyed"). Priests have two more ways to look.
+
 ## 0.20.0 (2026-11-25): In Good Order
 
 - **Fixed: some characters' profiles stopped being written.** 0.14.0 lost the class rank ladders every race shares, so a character whose race and class have no ladder of their own (a human warlock, a dwarf rogue) hit an error on every update: *Currently* and the glances kept going, but the title, About, History, statistics, nickname and the rest were never written. The ladders are back (a human warlock rises from Initiate to Summoner and on), and a new test builds the whole profile for every race and class.

@@ -1219,6 +1219,116 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- Time spent in each land: counted on the tick (not while away or on a flight), a statistic,
+-- a line in History once one land clearly holds most of it, and /atrp places.
+do
+  local C, Wd = ns.Compose, ns.World
+  ns.char.haunts = nil
+  check(C.Stats().place == nil and not C.History():find("anywhere else", 1, true), "no time counted: no statistic, no line")
+  check(Wd.CountTime(30, "Westfall") and ns.char.haunts.t.Westfall == 30, "time in a land is counted")
+  Wd.CountTime(5000, "Westfall")
+  check(ns.char.haunts.t.Westfall == 150, "a long gap counts as one tick at most")
+  local oldAFK = UnitIsAFK
+  UnitIsAFK = function() return true end
+  check(not Wd.CountTime(30, "Westfall"), "not while away")
+  UnitIsAFK = oldAFK
+  local oldTaxi = UnitOnTaxi
+  UnitOnTaxi = function() return true end
+  check(not Wd.CountTime(30, "Westfall"), "not on a flight")
+  UnitOnTaxi = oldTaxi
+  check(C.Stats().place == nil, "too little time for a statistic")
+  ns.char.haunts.t = { Westfall = 4 * 3600, ["Elwynn Forest"] = 2 * 3600, Duskwood = 1800 }
+  check(C.Stats().place == "Westfall, 4 hours", "the statistic: " .. tostring(C.Stats().place))
+  check(C.TopPlaces(2)[2].name == "Elwynn Forest" and #C.TopPlaces(2) == 2, "most time first")
+  check(C.HomeGround() == "Westfall", "one land holds most of the time")
+  check(C.History():find("Westfall", 1, true), "History says where the days go")
+  ns.char.homeGround = nil
+  check(C.NoteHomeGround().name == "Westfall" and not ns.char.homeGround.prev, "the first home ground is taken in quietly")
+  check(not C.LatelyGlance().TX:find("Westfall than", 1, true), "and isn't news")
+  ns.char.haunts.t.Duskwood = 9 * 3600
+  local lately = C.LatelyGlance()
+  check(ns.char.homeGround.name == "Duskwood" and ns.char.homeGround.prev == "Westfall", "a new home ground takes over")
+  check(lately.TI == "New Haunts", "and is news for Lately: " .. tostring(lately.TX))
+  ns.char.haunts.t.Duskwood = 1800
+  ns.char.homeGround = nil
+  ns.char.haunts.t["Elwynn Forest"] = 3.9 * 3600
+  check(C.HomeGround() == nil, "two lands neck and neck: no line")
+  check(C.Duration(59) == "under a minute" and C.Duration(90) == "a minute", "durations read plainly")
+  check(C.Duration(3 * 86400) == "3 days" and C.Duration(3600) == "an hour", "hours and days")
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end
+  SlashCmdList.AUTOTRP("places")
+  DEFAULT_CHAT_FRAME.AddMessage = oldChat
+  check(table.concat(said):find("Westfall 4 hours, Elwynn Forest 3 hours, Duskwood 30 minutes", 1, true), "/atrp places lists them: " .. table.concat(said))
+  check(ns.TRP.FIELDS.stat_place ~= nil, "the statistic has its own switch")
+  ns.char.haunts = nil
+  C.SourcesChanged(); C.Refresh()
+end
+
+-- Flights taken: counted once each, when control is lost to a flight.
+do
+  local C = ns.Compose
+  ns.char.flights = nil
+  check(C.Stats().flights == nil, "no flights: no statistic")
+  local function run() local t = timers; timers = {}; for _, fn in ipairs(t) do fn() end end
+  event("PLAYER_CONTROL_LOST"); run()
+  check(not ns.char.flights, "control lost without a flight counts nothing")
+  local oldTaxi = UnitOnTaxi
+  UnitOnTaxi = function() return true end
+  event("PLAYER_CONTROL_LOST"); run()
+  event("PLAYER_CONTROL_LOST"); run()
+  check(ns.char.flights == 1, "a flight counts once")
+  event("PLAYER_CONTROL_GAINED")
+  event("PLAYER_CONTROL_LOST"); run()
+  UnitOnTaxi = oldTaxi
+  event("PLAYER_CONTROL_GAINED")
+  check(C.Stats().flights == "2", "the statistic: " .. tostring(C.Stats().flights))
+  check(ns.TRP.FIELDS.stat_flights ~= nil, "the statistic has its own switch")
+  ns.char.flights = nil
+end
+
+-- Reads as one piece: nothing said twice, and one event told in one sentence.
+do
+  local C = ns.Compose
+  C.SourcesChanged(); C.Refresh()
+  check(C.Echoes("Calm-eyed and gentle.", "calm-faced and unhurried") and not C.Echoes("Soft-spoken.", "calm-faced"),
+    "an echo is a shared word")
+  local b = C.Bearing() or ""
+  local _, lights = b:gsub("the Light", "")
+  check(lights <= 1, "Personality names the Light once: " .. b)
+  local h = C.History() or ""
+  check(not h:find("Deadmines.%s+Helped bring down") and h:find("Edwin VanCleef there", 1, true),
+    "a master felled in a dungeon just named shares its sentence")
+  local p = C.Physical() or ""
+  local _, crowns = p:gsub("Crown of the Lost", "")
+  check(crowns <= 1, "the finest piece isn't named twice: " .. p)
+  check(not (p:find("calm%-faced") and p:find("Calm%-eyed")), "the class look doesn't echo the build")
+end
+
+-- What was written, said the way a person would.
+do
+  local D = ns.TRP.Describe
+  check(D({ "glance_mood", "currently" }) == "Currently and the mood glance", D({ "glance_mood", "currently" }))
+  check(D({ "stat_wealth", "history", "stat_deaths" }) == "About: History and two statistics (deaths and wealth)",
+    D({ "stat_wealth", "history", "stat_deaths" }))
+  check(D({ "glance_mood", "glance_lately", "glance_company", "glance_ambition", "glance_marks" }) == "all five glances", "all five")
+  check(D({ "stat_crafts" }) == "the crafts statistic", D({ "stat_crafts" }))
+end
+
+-- Easy to read: History has small headings; the preview shows colours, not tags.
+do
+  local C = ns.Compose
+  C.SourcesChanged(); C.Refresh()
+  local h = C.History()
+  check(h:find("{h3}Beginnings{/h3}", 1, true) and h:find("{h3}Deeds{/h3}", 1, true), "History has headings")
+  ns.db.richText = false
+  check(not C.History():find("{h3}", 1, true), "plain text: no headings")
+  ns.db.richText = true
+  local r = ns.UI.Render("{h3}Deeds{/h3}\nWears {col:a335ee}Crown{/col}.")
+  check(r == "|cffffd100Deeds|r\nWears |cffa335eeCrown|r.", "the preview renders the markup: " .. r)
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
@@ -1266,7 +1376,7 @@ do
     names = { [1] = "Cap", [3] = "Mantle", [5] = "Vest", [15] = "Cape", [19] = "Tabard", [16] = "Mace", [17] = "Buckler", [18] = "Bow" } } }
   local fillers = { t = "x", who = "x", where = "", place = "x", q = "x", item = "x", zone = "x", how = "", n = "two",
     party = "x", pet = "x", mood = "", rank = "x", list = "x", name = "x", inn = "x", dest = "x", what = "x", beast = "x",
-    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x" }
+    mount = "x", around = "x", kind = "x", nick = "x", motto = "x", deed = "x", spell = "x", noun = "x", was = "x", here = "x" }
   local bad, seen = {}, {}
   local function scan(v, path)
     if type(v) == "string" then
