@@ -145,6 +145,7 @@ ns.DEFAULTS = {
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },
   diaryExcerpt = true,     -- quote your latest RPG Dialogue diary entry in History
+  journalInProfile = true, -- without one, quote Auto TRP's own journal in History (and Lately, when nothing's fresher)
   richText = true,         -- colour quotes and item names on the About page
   chronicleGoals = true,   -- your open Chronicle goals as an ambition
   nameFriends = true,      -- name players you marked friend (or gave a relationship) in Social Diary
@@ -167,6 +168,7 @@ ns.CHAR_DEFAULTS = {
   -- chosenName = nil, -- the earned name to wear (/atrp name), else the best one
   -- casts = nil,    -- { since, n = { [spell name] = times cast } }, for the most cast spell
   -- deeds = nil,    -- Auto TRP's own record of quests turned in and masters felled (Sources/Deeds.lua)
+  -- journal = nil,  -- the day-by-day journal: { days = raw logs, entries = written days } (Journal.lua)
 }
 
 local function fill(db, defaults)
