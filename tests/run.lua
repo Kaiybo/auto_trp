@@ -310,7 +310,7 @@ do
   local changed = ns.Compose.History()
   check(changed:find("left the Silver Lanterns for the Iron Wake", 1, true), "a change of guild is news: " .. changed:match("[^\n]*Iron Wake[^\n]*"))
   GetServerTime = realTime
-  ns.char.changes, ns.char.seen = nil, nil
+  ns.char.changes, ns.char.watched = nil, nil
   ns.Compose.Refresh()
 end
 check(ns.Compose.Bearing():find("about the gold of Elwynn's mines"), "personality: conversation hooks")
@@ -559,7 +559,7 @@ check(p.character.WU == 1, "angry: not open to walk-ups")
 ns.Mood.SetManual("wonder")
 NOW = NOW + 30
 ns.UI.Update(true)
-check(p.character.WU == 1 and ns.TRP.Status("walkup") == "auto", "a neutral mood leaves it as it was")
+check(p.character.WU == 2 and ns.TRP.Status("walkup") == "auto", "a neutral mood: open to walk-ups, never left unset")
 ns.Mood.SetManual(nil)
 NOW = NOW - 60
 
@@ -1126,6 +1126,71 @@ do
     end
   end
   check(#broken == 0, "every race and class has a ladder and a whole sheet: " .. table.concat(broken, ", "))
+
+  -- With no other addon and nothing earned, every combination still gets a full profile.
+  do
+    local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds }
+    RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+    ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds = nil, nil, nil, nil
+    local thin = {}
+    for race, faction in pairs(RACES) do
+      for _, class in ipairs(CLASSES) do
+        UnitRace = function() return race, race end
+        UnitClass = function() return class, class end
+        UnitFactionGroup = function() return faction end
+        ns.World.slow = nil
+        C.SourcesChanged()
+        local okSheet, sh = pcall(C.Sheet)
+        local missing = {}
+        if not okSheet then missing[1] = tostring(sh) else
+          for _, k in ipairs({ "currently", "bearing", "history", "physical", "title", "fulltitle", "motto", "nickname", "icon", "walkup", "ooc" }) do
+            if sh[k] == nil or sh[k] == "" then missing[#missing + 1] = k end
+          end
+          if not sh.traits or #sh.traits < 3 then missing[#missing + 1] = "traits" end
+          if select(2, (sh.bearing or ""):gsub("%. ", "")) < 2 then missing[#missing + 1] = "bearing (short)" end
+          if select(2, (sh.history or ""):gsub("%. ", "")) < 2 then missing[#missing + 1] = "history (short)" end
+          for g, v in pairs(sh.glances) do if not v or not v.TX or v.TX == "" then missing[#missing + 1] = "glance " .. g end end
+        end
+        if #missing > 0 then thin[#thin + 1] = race .. "/" .. class .. ": " .. table.concat(missing, ",") end
+      end
+    end
+    check(#thin == 0, "a bare character of every race and class has every field filled: " .. table.concat(thin, " | "))
+
+    -- Auto TRP's own record from game events fills the statistics without any other addon.
+    UnitRace = function() return "Human", "Human" end
+    UnitClass = function() return "Priest", "PRIEST" end
+    UnitFactionGroup = function() return "Alliance" end
+    ns.char.deeds = nil
+    local log
+    CombatLogGetCurrentEventInfo = function() return unpack(log) end
+    for i = 1, 12 do
+      log = { 0, "PARTY_KILL", false, "Player-1-0001", "Aldric", 0, 0, "Creature-1", "Defias Bandit" }
+      event("COMBAT_LOG_EVENT_UNFILTERED")
+    end
+    log = { 0, "PARTY_KILL", false, "Player-2-0002", "Someone", 0, 0, "Creature-2", "Murloc" }
+    event("COMBAT_LOG_EVENT_UNFILTERED")
+    ns.char.lastFight = { foe = "Hogger", t = NOW }
+    event("PLAYER_DEAD")
+    local inInst = IsInInstance
+    IsInInstance = function() return true, "party" end
+    GetInstanceInfo = function() return "The Deadmines" end
+    event("ZONE_CHANGED_NEW_AREA")
+    IsInInstance = inInst
+    local seenZones = ns.char.seen.zones
+    ns.char.seen.zones = { ["Elwynn Forest"] = NOW - 3 * 86400, Westfall = NOW - 86400 }
+    C.SourcesChanged(); C.Refresh()
+    local st = C.Stats()
+    check(st.slain == "12, 12 of them Defias Bandits", "kills from the combat log, only the player's: " .. tostring(st.slain))
+    check(st.deaths == "1, the first to Hogger", "a death, with who did it: " .. tostring(st.deaths))
+    check(st.dungeons == "1", "a dungeon entered: " .. tostring(st.dungeons))
+    check(st.lands == "2" and st.road == "3", "lands and days on the road from Auto TRP's own record: "
+      .. tostring(st.lands) .. ", " .. tostring(st.road))
+    ns.char.seen.zones = seenZones
+    CombatLogGetCurrentEventInfo = nil
+    RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+    ns.char.deeds, ns.char.names, ns.char.milestones, ns.char.finds = keep[4], keep[5], keep[6], keep[7]
+    C.SourcesChanged()
+  end
   UnitRace = function() return "Human", "Human" end
   UnitClass = function() return "Warlock", "WARLOCK" end
   UnitFactionGroup = function() return "Alliance" end
@@ -1225,7 +1290,9 @@ do
   check((C.Bearing() or ""):find("Power Word: Shield", 1, true), "without RPG Dialogue, the habit: " .. tostring(C.Bearing()))
   check(#(C.Bearing() or "") > 60, "and a class's disposition, so Personality isn't bare")
   local tr = C.Traits()
-  check(tr and #tr == 3 and tr[1].LT == "Kind" and tr[1].V2 == 14, "without RPG Dialogue, the traits lean by class")
+  local kind
+  for _, t in ipairs(tr or {}) do if t.LT == "Kind" then kind = t.V2 end end
+  check(tr and #tr >= 3 and kind == 14, "without RPG Dialogue, the traits lean by class and race")
   check(select(2, C.History():gsub("%. ", "")) >= 2, "a sparse History still says rank and where: " .. C.History():match("^[^\n]*"))
   RPGDialogueCharDB = rpgd
   UnitClass = function() return "Warrior", "WARRIOR" end

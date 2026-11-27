@@ -589,6 +589,21 @@ W.CLASS_LEANS = {
   MAGE = { Brave = -2, Playful = -2, Religious = -3 },
   WARLOCK = { Good = -3, Outgoing = -3, Generous = -2 },
   DRUID = { Kind = 3, Outgoing = -2, Lawful = -2 },
+  DEATHKNIGHT = { Kind = -3, Playful = -4, Brave = 3 },
+}
+
+-- And by race, added to the class's. Kept smaller, so the class leads.
+W.RACE_LEANS = {
+  Human = { Lawful = 2, Outgoing = 1 },
+  Dwarf = { Outgoing = 2, Generous = 1, Brave = 2 },
+  Gnome = { Playful = 3, Religious = -2 },
+  NightElf = { Outgoing = -2, Religious = 2 },
+  Orc = { Brave = 3, Honest = 2 },
+  Troll = { Playful = 2, Religious = 2 },
+  Tauren = { Kind = 2, Religious = 2, Honest = 1 },
+  Scourge = { Kind = -2, Playful = -1, Religious = -3 },
+  Undead = { Kind = -2, Playful = -1, Religious = -3 },
+  Goblin = { Generous = -3, Outgoing = 2, Lawful = -1 },
 }
 
 -- Alignment axes: positive is the left word.
@@ -845,7 +860,7 @@ W.CAST_NOUN = { WARRIOR = "ability", ROGUE = "ability" }
 W.CLASS_ICON = {
   WARRIOR = "ClassIcon_Warrior", PALADIN = "ClassIcon_Paladin", HUNTER = "ClassIcon_Hunter", ROGUE = "ClassIcon_Rogue",
   PRIEST = "ClassIcon_Priest", SHAMAN = "ClassIcon_Shaman", MAGE = "ClassIcon_Mage", WARLOCK = "ClassIcon_Warlock",
-  DRUID = "ClassIcon_Druid",
+  DRUID = "ClassIcon_Druid", DEATHKNIGHT = "ClassIcon_DeathKnight",
 }
 
 ---------------------------------------------------------------------------
@@ -921,17 +936,17 @@ W.EERIE_ZONES = {
 W.RACE_HOME = {
   Human = "Elwynn Forest", Dwarf = "Dun Morogh", Gnome = "Dun Morogh", NightElf = "Teldrassil",
   Orc = "Durotar", Troll = "the Echo Isles", Tauren = "Mulgore", Scourge = "Tirisfal Glades",
-  Undead = "Tirisfal Glades",
+  Undead = "Tirisfal Glades", Goblin = "Kezan",
 }
 
 W.RACE_NOUN = {
   Human = "human", Dwarf = "dwarf", Gnome = "gnome", NightElf = "night elf", Orc = "orc", Troll = "troll",
-  Tauren = "tauren", Scourge = "Forsaken", Undead = "Forsaken",
+  Tauren = "tauren", Scourge = "Forsaken", Undead = "Forsaken", Goblin = "goblin",
 }
 
 W.CLASS_NOUN = {
   WARRIOR = "soldier", PALADIN = "paladin", HUNTER = "hunter", ROGUE = "rogue", PRIEST = "priest",
-  SHAMAN = "shaman", MAGE = "mage", WARLOCK = "warlock", DRUID = "druid",
+  SHAMAN = "shaman", MAGE = "mage", WARLOCK = "warlock", DRUID = "druid", DEATHKNIGHT = "death knight",
 }
 
 -- When there's little to go on (no RPG Dialogue, nothing earned yet), the class still says
@@ -967,6 +982,30 @@ W.CLASS_TEMPER = {
     "Feels for the land the way others feel for family." },
 }
 
+W.CLASS_TEMPER.DEATHKNIGHT = { "Carries {themselves} like someone who has already died once and found it overrated.",
+  "Speaks rarely, and seldom warmly.", "Has little patience left for fear, {their} own or anyone else's." }
+
+-- The same for race: what a stranger expects of {their} people, said of this one.
+W.RACE_TEMPER = {
+  Human = { "Has a human's knack for getting along with almost anyone.", "Practical in the way of people raised on farms and walls." },
+  Dwarf = { "Stubborn as stone once {their} mind is made up.", "Has a dwarf's love of a good story, and a better ale." },
+  Gnome = { "Thinks quickly and talks faster.", "Treats most problems as puzzles waiting for the right tool." },
+  NightElf = { "Takes the long view, as {their} people do.", "Reserved with strangers, and slow to trust the younger races." },
+  Orc = { "Values strength, and respects it in others.", "Blunt, and expects bluntness back." },
+  Troll = { "Easy-going on the surface, with a long memory for slights.", "Keeps the old loa close, in word if not in show." },
+  Tauren = { "Slow to anger and hard to stop once roused.", "Gentle-spoken, and careful of the land underfoot." },
+  Scourge = { "Wry about being dead, and touchy about it too.", "Has the patience of someone with no heartbeat to hurry." },
+  Undead = { "Wry about being dead, and touchy about it too.", "Has the patience of someone with no heartbeat to hurry." },
+  Goblin = { "Always working out what something is worth.", "Talks a deal through before {they} talk{s} about anything else." },
+}
+
+-- Nickname until one is earned: where they're from.
+W.RACE_NICK = {
+  Human = "of Elwynn", Dwarf = "of Ironforge", Gnome = "of Gnomeregan", NightElf = "of Teldrassil",
+  Orc = "of Durotar", Troll = "of the Darkspear", Tauren = "of Mulgore", Scourge = "of Tirisfal",
+  Undead = "of Tirisfal", Goblin = "of Kezan",
+}
+
 -- A motto until one is earned: what the class teaches, in plain words.
 W.CLASS_MOTTO = {
   WARRIOR = { "Hold the line.", "Stand fast.", "Nobody gets past." },
@@ -978,6 +1017,13 @@ W.CLASS_MOTTO = {
   MAGE = { "Knowledge first.", "Study, then act.", "Every problem has an answer." },
   WARLOCK = { "Power has a price.", "Read the bargain twice.", "Fear is a tool." },
   DRUID = { "Everything in its season.", "The land remembers.", "Grow, endure, return." },
+  DEATHKNIGHT = { "Death was only the start.", "Nothing left to fear.", "Cold hands, clear head." },
+}
+W.RACE_MOTTO = {
+  Human = { "Hold what's ours." }, Dwarf = { "Stone endures." }, Gnome = { "There's always a better way." },
+  NightElf = { "Elune guide my path." }, Orc = { "Strength and honour." }, Troll = { "Stay away from da voodoo." },
+  Tauren = { "Walk with the Earth Mother." }, Scourge = { "We serve no one." }, Undead = { "We serve no one." },
+  Goblin = { "Time is money." },
 }
 
 -- Seasoning by level band: how a stranger would size them up.

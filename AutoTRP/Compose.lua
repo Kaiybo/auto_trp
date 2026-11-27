@@ -112,7 +112,7 @@ local function seasoned(level, key)
 end
 
 local function deathCount(c)
-  return math.max(c.rpgd and c.rpgd.deathCount or 0, c.chronicle and c.chronicle.deathCount or 0)
+  return math.max(c.rpgd and c.rpgd.deathCount or 0, c.chronicle and c.chronicle.deathCount or 0, c.deeds and c.deeds.deathCount or 0)
 end
 
 local function sentence(s)
@@ -453,12 +453,18 @@ end
 ---------------------------------------------------------------------------
 -- With no choices recorded, the class's mild leans fill the bars.
 local function classTraits()
-  local leans = W.CLASS_LEANS[ns.cache.world and ns.cache.world.class or ""]
-  if not leans then return nil end
+  local world = ns.cache.world or {}
+  local leans = {}
+  for k, v in pairs(W.CLASS_LEANS[world.class or ""] or {}) do leans[k] = v end
+  -- Race adds to the class's lean; where the two cancel out, the class's stands.
+  for k, v in pairs(W.RACE_LEANS[world.race or ""] or {}) do
+    local sum = (leans[k] or 0) + v
+    leans[k] = sum ~= 0 and sum or leans[k]
+  end
   local out = {}
   local function bar(left, right, li, ri)
     local v = leans[left]
-    if v then out[#out + 1] = { LT = left, RT = right, LI = li, RI = ri, V2 = U.Clamp(10 + v, 1, 19) } end
+    if v and v ~= 0 and #out < 6 then out[#out + 1] = { LT = left, RT = right, LI = li, RI = ri, V2 = U.Clamp(10 + v, 3, 17) } end
   end
   for _, b in ipairs(W.AXIS_BARS) do bar(b.left, b.right, b.li, b.ri) end
   for _, b in ipairs(W.TRAIT_BARS) do bar(b[1], b[2], b[5], b[6]) end
@@ -612,6 +618,9 @@ function Compose.Bearing()
       local b = pool[(U.Hash(seed("temper2")) + k) % #pool + 1]
       if b ~= a then lines[2] = b; break end
     end
+    local r = U.Pick(W.RACE_TEMPER[world.race or ""] or {}, seed("racetemper"))
+    if type(r) == "string" then table.insert(lines, 2, r) end
+    if type(lines[1]) ~= "string" then table.remove(lines, 1) end
     lines[#lines + 1] = habit
     lines[#lines + 1] = Compose.WeekTone()
     return paragraph(lines)
@@ -748,7 +757,7 @@ end
 -- they are. The first look is only remembered. Each change: { kind, from, to, t }.
 function Compose.NoticeChanges(world)
   if not ns.char or not world then return {} end
-  local seen = ns.char.seen
+  local seen = ns.char.watched
   local changes = ns.char.changes or {}
   ns.char.changes = changes
   local now = U.Now()
@@ -779,7 +788,7 @@ function Compose.NoticeChanges(world)
       note("guildrank", seen.guildRank, world.guildRank)
     end
   end
-  ns.char.seen = { wealth = band or (seen and seen.wealth), guild = world.guild,
+  ns.char.watched = { wealth = band or (seen and seen.wealth), guild = world.guild,
     guildRank = world.guildRank or (seen and world.guild == seen.guild and seen.guildRank) or nil }
   for i = #changes, 1, -1 do
     if now - (changes[i].t or 0) > 45 * 86400 then table.remove(changes, i) end
@@ -820,14 +829,14 @@ function Compose.History()
       roots[#roots + 1] = name .. " is " .. what .. (home and (" who started out in " .. home) or "")
     end
   end
-  local zones = rpgd and rpgd.zones or {}
+  local zones = (rpgd and #rpgd.zones > 0 and rpgd.zones) or (c.deeds and c.deeds.zones) or {}
   local zoneCount = math.max(#zones, chron and chron.zones or 0)
   if zoneCount >= 3 and zones[1] then
     local since = math.min(zones[1].t or math.huge, chron and chron.created or math.huge)
     local weeks = since < math.huge and math.floor((now - since) / 604800) or 0
     local ago = weeks >= 9 and (U.Number(math.floor(weeks / 4.3)) .. " months ago")
       or weeks >= 2 and (U.Number(weeks) .. " weeks ago") or nil
-    local dungeons = chron and chron.dungeons or 0
+    local dungeons = math.max(chron and chron.dungeons or 0, c.deeds and c.deeds.dungeons or 0)
     roots[#roots + 1] = "From " .. placeName(zones[1].name) .. (ago and (", " .. ago .. ",") or "")
       .. " {their} road has led through " .. U.Number(zoneCount) .. " lands"
       .. (dungeons >= 2 and (" and down into " .. U.Number(dungeons) .. " dungeons") or "")
@@ -981,6 +990,14 @@ function Compose.History()
   if chron and chron.rares >= 5 then older[#older + 1] = "tracked down " .. U.Number(chron.rares) .. " rare beasts" end
   local questsDone = Compose.QuestsDone(c)
   if questsDone >= 25 then older[#older + 1] = "seen " .. U.Roughly(questsDone) .. " jobs through" end
+  local own = c.deeds or {}
+  if (own.flights or 0) >= 10 then older[#older + 1] = "taken " .. U.Roughly(own.flights) .. " flights between towns" end
+  if (own.honorKills or 0) >= 10 then older[#older + 1] = "won " .. U.Roughly(own.honorKills) .. " honourable kills in the war" end
+  if (own.kills or 0) >= 100 and not (rpgd and rpgd.kills and rpgd.kills > 0) then
+    local top, tn = nil, 0
+    for n, k in pairs(own.killsByName or {}) do if k > tn then top, tn = n, k end end
+    if top and tn >= 20 then older[#older + 1] = "killed more " .. Compose.Plural(top) .. " than any other creature" end
+  end
   if lastMs and rankOf(lastMs) and not toldRecent.rank then
     local steps = {}
     for k = math.max(1, #ms - 1), #ms do
@@ -1197,7 +1214,7 @@ end
 
 local function roadDays(c)
   local first = c.rpgd and c.rpgd.zones[1] and c.rpgd.zones[1].t
-  local since = math.min(first or math.huge, c.chronicle and c.chronicle.created or math.huge)
+  local since = math.min(first or math.huge, c.chronicle and c.chronicle.created or math.huge, c.deeds and c.deeds.since or math.huge)
   if since == math.huge then return nil end
   return math.floor((U.Now() - since) / 86400)
 end
@@ -1210,23 +1227,30 @@ function Compose.Stats()
   local out = {}
   local deaths = deathCount(c)
   if deaths > 0 then
-    local first = rpgd and rpgd.deaths[1] or (chron and chron.deaths[#chron.deaths])
+    local first = rpgd and rpgd.deaths[1] or (chron and chron.deaths[#chron.deaths]) or (c.deeds and c.deeds.deaths[1])
     out.deaths = figure(deaths) .. (first and first.killer and (", the first to " .. first.killer) or "")
   end
-  local lands = math.max(rpgd and #rpgd.zones or 0, chron and chron.zones or 0)
+  local own = c.deeds or {}
+  local lands = math.max(rpgd and #rpgd.zones or 0, chron and chron.zones or 0, own.zones and #own.zones or 0)
   if lands > 0 then out.lands = figure(lands) end
   local days = roadDays(c)
   if days and days > 0 then out.road = figure(days) end
-  local dungeons = math.max(chron and chron.dungeons or 0, rpgd and #rpgd.cleared or 0)
+  local dungeons = math.max(chron and chron.dungeons or 0, rpgd and #rpgd.cleared or 0, own.dungeons or 0)
   if dungeons > 0 then out.dungeons = figure(dungeons) end
   local felled = #Compose.Bosses(c)
   if felled > 0 then out.foes = figure(felled) end
   if chron and chron.rares > 0 then out.rares = figure(chron.rares) end
-  local kills = rpgd and rpgd.kills or 0
+  local kills = math.max(rpgd and rpgd.kills or 0, own.kills or 0)
   if kills > 0 then
     out.slain = figure(kills)
-    if rpgd.grudge and rpgd.grudge.n >= 10 then
-      out.slain = out.slain .. ", " .. figure(rpgd.grudge.n) .. " of them " .. Compose.Plural(rpgd.grudge.name)
+    local grudge = rpgd and rpgd.grudge
+    if not grudge or (own.kills or 0) > (rpgd and rpgd.kills or 0) then
+      for n, k in pairs(own.killsByName or {}) do
+        if not grudge or k > grudge.n then grudge = { name = n, n = k } end
+      end
+    end
+    if grudge and grudge.n >= 10 then
+      out.slain = out.slain .. ", " .. figure(grudge.n) .. " of them " .. Compose.Plural(grudge.name)
     end
   end
   local questsDone = Compose.QuestsDone(c)
@@ -1305,7 +1329,8 @@ function Compose.Walkup(mood)
   if not mood then return nil end
   if WALKUP_OPEN[mood.key] then return 2 end
   if WALKUP_CLOSED[mood.key] then return 1 end
-  return nil
+  -- No mood that says otherwise: open to walk-ups, so the field is never left unset.
+  return 2
 end
 
 function Compose.OOCNote()
@@ -1417,7 +1442,11 @@ function Compose.Motto()
   local e = Compose.Earned()
   if e and e.motto then return e.motto end
   -- Nothing earned yet: what the class teaches, until something takes its place.
-  return U.Pick(W.CLASS_MOTTO[ns.cache.world.class or ""] or {}, seed("motto"))
+  local world = ns.cache.world
+  local pool = {}
+  for _, m in ipairs(W.CLASS_MOTTO[world.class or ""] or {}) do pool[#pool + 1] = m end
+  for _, m in ipairs(W.RACE_MOTTO[world.race or ""] or {}) do pool[#pool + 1] = m end
+  return #pool > 0 and U.Pick(pool, seed("motto")) or nil
 end
 
 -- What people call them, for something they saw through.
@@ -1425,8 +1454,7 @@ function Compose.Nickname()
   local e = Compose.Earned()
   if e then return e.nick end
   -- Nothing earned yet: where they're from ("of Elwynn"), until a deed gives a better one.
-  local home = W.RACE_HOME[ns.cache.world.race or ""]
-  return home and ("of " .. home:gsub(" Forest$", ""):gsub(" Glades$", "")) or nil
+  return W.RACE_NICK[ns.cache.world.race or ""]
 end
 
 -- The profile icon: the earned nickname's, else the class crest.

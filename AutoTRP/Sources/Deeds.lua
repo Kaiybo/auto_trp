@@ -18,6 +18,11 @@ local function store()
   if type(d.quests) ~= "table" then d.quests = {} end
   if type(d.bosses) ~= "table" then d.bosses = {} end
   d.n = tonumber(d.n) or 0
+  if type(d.deaths) ~= "table" then d.deaths = {} end
+  if type(d.instances) ~= "table" then d.instances = {} end
+  if type(d.kills) ~= "table" then d.kills = { total = 0, byName = {} } end
+  d.flights = tonumber(d.flights) or 0
+  d.since = tonumber(d.since) or U.Now()
   return d
 end
 
@@ -68,6 +73,41 @@ function D.Boss(name, where, t)
   return true
 end
 
+-- A death: when, where, and who did it if a fight was on (the last foe fought).
+function D.Death(killer)
+  local d = store()
+  if not d then return end
+  d.deathCount = (tonumber(d.deathCount) or 0) + 1
+  table.insert(d.deaths, { t = U.Now(), zone = zone(), killer = U.Plain(killer) })
+  while #d.deaths > 20 do table.remove(d.deaths, 2) end   -- the first is kept, for "the first to"
+  if ns.Compose then ns.Compose.SourcesChanged() end
+end
+
+-- A dungeon, raid or battleground entered for the first time (the latest time is kept too).
+function D.Instance(name, kind)
+  local d = store()
+  name = U.Plain(name)
+  if not d or not name then return end
+  local i = d.instances[name]
+  if i then i.last = U.Now(); i.visits = (i.visits or 1) + 1; return end
+  d.instances[name] = { t = U.Now(), last = U.Now(), kind = kind, visits = 1 }
+  if ns.Compose then ns.Compose.SourcesChanged() end
+end
+
+-- A creature the character (or their pet) killed, by name.
+function D.Kill(name)
+  local d = store()
+  name = U.Plain(name)
+  if not d or not name then return end
+  d.kills.total = (d.kills.total or 0) + 1
+  d.kills.byName[name] = (d.kills.byName[name] or 0) + 1
+end
+
+function D.Flight()
+  local d = store()
+  if d then d.flights = d.flights + 1 end
+end
+
 -- { finished = { [title] = { t, zone } }, bosses = { { name, first, t (the latest), where }, latest first },
 --   lastQuest = { title, t, zone } (the latest seen turned in, not one taken in by the backfill) }
 -- A fresh table each time, so what's built from it notices a change.
@@ -83,6 +123,28 @@ function D.Read()
   end
   for name, b in pairs(d.bosses) do out.bosses[#out.bosses + 1] = { name = name, first = b.t or 0, t = b.last or b.t or 0, where = b.where } end
   table.sort(out.bosses, function(a, b) return a.t > b.t end)
+  out.deathCount = tonumber(d.deathCount) or 0
+  out.deaths = d.deaths
+  out.instances = {}
+  for name, i in pairs(d.instances) do
+    out.instances[#out.instances + 1] = { name = name, t = i.t or 0, last = i.last or i.t or 0, kind = i.kind, visits = i.visits or 1 }
+  end
+  table.sort(out.instances, function(a, b) return a.t > b.t end)
+  out.dungeons = 0
+  for _, i in ipairs(out.instances) do if i.kind == "party" or i.kind == "raid" then out.dungeons = out.dungeons + 1 end end
+  out.kills, out.killsByName = d.kills.total or 0, d.kills.byName
+  out.flights = d.flights
+  -- Lands, in the order first reached, from the mood model's record of arrivals.
+  out.zones = {}
+  local seen = ns.char and type(ns.char.seen) == "table" and type(ns.char.seen.zones) == "table" and ns.char.seen.zones or {}
+  for name, t in pairs(seen) do
+    if type(name) == "string" and tonumber(t) then out.zones[#out.zones + 1] = { name = name, t = tonumber(t) } end
+  end
+  table.sort(out.zones, function(a, b) return a.t < b.t end)
+  out.since = math.min(d.since, out.zones[1] and out.zones[1].t or math.huge)
+  -- The game's own lifetime counts, where it keeps them.
+  local hk = U.Call(_G.GetPVPLifetimeStats)
+  out.honorKills = tonumber(hk) or 0
   return out
 end
 
@@ -108,6 +170,36 @@ ns.On("ENCOUNTER_END", function(_, _, name, _, _, success)
   local instance = U.Call(GetInstanceInfo)
   D.Boss(name, U.Plain(instance))
 end)
+
+ns.On("PLAYER_DEAD", function()
+  local f = ns.char and ns.char.lastFight
+  local foe = f and f.foe and U.Now() - (f.t or 0) < 20 and f.foe or nil
+  -- Still in the fight when it ended: the target is the likelier killer.
+  if U.Call(UnitExists, "target") and U.Call(UnitCanAttack, "player", "target") then foe = U.Call(UnitName, "target") or foe end
+  D.Death(foe)
+end)
+local function checkInstance()
+  local inside, kind = U.Call(IsInInstance)
+  if inside and kind and kind ~= "none" then
+    local name = U.Call(GetInstanceInfo)
+    D.Instance(name or U.Call(GetRealZoneText), kind)
+  end
+end
+ns.On("ZONE_CHANGED_NEW_AREA", checkInstance)
+ns.On("PLAYER_ENTERING_WORLD", checkInstance)
+-- Kills: only the combat log's PARTY_KILL lines by the player or their pet, one test each.
+ns.On("COMBAT_LOG_EVENT_UNFILTERED", function()
+  if type(_G.CombatLogGetCurrentEventInfo) ~= "function" then return end
+  local _, sub, _, src, _, _, _, _, destName = CombatLogGetCurrentEventInfo()
+  if sub ~= "PARTY_KILL" then return end
+  if src ~= U.Call(UnitGUID, "player") and src ~= U.Call(UnitGUID, "pet") then return end
+  if type(destName) == "string" then D.Kill(destName) end
+end)
+local onTaxi = false
+ns.On("PLAYER_CONTROL_LOST", function()
+  if not onTaxi and U.Call(UnitOnTaxi, "player") then onTaxi = true; D.Flight() end
+end)
+ns.On("PLAYER_CONTROL_GAINED", function() onTaxi = false end)
 
 -- Chains finished before Auto TRP kept its own record: where the game can list the quests
 -- a character has ever completed and name them, the ones that earn a name are taken in
