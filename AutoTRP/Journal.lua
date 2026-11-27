@@ -76,6 +76,14 @@ local function add(e)
   d.last.t = e.t
   return e, d
 end
+-- A line another part of Auto TRP has for today (Sources/Seasons.lua: an anniversary, a
+-- return, a festival): { k = "season", text = "..." }, told with the day's other news.
+function J.Note(e)
+  if type(e) ~= "table" or type(e.text) ~= "string" then return nil end
+  local d = day()
+  if d then for _, v in ipairs(d.ev) do if v.k == e.k and v.text == e.text then return nil end end end
+  return add(e)
+end
 
 ---------------------------------------------------------------------------
 -- What's recorded
@@ -431,7 +439,7 @@ function J.Compose(key)
 
   -- Split the day into stretches, one per land in the order entered.
   local segs = { { zone = d.start.zone, start = true, quests = {}, bosses = {}, deaths = {}, close = {}, inns = {} } }
-  local misc = { loot = {}, levels = {}, skills = {}, groups = {} }
+  local misc = { loot = {}, levels = {}, skills = {}, groups = {}, season = {} }
   local moved = false
   for _, e in ipairs(ev) do
     local seg = segs[#segs]
@@ -447,7 +455,8 @@ function J.Compose(key)
     elseif e.k == "loot" then misc.loot[#misc.loot + 1] = e
     elseif e.k == "level" then misc.levels[#misc.levels + 1] = e
     elseif e.k == "skill" then misc.skills[#misc.skills + 1] = e
-    elseif e.k == "group" then misc.groups[#misc.groups + 1] = e end
+    elseif e.k == "group" then misc.groups[#misc.groups + 1] = e
+    elseif e.k == "season" then misc.season[#misc.season + 1] = e end
   end
   local busy = #ev > 0
   if not busy and (d.last.t or 0) - (d.first or 0) < 600 then return nil end
@@ -564,8 +573,9 @@ function J.Compose(key)
   end
   if #pass > 0 then line(pick(JW.pass_end, key, "passend", { list = U.Join(pass) }), "travel") end
 
-  -- 2. Company, finds, growing stronger, crafts.
+  -- 2. Company, finds, growing stronger, crafts; an anniversary, a return or a festival.
   local extra, ownSubject = {}, {}
+  for _, e in ipairs(misc.season) do extra[#extra + 1] = e.text; ownSubject[e.text] = true end
   if #misc.groups > 0 then
     local names, seenName = {}, {}
     for _, g in ipairs(misc.groups) do
