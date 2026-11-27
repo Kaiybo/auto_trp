@@ -5233,6 +5233,186 @@ W.STYLE = {
 }
 
 ---------------------------------------------------------------------------
+-- TRADES IN DEPTH 0.22.0 (Sources/Trade.lua): recipes known and learned, the finest work,
+-- specialisations, work done for others, where the gathering is done, tools carried.
+-- History lines are facts only; other players are only ever counted. {known} {item}
+-- {aspec} {spec} {n} {times} {list} {zone} {trade} are filled in; pronouns as everywhere.
+---------------------------------------------------------------------------
+W.TRADE = {
+  -- What a trade's recipes are called: "112 tailoring patterns".
+  RECIPE = {
+    Tailoring = "tailoring patterns", Leatherworking = "leatherworking patterns", Blacksmithing = "smithing plans",
+    Engineering = "engineering schematics", Alchemy = "alchemy recipes", Enchanting = "enchanting formulae",
+    Cooking = "cooking recipes", ["First Aid"] = "first aid recipes", Jewelcrafting = "jewelcrafting designs",
+    Poisons = "poison recipes", Mining = "smelting methods",
+  },
+  -- The trade as a word in a sentence ("{their} tailoring").
+  TRADE_WORD = {
+    Tailoring = "tailoring", Leatherworking = "leatherworking", Blacksmithing = "smithing", Engineering = "engineering",
+    Alchemy = "alchemy", Enchanting = "enchanting", Cooking = "cooking", ["First Aid"] = "first aid",
+    Jewelcrafting = "jewelcrafting",
+  },
+  ICON = {
+    Tailoring = "Trade_Tailoring", Leatherworking = "Trade_LeatherWorking", Blacksmithing = "Trade_BlackSmithing",
+    Engineering = "Trade_Engineering", Alchemy = "Trade_Alchemy", Enchanting = "Trade_Engraving",
+    Cooking = "INV_Misc_Food_15", ["First Aid"] = "Spell_Holy_SealOfSacrifice", Mining = "Trade_Mining",
+  },
+  -- Specialisations, by the spell the game knows (masters before their school).
+  SPECS = {
+    { id = 17039, key = "swordsmith", noun = "master swordsmith", prof = "Blacksmithing" },
+    { id = 17040, key = "hammersmith", noun = "master hammersmith", prof = "Blacksmithing" },
+    { id = 17041, key = "axesmith", noun = "master axesmith", prof = "Blacksmithing" },
+    { id = 9787, key = "weaponsmith", noun = "weaponsmith", prof = "Blacksmithing" },
+    { id = 9788, key = "armorsmith", noun = "armorsmith", prof = "Blacksmithing" },
+    { id = 20219, key = "gnomish", noun = "gnomish engineer", prof = "Engineering" },
+    { id = 20222, key = "goblin", noun = "goblin engineer", prof = "Engineering" },
+    { id = 10656, key = "dragonscale", noun = "dragonscale leatherworker", prof = "Leatherworking" },
+    { id = 10658, key = "elemental", noun = "elemental leatherworker", prof = "Leatherworking" },
+    { id = 10660, key = "tribal", noun = "tribal leatherworker", prof = "Leatherworking" },
+  },
+  -- Said after a specialisation now and then (the empty one leaves it plain).
+  SPEC_TAIL = {
+    gnomish = { ", for better or worse", "" },
+    goblin = { ", and keeps the explosives that come with it", "" },
+  },
+  -- First Aid's bandages and anti-venoms, by spell.
+  BANDAGE_IDS = {
+    [746] = true, [1159] = true, [3267] = true, [3268] = true, [7926] = true, [7927] = true, [10838] = true,
+    [10839] = true, [18608] = true, [18610] = true, [23567] = true, [23568] = true, [23569] = true, [23696] = true,
+    [24412] = true, [24413] = true, [24414] = true, [7932] = true, [7933] = true, [23786] = true,
+  },
+  -- Tools of a trade, by item; a group keeps only the best of its kind (the first listed).
+  TOOLS = {
+    { id = 2901, phrase = "a mining pick", icon = "INV_Pick_02" },
+    { id = 7005, phrase = "a skinning knife", icon = "INV_Weapon_ShortBlade_01" },
+    { id = 5956, phrase = "a blacksmith's hammer", icon = "INV_Hammer_20" },
+    { id = 10498, phrase = "a gyromatic micro-adjustor", icon = "INV_Gizmo_02", group = "wrench" },
+    { id = 6219, phrase = "an arclight spanner", icon = "INV_Misc_Wrench_01", group = "wrench" },
+    { id = 16207, phrase = "a runed arcanite rod", icon = "INV_Staff_Medivh", group = "rod" },
+    { id = 11145, phrase = "a runed truesilver rod", icon = "INV_Staff_Goldfeathered_01", group = "rod" },
+    { id = 11130, phrase = "a runed golden rod", icon = "INV_Staff_10", group = "rod" },
+    { id = 6339, phrase = "a runed silver rod", icon = "INV_Staff_01", group = "rod" },
+    { id = 6218, phrase = "a runed copper rod", icon = "INV_Misc_Flute_01", group = "rod" },
+    { id = 9149, phrase = "a philosopher's stone", icon = "INV_Misc_StoneTablet_07" },
+    { id = 5060, phrase = "a set of thieves' tools", icon = "INV_Misc_Bag_11" },
+    { id = 4471, phrase = "flint and tinder", icon = "INV_Misc_Bag_10" },
+  },
+  -- Well-known pieces whose first making is news even when they aren't rare.
+  NOTABLE = {
+    ["Arcanite Bar"] = true, ["Flask of the Titans"] = true, ["Flask of Distilled Wisdom"] = true,
+    ["Flask of Supreme Power"] = true, ["Flask of Chromatic Resistance"] = true, ["Elixir of the Mongoose"] = true,
+    ["Elixir of Giants"] = true, ["Mooncloth"] = true, ["Mooncloth Bag"] = true, ["Runecloth Bag"] = true,
+    ["Thorium Grenade"] = true, ["Dark Iron Bomb"] = true, ["Field Repair Bot 74A"] = true, ["Goblin Rocket Boots"] = true,
+    ["Gnomish Cloaking Device"] = true, ["Goblin Jumper Cables"] = true, ["Dirge's Kickin' Chimaerok Chops"] = true,
+    ["Smoked Desert Dumplings"] = true, ["Runn Tum Tuber Surprise"] = true, ["Heavy Runecloth Bandage"] = true,
+    ["Bolt of Runecloth"] = true, ["Rugged Armor Kit"] = true, ["Dense Sharpening Stone"] = true,
+    ["Elemental Sharpening Stone"] = true, ["Truesilver Bar"] = true, ["Thorium Bar"] = true,
+  },
+  -- The smell a long stretch at a trade leaves (cooking, fishing and gathering are Life's).
+  MARK = {
+    Blacksmithing = { title = "Forge Soot", icon = "Trade_BlackSmithing", text = { "Smells of the forge.",
+      "Has forge soot on {their} hands.", "Carries the heat and smell of the anvil.", "Smells of hot iron and coal smoke." } },
+    Alchemy = { title = "Alchemist's Fingers", icon = "Trade_Alchemy", text = { "Smells sharply of something just brewed.",
+      "{their} fingers are stained from the alchemy table.", "Smells of bitter herbs and boiled reagents.",
+      "Carries the sour smell of the alchemy table." } },
+    Leatherworking = { title = "Smells of Tanning", icon = "Trade_LeatherWorking", text = { "Smells of tanning salts.",
+      "Smells of fresh-worked leather.", "Has the smell of the tanning rack about {them}.", "Leather dust clings to {their} hands." } },
+    Tailoring = { title = "Loose Threads", icon = "Trade_Tailoring", text = { "Loose threads cling to {their} clothes.",
+      "Has a needle-prick or two on {their} fingers.", "Bits of cloth and thread cling to {them}.",
+      "Smells of new cloth." } },
+    Engineering = { title = "Black Powder", icon = "Trade_Engineering", text = { "Smells of black powder and machine oil.",
+      "Has grease on {their} fingers from some contraption.", "Smells of scorched metal.",
+      "Has a smudge of black powder on {their} face." } },
+    Enchanting = { title = "Arcane Dust", icon = "Trade_Engraving", text = { "A faint glitter of arcane dust clings to {their} hands.",
+      "Smells of ozone, from the enchanting.", "Arcane dust glints on {their} clothes.",
+      "Has the sheen of enchanting dust on {their} fingers." } },
+    ["First Aid"] = { title = "Smells of Salve", icon = "Spell_Holy_SealOfSacrifice", text = { "Smells of clean linen and salve.",
+      "Has bandage lint on {their} clothes.", "Smells of the salves used on bandages.", "Carries the clean smell of fresh bandages." } },
+    Mining = { title = "Smelter's Smoke", icon = "Trade_Mining", text = { "Smells of the smelter.",
+      "Smells of molten ore and smoke.", "Has smelter soot on {their} hands.", "Carries the heat of the smelter about {them}." } },
+    Jewelcrafting = { title = "Gem Dust", icon = "INV_Misc_Gem_01", text = { "Gem dust glints on {their} fingertips.",
+      "Has fine stone dust on {their} hands.", "Squints a little, after close work at the gems.", "Smells of polishing oil." } },
+    Poisons = { title = "Something Bitter", icon = "Trade_BrewPoison", text = { "Smells bitter, from mixing poisons.",
+      "Has stained fingertips, and doesn't offer to shake hands.", "Smells of something nobody should taste.",
+      "Carries a faint, bitter smell." } },
+  },
+  SAY = {
+    -- History, the longer record: what they know and the finest thing they've made.
+    know_made = { "Knows {known} and has made {item}", "Knows {known}, and {their} finest work so far is {item}",
+      "Has learned {known}, and the best of what {they've} made is {item}", "Has {known} to work from, and has made {item}",
+      "Has picked up {known}, and has turned out {item}" },
+    know = { "Knows {known}", "Has learned {known}", "Has {known} to work from", "Has picked up {known} so far",
+      "Can work from {known}" },
+    made = { "Has made {item}", "Has turned out {item}", "Counts {item} among the things {they've} made",
+      "{their} finest work so far is {item}", "Has {item} to {their} name" },
+    spec_after = { "is {aspec}", "trained as {aspec}", "is {aspec} by training", "took {their} training as {aspec}" },
+    spec = { "Is {aspec}", "Trained as {aspec}", "Is {aspec} by training", "Took {their} training as {aspec}" },
+    transmutes = { "knows {n} transmutations", "can carry out {n} transmutations", "has {n} transmutations to {their} name",
+      "has learned {n} transmutations" },
+    -- Done for other people (counted, never who): predicates after "{they've}".
+    ev_bandage = { "bandaged other people's wounds {times}", "dressed someone else's wounds {times}",
+      "put bandages on other people {times}", "patched up other people {times}" },
+    ev_enchant = { "enchanted other people's gear {times}", "put enchantments on gear for others {times}",
+      "enchanted things for other people {times}", "worked enchantments for others {times}" },
+    ev_lock = { "opened {n} locked boxes for other people", "picked the locks on {n} boxes for others",
+      "opened {n} lockboxes for whoever asked", "got {n} locked boxes open for other people" },
+    ev_meals = { "cooked {n} meals in company", "made {n} meals while in a group", "cooked {n} meals with others about",
+      "cooked {n} meals for a group" },
+    served = { "{they've} {list}", "Along the way {they've} {list}", "So far {they've} {list}", "Over time {they've} {list}",
+      "Now and then {they've} {list}" },
+    -- Where the gathering is done.
+    gather_herbs = { "Picks most of {their} herbs in {zone}", "Does most of {their} herb-picking in {zone}",
+      "Knows the herb patches of {zone} best", "Gathers {their} herbs mostly in {zone}", "Has picked more herbs in {zone} than anywhere" },
+    gather_mining = { "Does most of {their} mining in {zone}", "Knows the seams of {zone} best", "Mines mostly in {zone}",
+      "Takes most of {their} ore out of {zone}", "Has dug more ore in {zone} than anywhere" },
+    gather_skinning = { "Does most of {their} skinning in {zone}", "Takes most of {their} hides in {zone}",
+      "Has skinned more beasts in {zone} than anywhere", "Skins mostly in {zone}", "Gets most of {their} leather from {zone}" },
+    -- Personality: what the counts back.
+    habit_bandage = { "Is quick to bandage other people's wounds", "Stops to patch up whoever needs it",
+      "Has bandaged a good many people in {their} time", "Rarely lets someone else's wound go untended" },
+    habit_enchant = { "Is generous with {their} enchanting", "Enchants other people's gear when asked",
+      "Puts {their} enchanting at other people's service", "Will enchant a stranger's gear if asked" },
+    habit_lock = { "Opens locked boxes for anyone who asks", "Puts {their} lockpicks at other people's service",
+      "Is often asked to open a lockbox, and obliges", "Will pick a lock for whoever asks" },
+    habit_meals = { "Likes to cook when there's company", "Cooks for the group more often than not",
+      "Is usually the one who cooks when travelling with others", "Feeds whoever {they're} travelling with" },
+    habit_learned = { "Has learned {their} {trade} thoroughly", "Takes {their} {trade} seriously",
+      "Has put real time into {their} {trade}", "Knows {their} {trade} inside out" },
+    habit_learning = { "Keeps learning new recipes", "Is always after another recipe", "Collects recipes",
+      "Seeks out new recipes wherever {they} go{es}" },
+    -- History, the last three weeks (past-tense predicates).
+    ev_learned = { "learned to make {item}", "learned how to make {item}", "picked up the recipe for {item}",
+      "learned the making of {item}" },
+    ev_learned_spell = { "learned {item}", "picked up {item}", "learned how to do {item}", "was taught {item}" },
+    ev_learned_many = { "learned {n} new recipes, {item} the latest", "picked up {n} new recipes, the latest {item}",
+      "learned {n} new recipes, most recently {item}", "added {n} recipes to {their} trade, {item} the last" },
+    ev_first = { "made {their} first {item}", "turned out {their} first {item}", "made {item} for the first time",
+      "finished {their} first {item}" },
+    -- Lately glance
+    lately_learned = { "Learned to make {item} a short while back.", "Has only just learned to make {item}.",
+      "Learned how to make {item} within the day.", "Has a new recipe: {item}.", "Picked up the recipe for {item} today." },
+    lately_learned_spell = { "Learned {item} in the last day.", "Has only just learned {item}.", "Picked up {item} within the day.",
+      "Was taught {item} today." },
+    lately_learned_many = { "Learned {n} new recipes in the last day, {item} the latest.",
+      "Has picked up {n} new recipes today, the last of them {item}.", "Learned {n} recipes within the day, most recently {item}.",
+      "Added {n} recipes to {their} trade today, {item} the last." },
+    lately_finest = { "Made {item} lately, the finest thing {they've} made yet.", "Has just finished {item}, {their} best work so far.",
+      "Turned out {item} lately, and nothing {they've} made is finer.", "Finished {item} within the last day or two: {their} finest work." },
+    lately_first = { "Made {their} first {item} a short while back.", "Has only just made {item} for the first time.",
+      "Turned out {their} first {item} lately.", "Finished {their} first {item} within the last day or two." },
+    lately_enchant = { "Enchanted someone's gear within the hour.", "Put an enchantment on someone else's gear just now.",
+      "Did some enchanting for someone a short while ago.", "Has just enchanted something for someone." },
+    lately_lock = { "Opened a locked box for someone within the hour.", "Picked a lock for someone just now.",
+      "Got someone's lockbox open a short while ago.", "Has just opened a locked box for someone." },
+    lately_bandage = { "Bandaged someone's wounds a short while ago.", "Has just patched someone up.",
+      "Dressed someone else's wounds just now.", "Put a bandage on someone a few minutes ago." },
+    -- Marks glance: the tools carried.
+    mark_tools = { "Carries {list}.", "Has {list} close at hand.", "Keeps {list} in {their} bags.",
+      "Never goes far without {list}.", "Has {list} packed away." },
+  },
+}
+
+---------------------------------------------------------------------------
 -- THE BESTIARY (0.22.0, Sources/Bestiary.lua): what the character has fought and seen, by
 -- the game's own creature kinds (UnitCreatureType) and families (UnitCreatureFamily), for
 -- History's older record, Personality, the Lately glance and the statistics. Facts only:

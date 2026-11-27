@@ -2231,6 +2231,234 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
+-- Trades in depth (Sources/Trade.lua): the trade windows read (mocked), recipes learned, the
+-- finest work and firsts, a specialisation, work for others through the trade window and
+-- the combat log, gathering by land, tools in the bags; then the writing it feeds, with no
+-- other addon at all.
+do
+  local C, T = ns.Compose, ns.Sources.Trade
+  local oldSpellInfo, oldPlayerSpell, oldItemCount = GetSpellInfo, IsPlayerSpell, GetItemCount
+  local function spellInfo(id) if oldSpellInfo then return oldSpellInfo(id) end end
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones = nil, nil, nil, nil
+  ns.char.life, ns.char.trade = nil, nil
+  ns.Sources.Life.Store().since = NOW - 7200
+  state.zone, state.sub, state.resting, state.combat, state.grouped = "Elwynn Forest", "Goldshire", false, false, false
+  local function tr() return ns.char.trade end
+  local function find(t, s) for k, v in pairs(t) do if v == s or k == s or (type(v) == "table" and find(v, s)) then return true end end end
+
+  -- A tailoring window: headers left out, the count kept at its most.
+  local recipes = { { "Cloth", "header" } }
+  for i = 1, 111 do recipes[#recipes + 1] = { "Pattern " .. i, "optimal" } end
+  recipes[#recipes + 1] = { "Robes of Arcana", "medium" }
+  GetTradeSkillLine = function() return "Tailoring", 260, 300 end
+  GetNumTradeSkills = function() return #recipes end
+  GetTradeSkillInfo = function(i) return recipes[i][1], recipes[i][2] end
+  state.combat = true
+  event("TRADE_SKILL_SHOW")
+  check(not (tr() and tr().known.Tailoring), "a trade window isn't read in a fight")
+  state.combat = false
+  event("TRADE_SKILL_SHOW")
+  check(tr().known.Tailoring and tr().known.Tailoring.n == 112, "recipes known, headers left out: " .. tostring(tr().known.Tailoring and tr().known.Tailoring.n))
+  -- Collapsed headers hide lines: the most ever seen is kept.
+  local full = recipes
+  recipes = { { "Cloth", "header" }, { "Pattern 1", "easy" } }
+  event("TRADE_SKILL_UPDATE")
+  check(tr().known.Tailoring.n == 112, "a collapsed list doesn't lower the count")
+  recipes = full
+  -- The enchanting window (the Craft API), and Beast Training isn't a trade.
+  local crafts = { { "Enchant Bracer - Minor Health", nil, "optimal" }, { "Runed Copper Rod", nil, "easy" }, { "Enchanting", nil, "header" } }
+  GetCraftDisplaySkillLine = function() return "Beast Training" end
+  GetNumCrafts = function() return #crafts end
+  GetCraftInfo = function(i) return crafts[i][1], crafts[i][2], crafts[i][3] end
+  event("CRAFT_SHOW")
+  check(not tr().known["Beast Training"], "Beast Training isn't a trade")
+  GetCraftDisplaySkillLine = function() return "Enchanting" end
+  event("CRAFT_SHOW")
+  check(tr().known.Enchanting and tr().known.Enchanting.n == 2, "the enchanting window, through the Craft API")
+  -- Cooking, and alchemy with its transmutes.
+  local cook = {}
+  for i = 1, 40 do cook[i] = { "Dish " .. i, "easy" } end
+  GetTradeSkillLine = function() return "Cooking" end
+  GetNumTradeSkills = function() return #cook end
+  GetTradeSkillInfo = function(i) return cook[i][1], cook[i][2] end
+  event("TRADE_SKILL_SHOW")
+  check(tr().known.Cooking.n == 40, "cooking recipes known")
+  event("TRADE_SKILL_CLOSE"); event("CRAFT_CLOSE")
+  GetTradeSkillLine, GetNumTradeSkills, GetTradeSkillInfo = nil, nil, nil
+  GetCraftDisplaySkillLine, GetNumCrafts, GetCraftInfo = nil, nil, nil
+
+  -- Recipes learned, from the system line (twice is once) and from NEW_RECIPE_LEARNED.
+  event("CHAT_MSG_SYSTEM", "You have learned how to create a new item: Bolt of Silk Cloth.")
+  event("CHAT_MSG_SYSTEM", "You have learned how to create a new item: Bolt of Silk Cloth.")
+  event("CHAT_MSG_SYSTEM", "You have learned a new spell: Fireball.")
+  check(tr().learned.n == 1 and tr().learned.log[1].name == "Bolt of Silk Cloth", "a recipe learned, counted once; a class spell isn't")
+  GetSpellInfo = function(id) return id == 7421 and "Runed Copper Rod" or spellInfo(id) end
+  event("NEW_RECIPE_LEARNED", 7421)
+  GetSpellInfo = oldSpellInfo
+  check(tr().learned.n == 2 and tr().learned.log[2].name == "Runed Copper Rod", "a recipe learned, from NEW_RECIPE_LEARNED")
+
+  -- Made: the finest piece and the first of each notable one, only from a trade window.
+  ns.World.SetContext("none")
+  event("CHAT_MSG_LOOT", "You create: |cff0070dd|Hitem:1::|h[Conjured Mana Ruby]|h|r.")
+  check(not tr().finest, "conjured things aren't work at a trade")
+  ns.World.SetContext("craft", "Tailoring")
+  event("CHAT_MSG_LOOT", "You create: |cffffffff|Hitem:4305::|h[Bolt of Silk Cloth]|h|rx2.")
+  event("CHAT_MSG_LOOT", "You create: |cff0070dd|Hitem:13858::|h[Robes of Arcana]|h|r.")
+  event("CHAT_MSG_LOOT", "You create: |cff1eff00|Hitem:10024::|h[Black Mageweave Gloves]|h|r.")
+  check(tr().finest.name == "Robes of Arcana" and tr().finest.q == 3 and tr().finest.prof == "Tailoring", "the finest thing made, by the link's quality")
+  check(tr().firsts["Robes of Arcana"] and not tr().firsts["Bolt of Silk Cloth"], "the first of a notable piece")
+  -- Meals cooked in company.
+  ns.World.SetContext("craft", "Cooking")
+  state.grouped = true
+  event("CHAT_MSG_LOOT", "You create: |cffffffff|Hitem:1::|h[Smoked Bear Meat]|h|rx12.")
+  state.grouped = false
+  event("CHAT_MSG_LOOT", "You create: |cffffffff|Hitem:1::|h[Smoked Bear Meat]|h|rx3.")
+  ns.World.SetContext("none")
+  check(tr().service.meals == 12, "meals cooked in company: " .. tostring(tr().service.meals))
+  check(ns.char.life.made.n == 20, "Life still counts what's made, conjured things too (not duplicated here): " .. tostring(ns.char.life.made.n))
+
+  -- Bandages on someone else: counted, never named; on yourself, not at all.
+  local log
+  CombatLogGetCurrentEventInfo = function() return unpack(log) end
+  local function cl(...) log = { ... }; event("COMBAT_LOG_EVENT_UNFILTERED") end
+  for _ = 1, 12 do cl(0, "SPELL_AURA_APPLIED", false, "Player-1-0001", "Aldric", 0, 0, "Player-1-0042", "Tobb", 0, 0, 10838, "First Aid", 1, "BUFF") end
+  cl(0, "SPELL_AURA_APPLIED", false, "Player-1-0001", "Aldric", 0, 0, "Player-1-0001", "Aldric", 0, 0, 10838, "First Aid", 1, "BUFF")
+  cl(0, "SPELL_PERIODIC_HEAL", false, "Player-1-0001", "Aldric", 0, 0, "Player-1-0042", "Tobb", 0, 0, 10838, "First Aid", 1, 80)
+  cl(0, "SPELL_AURA_APPLIED", false, "Player-1-0001", "Aldric", 0, 0, "Player-1-0042", "Tobb", 0, 0, 1243, "Power Word: Fortitude", 2, "BUFF")
+  CombatLogGetCurrentEventInfo = nil
+  check(tr().service.bandage.n == 12, "bandages put on other people: " .. tostring(tr().service.bandage.n))
+  -- Enchanting and a lock picked through the trade window, counted once both accept.
+  GetSpellInfo = function(id) return ({ [13501] = "Enchant Bracer - Lesser Stamina", [1804] = "Pick Lock" })[id] or spellInfo(id) end
+  local function tradeWith(spellID, accept)
+    event("TRADE_SHOW")
+    event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", spellID)
+    if accept then event("TRADE_ACCEPT_UPDATE", 1, 0); event("TRADE_ACCEPT_UPDATE", 1, 1) end
+    event("TRADE_CLOSED")
+  end
+  for _ = 1, 6 do tradeWith(13501, true) end
+  tradeWith(13501, false)
+  tradeWith(585, true)
+  for _ = 1, 3 do tradeWith(1804, true) end
+  event("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", 13501)
+  GetSpellInfo = oldSpellInfo
+  check(tr().service.enchant.n == 6 and tr().service.enchant.last == "Enchant Bracer - Lesser Stamina", "enchanting for others, only once the trade goes through: " .. tostring(tr().service.enchant.n))
+  check(tr().service.lock.n == 3, "locks picked for others")
+  check(not find(tr(), "Tobb"), "nobody served is ever named")
+  -- Gathering by land (Life decides what was gathered).
+  ns.World.SetContext("herbs")
+  for _ = 1, 10 do event("LOOT_OPENED"); event("CHAT_MSG_LOOT", "You receive loot: |cffffffff|Hitem:2447::|h[Peacebloom]|h|rx3.") end
+  state.zone = "Westfall"
+  ns.World.SetContext("herbs"); event("LOOT_OPENED")
+  event("CHAT_MSG_LOOT", "You receive loot: |cffffffff|Hitem:765::|h[Silverleaf]|h|r.")
+  state.zone = "Elwynn Forest"
+  ns.World.SetContext("none")
+  check(tr().gather.herbs.n == 31 and tr().gather.herbs.zones["Elwynn Forest"] == 30 and ns.char.life.gather.herbs == 31,
+    "herbs by land, beside Life's count: " .. tostring(tr().gather.herbs.n))
+  -- A specialisation and tools, read out of a fight.
+  IsPlayerSpell = function(id) return id == 20219 end
+  local bags = { [2901] = 1, [6218] = 1, [11130] = 1 }
+  GetItemCount = function(id) return bags[id] or 0 end
+  event("SPELLS_CHANGED"); event("BAG_UPDATE_DELAYED")
+  C.SourcesChanged(); C.Refresh()
+  local t = ns.cache.trade
+  check(t.spec and t.spec.key == "gnomish", "a gnomish engineer, from the spell the game knows")
+  check(#t.tools == 2 and t.tools[1].phrase == "a mining pick" and t.tools[2].phrase == "a runed golden rod", "tools in the bags, the best rod only")
+
+  -- The writing.
+  local st = C.Stats()
+  check(st.recipes == "154: 112 tailoring, 40 cooking, 2 enchanting", "statistic: recipes known: " .. tostring(st.recipes))
+  check(st.finest == "Robes of Arcana, rare, tailoring", "statistic: finest work: " .. tostring(st.finest))
+  for _, k in ipairs({ "recipes", "finest" }) do
+    check(ns.TRP.FIELDS["stat_" .. k] ~= nil and ns.db.fields["stat_" .. k] == true, "statistic " .. k .. " has its own switch, on by default")
+    check(ns.UI.TipFor({ path = { "fields", "stat_" .. k } }) ~= nil, "statistic " .. k .. " has a tooltip")
+  end
+  local hist = C.History()
+  print("\nHistory with the trades in depth:\n" .. hist)
+  check(hist:find("112 tailoring patterns", 1, true) and hist:find("forty cooking recipes", 1, true), "History: recipes known")
+  check(hist:find("Robes of Arcana", 1, true), "History: the finest work (or the first made)")
+  check(hist:find("gnomish engineer", 1, true), "History: a specialisation")
+  check(hist:find("twelve times", 1, true) and hist:find("six times", 1, true) and hist:find("three locked boxes", 1, true)
+    or hist:find("three boxes", 1, true) or hist:find("three lockboxes", 1, true), "History: work done for other people, counted")
+  check(hist:find("Elwynn Forest", 1, true), "History: where the herbs are picked")
+  check(hist:find("Bolt of Silk Cloth", 1, true) or hist:find("Runed Copper Rod", 1, true), "History: a recipe learned lately")
+  check(not hist:find("Tobb", 1, true), "History names nobody served")
+  local bearing = C.Bearing()
+  print("\nPersonality:\n" .. bearing)
+  local hab = false
+  for _, l in ipairs(ns.Words.TRADE.SAY.habit_bandage) do if bearing:find(ns.U.Pron(l), 1, true) then hab = true end end
+  check(hab, "Personality: the bandaging habit the counts back")
+  -- Lately: a new recipe; the finest work.
+  local lately = C.LatelyGlance()
+  print("Lately: " .. lately.TI .. ": " .. lately.TX)
+  local TRADE_LATELY = { ["A New Recipe"] = true, ["Finest Work Yet"] = true, ["First of Its Kind"] = true,
+    ["Enchanting for Others"] = true, ["A Lock Opened"] = true, ["Field Dressing"] = true }
+  check(TRADE_LATELY[lately.TI] or lately.TI == "Lately", "Lately: from the trades, or a talk just now: " .. lately.TI)
+  tr().learned.log[2].t = NOW + 5
+  C.SourcesChanged(); C.Refresh()
+  lately = C.LatelyGlance()
+  check(lately.TI == "A New Recipe" and lately.TX:find("Runed Copper Rod", 1, true), "Lately: learned to make something: " .. lately.TX)
+  tr().firsts["Robes of Arcana"].t = NOW + 6
+  C.SourcesChanged(); C.Refresh()
+  lately = C.LatelyGlance()
+  check(lately.TI == "Finest Work Yet" and lately.TX:find("Robes of Arcana", 1, true), "Lately: the finest work yet: " .. lately.TX)
+  -- Marks: the tools carried; a trade's smell after a stretch at it.
+  for _, d in ipairs(ns.char.life.duels.log or {}) do d.t = NOW - 3600 end
+  ns.char.life.made.run = { kind = "Tailoring", n = 6, start = NOW - 600, last = NOW - 60 }
+  C.SourcesChanged(); C.Refresh()
+  local marks = C.MarksGlance()
+  check(marks.TI == "Loose Threads", "Marks: a stretch at tailoring: " .. tostring(marks.TI) .. ": " .. tostring(marks.TX))
+  ns.char.life.made.run = nil
+  local tm
+  for _, m in ipairs(T.Marks(ns.cache.trade, nil)) do if m.title == "Tools of the Trade" then tm = m.text end end
+  print("Tools mark: " .. tostring(tm))
+  check(tm and tm:find("a mining pick and a runed golden rod", 1, true), "Marks: the tools carried")
+  -- Every line fills its tags, whatever the pronouns, and the lists vary enough.
+  local U = ns.U
+  local thin, bad = {}, {}
+  local fillers = { known = "x", item = "x", aspec = "x", spec = "x", n = "two", times = "twice", list = "x", zone = "x", trade = "x" }
+  for _, pron in ipairs({ "she/her", "they/them" }) do
+    local old = ns.TRP.CustomPronouns
+    ns.TRP.CustomPronouns = function() return pron end
+    for k, list in pairs(ns.Words.TRADE.SAY) do
+      if #list < 4 then thin[k] = true end
+      for _, l in ipairs(list) do
+        local line = U.Pron((l:gsub("{(%a+)}", function(x) return fillers[x] end)))
+        if line:find("{") then bad[#bad + 1] = k .. ": " .. line end
+      end
+    end
+    for k, m in pairs(ns.Words.TRADE.MARK) do
+      if #m.text < 4 then thin[k] = true end
+      for _, l in ipairs(m.text) do if U.Pron(l):find("{") then bad[#bad + 1] = k .. ": " .. l end end
+    end
+    ns.TRP.CustomPronouns = old
+  end
+  local thinList = {}
+  for k in pairs(thin) do thinList[#thinList + 1] = k end
+  check(#bad == 0 and #thinList == 0, "trade lines fill their tags and have four ways each: " .. table.concat(bad, " | ") .. table.concat(thinList, ", "))
+  -- Bounded storage.
+  for i = 1, 40 do T.Learned("Recipe " .. i) end
+  ns.World.SetContext("craft", "Blacksmithing")
+  for i = 1, 40 do T.Made("Piece " .. i, 3, "Blacksmithing") end
+  ns.World.SetContext("none")
+  check(#tr().learned.log == T.CAP_LEARNED and ns.U.Count(tr().firsts) == T.CAP_FIRSTS, "learned recipes and firsts stay bounded")
+  if os.getenv("SAMPLES") then
+    print("\n=== Trades in depth ===\n-- History --\n" .. C.History() .. "\n\n-- Personality --\n" .. C.Bearing())
+    for _, k in ipairs({ "lately", "marks" }) do local g = C.Sheet().glances[k]; print(k .. ": " .. g.TI .. ": " .. g.TX) end
+    print("Recipes known: " .. C.Stats().recipes .. " | Finest work: " .. C.Stats().finest)
+  end
+
+  IsPlayerSpell, GetItemCount = oldPlayerSpell, oldItemCount
+  event("SPELLS_CHANGED"); event("BAG_UPDATE_DELAYED")
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keep[1], keep[2], keep[3]
+  ns.char.deeds, ns.char.finds, ns.char.lastFight, ns.char.milestones = keep[4], keep[5], keep[6], keep[7]
+  ns.char.life, ns.char.trade = nil, nil
+  state.zone, state.sub, state.resting = "Duskwood", "Raven Hill", false
+  ns.World.slow = nil
+  C.SourcesChanged(); C.Refresh()
+end
+
 -- The kind of work they take on (Sources/Work.lua): quest windows and the log fed fake
 -- events, with RPG Dialogue, Social Diary and Chronicle all absent, then the writing.
 do

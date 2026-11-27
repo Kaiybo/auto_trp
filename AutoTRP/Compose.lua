@@ -72,6 +72,7 @@ function Compose.Refresh()
     c.deeds = S.Deeds.Read()
     c.self = S.Self and S.Self.Read(c) or nil
     c.life = S.Life and S.Life.Read() or nil
+    c.trade = S.Trade and S.Trade.Read() or nil
     c.work = S.Work and S.Work.Read() or nil
     c.bestiary = S.Bestiary and S.Bestiary.Read() or nil
     c.kin = S.Kin and S.Kin.Read() or nil
@@ -472,6 +473,10 @@ function Compose.LatelyGlance()
       add(inn.t, 0, { TI = "A New Inn", IC = "INV_Drink_05", TX = say("lately_inn", { inn = innName }, inn.t) })
     end
   end
+  -- Trades in depth (Sources/Trade.lua): a recipe learned, a first or finest piece, work for others.
+  if c.trade and ns.Sources.Trade then
+    for _, e in ipairs(ns.Sources.Trade.Lately(c.trade, world)) do add(e.t, e.prio, e.g) end
+  end
   -- Their people (Sources/Kin.lua): a homecoming, a place of their people, a gift that mattered.
   for _, k in ipairs(ns.Sources.Kin and ns.Sources.Kin.Lately(c) or {}) do add(k.t, k.prio, k.g) end
   -- What's in the bags: something new, something long kept let go (Keepsakes.lua).
@@ -853,6 +858,8 @@ function Compose.MarksGlance()
     if gr and GATHER_MARK[gr.kind] and within(gr.last, 1800) and (gr.n or 0) >= 3 then
       mark(4.4, GATHER_MARK[gr.kind][1], say("mark_" .. gr.kind, nil, gr.start), GATHER_MARK[gr.kind][2])
     end
+    -- A trade's smell after a stretch at it, and the tools carried (Sources/Trade.lua).
+    for _, m in ipairs(ns.Sources.Trade and ns.Sources.Trade.Marks(c.trade, life) or {}) do mark(m.prio, m.title, m.text, m.icon) end
   end
   for _, m in ipairs(ns.Sources.Kin and ns.Sources.Kin.Marks(c) or {}) do mark(m.prio, m.title, m.text, m.icon) end
   for _, m in ipairs(ns.Sources.Calling and ns.Sources.Calling.Marks(c) or {}) do mark(m.prio, m.title, m.text, m.icon) end
@@ -1214,6 +1221,7 @@ function Compose.Bearing()
   if not rpgd then
     local after = { habit }
     for _, h in ipairs(Compose.Habits(2)) do after[#after + 1] = h end
+    after[#after + 1] = ns.Sources.Trade and ns.Sources.Trade.Habit(c.trade) or nil
     for _, h in ipairs(Compose.BestiaryTraits(2)) do after[#after + 1] = h end
     for _, h in ipairs(Compose.KinLines()) do after[#after + 1] = h end
     after[#after + 1] = Compose.BooksLine()
@@ -1262,6 +1270,7 @@ function Compose.Bearing()
   more[#more + 1] = Compose.BooksLine()
   if habit then more[#more + 1] = habit end
   for _, h in ipairs(Compose.Habits(2)) do more[#more + 1] = h end
+  more[#more + 1] = ns.Sources.Trade and ns.Sources.Trade.Habit(c.trade) or nil
   for _, h in ipairs(Compose.BestiaryTraits(2)) do more[#more + 1] = h end
   for _, h in ipairs(Compose.KinLines()) do more[#more + 1] = h end
   -- Little recorded about the inner life yet: how this race and class carry themselves.
@@ -2121,6 +2130,9 @@ function Compose.History()
       event(cl.t, 6, say("ev_close", { who = cl.foe and (" with " .. (cl.named and cl.foe or article(cl.foe))) or "", zone = U.Mid(cl.zone) }, cl.t), "close")
     end
   end
+  if c.trade and ns.Sources.Trade then
+    for _, e in ipairs(ns.Sources.Trade.Events(c.trade, recent, itemName)) do event(e.t, e.rank, e.text, e.key) end
+  end
   -- Their people (Sources/Kin.lua): a homecoming, a place of their people, a gift that mattered.
   for _, e in ipairs(ns.Sources.Kin and ns.Sources.Kin.Events(c) or {}) do event(e.t, e.rank, e.text, e.key) end
   -- The calling's news: a beast tamed, a portal opened, the fallen raised (Sources/Calling.lua).
@@ -2282,6 +2294,10 @@ function Compose.History()
       .. (#pastimes > 0 and (", " .. say("life_pastimes", { list = U.Join(pastimes) }, crafts[1])) or "")
   elseif #pastimes > 0 then
     record[#record + 1] = say("life_lead", { list = U.Join(pastimes) }, pastimes[1])
+  end
+  -- The trades in depth: what they know, their finest work, a specialisation, work for others.
+  if c.trade and ns.Sources.Trade then
+    for _, line in ipairs(ns.Sources.Trade.Passage(c.trade, itemName, toldRecent)) do record[#record + 1] = line end
   end
   local oldFinds = {}
   for k = #finds, 1, -1 do
@@ -2874,6 +2890,9 @@ Compose.STATS = {
   -- How every faction sees them (Sources/Renown.lua): "Exalted with 1, Revered with 3".
   { key = "renown", label = "Standing", icon = "INV_Misc_Token_ArgentDawn" },
   { key = "letters", label = "Letters received", icon = "INV_Letter_15", retired = true },
+  -- From Auto TRP's record of the trades in depth (Sources/Trade.lua).
+  { key = "recipes", label = "Recipes known", icon = "INV_Scroll_03" },
+  { key = "finest", label = "Finest work", icon = "INV_Misc_Gem_Pearl_04" },
   -- From the bestiary (Sources/Bestiary.lua).
   { key = "kinds", label = "Foes by kind", icon = "Ability_Hunter_BeastTaming" },
   { key = "greatest", label = "Greatest kill", icon = "INV_Misc_Bone_HumanSkull_01" },
@@ -2988,6 +3007,11 @@ function Compose.Stats()
     if taken then parts[#parts + 1] = figure(taken.n) .. " taken" .. (taken.from and (" from " .. taken.from) or "") end
     if #parts > 0 then out.hit = table.concat(parts, "; ") end
   end
+  -- The trades in depth: recipes known, the finest thing made.
+  if c.trade and ns.Sources.Trade then
+    local tr = ns.Sources.Trade.Stats(c.trade)
+    out.recipes, out.finest = tr.recipes, tr.finest
+  end
   -- The road, land by land (Sources/Road.lua): the land they've spent longest in.
   out.longest = Compose.LongestStay()
   for k, v in pairs(ns.Sources.Calling and ns.Sources.Calling.Stats(c) or {}) do out[k] = v end
@@ -3034,7 +3058,7 @@ function Compose.Stats()
   for k, v in pairs(ns.Sources.Kin and ns.Sources.Kin.Stats(c) or {}) do out[k] = v end
   for _, k in ipairs({ "deaths", "lands", "road", "dungeons", "foes", "rares", "slain", "jobs", "crafts", "standing", "books", "names", "spell",
     "fish", "made", "gathered", "duels", "battles", "gold", "inns", "hit", "kinds", "greatest", "longest", "festivals", "renown", "keepsake", "deepest", "wipes",
-    "kinhome", "racial", "kinfoes" }) do
+    "kinhome", "racial", "kinfoes", "recipes", "finest" }) do
     out[k] = out[k] or "None yet"
   end
   return out
