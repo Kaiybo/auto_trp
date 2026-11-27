@@ -73,6 +73,14 @@ function Compose.Refresh()
     c.life = S.Life and S.Life.Read() or nil
     sourcesAt, c.read = now, true
   end
+  -- The company is the game's own (cheap: a party is five units, a raid forty); Social
+  -- Diary friends are only matched by name in memory, and only when naming them is allowed.
+  local friendNames
+  if c.sd and ns.db.nameFriends then
+    friendNames = {}
+    for _, f in ipairs(c.sd.friends or {}) do friendNames[f.name] = true end
+  end
+  c.company = S.Company and S.Company.Read(c.world, friendNames) or nil
   c.t = now
   return c
 end
@@ -319,19 +327,104 @@ function Compose.LatelyGlance()
   return { TI = "Lately", IC = "INV_Misc_Map_01", TX = say("around", { where = where }, world.zone) }
 end
 
+-- Company: the game's own record of who is about them (Sources/Company.lua). Other players
+-- are only ever counted (their classes, races, guild and how often they've been seen
+-- before), never named; a Social Diary friend in the group is named when that's allowed.
+local function cw(key, vars, which)
+  local line = U.Pick(W.COMPANY[key], seed("co:" .. key .. ":" .. tostring(which or "")))
+  return (line:gsub("{([%a']+)}", function(k) if vars and vars[k] ~= nil then return vars[k] end end))
+end
+Compose.CompanyWords = cw
+
+local function ofGuild(g) return g and (g:find("^The ") and U.Mid(g) or g) or nil end
+
+-- How they usually travel, from the share of time spent grouped (nil until there's enough).
+function Compose.CompanyHabit(sol)
+  local share = sol and sol.share
+  if not share then return nil end
+  if share < 0.1 then return "loner" elseif share < 0.35 then return "mostly_alone"
+  elseif share < 0.65 then return "mixed" end
+  return "social"
+end
+
+local function petKind(p)
+  local kind = p.kind and p.kind:lower() or nil
+  return kind, kind and article(kind) or nil
+end
+
+local function guildCount(n)
+  for _, b in ipairs(W.GUILD_ONLINE) do if n <= b.max then return b.words end end
+end
+
+-- What the rest of the group are to them: guildmates, familiar faces, all of one race.
+local function groupClause(g, guild)
+  local single = g.others == 1 and #g.friends == 0
+  local others = g.others - #g.friends
+  if others < 1 then return nil end
+  local which = g.others .. ":" .. g.guildmates
+  if guild and g.guildmates >= others then
+    return cw(single and "guild_single" or "guild_all", { guild = guild }, which)
+  elseif guild and g.guildmates >= 2 then
+    return cw("guild_some", { guild = guild, n = U.Number(g.guildmates) }, which)
+  elseif guild and g.guildmates == 1 then
+    return cw("guild_one", { guild = guild }, which)
+  end
+  if g.familiar >= 1 then
+    if single then return cw("familiar_single", nil, which) end
+    if g.familiar >= others then return cw("familiar_all", nil, which) end
+    if g.familiar == 1 then return cw("familiar_one", nil, which) end
+    return cw("familiar_many", { n = U.Number(g.familiar) }, which)
+  end
+  if g.others >= 2 then
+    local top, topN = nil, 0
+    for _, r in ipairs(g.raceOrder) do if g.races[r] > topN then top, topN = r, g.races[r] end end
+    local plural = top and W.RACE_PLURAL[top]
+    if plural and topN == g.others then return cw("races_all", { races = plural }, which .. top) end
+    if plural and g.raid and topN > g.others / 2 then return cw("races_most", { races = plural }, which .. top) end
+  end
+  if guild then return cw(single and "guild_none_single" or "guild_none", { guild = guild }, which) end
+  return nil
+end
+
+-- "Together for an hour or so now, and the greenest of the lot."
+local function groupTail(g)
+  local together = g.forSeconds and g.forSeconds >= 900 and ns.Sources.Company.Span(g.forSeconds)
+  local standing = g.standing and cw(g.standing, nil, g.size)
+  if together then
+    local t = cw("together", { span = together }, g.size)
+    return U.Cap(t) .. (standing and (", " .. standing) or "") .. "."
+  end
+  if standing and g.standing ~= "even" then return U.Cap(standing) .. "." end
+  return nil
+end
+
 function Compose.CompanyGlance()
   local c = ns.cache
   local world, sd, rpgd = c.world, c.sd, c.rpgd
-  local n = world.groupSize or 0
-  if world.grouped and world.raid and n > 5 then
-    return { TI = "Part of a Host", IC = "INV_BannerPVP_02",
-      TX = say("host", { n = U.Number(n) }, n) }
+  local co = c.company or {}
+  local g = co.group
+  local guild = ofGuild(world.guild)
+  local function join(s1, s2) return U.Pron(s1 .. "." .. (s2 and (" " .. s2) or "")) end
+  if g and (g.others >= 1 or (g.size or 0) > 1) then
+    local n = math.max(g.size or 0, world.groupSize or 0)
+    if g.battleground then
+      return { TI = "On the Battlefield", IC = "INV_BannerPVP_02",
+        TX = join(cw("battle", { n = U.Number(n), faction = world.faction or "cause" }, n)) }
+    end
+    local clause = groupClause(g, guild)
+    if g.raid and n > 5 then
+      local s1 = cw(g.lead and "host_lead" or "host", { n = U.Number(n) }, n)
+      return { TI = g.lead and "Leading a Host" or "Part of a Host", IC = "INV_BannerPVP_02",
+        TX = join(s1 .. (clause and (", " .. clause) or ""), groupTail(g)) }
+    end
+    local party = Compose.PartyWords(g) or (n == 2 and "a companion" or ("a band of " .. U.Number(n)))
+    local s1 = cw(g.lead and "party_lead" or "party", { party = party }, party)
+    return { TI = g.lead and "Leading the Way" or "In Company", IC = "Spell_Holy_PrayerOfSpirit",
+      TX = join(s1 .. (clause and (", " .. clause) or ""), groupTail(g)) }
   end
-  if world.grouped and n > 1 then
-    local party = Compose.PartyWords()
-    return { TI = "In Company", IC = "Spell_Holy_PrayerOfSpirit",
-      TX = say("party", { party = party or (n == 2 and "a companion" or ("a band of " .. U.Number(n))) }, party) }
-  end
+  local sol = co.solitude or {}
+  local habit = Compose.CompanyHabit(sol)
+  local habitLine = habit and (U.Cap(cw(habit, nil, world.zone)) .. ".") or nil
   if sd and ns.db.nameFriends and sd.friends[1] then
     local f = sd.friends[1]
     local tx
@@ -344,6 +437,34 @@ function Compose.CompanyGlance()
     end
     return { TI = "Keeps Company", IC = "Spell_Holy_PrayerOfSpirit", TX = tx }
   end
+  local pet = co.pet
+  if pet and (world.class == "HUNTER" or world.class == "WARLOCK") then
+    local kind, akind = petKind(pet)
+    kind, akind = kind or (world.class == "WARLOCK" and "demon" or "beast"), akind or (world.class == "WARLOCK" and "a demon" or "a beast")
+    local mood = world.class == "HUNTER" and pet.happy and W.PET_HAPPY[pet.happy]
+    local vars = { pet = pet.name, kind = kind, akind = akind, mood = mood and (", " .. mood) or "" }
+    local s1 = cw(world.class == "HUNTER" and "pet_hunter" or "pet_warlock", vars, pet.name)
+    local s2
+    local held = pet.first and (U.Now() - pet.first) or 0
+    local tracked = U.Now() - ((ns.char.company and ns.char.company.since) or U.Now())
+    if held >= 86400 then
+      vars.span = ns.Sources.Company.Span(held)
+      s2 = cw("pet_since", vars, pet.name)
+      if (pet.deaths or 0) > 0 then
+        vars.times = U.Times(pet.deaths)
+        s2 = s2 .. cw("pet_fallen", vars, pet.name)
+      end
+    elseif pet.first and tracked > 3 * 86400 then
+      s2 = cw("pet_new", vars, pet.name)
+    end
+    s2 = s2 and (U.Cap(s2) .. ".") or habitLine
+    return { TI = "Travels Light", IC = "Ability_Hunter_BeastCall", TX = join(s1, s2 and U.Pron(s2)) }
+  end
+  local gi = co.guild
+  if guild and gi and gi.online and gi.online >= 2 then
+    local s1 = cw("guild_about", { guild = guild, n = guildCount(gi.online) }, guild)
+    return { TI = "Guild Colours", IC = "INV_Shirt_GuildTabard_01", TX = join(s1, habitLine) }
+  end
   local town = rpgd and rpgd.towns[1]
   local friend = rpgd and rpgd.friends[1]
   if town and town.value >= 10 then
@@ -354,36 +475,34 @@ function Compose.CompanyGlance()
   if friend then
     return { TI = "Local Ties", IC = "INV_Misc_Bag_11", TX = U.Cap(say("getson", { who = friend.name }, friend.name)) .. "." }
   end
-  if world.pet and (world.class == "HUNTER" or world.class == "WARLOCK") then
-    local mood = world.petHappy and W.PET_HAPPY[world.petHappy]
-    return { TI = "Travels Light", IC = "Ability_Hunter_BeastCall",
-      TX = U.Pron(say("pet_only", { pet = world.pet .. (world.petKind and (" the " .. world.petKind:lower()) or ""),
-        mood = mood and (", " .. mood) or "" }, world.pet)) }
+  if guild then
+    return { TI = "Guild Colours", IC = "INV_Shirt_GuildTabard_01",
+      TX = join(cw("guild_quiet", { guild = guild }, guild), habitLine) }
   end
   local reserved = rpgd and ((rpgd.traits.reserved or 0) >= 3)
-  return { TI = "Travels Alone", IC = "Spell_Shadow_Teleport",
-    TX = U.Pron(say(reserved and "alone_reserved" or "alone", nil, world.zone)) }
+  local s1
+  if sol.aloneFor and sol.aloneFor >= 3600 and not (sol.neverGrouped and sol.aloneFor < 86400) then
+    local span = ns.Sources.Company.Span(sol.aloneFor)
+    s1 = cw("alone_for", { span = span }, span)
+  else
+    s1 = cw(reserved and "alone_reserved" or "alone", nil, world.zone)
+  end
+  return { TI = habit == "social" and "Between Companies" or "Travels Alone", IC = "Spell_Shadow_Teleport",
+    TX = join(U.Cap(s1), habitLine) }
 end
 
--- "a priest, a mage and two warriors" from the party's classes.
-function Compose.PartyWords()
-  local count, order = {}, {}
-  for i = 1, 4 do
-    local unit = "party" .. i
-    if U.Call(UnitExists, unit) then
-      local class = select(2, U.Call(UnitClass, unit))
-      if class and W.CLASS_PLURAL[class] then
-        if not count[class] then order[#order + 1] = class end
-        count[class] = (count[class] or 0) + 1
-      end
-    end
-  end
-  if #order == 0 then return nil end
+-- "Mirelle, a priest, a mage and two warriors": Social Diary friends by name (when allowed),
+-- everyone else by class. g: a group from Sources/Company.lua (read now if not given).
+function Compose.PartyWords(g)
+  g = g or (ns.Sources.Company and ns.Sources.Company.Group())
+  if not g then return nil end
   local parts = {}
-  for _, class in ipairs(order) do
-    local n, words = count[class], W.CLASS_PLURAL[class]
-    parts[#parts + 1] = n == 1 and article(words[1]) or (U.Number(n) .. " " .. words[2])
+  for _, name in ipairs(g.friends or {}) do parts[#parts + 1] = name end
+  for _, class in ipairs(g.classOrder or {}) do
+    local n, words = g.classes[class], W.CLASS_PLURAL[class]
+    if words then parts[#parts + 1] = n == 1 and article(words[1]) or (U.Number(n) .. " " .. words[2]) end
   end
+  if #parts == 0 then return nil end
   return U.Join(parts)
 end
 
@@ -752,8 +871,6 @@ function Compose.Habits(k)
   end
   if life.battles >= 20 then add(2, "battles") end
   if life.emoteTop and life.emoteTopN >= 30 and W.LIFE.EMOTE[life.emoteTop] then add(2.5, "emote:" .. life.emoteTop, W.LIFE.EMOTE[life.emoteTop]) end
-  if life.people >= 40 then add(1, "company")
-  elseif life.groups == 0 and (world.level or 1) >= 20 and U.Now() - (life.since or U.Now()) > 14 * 86400 then add(1, "alone") end
   if #life.inns >= 10 then add(1, "inns") end
   if life.falls >= 10 then add(1.2, "falls") end
   if life.closeCalls >= 10 then add(1.1, "close") end
@@ -1339,8 +1456,11 @@ function Compose.History()
   if #oldFinds > 0 then record[#record + 1] = say("finds", { list = U.Join(oldFinds) }, finds[1].item) end
   paras[#paras + 1] = paragraph(record)
 
-  -- 4. The people, friends and otherwise
+  -- 4. The people: friends, the company they keep, their pet, their guild, standing.
+  -- Other players are only ever counted; Social Diary friends are named when allowed.
   local people = {}
+  local co = c.company or {}
+  local Co = ns.Sources.Company
   local friends = {}
   if rpgd then
     for k = 1, math.min(2, #rpgd.friends) do friends[k] = rpgd.friends[k].name end
@@ -1362,21 +1482,65 @@ function Compose.History()
   elseif partner then
     people[#people + 1] = name .. " travels with " .. partner
   end
-  -- Company kept, from Auto TRP's own count (names are never kept; a Social Diary friend
-  -- grouped with most is named, when naming friends is on).
-  if life and life.people >= 10 then
-    local best, bestN
-    if sd and ns.db.nameFriends then
-      for _, fr in ipairs(sd.friends or {}) do
-        local n = ns.Sources.Life.TimesWith(fr.name)
-        if n >= 3 and (not bestN or n > bestN) then best, bestN = fr.name, n end
+  -- How they go about: alone or in company, and who has shared the road (counts only).
+  local sol = co.solitude or {}
+  local habit = Compose.CompanyHabit(sol)
+  local week = (sol.week or 0) > 0 and sol.week or (sd and sd.recentPeople or 0)
+  local weekLine = week >= 2 and cw("h_week", { n = U.Number(week) }, week) or nil
+  if habit then
+    local line = cw("h_" .. habit, { name = name }, habit)
+    if weekLine then
+      if habit == "loner" then
+        line = line .. ", though {they} " .. weekLine:gsub("^has ", "{have} ")
+      else
+        line = line .. ", and " .. weekLine
       end
     end
-    people[#people + 1] = say("company_count", { n = U.Number(life.people) }, life.people > 50 and "many" or "few")
-      .. (best and say("company_friend", { who = best }, best) or "")
+    people[#people + 1] = line
+  elseif weekLine then
+    people[#people + 1] = U.Cap(weekLine)
   end
-  if sd and sd.recentPeople >= 4 then
-    people[#people + 1] = say("fought", { n = U.Number(sd.recentPeople) }, sd.recentPeople)
+  if (sol.recurring or 0) >= 1 then
+    people[#people + 1] = sol.recurring == 1 and cw("h_recurring_one", nil, 1)
+      or cw("h_recurring", { n = U.Number(sol.recurring) }, sol.recurring)
+  end
+  if (sol.soloDungeons or 0) >= 1 then
+    people[#people + 1] = cw("h_solo", { times = U.Times(sol.soloDungeons) }, sol.soloDungeons)
+  end
+  -- The pet: the one at their side now (or, for a warlock, the demon called most).
+  local pets = co.pets or {}
+  if (world.class == "HUNTER" or world.class == "WARLOCK") and #pets > 0 then
+    local cur
+    if world.class == "WARLOCK" then cur = pets[1] else
+      for _, pt in ipairs(pets) do if pt.name == world.pet then cur = pt end end
+      if not cur then
+        for _, pt in ipairs(pets) do if not cur or pt.last > cur.last then cur = pt end end
+      end
+    end
+    local kind = cur.kind and cur.kind:lower() or (world.class == "WARLOCK" and "demon" or "beast")
+    local vars = { name = name, pet = cur.name, kind = kind, akind = article(kind) }
+    if world.class == "WARLOCK" then
+      if #pets >= 2 then people[#people + 1] = cw("h_demon", vars, cur.name) end
+    else
+      local held = now - (cur.first or now)
+      local line
+      if held >= 86400 then
+        vars.span = Co.Span(held)
+        line = cw("h_pet", vars, cur.name)
+        if (cur.deaths or 0) > 0 then
+          vars.times = U.Times(cur.deaths)
+          line = line .. cw("pet_fallen", vars, cur.name)
+        end
+      elseif now - ((ns.char.company and ns.char.company.since) or now) > 3 * 86400 then
+        line = cw("h_pet_new", vars, cur.name)
+      end
+      people[#people + 1] = line
+      local before = {}
+      for _, pt in ipairs(pets) do
+        if pt.name ~= cur.name and #before < 2 then before[#before + 1] = pt.name .. (pt.kind and (" the " .. pt.kind:lower()) or "") end
+      end
+      if #before > 0 then people[#people + 1] = cw("h_pets_before", { pet = cur.name, list = U.Join(before) }, cur.name) end
+    end
   end
   if rpgd then
     local good, bad = {}, nil
@@ -1402,9 +1566,21 @@ function Compose.History()
   end
   local serve = #served > 0 and ("has done good work for " .. U.Join(served)) or nil
   if world.guild then
-    people[#people + 1] = say("guild", { guild = guildName(world.guild) }, world.guild)
-      .. (world.guildRank and (" and holds the rank of " .. world.guildRank:lower() .. " there") or "")
-      .. (serve and (", and " .. serve) or "")
+    -- How long they've worn the colours: from when Auto TRP saw them join, or at least as
+    -- long as it has been watching.
+    local gi = co.guild or {}
+    local tracked = (ns.char.company and ns.char.company.since) or now
+    local since = gi.since and now - gi.since or 0
+    local vars = { name = name, guild = guildName(world.guild),
+      rank = world.guildRank and (" and holds the rank of " .. world.guildRank:lower() .. " there") or "" }
+    local line
+    if since >= 86400 then
+      vars.span = Co.Span(since) .. ((gi.since or 0) <= tracked + 600 and " at least" or "")
+      line = cw("h_guild", vars, world.guild)
+    else
+      line = cw("h_guild_now", vars, world.guild)
+    end
+    people[#people + 1] = line .. (serve and (", and " .. serve) or "")
   elseif serve then
     people[#people + 1] = U.Cap(serve)
   end
