@@ -2023,6 +2023,204 @@ W.WEEK_TONE = {
   good = { "The last few days have been good ones.", "Things have been going well lately." },
 }
 
+-- The shape of their time (Sources/Seasons.lua): the hours they keep, the days they come,
+-- anniversaries, absences and returns, the festivals they kept, how a season went. {name}
+-- is the character's first name; the rest are filled by Compose (TimeLines, the Lately glance).
+W.SEASONS = {
+  -- By the game's clock, from the hours they're usually abroad.
+  night = {
+    "Is most often abroad after dark",
+    "Keeps late hours, and does most of {their} travelling after nightfall",
+    "Is seen about far more by night than by day",
+    "Tends to be out once the sun is down and the roads are quiet",
+    "Does most of {their} business after dark, going by the hours {they} keep{s}",
+  },
+  dawn = {
+    "Is an early riser, usually on the road by first light",
+    "Keeps early hours, and is mostly abroad in the morning",
+    "Likes an early start: most of {their} days begin at dawn",
+    "Is usually up and about while the dew is still on the grass",
+  },
+  day = {
+    "Keeps to the daylight, and is seldom out after dark",
+    "Travels by day and is rarely seen once night falls",
+    "Keeps honest daylight hours on the road",
+    "Is mostly about between morning and dusk, and indoors by nightfall",
+  },
+  evening = {
+    "Is mostly about in the evenings",
+    "Tends to take to the road as the day draws in",
+    "Is most often seen at dusk and into the evening",
+    "Does most of {their} travelling in the last hours of the day",
+  },
+  -- The real days of the week. {day}: "Tuesday".
+  weekend = {
+    "Is mostly seen at the end of the week",
+    "Turns up chiefly at the week's end, and is scarcer in between",
+    "Keeps the end of the week for {their} travels",
+    "Is a week's-end traveller, more often than not",
+  },
+  weekday = {
+    "Is most often seen of a {day}",
+    "Can usually be found on the road on a {day}",
+    "Has a habit of turning up on {day}s",
+    "Is about more on {day}s than on any other day",
+  },
+  -- Anniversaries. {span}: "a year", "two years", "half a year", "a hundred days", "a month";
+  -- {when}: "this week" or "today"; {rank}: the rank risen to.
+  anniv = {
+    "It's {span} {when} since {name} first set out",
+    "{span} ago {when}, {name} first took to the road",
+    "{name} has been on the road {span} {when}",
+    "{when} makes {span} since {name} set out",
+    "It was {span} ago {when} that {name}'s road began",
+  },
+  anniv_rank = {
+    "It's {span} {when} since {name} rose to {rank}",
+    "{span} ago {when}, {name} rose to {rank}",
+    "{name} rose to {rank} {span} ago {when}",
+    "{when} makes {span} since {name} rose to {rank}",
+  },
+  -- Coming back. {span}: "eleven days", "three weeks".
+  back = {
+    "Came back after {span} away",
+    "Has only lately come back, after {span} away",
+    "Turned up again after {span} gone",
+    "Is newly back on the road after {span} away",
+    "Is back again, after {span} away from the road",
+  },
+  gap = {
+    "Was gone {span} once, and came back",
+    "Once went {span} without being seen on the road",
+    "Has been away as long as {span} before now",
+    "Once dropped out of sight for {span}",
+  },
+  -- Runs of days. {n}: "seven".
+  streak = {
+    "Has been on the road {n} days running",
+    "Hasn't missed a day in {n}",
+    "Has been out every one of the last {n} days",
+    "Has kept at it {n} days straight",
+  },
+  -- The longest session. {span}: "nine hours".
+  longest = {
+    "Has gone {span} at a stretch before now",
+    "Once stayed out {span} straight",
+    "{name}'s longest day on the road ran to {span}",
+    "Can keep going for {span} at a time",
+  },
+  -- Festivals. {fest}: "Hallow's End"; {zone}; {list}: several festivals.
+  fest = {
+    "Spent {fest} in {zone}",
+    "Kept {fest} in {zone}",
+    "Was in {zone} for {fest}",
+    "Saw {fest} through in {zone}",
+    "Marked {fest} in {zone}",
+  },
+  fest_list = {
+    "Has kept {list} on the road",
+    "Has turned out for {list}",
+    "Has made time for {list}",
+    "Has joined in {list} in {their} time",
+  },
+  faire = {
+    "Has been to the Darkmoon Faire {times}",
+    "Has visited the Darkmoon Faire {times}",
+    "Has called at the Darkmoon Faire {times}",
+    "Has taken in the Darkmoon Faire {times}",
+    "Knows the Darkmoon Faire, having been {times}",
+  },
+  -- How the season (or the month) just past went. {season}: "autumn"; {month}: "October".
+  season_hard = {
+    "Had a hard {season} of it",
+    "The {season} went hard for {them}",
+    "Came through a bleak {season}",
+    "Found the {season} a hard one",
+    "Has had a rough {season}",
+  },
+  season_good = {
+    "Had a good {season}",
+    "The {season} treated {them} well",
+    "Came through the {season} in good heart",
+    "Found the {season} a kind one",
+    "Had the best of the {season}",
+  },
+  month_hard = {
+    "{month} was a hard month for {them}",
+    "Had a bleak {month}",
+    "Found {month} hard going",
+    "{month} went badly for {them}",
+  },
+  month_good = {
+    "{month} was a good month for {them}",
+    "Had a fine {month}",
+    "{month} went well for {them}",
+    "Did well through {month}",
+  },
+  -- The Lately glance.
+  lately_anniv = {
+    "{span} ago {when}, {name} first set out.",
+    "{name} has been on the road {span} {when}.",
+    "It's {span} {when} since {name} took to the road.",
+    "{when} makes {span} on the road for {name}.",
+  },
+  lately_rank = {
+    "It's {span} {when} since {name} rose to {rank}.",
+    "{span} ago {when}, {name} rose to {rank}.",
+    "{when} makes {span} since {name} rose to {rank}.",
+    "{name} rose to {rank} {span} ago {when}.",
+  },
+  lately_fest = {
+    "Out for {fest} in {zone}.",
+    "Keeping {fest} in {zone}.",
+    "In {zone} for {fest}.",
+    "Making the most of {fest} in {zone}.",
+    "Turned out for {fest}, in {zone}.",
+  },
+  lately_faire = {
+    "At the Darkmoon Faire in {zone}.",
+    "Spent some of the day at the Darkmoon Faire in {zone}.",
+    "Took in the Darkmoon Faire in {zone}.",
+    "Down at the Darkmoon Faire in {zone}.",
+  },
+  lately_back = {
+    "Back on the road after {span} away.",
+    "Only just back, after {span} gone.",
+    "Newly returned after {span} away.",
+    "Has come back after {span} away.",
+    "Out again after {span} away.",
+  },
+  -- The journal, in the character's own voice.
+  journal = {
+    anniv = {
+      "It's {span} this week since I set out",
+      "{span} on the road now, near enough to the day",
+      "I've been on the road {span} this week",
+      "{span} since I first set out, and I thought about that today",
+    },
+    anniv_rank = {
+      "It's {span} since I rose to {rank}",
+      "{span} now since I rose to {rank}",
+      "I rose to {rank} {span} ago this week",
+      "{span} as {rank}, near enough",
+    },
+    back = {
+      "Back on the road after {span} away",
+      "First day back after {span}",
+      "{span} away, and now back on the road",
+      "I came back today after {span} away",
+    },
+    fest = {
+      "{fest} was on, and I kept it in {zone}",
+      "I kept {fest} in {zone}",
+      "Spent some of the day on {fest} in {zone}",
+      "{fest} in {zone}, and I joined in",
+    },
+  },
+  -- Lately's headings, by the span.
+  titles = { year = "A Year On", half = "Half a Year On", hundred = "A Hundred Days", month = "A Month On" },
+}
+
 
 -- Class reagents and tools in the bags (item id, name if the game can't say). What a class
 -- carries is told only when it's really in the bags.

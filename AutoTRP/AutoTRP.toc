@@ -29,6 +29,7 @@ Sources\Life.lua
 Sources\Company.lua
 Sources\Goals.lua
 Sources\Delves.lua
+Sources\Seasons.lua
 Sources\Style.lua
 Sources\Renown.lua
 Sources\Pack.lua
