@@ -157,3 +157,12 @@ weighs nothing
 on the edge of | max 12
 in the thick of | max 2
 endless | max 2
+
+# About prose tics (editorial pass): lists that read like a catalogue, or say one thing twice
+among it
+unaccompanied
+is worn over the top
+before any of this
+steady, patient
+patient bearing | max 1
+as {list} instead

@@ -3824,6 +3824,90 @@ do
   check(not any, "no \"{they} mean\" without {s}: " .. tostring(any))
 end
 
+-- How the About pages read, across races, classes, levels, pronouns and sources: no two
+-- sentences in a row open on the same word, no paragraph runs past seven sentences, no tag
+-- is left unfilled, the verbs agree with the pronoun, "a"/"an" fit, and the punctuation is clean.
+do
+  local C = ns.Compose
+  local AGREE = { has = 1, is = 1, holds = 1, keeps = 1, wears = 1, travels = 1, answers = 1, belongs = 1, carries = 1,
+    counts = 1, calls = 1, knows = 1, goes = 1, means = 1, seems = 1, gets = 1, walks = 1, believes = 1, thinks = 1,
+    stands = 1, moves = 1, was = 1, ["doesn't"] = 1, ["isn't"] = 1 }
+  local function lint(text)
+    local out = {}
+    local t = text:gsub("{col:%x+}", ""):gsub("{/col}", "")
+    -- A quotation is the character's (or a book's) own words: one token, keeping its full stop.
+    t = t:gsub('"([^"]*)"', function(q) return q:find("[%.!%?]$") and "Q." or "Q" end)
+    if t:find("{", 1, true) then out[#out + 1] = "a tag left: " .. t:match("{[^}]*}") end
+    for _, bad in ipairs({ "  ", " ,", "%.%.", " %.", ",,", ", %.", "%. %l", "%a%.%a" }) do
+      local at = t:find(bad)
+      if at then out[#out + 1] = "punctuation '" .. bad .. "': " .. t:sub(math.max(1, at - 20), at + 20) end
+    end
+    for w in t:gmatch("[Tt]hey ([%a']+) ") do if AGREE[w] then out[#out + 1] = "they " .. w end end
+    for w in t:gmatch("%f[%a][Ss]?[Hh]e ([%a']+) ") do
+      if w == "have" or w == "are" or w == "were" or w == "don't" or w == "aren't" then out[#out + 1] = "he/she " .. w end
+    end
+    for w in t:gmatch("%f[%a][Aa] ([aeiouAEIOU]%a*)") do
+      local l = w:lower()
+      if not (l:find("^one") or l:find("^us") or l:find("^un[ai]") or l:find("^eu")) then out[#out + 1] = "a " .. w end
+    end
+    for w in t:gmatch("%f[%a][Aa]n ([^aeiouAEIOUhH%s%p]%a*)") do out[#out + 1] = "an " .. w end
+    for para in (t .. "\n\n"):gmatch("(.-)\n\n") do
+      local n, last = 0, nil
+      for sen in (para .. " "):gmatch("(.-[%.!%?])%s+") do
+        n = n + 1
+        local w = sen:match("^%s*(%S+)")
+        w = w and w:lower():gsub("[^%a']", "")
+        if w and w == last and w ~= "q" then out[#out + 1] = "two in a row open on '" .. w .. "': " .. sen:sub(1, 50) end
+        last = w
+      end
+      if n > 7 then out[#out + 1] = "a paragraph of " .. n .. " sentences: " .. para:sub(1, 40) end
+    end
+    return out
+  end
+  local combos = { { "Human", "PALADIN", "Alliance" }, { "Human", "MAGE", "Alliance" }, { "Dwarf", "HUNTER", "Alliance" },
+    { "Dwarf", "PRIEST", "Alliance" }, { "Gnome", "WARLOCK", "Alliance" }, { "Gnome", "ROGUE", "Alliance" },
+    { "NightElf", "DRUID", "Alliance" }, { "NightElf", "WARRIOR", "Alliance" }, { "Orc", "SHAMAN", "Horde" },
+    { "Orc", "HUNTER", "Horde" }, { "Troll", "PRIEST", "Horde" }, { "Troll", "MAGE", "Horde" },
+    { "Tauren", "DRUID", "Horde" }, { "Tauren", "WARRIOR", "Horde" }, { "Scourge", "ROGUE", "Horde" },
+    { "Scourge", "WARLOCK", "Horde" }, { "Goblin", "ROGUE", "Horde" }, { "Orc", "DEATHKNIGHT", "Horde" } }
+  local levels, prons = { 5, 25, 45, 60 }, { "she/her", "he/him", false }
+  local keepAPI = { UnitRace, UnitClass, UnitFactionGroup, UnitLevel, ns.TRP.CustomPronouns }
+  local keepDB = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB }
+  local keepSeed = ns.char.seedName
+  local problems, runs = {}, 0
+  for i, c in ipairs(combos) do
+    for k = 0, 2 do
+      local level, pron = levels[(i + k) % 4 + 1], prons[(i + k) % 3 + 1]
+      UnitRace = function() return c[1], c[1] end
+      UnitClass = function() return c[2], c[2] end
+      UnitFactionGroup = function() return c[3] end
+      UnitLevel = function() return level end
+      ns.TRP.CustomPronouns = function() return pron or nil end
+      -- Total RP 3 alone, with RPG Dialogue, and with every source.
+      RPGDialogueCharDB = k > 0 and keepDB[1] or nil
+      SocialDiaryCharDB = k == 2 and keepDB[2] or nil
+      ChronicleCharDB = k == 2 and keepDB[3] or nil
+      ns.char.seedName = "lint" .. i .. ":" .. k
+      ns.World.slow = nil
+      C.SourcesChanged()
+      local sh = C.Sheet()
+      runs = runs + 1
+      for _, key in ipairs({ "bearing", "history", "physical" }) do
+        for _, p in ipairs(lint(sh[key] or "")) do
+          if #problems < 8 then problems[#problems + 1] = c[1] .. " " .. c[2] .. " " .. level .. " " .. key .. ": " .. p end
+        end
+      end
+    end
+  end
+  UnitRace, UnitClass, UnitFactionGroup, UnitLevel, ns.TRP.CustomPronouns = keepAPI[1], keepAPI[2], keepAPI[3], keepAPI[4], keepAPI[5]
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = keepDB[1], keepDB[2], keepDB[3]
+  ns.char.seedName = keepSeed
+  ns.World.slow = nil
+  C.SourcesChanged(); C.Refresh()
+  check(#problems == 0, "About reads cleanly across " .. runs .. " characters (openers, paragraph length, tags, agreement, articles): "
+    .. table.concat(problems, " | "))
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },

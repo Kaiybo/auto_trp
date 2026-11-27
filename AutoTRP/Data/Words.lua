@@ -2716,7 +2716,7 @@ W.SAY = {
   alongtheway = { "Along the way", "Over time", "On the road so far", "All told,", "Up to now", "In {their} time on the road" },
   -- Filling a sparse History
   rankso = { "Has risen as far as {rank}", "Has made it as far as the rank of {rank}", "Has reached the rank of {rank}",
-    "{they've} come up as far as {rank}", "{they} stand{s} at the rank of {rank} for now", "Holds the rank of {rank}, for now" },
+    "{they've} come up as far as {rank}", "{they} stand{s} at the rank of {rank} for now", "For now, {they're} at the rank of {rank}" },
   keepsto = { "These days {they} keep{s} mostly to {zone}", "Lately {they've} been around {zone}", "{zone} is where {they} spend{s} most of {their} time",
     "{they're} mostly to be found in {zone} lately", "Most days find {them} somewhere in {zone}" },
   -- Earned names: where the name came from, the saying that came with it, the others that

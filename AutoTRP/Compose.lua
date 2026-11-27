@@ -1949,7 +1949,15 @@ end
 -- snapshot only to fill a gap. Three paragraphs: the body, what they wear and carry, and
 -- how they are right now. Nothing is named that the game doesn't show.
 ---------------------------------------------------------------------------
-local function physique(c)
+-- The longer words of a line, to keep two sentences side by side from saying the same thing
+-- ("calm-faced and unhurried. Has the deep, settled calm of long devotion").
+local function keyWords(text)
+  local out = {}
+  for w in (text or ""):lower():gmatch("%a+") do if #w >= 4 then out[w] = true end end
+  return out
+end
+
+local function physique(c, beside)
   local stats = c.world.stats
   if type(stats) ~= "table" or next(stats) == nil then
     stats = (c.chronicle and c.chronicle.appearance and c.chronicle.appearance.stats) or {}
@@ -1958,7 +1966,15 @@ local function physique(c)
   for name, v in pairs(stats) do
     if type(v) == "number" and W.PHYSIQUE[name] and (not bestV or v > bestV or (v == bestV and name < best)) then best, bestV = name, v end
   end
-  return best and U.Pron(U.Pick(W.PHYSIQUE[best], seed("phys" .. best))) or nil
+  if not best then return nil end
+  local pool, near = W.PHYSIQUE[best], keyWords(beside)
+  local fresh = {}
+  for _, l in ipairs(pool) do
+    local clash = false
+    for w in pairs(keyWords(l)) do if near[w] or near[w:gsub("s$", "")] then clash = true end end
+    if not clash then fresh[#fresh + 1] = l end
+  end
+  return U.Pron(U.Pick(#fresh > 0 and fresh or pool, seed("phys" .. best)))
 end
 
 -- Pronoun and verb tags are left for U.Pron; any other {tag} must be filled.
@@ -2248,14 +2264,14 @@ function Compose.Physical()
   local body = {}
   local rl = U.BackedList(W.RACE_LOOK[world.race or ""], world)
   if #rl > 0 then body[#body + 1] = U.Pick(rl, seed("racelook")) end
-  local build = physique(c)
-  body[#body + 1] = article(seasoned(world.level, "seasoned")) .. " " .. noun .. (build and (", " .. build) or "")
   local stances = W.PHYS_STANCE[world.class or ""]
   local stance = stances and fillPick(stances[stage(world.level)], nil, "stance")
   if not stance then
     local cl = U.BackedList(noGear(W.CLASS_LOOK[world.class or ""]), world)
     if #cl > 0 then stance = U.Pick(cl, seed("classlook")) end
   end
+  local build = physique(c, stance)
+  body[#body + 1] = article(seasoned(world.level, "seasoned")) .. " " .. noun .. (build and (", " .. build) or "")
   body[#body + 1] = stance
   body[#body + 1] = fillPick(W.RACE_BEARING[world.race or ""], nil, "bearing")
 
