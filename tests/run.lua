@@ -1371,6 +1371,280 @@ do
   UnitIsAFK, issecretvalue = oldAFK, nil
 end
 
+-- Ambitions and what drives them (Sources/Goals.lua): the quest log and the game's own
+-- state, with no RPG Dialogue, Social Diary or Chronicle at all; then the extras.
+do
+  local C, G, W = ns.Compose, ns.Goals, ns.Words
+  local keep = { RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.questsTaken }
+  local mocks = { UnitLevel = UnitLevel, GetMoney = GetMoney, UnitXP = UnitXP, UnitClass = UnitClass, UnitRace = UnitRace,
+    GetNumSkillLines = GetNumSkillLines, GetSkillLineInfo = GetSkillLineInfo, GetNumFactions = GetNumFactions,
+    GetFactionInfo = GetFactionInfo, IsPlayerSpell = IsPlayerSpell, GetItemCount = GetItemCount, zone = state.zone }
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB = nil, nil, nil
+  ns.char.deeds, ns.char.questsTaken = nil, nil
+  local LOG, reads = {}, 0
+  -- Entries: { header = true, title } or { title, level, tag, complete, obj = { { text, done } }, id }.
+  GetNumQuestLogEntries = function() local n = 0; for _, q in ipairs(LOG) do if not q.header then n = n + 1 end end return #LOG, n end
+  GetQuestLogTitle = function(i)
+    reads = reads + 1
+    local q = LOG[i]
+    if not q then return nil end
+    if q.header then return q.title, 0, nil, true end
+    return q.title, q.level, q.tag, false, false, q.complete, 0, q.id
+  end
+  GetNumQuestLeaderBoards = function(i) return #(LOG[i] and LOG[i].obj or {}) end
+  GetQuestLogLeaderBoard = function(j, i) local o = LOG[i].obj[j]; return o[1], "monster", o[2] end
+  IsQuestWatched = function() return false end
+  local level, gold, xp = 22, 2, 100
+  UnitLevel = function() return level end
+  GetMoney = function() return gold * 10000 end
+  UnitXP = function() return xp end
+  local SKILLS = {}
+  GetNumSkillLines = function() return #SKILLS end
+  GetSkillLineInfo = function(i) local s = SKILLS[i]; return s[1], false, false, s[2], 0, 0, s[3] end
+  local REPS = {}
+  GetNumFactions = function() return #REPS end
+  GetFactionInfo = function(i) local r = REPS[i]; return r[1], "", r[2], r[3], r[4], r[5], false, false, false, false, true end
+  local function fresh() G.Invalidate(); ns.World.slow = nil; C.SourcesChanged(); C.Refresh() end
+  local function amb() fresh(); return C.AmbitionGlance() end
+  local function show(g) return g.TI .. " / " .. g.IC .. " / " .. g.TX end
+  state.zone = "Duskwood"
+
+  -- Nothing in the log, no other addon: the next level or rank still gives a glance and Drives.
+  local g = amb()
+  check(g.TI == "Ambition" and g.TX:find("rank of Priest") or g.TX:find("Priest"), "no addons, empty log: the next rank: " .. show(g))
+  check(C.Drives() and C.Drives():find("^Aldric "), "no addons: Drives still has a line: " .. tostring(C.Drives()))
+  check(C.History():find(C.Drives(), 1, true), "and History ends with what drives them")
+  xp = 900
+  g = amb()
+  check(g.TI == "Nearly There" and g.TX:find("twenty%-three") or g.TX:find("next level"), "close to the next level: " .. show(g))
+  GetXPExhaustion = function() return 4000 end
+  g = amb()
+  check(g.TI == "Well Rested", "rested and close to a level: " .. show(g))
+  GetXPExhaustion, xp = nil, 100
+
+  -- A chain part-done, by its last quest's title and by an earlier step.
+  LOG = { { header = true, title = "Westfall" }, { title = "The Defias Brotherhood", level = 18, id = 1 } }
+  g = amb()
+  check(g.TI == "Seeing It Through" and g.IC == "INV_Misc_Mask_01" and g.TX:find("the Defias business"), "a chain in progress: " .. show(g))
+  LOG = { { header = true, title = "Tirisfal Glades" }, { title = "Down the Scarlet Path", level = 30, id = 2 } }
+  level = 31
+  g = amb()
+  check(g.TI == "Seeing It Through" and g.TX:find("Scarlet Monastery business"), "an earlier step of a chain: " .. show(g))
+  level = 22
+  -- A chain already seen through isn't an ambition.
+  LOG = { { header = true, title = "Westfall" }, { title = "The Defias Brotherhood", level = 18, id = 1 } }
+  ns.Sources.Deeds.Quest("The Defias Brotherhood", 1, "Westfall", NOW - 100)
+  g = amb()
+  check(g.TI ~= "Seeing It Through", "a chain already finished is no ambition: " .. show(g))
+  ns.char.deeds = nil
+  -- Another class's chain isn't theirs.
+  LOG = { { header = true, title = "Desolace" }, { title = "Verigan's Fist", level = 20, id = 3 } }
+  check(amb().TI ~= "Seeing It Through", "a paladin's chain isn't a priest's ambition")
+
+  -- Dungeon, raid and elite work.
+  LOG = { { header = true, title = "The Deadmines" }, { title = "Collecting Memories", level = 18, id = 4 } }
+  g = amb()
+  check(g.TI == "A Job Waiting" and g.TX:find("Deadmines") or g.TX:find("party"), "a job in a dungeon: " .. show(g))
+  LOG = { { header = true, title = "Molten Core" }, { title = "Thunderaan the Windseeker", level = 60, id = 5 } }
+  level = 60
+  g = amb()
+  check(g.TI == "A Host Wanted", "a raid job: " .. show(g))
+  level = 22
+  LOG = { { header = true, title = "Stranglethorn Vale" }, { title = "Raptor Mastery", level = 24, tag = "Elite", id = 6 } }
+  g = amb()
+  check(g.TI == "Hard Work" and (g.TX:find("Raptor Mastery") or g.TX:find("Stranglethorn")), "an elite job: " .. show(g))
+
+  -- Done and waiting to be handed in; nearly done; beyond them.
+  LOG = { { header = true, title = "Elwynn Forest" }, { title = "The Collector", level = 10, complete = 1, id = 7 } }
+  g = amb()
+  check(g.TI == "Back to Collect" and g.TX:find('"The Collector"'), "a job ready to hand in: " .. show(g))
+  LOG[3] = { title = "Wolves Across the Border", level = 6, complete = 1, id = 8 }
+  g = amb()
+  check(g.TI == "Back to Collect" and g.TX:find("two"), "two jobs to hand in: " .. show(g))
+  LOG = { { header = true, title = "Westfall" }, { title = "Patrolling Westfall", level = 14, id = 9,
+    obj = { { "Fleshripper slain: 13/15", false }, { "Harvest Watcher slain: 10/10", true } } } }
+  g = amb()
+  check(g.TI == "Nearly Done" and g.TX:find("Patrolling Westfall"), "nearly done: " .. show(g))
+  LOG = { { header = true, title = "Badlands" }, { title = "Barbecued Buzzard Wings", level = 40, id = 10 } }
+  g = amb()
+  check(g.TI == "Work for Later", "a job far above their level: " .. show(g))
+
+  -- The job on hand: the latest taken, from QUEST_ACCEPTED.
+  LOG = { { header = true, title = "Duskwood" }, { title = "The Night Watch", level = 21, id = 11 },
+    { title = "Raven Hill", level = 22, id = 12 } }
+  fresh()
+  event("QUEST_ACCEPTED", 3, 12)
+  g = amb()
+  check(g.TI == "On the Job" and g.TX:find("Raven Hill"), "the job just taken on: " .. show(g))
+  -- A full log.
+  LOG = { { header = true, title = "Redridge Mountains" } }
+  for i = 1, 15 do LOG[#LOG + 1] = { title = "Errand " .. i, level = 20, id = 100 + i } end
+  ns.char.questsTaken = nil
+  g = amb()
+  check(g.TI == "Busy Hands" and g.TX:find("fifteen"), "a full log: " .. show(g))
+  LOG = {}
+
+  -- Lazy and never in combat: read once per change, and not at all during a fight.
+  fresh(); reads = 0
+  G.Log(); G.Log()
+  check(reads == 0, "the log isn't read again without a change")
+  event("QUEST_LOG_UPDATE")
+  state.combat = true
+  G.Log()
+  check(reads == 0, "and not during combat")
+  state.combat = false
+  LOG = { { header = true, title = "Duskwood" }, { title = "The Night Watch", level = 21, id = 11 } }
+  G.Log()
+  check(reads > 0 and G.Log().n == 1, "read after the fight")
+  LOG = {}
+
+  -- A mount: only when level and gold back it, and not for the classes that are given one.
+  level, gold = 40, 60
+  g = amb()
+  check(g.TI == "Saving Up" and g.TX:find("horse"), "saving for a horse at forty: " .. show(g))
+  gold = 120
+  g = amb()
+  check(g.TI == "Coin for a Mount" and g.TX:find("horse"), "the coin for a horse: " .. show(g))
+  gold = 5
+  g = amb()
+  check(g.TI == "On Foot", "the level but not the coin: " .. show(g))
+  level, gold = 38, 60
+  check(amb().TI ~= "Saving Up", "no horse before forty")
+  level = 40
+  SKILLS = { { "Riding", 75, 75 } }
+  check(amb().TI ~= "Saving Up", "no horse for someone who rides already")
+  level, gold = 60, 300
+  g = amb()
+  check(g.TI == "Saving Up" and g.TX:find("swift horse"), "saving for a swift mount at sixty: " .. show(g))
+  UnitRace = function() return "Tauren", "Tauren" end
+  UnitFactionGroup = function() return "Horde" end
+  check(amb().TX:find("great kodo"), "a tauren saves for a great kodo: " .. amb().TX)
+  UnitRace, UnitFactionGroup = mocks.UnitRace, function() return "Alliance" end
+  level, gold, SKILLS = 40, 60, {}
+  UnitClass = function() return "Paladin", "PALADIN" end
+  check(amb().TI ~= "Saving Up", "a paladin isn't saving for a horse")
+  UnitClass = mocks.UnitClass
+  level, gold = 22, 2
+
+  -- A craft at the edge of its rank.
+  SKILLS = { { "Tailoring", 150, 150 } }
+  g = amb()
+  check(g.TI == "Learning the Trade" and g.IC == "Trade_Tailoring" and g.TX:find("tailoring") or g.TX:find("lessons"), "a craft at its cap: " .. show(g))
+  level = 15
+  g = amb()
+  check(g.TX:find("twenty") or g.TX:find("level allows"), "the next craft rank waits on a level: " .. show(g))
+  level = 22
+  SKILLS = { { "Tailoring", 144, 150 } }
+  check(amb().TI == "Learning the Trade", "a craft close to its cap")
+  SKILLS = { { "Tailoring", 160, 225 } }
+  check(amb().TI ~= "Learning the Trade", "a craft mid-rank is no ambition")
+  SKILLS = {}
+
+  -- A reputation close to the next standing.
+  REPS = { { "Argent Dawn", 5, 3000, 9000, 8600 }, { "Stormwind", 6, 9000, 21000, 12000 } }
+  g = amb()
+  check(g.TI == "Earning Trust" and g.TX:find("honoured by the Argent Dawn"), "close to the next standing: " .. show(g))
+  REPS = { { "Argent Dawn", 5, 3000, 9000, 5000 } }
+  check(amb().TI ~= "Earning Trust", "halfway along isn't close")
+  REPS = {}
+
+  -- Class trials at their level.
+  UnitClass = function() return "Warlock", "WARLOCK" end
+  IsPlayerSpell = function(id) return id ~= 697 end
+  level = 12
+  g = amb()
+  check(g.TI == "A Trial Ahead" and g.IC == "Spell_Shadow_SummonVoidWalker" and g.TX:find("voidwalker"), "a warlock's voidwalker: " .. show(g))
+  IsPlayerSpell = function() return true end
+  check(amb().TI ~= "A Trial Ahead", "no trial once it's learned")
+  UnitClass = function() return "Shaman", "SHAMAN" end
+  GetItemCount = function(id) return id == 5175 and 1 or 0 end
+  g = amb()
+  check(g.TI == "A Trial Ahead" and g.TX:find("fire"), "a shaman's fire totem: " .. show(g))
+  UnitClass = function() return "Rogue", "ROGUE" end
+  level, SKILLS = 20, { { "Lockpicking", 40, 100 } }
+  g = amb()
+  check(g.TI == "A Trial Ahead" and g.TX:find("poison"), "a rogue's poisons: " .. show(g))
+  SKILLS = { { "Lockpicking", 40, 100 }, { "Poisons", 1, 100 } }
+  check(amb().TI ~= "A Trial Ahead", "a rogue who knows poisons")
+  UnitClass, IsPlayerSpell, GetItemCount, SKILLS = mocks.UnitClass, mocks.IsPlayerSpell, mocks.GetItemCount, {}
+
+  -- The next rank, a level away.
+  level, xp = 29, 900
+  g = amb()
+  check(g.TI == "Rising" and g.TX:find("Priest"), "a level from the next rank: " .. show(g))
+  level, xp = 22, 100
+
+  -- Ranking: a chain over dungeon work over a job nearly done over a horse; Drives tells the
+  -- top three of different kinds.
+  level, gold = 40, 60
+  LOG = { { header = true, title = "The Deadmines" }, { title = "Collecting Memories", level = 18, id = 4 },
+    { header = true, title = "Westfall" }, { title = "The Defias Brotherhood", level = 18, id = 1 },
+    { title = "Patrolling Westfall", level = 14, id = 9, obj = { { "Fleshripper slain: 14/15", false } } } }
+  fresh()
+  local list = C.Ambitions()
+  check(list[1].kind == "chain" and list[2].kind == "dungeon" and list[3].kind == "nearly" and list[4].kind == "mount",
+    "ranked: chain, dungeon, nearly done, mount: " .. list[1].kind .. ", " .. list[2].kind .. ", " .. list[3].kind .. ", " .. list[4].kind)
+  local drives = C.Drives()
+  check(drives:find("^Aldric ") and drives:find("Defias business") and drives:find("Deadmines") and not drives:find("horse"),
+    "Drives: the top three: " .. drives)
+  check(select(2, drives:gsub("%. ", "")) == 2, "Drives is three sentences")
+
+  -- The extras: a Chronicle goal outranks the everyday but not a chain; an RPG Dialogue story.
+  ChronicleCharDB = keep[3]
+  g = amb()
+  check(g.TI == "Seeing It Through", "a chain outranks a Chronicle goal: " .. show(g))
+  LOG = { { header = true, title = "Westfall" }, { title = "Patrolling Westfall", level = 14, id = 9, obj = { { "Fleshripper slain: 14/15", false } } } }
+  g = amb()
+  check(g.TX == "Find the Defias hideout.", "a Chronicle goal outranks a job nearly done: " .. show(g))
+  check(C.Drives():find("find the Defias hideout"), "and is in Drives: " .. C.Drives())
+  ChronicleCharDB = nil
+  RPGDialogueCharDB = keep[1]
+  local threads = RPGDialogueCharDB.threads
+  RPGDialogueCharDB.threads = { elwynn_gold = { state = "unfolding", beats = { a = 1 }, t = NOW - 60 } }
+  LOG, level, gold = {}, 22, 2
+  g = amb()
+  check(g.TI == "Unfinished Business" and g.TX:find("gold of Elwynn"), "an unfinished story, without a bigger goal: " .. show(g))
+  RPGDialogueCharDB.threads = threads
+  RPGDialogueCharDB = nil
+
+  -- The words: every kind has a title, an icon and four ways to say it, in the glance and
+  -- in Drives; tags fill with she/her and they/them; chains and their steps line up.
+  local thin, bad = {}, {}
+  for kind, lines in pairs(W.GOALS) do
+    if #lines < 4 then thin[#thin + 1] = "glance " .. kind end
+    if not W.GOAL_GLANCE[kind] then thin[#thin + 1] = "title " .. kind end
+    if not W.DRIVES[kind] or #W.DRIVES[kind] < 4 then thin[#thin + 1] = "drives " .. kind end
+  end
+  for kind in pairs(G.SCORE) do if not W.GOALS[kind] then thin[#thin + 1] = "no lines for " .. kind end end
+  for title in pairs(W.EARNED_QUEST) do if not W.CHAIN_GOAL[title] then thin[#thin + 1] = "chain " .. title end end
+  for step, last in pairs(W.CHAIN_STEPS) do if not W.EARNED_QUEST[last] then thin[#thin + 1] = "step " .. step end end
+  check(#thin == 0, "every ambition has a title and four lines each way: " .. table.concat(thin, ", "))
+  local fill = { q = '"x"', chain = "x", place = "x", zone = "x", mount = "a horse", gold = "x", cost = "x", prof = "x",
+    rank = "x", next = "x", nextlevel = "x", faction = "x", standing = "x", what = "the {their} x", n = "x", left = "x",
+    level = "x", goal = "x", t = "x" }
+  local oldPron = ns.TRP.CustomPronouns
+  for _, pron in ipairs({ "she/her", "they/them" }) do
+    ns.TRP.CustomPronouns = function() return pron end
+    for _, tbl in ipairs({ W.GOALS, W.DRIVES }) do
+      for kind, lines in pairs(tbl) do
+        for _, l in ipairs(lines) do
+          local out = C.GoalLine({ l }, fill, kind)
+          if not out or out:find("[{}]") or not out:find("^%u") then bad[#bad + 1] = kind .. ": " .. tostring(out or l) end
+        end
+      end
+    end
+  end
+  ns.TRP.CustomPronouns = oldPron
+  check(#bad == 0, "every ambition line fills its tags: " .. table.concat(bad, " | "))
+
+  RPGDialogueCharDB, SocialDiaryCharDB, ChronicleCharDB, ns.char.deeds, ns.char.questsTaken = keep[1], keep[2], keep[3], keep[4], keep[5]
+  UnitLevel, GetMoney, UnitXP, UnitClass, UnitRace = mocks.UnitLevel, mocks.GetMoney, mocks.UnitXP, mocks.UnitClass, mocks.UnitRace
+  GetNumSkillLines, GetSkillLineInfo, GetNumFactions, GetFactionInfo = mocks.GetNumSkillLines, mocks.GetSkillLineInfo, mocks.GetNumFactions, mocks.GetFactionInfo
+  GetNumQuestLogEntries, GetQuestLogTitle, GetNumQuestLeaderBoards, GetQuestLogLeaderBoard, IsQuestWatched = nil, nil, nil, nil, nil
+  state.zone = mocks.zone
+  fresh()
+end
+
 -- Every line reads cleanly whoever the character is: no tag left unfilled with she/her or
 -- they/them pronouns and full gear, and every mood has lines enough to vary.
 do

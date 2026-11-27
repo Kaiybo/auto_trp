@@ -329,8 +329,12 @@ U.Unsecret = unsecret
 -- Every game API read goes through here, so no secret value ever reaches add-on logic.
 function U.Call(fn, ...)
   if type(fn) ~= "function" then return nil end
-  local ok, a, b, c, d = pcall(fn, ...)
-  if ok then return U.Unsecret(a), U.Unsecret(b), U.Unsecret(c), U.Unsecret(d) end
+  -- Up to eleven returns (the quest log and skill lines need that many).
+  local ok, a, b, c, d, e, f, g, h, i, j, k = pcall(fn, ...)
+  if ok then
+    local S = U.Unsecret
+    return S(a), S(b), S(c), S(d), S(e), S(f), S(g), S(h), S(i), S(j), S(k)
+  end
   return nil
 end
 

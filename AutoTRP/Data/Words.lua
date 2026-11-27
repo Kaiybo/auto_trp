@@ -2371,3 +2371,300 @@ W.SAY = {
   newname = { "Has lately come to be called {nick}.", "Some have started calling {them} {nick}.",
     "Answers to {nick} now, a name earned only lately." },
 }
+
+---------------------------------------------------------------------------
+-- AMBITIONS AND DRIVES (0.21.0): what the character is working toward, from the quest log
+-- and the state of things (Sources/Goals.lua), for the Ambition glance and "What drives
+-- them" at the end of History. Lines are picked per character and per goal; a line whose
+-- {tag} has nothing to fill it is skipped, so every kind keeps one that needs only the
+-- essentials. {q}: a quest title (quoted), {chain}: what a quest chain is about,
+-- {place}: a dungeon, {zone}: the quest's land, {mount}, {gold}, {cost}, {prof}, {rank}
+-- (the craft rank now, "an apprentice"), {next} (the rank after, "journeyman"),
+-- {nextlevel}, {faction}, {standing} ("honoured by"), {what} (a class trial), {n}, {left},
+-- {level}, {goal} (a Chronicle goal), {t} (an RPG Dialogue story).
+---------------------------------------------------------------------------
+
+-- Quest chains part-done: what each chain in W.EARNED_QUEST is about, for "Means to see
+-- {chain} through."
+W.CHAIN_GOAL = {
+  ["Princess Must Die!"] = "the business with Princess at the Brackwell Pumpkin Patch",
+  ["The People's Militia"] = "the People's Militia's fight for Westfall",
+  ["The Defias Brotherhood"] = "the Defias business",
+  ["The Legend of Stalvan"] = "the story of Stalvan Mistmantle",
+  ["Stalvan Mistmantle"] = "the story of Stalvan Mistmantle",
+  ["Morganth"] = "the trouble in the Tower of Ilgalar",
+  ["The Stockade Riots"] = "the riots in the Stockade",
+  ["Crime and Punishment"] = "the matter of Dextren Ward's crimes",
+  ["Mor'Ladim"] = "the matter of Mor'Ladim",
+  ["Morbent Fel"] = "the hunt for Morbent Fel",
+  ["Big Game Hunter"] = "the hunt for King Bangalash",
+  ["The Green Hills of Stranglethorn"] = "the lost pages of The Green Hills of Stranglethorn",
+  ["Rin'ji is Trapped!"] = "Rin'ji's rescue from Quel'Danil Lodge",
+  ["Battle of Darrowshire"] = "the Battle of Darrowshire",
+  ["In Dreams"] = "Taelan Fordring's road",
+  ["The Platinum Discs"] = "the Platinum Discs of Uldaman",
+  ["The Royal Rescue"] = "the rescue of Princess Moira",
+  ["The Key to Scholomance"] = "the key to Scholomance",
+  ["Seal of Ascension"] = "the Seal of Ascension",
+  ["Drakefire Amulet"] = "the Drakefire Amulet",
+  ["Attunement to the Core"] = "the way into the Molten Core",
+  ["Burning Blade Medallion"] = "the Burning Blade's medallion",
+  ["The Absent Minded Prospector"] = "Prospector Remtravel's dig",
+  ["The Tower of Althalaxx"] = "the business of the Tower of Althalaxx",
+  ["Lost in Battle"] = "the search for Mankrik's wife",
+  ["Kolkar Leaders"] = "the hunt for Barak Kodobane",
+  ["Counterattack!"] = "the fight against the Kolkar",
+  ["Leaders of the Fang"] = "the matter of the Fang's leaders",
+  ["Willix the Importer"] = "Willix the Importer's escape from Razorfen Kraul",
+  ["Extinguishing the Idol"] = "the idol in Razorfen Downs",
+  ["Bring the End"] = "the business with Amnennar the Coldbringer",
+  ["The Missing Diplomat"] = "the missing diplomat",
+  ["It's Dangerous to Go Alone"] = "the matter of Linken's lost memory",
+  ["Corruption of Earth and Seed"] = "the corruption in Maraudon",
+  ["Blood of the Black Dragon Champion"] = "the hunt for the Black Dragon Champion's blood",
+  ["In the Name of the Light"] = "the Scarlet Monastery business",
+  ["Into The Scarlet Monastery"] = "the Scarlet Monastery business",
+  ["Gnomer-gooooone!"] = "the reckoning in Gnomeregan",
+  ["The Grand Betrayal"] = "the reckoning in Gnomeregan",
+  ["Arugal Must Die"] = "the business with Archmage Arugal",
+  ["Whirlwind Weapon"] = "a warrior's trial for a whirlwind weapon",
+  ["Verigan's Fist"] = "the forging of Verigan's Fist",
+}
+
+-- Earlier steps of those chains, by title -> the chain's last quest (English titles).
+W.CHAIN_STEPS = {
+  ["Scarlet Subterfuge"] = "In Dreams",
+  ["Brother Anton"] = "In the Name of the Light", ["Down the Scarlet Path"] = "In the Name of the Light",
+  ["Skeletal Fragments"] = "The Key to Scholomance", ["Mold Rhymes With..."] = "The Key to Scholomance",
+  ["Fire Plume Forged"] = "The Key to Scholomance", ["Araj's Scarab"] = "The Key to Scholomance",
+  ["Dragonkin Menace"] = "Drakefire Amulet", ["The True Masters"] = "Drakefire Amulet",
+  ["Marshal Windsor"] = "Drakefire Amulet", ["Jail Break!"] = "Drakefire Amulet",
+  ["The Great Masquerade"] = "Drakefire Amulet", ["The Dragon's Eye"] = "Drakefire Amulet",
+  ["For The Horde!"] = "Blood of the Black Dragon Champion", ["What the Wind Carries"] = "Blood of the Black Dragon Champion",
+  ["Oculus Illusions"] = "Blood of the Black Dragon Champion",
+  ["Emberstrife"] = "Blood of the Black Dragon Champion",
+  ["The Tome of Valor"] = "Verigan's Fist", ["The Test of Righteousness"] = "Verigan's Fist",
+  ["Morgan Ladimore"] = "Mor'Ladim",
+}
+
+-- Dungeons and raids, by the name the quest log files their quests under.
+W.GOAL_DUNGEONS = {
+  ["Ragefire Chasm"] = {}, ["Wailing Caverns"] = {}, ["The Deadmines"] = {}, ["Shadowfang Keep"] = {},
+  ["Blackfathom Deeps"] = {}, ["The Stockade"] = {}, ["Stormwind Stockade"] = {}, ["Gnomeregan"] = {},
+  ["Razorfen Kraul"] = {}, ["Scarlet Monastery"] = {}, ["Razorfen Downs"] = {}, ["Uldaman"] = {},
+  ["Zul'Farrak"] = {}, ["Maraudon"] = {}, ["Sunken Temple"] = {}, ["The Temple of Atal'Hakkar"] = {},
+  ["Blackrock Depths"] = {}, ["Blackrock Spire"] = {}, ["Lower Blackrock Spire"] = {}, ["Upper Blackrock Spire"] = {},
+  ["Dire Maul"] = {}, ["Scholomance"] = {}, ["Stratholme"] = {},
+  ["Molten Core"] = { raid = true }, ["Onyxia's Lair"] = { raid = true }, ["Blackwing Lair"] = { raid = true },
+  ["Zul'Gurub"] = { raid = true }, ["Ruins of Ahn'Qiraj"] = { raid = true }, ["Ahn'Qiraj"] = { raid = true },
+  ["Temple of Ahn'Qiraj"] = { raid = true }, ["Naxxramas"] = { raid = true },
+}
+
+-- Crafts and gathering skills a trainer takes further, with an icon each.
+W.GOAL_PROFS = {
+  Alchemy = "Trade_Alchemy", Blacksmithing = "Trade_BlackSmithing", Enchanting = "Trade_Engraving",
+  Engineering = "Trade_Engineering", Herbalism = "Trade_Herbalism", Leatherworking = "INV_Misc_ArmorKit_17",
+  Mining = "Trade_Mining", Skinning = "INV_Misc_Pelt_Wolf_01", Tailoring = "Trade_Tailoring",
+  Cooking = "INV_Misc_Food_15", ["First Aid"] = "Spell_Holy_SealOfSacrifice", Fishing = "Trade_Fishing",
+  Jewelcrafting = "INV_Misc_Gem_01",
+}
+-- The ranks a craft passes through: the cap of each, its name, the next one and the level
+-- a trainer asks for it.
+W.GOAL_PROF_TIER = {
+  { max = 75, word = "an apprentice", next = "journeyman", level = 10 },
+  { max = 150, word = "a journeyman", next = "expert", level = 20 },
+  { max = 225, word = "an expert", next = "artisan", level = 35 },
+}
+-- The next standing, as "close to being ... the Argent Dawn".
+W.GOAL_STANDING = { [5] = "counted a friend by", [6] = "honoured by", [7] = "revered by", [8] = "exalted by" }
+
+-- A first mount and a swift one, by race, and what they cost (training and mount, roughly).
+W.GOAL_MOUNT = {
+  Human = { "a horse", "a swift horse" }, Dwarf = { "a ram", "a swift ram" },
+  Gnome = { "a mechanostrider", "a swift mechanostrider" }, NightElf = { "a nightsaber", "a swift nightsaber" },
+  Orc = { "a riding wolf", "a swift wolf" }, Troll = { "a raptor", "a swift raptor" },
+  Tauren = { "a kodo", "a great kodo" }, Scourge = { "a skeletal horse", "a skeletal warhorse" },
+  BloodElf = { "a hawkstrider", "a swift hawkstrider" }, Draenei = { "an elekk", "a great elekk" },
+  default = { "a mount", "a swift mount" },
+}
+W.MOUNT_COST = { first = { level = 40, gold = 100 }, swift = { level = 60, gold = 1000 } }
+
+-- Class trials at their level, the first one not yet done (by a spell they'd know, a totem
+-- in the bags or a skill line). what: as in "Has come far enough for {what}."
+W.GOAL_CLASS = {
+  WARLOCK = {
+    { level = 10, spell = 697, key = "voidwalker", what = "the binding of a voidwalker", icon = "Spell_Shadow_SummonVoidWalker" },
+    { level = 20, spell = 712, key = "succubus", what = "the binding of a succubus", icon = "Spell_Shadow_SummonSuccubus" },
+    { level = 30, spell = 691, key = "felhunter", what = "the binding of a felhunter", icon = "Spell_Shadow_SummonFelHunter" },
+    { level = 40, spell = 5784, key = "felsteed", what = "a felsteed of {their} own", icon = "Spell_Nature_Swiftness" },
+    { level = 60, spell = 23161, key = "dreadsteed", what = "the long summoning of a dreadsteed", icon = "Ability_Mount_Dreadsteed" },
+  },
+  DRUID = {
+    { level = 10, spell = 5487, key = "bear", what = "the trial of the bear", icon = "Ability_Racial_BearForm" },
+    { level = 16, spell = 1066, key = "aquatic", what = "the lesson of the sea lion's shape", icon = "Ability_Druid_AquaticForm" },
+  },
+  PALADIN = {
+    { level = 12, spell = 7328, key = "redemption", what = "the trial that teaches Redemption", icon = "Spell_Holy_Resurrection" },
+    { level = 40, spell = 13819, key = "warhorse", what = "a warhorse of {their} own", icon = "Spell_Nature_Swiftness" },
+    { level = 60, spell = 23214, key = "charger", what = "the long road to a charger", icon = "Ability_Mount_Charger" },
+  },
+  HUNTER = {
+    { level = 10, spell = 1515, key = "taming", what = "a hunter's first taming", icon = "Ability_Hunter_BeastTaming" },
+  },
+  WARRIOR = {
+    { level = 10, spell = 71, key = "defensive", what = "the trial for the defensive stance", icon = "Ability_Warrior_DefensiveStance" },
+    { level = 30, spell = 2458, key = "berserker", what = "the trial for the berserker's stance", icon = "Ability_Racial_Avatar" },
+  },
+  SHAMAN = {
+    { level = 4, item = 5175, key = "earth", what = "the trial of earth and its totem", icon = "Spell_Nature_StoneSkinTotem" },
+    { level = 10, item = 5176, key = "fire", what = "the trial of fire and its totem", icon = "Spell_Fire_SearingTotem" },
+    { level = 20, item = 5177, key = "water", what = "the trial of water and its totem", icon = "Spell_Nature_ManaRegenTotem" },
+    { level = 30, item = 5178, key = "air", what = "the trial of air and its totem", icon = "Spell_Nature_InvisibilityTotem" },
+  },
+  ROGUE = {
+    { level = 20, skill = "Poisons", key = "poisons", what = "a rogue's first lessons in poison", icon = "Trade_BrewPoison" },
+  },
+}
+
+-- The Ambition glance's title and icon for each kind of goal (a chain and a class trial
+-- bring their own icon).
+W.GOAL_GLANCE = {
+  chain = { "Seeing It Through", "INV_Misc_Note_01" },
+  raid = { "A Host Wanted", "INV_BannerPVP_02" },
+  dungeon = { "A Job Waiting", "INV_Misc_Map_01" },
+  ready = { "Back to Collect", "INV_Letter_03" },
+  ready_many = { "Back to Collect", "INV_Letter_03" },
+  nearly = { "Nearly Done", "INV_Misc_Note_01" },
+  classquest = { "A Trial Ahead", "INV_Misc_Book_09" },
+  mount_ready = { "Coin for a Mount", "Ability_Mount_RidingHorse" },
+  mount = { "Saving Up", "INV_Misc_Coin_02" },
+  mount_far = { "On Foot", "Ability_Mount_RidingHorse" },
+  swift_ready = { "Coin for a Mount", "Ability_Mount_RidingHorse" },
+  swift = { "Saving Up", "INV_Misc_Coin_02" },
+  rankup = { "Rising", "INV_Misc_Book_11" },
+  prof_cap = { "Learning the Trade", "INV_Misc_Book_09" },
+  prof_wait = { "Learning the Trade", "INV_Misc_Book_09" },
+  prof_near = { "Learning the Trade", "INV_Misc_Book_09" },
+  rep = { "Earning Trust", "INV_Scroll_03" },
+  elite = { "Hard Work", "Ability_Warrior_BattleShout" },
+  above = { "Work for Later", "INV_Misc_Map_01" },
+  current = { "On the Job", "INV_Scroll_03" },
+  many = { "Busy Hands", "INV_Misc_Note_01" },
+  level = { "Nearly There", "Spell_Holy_SealOfWisdom" },
+  level_rested = { "Well Rested", "Spell_Nature_Sleep" },
+  nextrank = { "Ambition", "INV_Misc_Book_11" },
+  goal = { "Ambition", "INV_Misc_Book_11" },
+  thread = { "Unfinished Business", "INV_Misc_Note_02" },
+}
+
+-- The Ambition glance: one line, a whole sentence.
+W.GOALS = {
+  chain = { "Means to see {chain} through.", "Is partway into {chain}, and not stopping there.",
+    "Has {chain} to finish, and means to.", "Won't let {chain} go until it's done.", "Is still on the trail of {chain}." },
+  raid = { "Has work waiting in {place}, and it will take a whole host.", "Has business in {place} that no party of five will settle.",
+    "Has a job that leads into {place}.", "Is gathering the nerve, and the company, for {place}.",
+    "Has taken on work meant for a whole host: {q}." },
+  dungeon = { "Has a job waiting in {place}.", "Has business down in {place}: {q}.", "Means to go down into {place} before long.",
+    "Will need company for {place}.", "Has a job that will need a party behind {them}: {q}." },
+  ready = { "Has {q} done, and only needs to hand it in.", "Has finished {q} and has yet to report back.",
+    "Has {q} finished, short of turning it in.", "Has only to report back on {q}." },
+  ready_many = { "Has {n} jobs done and waiting to be handed in.", "Has {n} jobs to hand in, {q} among them.",
+    "Has finished {n} jobs and has yet to collect on them.", "Owes {n} reports to the people who asked." },
+  nearly = { "Is nearly done with {q}.", "Is {left} short of finishing {q}.", "Has {q} all but finished.",
+    "Is close to the end of {q}." },
+  classquest = { "Has come far enough for {what}.", "Has {what} still ahead.", "Is ready for {what}, and hasn't been through it yet.",
+    "Is due for {what}." },
+  mount_ready = { "Has the coin for {mount}, and the level for it.", "Has saved enough for {mount}.",
+    "Can afford {mount} now.", "Has {gold} gold, enough for {mount}." },
+  mount = { "Saving for {mount}: {gold} of the {cost} gold put by.", "Is putting coin by for {mount}.",
+    "Has {gold} gold saved toward {mount}.", "Is counting coppers toward {mount}." },
+  mount_far = { "Is old enough for {mount}, and nowhere near the price.", "Has the level for {mount} but not the {cost} gold.",
+    "Is still on foot, and a long way from the price of {mount}.", "Could ride, if {they} had the {cost} gold for {mount}." },
+  swift_ready = { "Has the {cost} gold for {mount}.", "Has saved enough for {mount}.", "Can afford {mount} at last.",
+    "Has coin enough for {mount} put by." },
+  swift = { "Saving for {mount}: {gold} of the {cost} gold so far.", "Is putting coin by for {mount}.",
+    "Has {gold} gold saved toward {mount}.", "Is saving hard for {mount}." },
+  rankup = { "Is one level short of the rank of {rank}.", "Is close to rising to {rank}.", "Is nearly at the rank of {rank}.",
+    "Has the rank of {rank} almost within reach." },
+  prof_cap = { "Has learned all {rank} can of {prof}, and needs a trainer to go further.",
+    "Needs a trainer who'll teach {prof} at {next} rank.", "Has gone as far in {prof} as {rank} can, and is after {next}'s training.",
+    "Has outgrown {their} {prof} lessons." },
+  prof_wait = { "Has learned all {rank} can of {prof}; the next lessons wait until level {nextlevel}.",
+    "Must wait for level {nextlevel} before {their} {prof} can go further.",
+    "Is stuck at the edge of {prof} until level {nextlevel}.", "Has gone as far in {prof} as {their} level allows." },
+  prof_near = { "Is close to all {rank} can learn of {prof}.", "Is working {their} {prof} up toward {next} rank.",
+    "Is nearly through what {rank} can learn of {prof}.", "Is pushing {their} {prof} toward {next} rank." },
+  rep = { "Is close to being {standing} {faction}.", "Is nearly {standing} {faction}.",
+    "Is within reach of being {standing} {faction}.", "Is working to be {standing} {faction}." },
+  elite = { "Has a job in {zone} that will need company: {q}.", "Has taken on {q}, which no one should try alone.",
+    "Has hard work waiting in {zone}.", "Has a job too big for one: {q}." },
+  above = { "Has taken on {q}, which is beyond {them} for now.", "Has a job in {zone} that's beyond {them} yet.",
+    "Is holding on to {q} for when {they're} stronger.", "Has work waiting in {zone} for when {they've} grown into it." },
+  current = { "Is busy with {q} in {zone}.", "Is seeing to {q}.", "Has {q} on hand.", "Is working on {q} in {zone}.",
+    "Has taken on {q} and is at it now." },
+  many = { "Has {n} jobs on the go.", "Carries {n} jobs at once.", "Has {n} jobs open, and more than enough to do.",
+    "Is juggling {n} jobs." },
+  level = { "Is close to {their} next level.", "Is nearly at level {level}.", "Has level {level} within reach.",
+    "Is almost at level {level}." },
+  level_rested = { "Is close to level {level}, and well rested for the push.", "Is nearly at level {level}, after a good rest.",
+    "Has level {level} in reach, and rested legs to get there.", "Is rested and nearly at level {level}." },
+  nextrank = { "Working toward the rank of {rank}.", "Aims to rise to {rank}.", "Has {their} sights on the rank of {rank}.",
+    "Is on the road to the rank of {rank}." },
+}
+
+-- What drives them (History, last): the same goals told as part of a life. Whole sentences
+-- without a subject, each starting with its verb; the first one gets the character's name.
+W.DRIVES = {
+  chain = { "Is set on seeing {chain} through to the end.", "Has started on {chain} and means to finish it.",
+    "Won't call {their} work done until {chain} is.", "Has {chain} unfinished, and it's what {they} work{s} at." },
+  raid = { "Has work that leads into {place}, where a party of five won't do.", "Has business in {place}, and it will take a host.",
+    "Has reason to go into {place}.", "Has a job only a whole host can finish." },
+  dungeon = { "Has a reason to go down into {place}.", "Has work that will take {them} into {place}, and not alone.",
+    "Has a job that ends in {place}.", "Has work that wants a party behind {them}." },
+  ready = { "Has {q} done and has yet to collect for it.", "Owes a report on {q}.",
+    "Has finished {q}, short of handing it in.", "Has only to walk back and report on {q}." },
+  ready_many = { "Has {n} jobs done and waiting to be handed in.", "Has {n} finished jobs to collect on.",
+    "Has {n} jobs to hand in, {q} among them.", "Owes {n} reports to the people who asked for them." },
+  nearly = { "Is close to the end of {q}.", "Is nearly done with {q}.", "Has {q} all but done.", "Is {left} short on {q}." },
+  classquest = { "Has {what} ahead.", "Is ready for {what}.", "Has come far enough in {their} calling for {what}.",
+    "Has {what} still to face." },
+  mount_ready = { "Has the gold for {mount}.", "Can pay for {mount} now.", "Has saved enough for {mount}.",
+    "Has coin enough for {mount}, and the level for it." },
+  mount = { "Is putting coin by for {mount}, {gold} of the {cost} gold so far.", "Is saving toward {mount}.",
+    "Counts {their} gold against the price of {mount}.", "Has {gold} gold toward {mount}." },
+  mount_far = { "Has reached the level for {mount}, but not the price.", "Goes on foot for now; {mount} costs {cost} gold.",
+    "Is a long way from the {cost} gold {mount} costs.", "Is still short of the price of {mount}." },
+  swift_ready = { "Has the gold for {mount}.", "Has saved the {cost} gold for {mount}.", "Can pay for {mount} now.",
+    "Has coin enough for {mount}." },
+  swift = { "Is putting coin by for {mount}, {gold} of the {cost} gold so far.", "Is saving toward {mount}.",
+    "Counts {their} gold against the price of {mount}.", "Has {gold} gold toward {mount}." },
+  rankup = { "Is a level from the rank of {rank}.", "Is close to rising to {rank}.", "Has the rank of {rank} nearly in hand.",
+    "Is near enough to {rank} to count the days." },
+  prof_cap = { "Has learned all {rank} can of {prof}, and needs a trainer for more.",
+    "Needs a trainer to take {their} {prof} to {next} rank.", "Has outgrown {their} {prof} lessons.",
+    "Is ready for {next}'s training in {prof}." },
+  prof_wait = { "Has gone as far in {prof} as {their} level allows, until {nextlevel}.",
+    "Must wait for level {nextlevel} before {their} {prof} can go further.",
+    "Has learned all {rank} can of {prof}, and must wait for level {nextlevel} for more.",
+    "Is held at the edge of {prof} until level {nextlevel}." },
+  prof_near = { "Is working {their} {prof} up toward {next} rank.", "Is close to all {rank} can learn of {prof}.",
+    "Is nearly through what {rank} can learn of {prof}.", "Is pushing {their} {prof} toward {next} rank." },
+  rep = { "Is close to being {standing} {faction}.", "Is nearly {standing} {faction}.",
+    "Is within reach of being {standing} {faction}.", "Has nearly earned the next step with {faction}." },
+  elite = { "Has taken on {q}, which no one should try alone.", "Has hard work waiting in {zone}.",
+    "Has a job too big for one: {q}.", "Has work in {zone} that will need company." },
+  above = { "Is holding on to {q} for when {they're} stronger.", "Has work waiting in {zone} for when {they've} grown into it.",
+    "Has taken on {q}, which is beyond {them} for now.", "Has a job in {zone} that's beyond {them} yet." },
+  current = { "Is at work on {q} in {zone}.", "Has {q} on hand.", "Is seeing to {q} for now.", "Is busy with {q}." },
+  many = { "Has {n} jobs on the go.", "Carries {n} jobs at once.", "Has {n} jobs open.", "Is juggling {n} jobs." },
+  level = { "Is close to {their} next level.", "Is nearly at level {level}.", "Has level {level} within reach.",
+    "Is almost at level {level}." },
+  level_rested = { "Is rested and nearly at level {level}.", "Is close to level {level}, and well rested for it.",
+    "Has level {level} in reach, after a good rest.", "Is nearly at level {level}, and rested." },
+  nextrank = { "Is working toward the rank of {rank}.", "Aims to rise to {rank}.", "Has {their} sights on the rank of {rank}.",
+    "Is on the road to the rank of {rank}." },
+  goal = { "Has set {themselves} a goal: {goal}", "Has a goal of {their} own: {goal}", "Has written down what {they're} after: {goal}",
+    "Is after one thing in particular: {goal}" },
+  thread = { "Wants to get to the bottom of {t}.", "Means to see {t} through.", "Means to find out the truth of {t}.",
+    "Has {t} still to settle." },
+}
