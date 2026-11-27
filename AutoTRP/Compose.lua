@@ -506,27 +506,71 @@ function Compose.PartyWords(g)
   return U.Join(parts)
 end
 
-function Compose.AmbitionGlance()
+-- Ambitions, ranked (Sources/Goals.lua): the quest log and the game's own state come first
+-- and need no other addon; a Chronicle goal and an unfinished RPG Dialogue story join them
+-- when those addons are there. Each: { kind, key, score, vars, icon }.
+Compose.GOAL_SCORE = 78     -- a goal the player wrote in Chronicle
+Compose.THREAD_SCORE = 66   -- a story still unfolding in RPG Dialogue
+function Compose.Ambitions()
   local c = ns.cache
-  local rpgd, chron, world = c.rpgd, c.chronicle, c.world
-  if chron and ns.db.chronicleGoals and chron.goals[1] then
-    -- The goal as the player wrote it: a full stop only where it has no ending of its own.
-    local goal = U.Cap(U.Truncate(chron.goals[1].text, 120))
-    if not goal:find("[%.!%?]\"?$") then goal = goal .. "." end
-    return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = goal }
+  local list = ns.Goals and ns.Goals.Gather(c.world or {}, c) or {}
+  local chron, rpgd = c.chronicle, c.rpgd
+  if chron and ns.db.chronicleGoals and chron.goals and chron.goals[1] and chron.goals[1].text then
+    list[#list + 1] = { kind = "goal", key = "goal", score = Compose.GOAL_SCORE, vars = { goal = chron.goals[1].text } }
   end
   for _, t in ipairs(rpgd and rpgd.threads or {}) do
     if t.state == "unfolding" or t.state == "stirring" then
-      return { TI = "Unfinished Business", IC = "INV_Misc_Note_02",
-        TX = say("unfinished", { t = lowerFirst(t.title) }, t.id) }
+      list[#list + 1] = { kind = "thread", key = "thread:" .. tostring(t.id), id = t.id, score = Compose.THREAD_SCORE,
+        vars = { t = lowerFirst(t.title) } }
+      break
     end
   end
-  -- Nothing they've set out to do: the next rank on their road, which the game will give them.
-  local level = world.level or 1
-  local ranks = Compose.Ranks(world)
-  local now, nextRank = ranks[band(level)], ranks[band(level) + 1]
-  if nextRank and nextRank ~= now then
-    return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = U.Pron(say("nextrank", { rank = nextRank }, nextRank)) }
+  table.sort(list, function(a, b) if a.score ~= b.score then return a.score > b.score end return tostring(a.key) < tostring(b.key) end)
+  return list
+end
+
+-- One of a goal's lines with its {tags} filled; lines that need a tag the goal hasn't got
+-- are passed over. Pronoun tags are left for U.Pron.
+local PRON_TAGS = { they = true, them = true, their = true, themselves = true, ["they've"] = true, ["they're"] = true,
+  are = true, have = true, s = true, es = true, ies = true }
+local function goalLine(list, vars, key)
+  local usable = {}
+  for _, line in ipairs(list or {}) do
+    local missing = false
+    local out = line:gsub("{([%a']+)}", function(k)
+      if PRON_TAGS[k] then return nil end
+      local v = vars[k]
+      if v == nil then missing = true; return "" end
+      return tostring(v)
+    end)
+    if not missing then usable[#usable + 1] = out end
+  end
+  if #usable == 0 then return nil end
+  return U.Pron(U.Pick(usable, seed("goal:" .. key)))
+end
+Compose.GoalLine = goalLine
+local function goalVars(vars, quoteFn)
+  local out = {}
+  for k, v in pairs(vars or {}) do out[k] = v end
+  if out.q then out.q = quoteFn(out.q) end
+  return out
+end
+
+function Compose.AmbitionGlance()
+  local world = ns.cache.world or {}
+  for _, a in ipairs(Compose.Ambitions()) do
+    local g = W.GOAL_GLANCE[a.kind] or W.GOAL_GLANCE.nextrank
+    local text
+    if a.kind == "goal" then
+      -- The goal as the player wrote it: a full stop only where it has no ending of its own.
+      text = U.Cap(U.Truncate(a.vars.goal, 120))
+      if not text:find("[%.!%?]\"?$") then text = text .. "." end
+    elseif a.kind == "thread" then
+      text = say("unfinished", { t = a.vars.t }, a.id)
+    else
+      text = goalLine(a.kind == "nextrank" and W.SAY.nextrank or W.GOALS[a.kind], goalVars(a.vars, function(q) return "\"" .. q .. "\"" end), a.kind .. ":" .. tostring(a.key))
+    end
+    if text then return { TI = g[1], IC = a.icon or g[2], TX = text } end
   end
   local list = W.AMBITIONS[world.class or ""] or W.AMBITIONS.default
   return { TI = "Ambition", IC = "INV_Misc_Book_11", TX = U.Pron(U.Pick(list, seed("ambition"))) }
@@ -1039,6 +1083,26 @@ function Compose.Hooks()
   local prof = (chron and chron.professions[1]) or (world.professions and world.professions[1])
   if prof and prof.rank >= 75 then add(prof.name:lower()) end
   return hooks
+end
+
+-- What drives them: the top three ambitions of different kinds (a mount and the coin for
+-- it are one kind), told as part of a life, for the end of History. Nil with nothing to say.
+local function goalFamily(kind) return (kind:gsub("_.*$", "")) end
+function Compose.Drives()
+  local lines, told = {}, {}
+  for _, a in ipairs(Compose.Ambitions()) do
+    if #lines >= 3 then break end
+    local family = goalFamily(a.kind)
+    if not told[family] then
+      local vars = goalVars(a.vars, quote)
+      if vars.goal then vars.goal = quote(U.Truncate(vars.goal, 120)) end
+      local line = goalLine(W.DRIVES[a.kind], vars, "drive:" .. a.kind .. ":" .. tostring(a.key))
+      if line then told[family] = true; lines[#lines + 1] = line end
+    end
+  end
+  if #lines == 0 then return nil end
+  lines[1] = firstName() .. " " .. (lines[1]:gsub("^%u", string.lower))
+  return paragraph(lines)
 end
 
 ---------------------------------------------------------------------------
@@ -1614,6 +1678,7 @@ function Compose.History()
     nowLines[#nowLines + 1] = ns.Journal.LatestLine(quote)   -- Auto TRP's own journal (Journal.lua)
   end
   paras[#paras + 1] = paragraph(nowLines)
+  paras[6] = Compose.Drives()   -- 6. What drives them
 
   return pages(paras)
 end
@@ -1871,9 +1936,11 @@ end
 
 -- Open to walk-ups when the mood is open; closed when it isn't; otherwise no change.
 local WALKUP_OPEN = { sociable = true, ease = true, merry = true, company = true, elated = true, festive = true,
-  smitten = true, satisfied = true, homecoming = true, proud = true, flush = true, ["calm:charming"] = true, ["calm:kind"] = true }
+  smitten = true, satisfied = true, homecoming = true, proud = true, flush = true, ["calm:charming"] = true, ["calm:kind"] = true,
+  grateful = true, cheerful = true, smug = true, bored = true }
 local WALKUP_CLOSED = { angry = true, downcast = true, sorrowful = true, wounded = true, tense = true, shaken = true,
-  ailing = true, frustrated = true, drained = true, haunted = true, ["calm:reserved"] = true, ["calm:cruel"] = true }
+  ailing = true, frustrated = true, drained = true, haunted = true, ["calm:reserved"] = true, ["calm:cruel"] = true,
+  bitter = true, exhausted = true }
 function Compose.Walkup(mood)
   if not mood then return nil end
   if WALKUP_OPEN[mood.key] then return 2 end
