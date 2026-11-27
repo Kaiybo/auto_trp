@@ -383,7 +383,7 @@ TRP.FIELDS = {
 }
 for _, st in ipairs(ns.Compose.STATS) do TRP.FIELDS["stat_" .. st.key] = statField(st.label, st.icon) end
 
--- 0.21.0, more of Total RP 3 (values from Register.lua) ------------------------------------
+-- 0.23.0, more of Total RP 3 (values from Register.lua) ------------------------------------
 -- Name colour: Total RP 3 keeps six hex digits ("c79c6e"); compared without case.
 TRP.FIELDS.namecolour = {
   section = "characteristics", clearWhenOff = true,
@@ -414,7 +414,7 @@ TRP.LABELS = {
   glance_ambition = "Glance: ambition", glance_marks = "Glance: marks",
   ooc = "OOC note", relationship = "Relationship status", walkup = "Open to walk-ups",
 }
-TRP.LABELS.namecolour, TRP.LABELS.music = "Name colour", "Profile music"   -- 0.21.0
+TRP.LABELS.namecolour, TRP.LABELS.music = "Name colour", "Profile music"   -- 0.23.0
 for _, st in ipairs(ns.Compose.STATS) do TRP.LABELS["stat_" .. st.key] = "Stats: " .. st.label:lower() end
 
 -- The order fields are written in, so new entries land in Total RP 3 the same way every time
@@ -574,7 +574,7 @@ function TRP.Apply(values, only)
   if not profile then return nil, id end
   if U.Call(InCombatLockdown) or U.Call(UnitAffectingCombat, "player") then return nil, "in combat" end
   local mine, theirs, prev = owned(id), released(id), previous(id)
-  local dirty, changed, left = {}, {}, {}
+  local dirty, changed, left, diff = {}, {}, {}, {}
   local editing = TRP.Editing()
   local bk = TRP.BackupFor(id)
 
@@ -597,6 +597,7 @@ function TRP.Apply(values, only)
           prev[key] = have
           def.write(profile, nil)
           mine[key] = def.read(profile)
+          diff[key] = { from = have, to = mine[key] }
           bump(sub(profile, def.section))
           dirty[def.section] = true
           changed[#changed + 1] = key
@@ -630,6 +631,7 @@ function TRP.Apply(values, only)
           prev[key] = have
           def.write(profile, value)
           mine[key] = def.read(profile)
+          diff[key] = { from = have, to = mine[key] }
           bump(sub(profile, def.section))
           dirty[def.section] = true
           changed[#changed + 1] = key
@@ -651,7 +653,7 @@ function TRP.Apply(values, only)
     ns.Print("Leaving your own words alone in: " .. table.concat(names, ", ")
       .. ". |cffffd100/atrp claim <field>|r (or |cffffd100/atrp claim all|r) hands them to Auto TRP.")
   end
-  return changed
+  return changed, nil, diff
 end
 
 ---------------------------------------------------------------------------

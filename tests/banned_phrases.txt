@@ -69,7 +69,7 @@ have limits
 ask them about
 since setting out
 
-# Mood clichés (0.21.0)
+# Mood clichés (0.23.0)
 cat that got
 bored to tears
 bored stiff
@@ -143,7 +143,7 @@ donned
 sporting
 head to toe
 
-# Clichés retired in 0.21.0
+# Clichés retired in 0.23.0
 strip paint
 storm about to break
 twice as hard
@@ -174,5 +174,5 @@ steady, patient
 patient bearing | max 1
 as {list} instead
 
-# Fame, from the reputation hearsay (0.22.0)
+# Fame, from the reputation hearsay (0.23.0)
 famed

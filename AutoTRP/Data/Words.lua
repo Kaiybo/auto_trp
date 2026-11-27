@@ -1180,6 +1180,7 @@ W.ACTIVITY = {
   talk = { "talking with {who} in {place}", "deep in conversation with {who} in {place}" },
   reading = { "reading {what} in {place}", "with {their} nose in {what}, in {place}" },
   duel = { "trading blows in a duel in {place}", "squaring off in a duel in {place}" },
+  away_rest = { "nodding off in {place}", "half asleep in {place}", "dozing in {place}" },
   away = { "lost in thought in {place}, not really listening", "staring into the middle distance in {place}" },
   sitting = { "sitting down for a rest in {place}", "taking a seat in {place}" },
   sleeping = { "asleep in {place}", "dozing in {place}" },
@@ -2255,7 +2256,7 @@ W.DURABILITY = {
 }
 
 ---------------------------------------------------------------------------
--- ======================== PHYSICAL (0.21.0) ==============================
+-- ======================== PHYSICAL (0.23.0) ==============================
 -- About: Physical and the Marks glance: how the body carries itself, what is worn and
 -- how, and what is on them right now (spells, sickness, drink, shapes). Everything here is
 -- used only when the game says so: armour by what most of it is, weapons by their type,
@@ -2503,7 +2504,7 @@ W.PHYS_MARK = {
   twohand = { "Great Weapon", "INV_Axe_09" }, dual = { "Two Weapons", "Ability_DualWield" },
   jewel = { "Rare Jewellery", "INV_Jewelry_Ring_15" }, plate = { "Plate-Clad", "INV_Chest_Plate01" },
 }
--- ====================== end of PHYSICAL (0.21.0) =========================
+-- ====================== end of PHYSICAL (0.23.0) =========================
 
 ---------------------------------------------------------------------------
 -- More ways each race shows a mood. Face, voice and posture only: nothing they'd have to
@@ -3006,6 +3007,8 @@ W.SAY = {
     "Means to rise to {rank} one day.", "Hopes to earn the rank of {rank} before long." },
   unfinished = { "Wants to get to the bottom of {t}.", "Means to see {t} through.", "Means to find out the truth of {t}.",
     "Won't rest easy until {t} is settled.", "Has unfinished business with {t}." },
+  inreach = { "Has taken on a job worth finishing: {q}.", "Has {their} mind on a job not yet done: {q}.",
+    "Is partway through a job: {q}." },
   remarkable = { "{their} {item} is the first thing people notice.", "{their} {item} draws a second look.",
     "{their} {item} stands out at once.", "People look twice at {their} {item}.", "{their} {item} catches the eye before anything else." },
   plain = { "Gives little away at first glance.", "Hard to read at first glance.", "Nothing about {them} stands out at first.",
@@ -3455,7 +3458,7 @@ for k, v in pairs({
 }) do W.SAY[k] = v end
 
 ---------------------------------------------------------------------------
--- COMPANY (0.21.0): the group, the pet, the guild and the road alone, for the Company
+-- COMPANY (0.23.0): the group, the pet, the guild and the road alone, for the Company
 -- glance and History's people paragraph (Compose.CompanyGlance, Compose.History part 4,
 -- facts from Sources/Company.lua). Other players are only ever counted, never named
 -- (Social Diary friends aside). Glance pieces are fragments without a full stop; the
@@ -3587,7 +3590,7 @@ W.COMPANY = {
 }
 
 ---------------------------------------------------------------------------
--- MOOD MODEL 0.21.0: the moods the game's own signals feed (being healed, a roll lost, a
+-- MOOD MODEL 0.23.0: the moods the game's own signals feed (being healed, a roll lost, a
 -- duel, a long session, far from home...), and what those signals sound like. Face, voice
 -- and posture only, like every mood: nothing held, nothing done that the game didn't show.
 ---------------------------------------------------------------------------
@@ -3958,7 +3961,7 @@ W.FESTIVAL_MOODS = {
 }
 
 ---------------------------------------------------------------------------
--- AMBITIONS AND DRIVES (0.21.0): what the character is working toward, from the quest log
+-- AMBITIONS AND DRIVES (0.23.0): what the character is working toward, from the quest log
 -- and the state of things (Sources/Goals.lua), for the Ambition glance and "What drives
 -- them" at the end of History. Lines are picked per character and per goal; a line whose
 -- {tag} has nothing to fill it is skipped, so every kind keeps one that needs only the
@@ -4140,6 +4143,7 @@ W.GOAL_GLANCE = {
   nextrank = { "Ambition", "INV_Misc_Book_11" },
   goal = { "Ambition", "INV_Misc_Book_11" },
   thread = { "Unfinished Business", "INV_Misc_Note_02" },
+  inreach = { "Unfinished Business", "INV_Misc_Note_02" },   -- a job that would earn a name
 }
 
 -- The Ambition glance: one line, a whole sentence.
@@ -4194,7 +4198,9 @@ W.GOALS = {
   level_rested = { "Is close to level {level}, and well rested for the push.", "Is nearly at level {level}, after a good rest.",
     "Has level {level} in reach, and rested legs to get there.", "Is rested and nearly at level {level}." },
   nextrank = { "Working toward the rank of {rank}.", "Aims to rise to {rank}.", "Has {their} sights on the rank of {rank}.",
-    "Is on the road to the rank of {rank}." },
+    "Is on the road to the rank of {rank}." },  -- A job in the log that would earn a name (Compose.InReach): a chain's last step, a bounty.
+  inreach = { "Has taken on a job worth finishing: {q}.", "Has {their} mind on a job not yet done: {q}.",
+    "Is partway through a job: {q}.", "Has {q} in hand, and means to finish it." },
 }
 
 -- What drives them (History, last): the same goals told as part of a life. Whole sentences
@@ -4251,7 +4257,8 @@ W.DRIVES = {
   goal = { "Has set {themselves} a goal: {goal}", "Has a goal of {their} own: {goal}", "Has written down what {they're} after: {goal}",
     "Is after one thing in particular: {goal}" },
   thread = { "Wants to get to the bottom of {t}.", "Means to see {t} through.", "Means to find out the truth of {t}.",
-    "Has {t} still to settle." },
+    "Has {t} still to settle." },  inreach = { "Has taken on a job worth finishing: {q}.", "Has a job in hand that could make {their} name: {q}.",
+    "Is partway through {q}, and means to see it done.", "Has {q} still to finish." },
 }
 
 ---------------------------------------------------------------------------
@@ -4405,7 +4412,7 @@ W.JOURNAL = {
 }
 
 ---------------------------------------------------------------------------
--- 0.21.0: more words. Race x class temperament, and more ways to say what the glances,
+-- 0.23.0: more words. Race x class temperament, and more ways to say what the glances,
 -- History and Physical already report. (Kept in one block to ease merging.)
 ---------------------------------------------------------------------------
 
@@ -4762,7 +4769,7 @@ extendAll(W.PHYSIQUE, {
   spirit = { "composed and patient", "quiet-faced, and still in a way that calms others" },
 })
 
--- MOOD MODEL 0.21.0: how the journal (first person) says the new moods.
+-- MOOD MODEL 0.23.0: how the journal (first person) says the new moods.
 if W.JOURNAL and W.JOURNAL.feel then
   for k, v in pairs({
     grateful = { "grateful to the people who helped", "thankful for a kindness" },
@@ -5013,7 +5020,7 @@ W.SAY.lately_moved = { "Has left {from} behind after {stay} there, and is new to
   "Done with {from} for now, after {stay}; {zone} is next.", "Only lately came on to {zone}, after {stay} in {from}." }
 
 ---------------------------------------------------------------------------
--- WORK 0.22.0: the kind of work the character takes on (Sources/Work.lua).
+-- WORK 0.23.0: the kind of work the character takes on (Sources/Work.lua).
 ---------------------------------------------------------------------------
 W.WORK = {
   -- English cues in a job's title, objectives and text (lower case, Lua patterns). On another
@@ -5217,7 +5224,7 @@ W.WORK = {
     investigation = "Asking Around" },
 }
 
--- HOW THEY FIGHT 0.22.0 (Sources/Style.lua): role, style, school and habits in a fight, each
+-- HOW THEY FIGHT 0.23.0 (Sources/Style.lua): role, style, school and habits in a fight, each
 -- said only once the counts back it.
 W.STYLE = {
   -- The Role statistic.
@@ -5354,7 +5361,7 @@ W.STYLE = {
 }
 
 ---------------------------------------------------------------------------
--- TRADES IN DEPTH 0.22.0 (Sources/Trade.lua): recipes known and learned, the finest work,
+-- TRADES IN DEPTH 0.23.0 (Sources/Trade.lua): recipes known and learned, the finest work,
 -- specialisations, work done for others, where the gathering is done, tools carried.
 -- History lines are facts only; other players are only ever counted. {known} {item}
 -- {aspec} {spec} {n} {times} {list} {zone} {trade} are filled in; pronouns as everywhere.
@@ -5534,7 +5541,7 @@ W.TRADE = {
 }
 
 ---------------------------------------------------------------------------
--- THE BESTIARY (0.22.0, Sources/Bestiary.lua): what the character has fought and seen, by
+-- THE BESTIARY (0.23.0, Sources/Bestiary.lua): what the character has fought and seen, by
 -- the game's own creature kinds (UnitCreatureType) and families (UnitCreatureFamily), for
 -- History's older record, Personality, the Lately glance and the statistics. Facts only:
 -- each line is told when the counts back it. {kind} {family} {one} {aone} {who} {what}

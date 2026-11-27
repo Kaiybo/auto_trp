@@ -1,4 +1,4 @@
--- Dungeons and raids as places with a shape (0.22.0): every classic dungeon and raid, from
+-- Dungeons and raids as places with a shape (0.23.0): every classic dungeon and raid, from
 -- Ragefire Chasm to Naxxramas, with its known masters in the order they're usually met
 -- (by wing, where a place has wings) and four or more lines on what the place is like,
 -- for the stories History tells of a run (Runs.lua). Keyed by the name GetInstanceInfo

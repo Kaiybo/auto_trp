@@ -1,4 +1,4 @@
--- The journal's wider vocabulary (0.22.0, "Second Wind"): more ways to say each beat, and
+-- The journal's wider vocabulary (0.23.0, "Second Wind"): more ways to say each beat, and
 -- the new beats Journal.lua draws from Life, Company, Goals and Mood (fish, crafts, duels,
 -- battlegrounds, mounts, books, emotes, the pet, the guild, ambitions, standings, a familiar
 -- face, a kindness, a lost roll, a long day), milestone openings, a reflective close in the

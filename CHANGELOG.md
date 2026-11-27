@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.22.0 (2026-11-27): Second Wind
+## 0.23.0 (2026-11-27): Second Wind
 
 ### Your calling
 
@@ -32,7 +32,7 @@
 - **Physical** says how you carry yourself in a fight (*"Stands square and low in a fight, hard to move."*, *"Hangs back in a fight, lips moving."*). **History**'s older record tells the role you've mostly taken (*"has spent most of their fights keeping others standing"*), the spells you've cut off, the afflictions you've lifted, the kind of foe you've fought most and the weapons you've trained as far as your years allow.
 - **Company** names the part you play in the group you're in now, from its own fights (or, before there are any, the role you usually take): *"Sharing the road with a warrior and two mages, the group's healer."*
 - **Mood**: cutting off three or more casters in one fight is a quiet satisfaction (*"cut off four spells in one fight"*).
-- **Two new statistics**, each with its own switch and tooltip: **Role** (*"Healer, mostly"*, *"Defender, nearly always"*, *"Healer and spellcaster, by turns"*) and **Speciality** (*"Holy, 31 points"*, *", and 20 in Discipline"* when a second tree has ten or more). Speciality replaces 0.21.0's *Talents* entry, which is retired and taken down; if you had switched Talents off, Speciality starts off too.
+- **Two new statistics**, each with its own switch and tooltip: **Role** (*"Healer, mostly"*, *"Defender, nearly always"*, *"Healer and spellcaster, by turns"*) and **Speciality** (*"Holy, 31 points"*, *", and 20 in Discipline"* when a second tree has ten or more). Both join Faction, Guild and Level in the same ordered block.
 
 ### Reputation, as people would see it
 
@@ -115,22 +115,7 @@
 - **Said once.** A run told as a story isn't told again as news or in the older record; *"helped bring down A and B"* once; peak gold isn't told when it's what they hold now; a race's own homelands aren't *"a journey"*; *"helped bring down Edwin VanCleef and ten other named foes"* no longer muddles the list it joins.
 - **Glances, statistics and the journal.** Style's role is its own short sentence in Company, and a glance drops its tail past its length; Lately fills every pronoun; *"the Deadmines's smoke"* fixed; statistics read *"12, all of them Defias Bandits"*, *"Revered with 1 faction"*, festivals without a bare count, and work by kind agrees with its number (*"1 escort"*, *"6 bounties"*); the journal keeps its subjects after *"and"*.
 
-### Fixed
-
-- Kills by name are kept for the 300 creatures killed most, so the saved record no longer grows without end (the total stays exact).
-
-- **Resurrection sickness is told once.** With the Marks glance written and showing *Back from Death*, Currently no longer adds *"still weak from being brought back"* as well.
-- **The journal's close doesn't repeat the day's mood.** When a feeling held all day it gets its own line, and the closing line says where the day ended (and the purse) without saying the feeling again.
-- **Given to others** reads *"210 blessings, 40 of them on strangers"*, and a paladin's Lay on Hands on others is told there (*"3 Lays on Hands on others"*), not again under Calling.
-- **Privacy:** another player's pet or demon is never kept or written by the name its owner gave it: not as a creature slain, the last foe, a killer, the hardest hit taken or in the journal.
-- **Runs:** a run whose last master down is the place's own last one reached the end (*"turned back after Edwin VanCleef, five masters short of the end"* no more); a single solo run the story tells isn't counted again among the people.
-- **The journal** counts everyone who healed or blessed you: the mood says *"three people"*, and it had read that as one.
-- **Lighter events:** an event's payload is checked for secret values once, not once per handler, and on the classic era (which has none) it's passed on with no table built at all.
-- **Docs:** the README's field list names every field `/atrp claim` and `/atrp release` take, and its Statistics row lists 0.22.0's.
-
-## 0.21.0 (2026-11-27): Lately
-
-### With Total RP 3 alone
+### Lately: with Total RP 3 alone
 
 - **Works with Total RP 3 alone.** Without RPG Dialogue, Social Diary or Chronicle the profile is now just as full, read from what you actually do. Healing, buffing and resurrecting other players (strangers most of all) makes you Kind and Good; picking on critters, harmless grey creatures or much lower-level players makes you Cruel; taking on elites and stronger foes makes you Brave, easy prey Cautious; gifts in trades Generous, auctions and a hoarded purse Greedy; prayers and holy spells Religious; speaking up, emotes and time in a group Outgoing, long quiet hours alone Reserved; dances, jokes and fireworks Playful, hours without one Serious. Quests seen through make you Lawful and Honest, quests given up and pockets picked the opposite. These fill the trait bars (your class and race lean the rest), the temperament in Personality (*"Aldric is kind and brave, and keeps to the Light."*), the mood and the Full title (*Lightsworn*).
 - **Towns and people of your own.** Time rested and jobs done in a town, with its faction's regard, give you standing there (*"Is liked in Goldshire"*, *Friend of Goldshire*). The innkeepers, quest-givers, vendors and trainers you keep going back to become the people in History and Company (*"Aldric is on good terms with Innkeeper Farley and Marshal Dughan."*); guards and posters don't count, and other players are never named.
@@ -141,7 +126,7 @@
 - **Life on the road.** A new record (`Sources/Life.lua`), from game events alone, of much more of a character's life: fish caught (by kind and where), things made at a trade, herbs, ore and hides gathered, duels won and lost, battlegrounds fought and won and killing blows, the most gold ever held and coin looted, paid for jobs, spent at vendors, on repairs, training and flights, auctions sold, inns rested at, hearthstone uses, flight masters found, mounts first ridden, levels reached (with how long each took, from `/played` when the game says), the emotes used most, how many people you've grouped with (counted, never named), resurrections, falls and drowning, close calls, the hardest hit dealt and taken, the first rare and epic piece worn, books read and letters opened. About twenty more game events are listened to, and a dozen it already heard (loot, money, system lines, emotes, the combat log, the group, levels, quests, health) are put to more use. Opponents and group members are never kept by name.
 - **Nobody else is named.** Other players in your group are only counted by class, race and guild; familiar faces are remembered as a scrambled mark of their character ID, never a name. Social Diary friends are still named, if you allow it. Nothing is recorded in combat: a group that changes mid-fight is read once it ends.
 
-### How your character feels
+### Lately: how your character feels
 
 - **The mood reads the game itself, with no other addon needed.** Without RPG Dialogue, Social Diary or Chronicle the mood used to have little to go on; now dozens of the game's own signals move it, and race, class and (when it's there) Auto TRP's own reading of your temperament bend each one:
   - **Other people**: someone waving, smiling at, hugging or thanking you lifts you (**cheerful**, **grateful**); spitting, rudeness or a laugh at your expense sours you (**bitter**, **humbled**). Being healed or blessed by someone else, or offered a resurrection, leaves you **grateful** (each helper counts once in half an hour, so a dungeon healer isn't a new kindness every spell). Strangers are never named or kept; Social Diary friends are (*"Mirelle hugged them"*).
@@ -152,11 +137,11 @@
   - **Seasons**: Winter Veil and Midsummer cheer, the Lunar Festival and lone Winter Veil nights bring homesickness, Love is in the Air is lonely on your own, Hallow's End nights are eerie.
 - **Eight new moods**: Grateful, Humbled, Bored, Homesick, Smug, Exhausted, Cheerful and Bitter, each with six ways to say it in Currently, six or seven Mood glance lines (*"Has the softened face of someone a stranger just looked after."*, *"Smirks, then pretends not to."*), a line for every race and several classes (*"Has the look of a dwarf adding a name to an old grudge list."*), a badge icon and colour, and walk-ups (grateful, cheerful, smug and bored are open; bitter and exhausted aren't).
 
-### Currently
+### Lately: Currently
 
 - **Currently, from the game alone and far richer.** Every classic zone and capital (by map ID, so every language), over two hundred towns, camps, landmarks and dungeon doorsteps, and the capitals' districts have three or more ways each of saying where you are, and many have their own lines for night, dawn and dusk (*"in Darkshire at night, lamps lit against the dark"*) instead of a plain "under the stars". It now also notices a ship or zeppelin crossing the sea, which battleground you're in and one you're queued for, a party or raid (counted, never named), following someone, do-not-disturb, holding your breath underwater or tiring in deep water, a fall, a rogue's stealth or a druid's prowl, each shape in its own words, lying dead before release, resurrection sickness, feeding a pet, a teleport, the barber, stable master, innkeeper, guild vault, registrar, trade window, repairs, the spirit healer and the map, a fishing pole in hand (by name), and a festival where the game dresses for it. It reads as one line, with at most two things after the place and a short second sentence for what lingers (*"They're still unsteady, newly returned from death."*), never a list. Weather and seasons are left out: the game shows neither. All of it works without RPG Dialogue, Social Diary or Chronicle.
 
-### At first glance
+### Lately: At first glance
 
 - **Ambition reads your quest log.** No other addon needed: the Ambition glance now says what your character is working toward from the quest log and the game itself. A quest chain part-done (*"Means to see the Defias business through."*, over forty chains, by their last quest or an earlier step), work waiting in a dungeon or raid (*"Has a job waiting in the Deadmines."*), jobs done and waiting to be handed in, a job nearly finished, elite work, a job beyond your level, the job you've just taken on, a full log.
 - **And from the state of things.** Coin for a mount once you're forty, only when your level and purse back it (*"Saving for a horse: 60 of the 100 gold put by."*, a kodo for a tauren, a swift one at sixty), a class trial at your level you haven't done yet (a warlock's voidwalker, a druid's bear, a paladin's Redemption and charger, a hunter's first taming, a warrior's stances, a shaman's totems, a rogue's poisons), a craft that has learned all its rank allows (*"Has gone as far in tailoring as a journeyman can, and is after expert's training."*), a reputation close to the next standing, the next level (rested or not) and the next rank. Your Chronicle goal and an unfinished RPG Dialogue story join in when you have them; a chain still outranks them. The glance's title and icon follow the kind of ambition (*Seeing It Through* with the chain's own icon, *A Job Waiting*, *Back to Collect*, *Saving Up*, *A Trial Ahead*, *Learning the Trade*, *Earning Trust*).
@@ -165,7 +150,7 @@
 - **More glances.** Lately: *A Fresh Catch*, *Fishing*, *Duel Won* / *Duel Lost*, *Back From Battle*, *A New Mount*, *Fresh Kit*, *Reading*, *At Work*, *A New Inn*. Marks: *Smells of Fish*, *Cooking Smoke*, *Smells of Herbs*, *Rock Dust*, *Smells of Hides*, *Fresh From a Duel*, *Sore* after a fall, *Soaked* while in the water.
 - **More marks.** The Marks glance picks the most striking of all of that: a bad wound, drink, sickness, a spell on you, a shape, broken gear, a remarkable piece, a matched set, an enchanted weapon, rare jewellery, a great weapon or two, plate.
 
-### About: History, Personality and Physical
+### Lately: About: History, Personality and Physical
 
 - **History leads with the news.** Right after where your character came from, a paragraph tells what happened in the last three weeks, newest first, grouped by when: *"Just these past days, Aldric helped bring down Edwin VanCleef, came back up out of the Deadmines and took up the colours of the Silver Lanterns."* New lands, a new rank, stories settled or gone sour, masters felled (or felled again), dungeons, standing earned, a move to a new inn, a name newly earned and a great find all count.
 - **What has changed.** Auto TRP now notices when you join, leave or change guilds, move up or down a guild rank, or become clearly better or worse off, and History says so (*"left the Silver Lanterns for the Iron Wake"*, *"went from getting by to comfortable"*). A purse hovering on the edge of a band isn't news every day.
@@ -178,28 +163,28 @@
 - **Much more to read, for every race and class.** Personality now has lines for each race and class together, 68 pairs and over 200 lines, from a dwarf paladin (*"Keeps the Light with a dwarf's stubbornness: once sworn, sworn for good."*) to a Forsaken priest (*"Speaks of the Light warily, as of something that once failed her."*) and a troll shaman (*"Speaks with the loa as familiars, not distant gods."*). Without RPG Dialogue it reads four different dispositions (race and class together, class, race, class again), never opening two the same way; with RPG Dialogue a short Personality gets one or two of them as well. Every class has seven ways to carry itself and every race six, and the stand-in mottos six each (*"Measure twice, cast once."*, *"Never again in chains."*). History, Lately, Company, Ambition and Marks say things four to six ways where they had two or three, including guild, crafts, home, the journal, friends from Social Diary, local ties, wounds, drink and taint, and a paragraph never opens two sentences in a row on a bare "Has". Physical has more build and bearing lines, death knights get class looks and ambitions, goblins get race looks, and looks no longer mention skin colour. A few clichés are gone ("breath that could strip paint", "Stay away from da voodoo").
 - **A fuller Physical, straight from the game.** Three paragraphs, with no other addon needed. The body: your race's looks and voice, your build from your stats, and how your class and years on the road have taught you to stand. What you wear: cloth, leather, mail or plate (or a mix), how fine most of it is (*"The bulk of it is sound, honest work, with two finer pieces among it."*), the pieces that show, cloak and tabard, a matched set by name (*"Six of the pieces make up one matched set, Battlegear of Valor."*), how your weapons are carried (a great axe across the back, a weapon for each hand, sword and shield, a staff, a bow, a wand, an off-hand held), enchantments, epic rings, necklaces and trinkets, gear long outgrown or ahead of your years, and armour lighter than your calling usually wears. How you are right now: Inner Fire, Demon Armor, Frost and Mage Armor, Lightning Shield, Thorns, Power Word: Shield, Stoneskin, Fire Shield, blessings, a city's blessing, Well Fed, a meal, drink (from the game's own "You feel drunk"), disease, poison, curses, resurrection sickness, druid shapes, Ghost Wolf, Shadowform, stealth, a mount, your pet, wounds, and how rested you look. Every item is still named by its own name in its quality colour, and only when it's worn.
 
-### The journal
+### Lately: the journal
 
 - **A journal.** Auto TRP now keeps your character's journal, a day's entry for every day you play, written in the first person from what happened: lands entered (and first visits), jobs turned in by name, dungeons and the masters brought down, levels, deaths and close calls, great finds, the coin gained or lost, company (only Social Diary friends are named), inns, flights and crafts, ending on the day's mood (*"Ended the day at the Scarlet Raven Tavern, worn out, though eight silver the richer."*). How a death is taken follows your temperament, race and class. It needs no other addon. Written at logout, kept for 30 days: `/atrp journal` opens it, `/atrp journal today` prints today's in your chat. Without an RPG Dialogue diary, History quotes your latest entry (never its deaths), and so does *Lately* when nothing fresher is going on; one setting turns that off.
 
-### Never left blank
+### Lately: never left blank
 
 - **Never left blank.** With little to go on (no RPG Dialogue, nothing earned yet), fields get something sensible instead of staying empty. Personality gets two lines on how your class carries itself (*"Listens more than he talks, and remembers what people say."*). The nickname comes from your homeland (*of Elwynn*, *of Durotar*) and the motto from your class (*"Mend what can be mended."*), both until a deed earns a real one. A sparse History adds your rank and where you are these days. The personality trait bars lean gently by class (a priest Kind and Religious, a rogue Reserved and a little Deceitful) until your RPG Dialogue choices take over.
 - **Every race and class, filled.** Personality now adds a line for your race (*"Stubborn as stone once their mind is made up."*), the trait bars lean by race as well as class, the motto can come from either (*"Time is money."*), and every race has a homeland nickname (*of Ironforge*, *of the Darkspear*, *of Kezan*). Goblins and death knights are covered too. A new test writes a bare profile for every race and class combination and fails on any empty field.
 - **No blank statistics.** One with nothing counted yet reads *None yet* (days on the road: *Less than a day*), and *Most cast spell* shows from the first cast. All five glances, the three About sections, Currently and the statistics are checked for every race and class.
 
-### More of Total RP 3
+### Lately: More of Total RP 3
 
 - **More of Total RP 3 filled in**, each with its own switch, and covered by backup, `/atrp restore` and "switched off means taken down":
   - **Name colour** from your class colour (or your !ClassColors choice).
   - **Profile music**: the game's own music for the land your hearthstone is in (Elwynn's forest theme from Goldshire, Stormwind's from the Trade District), else for where you are. Picked from Total RP 3's own music list, so only music your client has; with nothing fitting, the music is left as it is.
-  - **Faction**, **Guild** (*"Lamplighter of the Silver Lanterns"*), **Level** (*"22, Cleric of the Light"*) and **Talents** (*"Holy, 5/21/0"*) in Additional information, after the statistics and in the same ordered block. No guild or no talents spent, no entry.
+  - **Faction**, **Guild** (*"Lamplighter of the Silver Lanterns"*) and **Level** (*"22, Cleric of the Light"*) in Additional information, after the statistics and in the same ordered block. No guild, no entry.
   - **What you're doing, out of character** (off by default): Currently's OOC line says *"Levelling in Duskwood."*, *"Looking for a group in the Barrens."* (listed in the group finder), *"In a group..."*, *"In the Deadmines with a group."*, *"Away from keyboard."*. It isn't paused while you're out of character, and the OOC note joins it when both are on.
 - **Eight new statistics**, each with its own switch: *Fish caught*, *Things made*, *Gathered*, *Duels*, *Battles*, *Most gold held*, *Inns stayed at*, *Hardest hit*.
 - The OOC line is now taken down when it's switched off, like the statistics and glances.
 - **Open to walk-ups** (its switch is still off by default) now reads open unless your mood says otherwise, instead of being left unset.
 
-### Settings, preview and commands
+### Lately: settings, preview and commands
 
 - **All on, all off.** Two buttons at the top of the settings switch every option at once (and every field and statistic), or `/atrp all on` / `/atrp all off`. "Keep my profile up to date" is left as it is.
 - **A welcome window.** First login shows three lines on what Auto TRP does, with buttons to make its profile, use your current one, open the settings, or stop asking. `/atrp welcome` brings it back.
@@ -208,8 +193,24 @@
 - **The mood badge says more.** Its tooltip adds when your profile was last written and which fields changed. Shift-click shows your Currently in your own chat (nobody else sees it), ctrl-click opens the settings, and it glows briefly when your mood turns. Ctrl-click on the AddOns menu entry opens the settings too.
 - **`/atrp help`** lists every command with a line each, the same as the README's table (a test keeps them in step), including `/atrp status` and the new `/atrp welcome`. An unknown command says so before listing them.
 
+### Along the way, and what changed, with all of this
+
+- **Month by month, fitted into the new History.** The dated moments of 0.21.0 now have their own paragraph between the longer record and the news, and tell only what's older than the news (the last three weeks): a first dungeon or raid, a craft's new rank or a first battleground won are told in the news while they're fresh (*"won his first battleground, in Warsong Gulch"* in place of the plain battle line). Nothing is told twice: not a rank the news, the record or an anniversary already names, the name behind the nickname, a place the older record or a run story names, a craft at the rank the record gives it, or a standing still held. The lines count toward History's length, and are among the first to give way when it runs long.
+- **Names within reach, as an ambition.** A chain's step that would earn a name stays the one *Seeing It Through* ambition; a bounty in the log joins the ambitions as *Unfinished Business*, and the plain *On the Job* for the same quest gives way to it. The quest log is read once, by the ambitions' own lazy reader.
+- **Firsts, felt once.** A first dungeon or raid is wide-eyed once (not again as a new land), with the places already entered taken from Auto TRP's own record so they aren't firsts again; a battleground's end is counted once per game by the battle record, then felt (a triumph, or frustrating); a craft's new rank is accomplished once, as before, and kept for the month-by-month paragraph.
+- **`/atrp log`** joins `/atrp help` and the README's commands, and the month-by-month switch has its tooltip.
+
 ### Fixed
 
+- Kills by name are kept for the 300 creatures killed most, so the saved record no longer grows without end (the total stays exact).
+- **Resurrection sickness is told once.** With the Marks glance written and showing *Back from Death*, Currently no longer adds *"still weak from being brought back"* as well.
+- **The journal's close doesn't repeat the day's mood.** When a feeling held all day it gets its own line, and the closing line says where the day ended (and the purse) without saying the feeling again.
+- **Given to others** reads *"210 blessings, 40 of them on strangers"*, and a paladin's Lay on Hands on others is told there (*"3 Lays on Hands on others"*), not again under Calling.
+- **Privacy:** another player's pet or demon is never kept or written by the name its owner gave it: not as a creature slain, the last foe, a killer, the hardest hit taken or in the journal.
+- **Runs:** a run whose last master down is the place's own last one reached the end (*"turned back after Edwin VanCleef, five masters short of the end"* no more); a single solo run the story tells isn't counted again among the people.
+- **The journal** counts everyone who healed or blessed you: the mood says *"three people"*, and it had read that as one.
+- **Lighter events:** an event's payload is checked for secret values once, not once per handler, and on the classic era (which has none) it's passed on with no table built at all.
+- **Docs:** the README's field list names every field `/atrp claim` and `/atrp release` take, and its Statistics row lists this release's.
 - Dungeons, raids and battlegrounds entered no longer count as lands reached, so History doesn't say your road began in Shadowfang Keep.
 - Fixed: a player killed by your hand could be counted by name among the creatures slain (and so named in History's most-killed line). Players are now only killing blows, never named.
 - Fixed: an enemy player you fought could be named in the *Lately* glance (*"Fresh from a fight with ..."*) and, if they killed you, in the Deaths statistic and *Lately*'s *Hurt*. They're now only what they are (*a Horde rogue*), and a death to a player keeps no name. A death to a creature you'd been fighting names it again (it was lost).
@@ -218,6 +219,17 @@
 - Fixed: winning a loot roll counted the find twice (*"You won"* and then *"You receive loot"*), so History could tell the same item twice.
 - Smoother wording: *Currently* never repeats a word between its two feelings or its place (*"Flushed with success and flushed with victory"*, *"Taking it all in ..., taking a room"*); History's news names a place once a sentence; a guild just joined isn't told again in the people paragraph; a rank just risen to isn't also given as where you stand; *"Walks with Staff of Westfall, a staff"* drops the *a staff*; a dwarf now *"means"* to stay there.
 - Lighter: a guild change asks the game for the guild roster at most once a minute, so a reply that brings another guild update can't turn into a loop of requests.
+
+## 0.22.0 (2026-11-27): What Changed
+
+- **`/atrp log`**: the last writes to your profile, each with when, what set it off (a new land, a fight over, loot...), your mood and why, and every field it changed, from what to what. `/atrp log 20` shows more; the newest thirty are kept.
+- **Firsts and milestones.** Going into a dungeon or raid for the first time leaves you **wide-eyed**. Winning a battleground is a **triumph**, losing one **frustrating**. A craft reaching a new rank (75, 150, 225, 300) feels **accomplished**. A long flight leaves you **weary**. Each first is kept for History's month-by-month paragraph: *"Went into the Deadmines for the first time."*, *"Became an expert angler."*, *"Won his first battleground, in Warsong Gulch."*
+- **Dozing at the inn.** Away while resting at an inn, *Currently* has you nodding off rather than lost in thought.
+
+## 0.21.0 (2026-11-27): Along the Way
+
+- **Names within reach.** A quest in your log that would earn a name you don't have yet (a chain's last step, or a bounty) is now noticed. `/atrp names` lists them under *Within reach*, with the saying that comes with each, and the *Ambition* glance names the job when you have no Chronicle goal or unfinished story: *"Has taken on a job worth finishing: "Princess Must Die!"."* The quest log is read only when it has changed.
+- **History, month by month.** History gains a paragraph of dated moments: the ranks you reached, the names you earned and the standing you won, a sentence each, under the month they happened (*"In September, Aldric was made Footman in Westfall."*). Moments are kept as they happen (up to sixty), so they stay even after the record they came from has forgotten them, and nothing the rest of History already tells is told twice. It has its own switch in the settings.
 
 ## 0.20.0 (2026-11-25): In Good Order
 

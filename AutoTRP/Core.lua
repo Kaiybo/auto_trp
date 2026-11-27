@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 ns.name = addonName
-ns.VERSION = "0.22.0"
+ns.VERSION = "0.23.0"
 
 ---------------------------------------------------------------------------
 -- Events
@@ -157,6 +157,7 @@ ns.DEFAULTS = {
   },
   glanceSlots = { mood = 1, lately = 2, company = 3, ambition = 4, marks = 5 },
   sources = { rpgd = true, socialDiary = true, chronicle = true },
+  annals = true,           -- History tells the character's moments month by month, and keeps them
   diaryExcerpt = true,     -- quote your latest RPG Dialogue diary entry in History
   journalInProfile = true, -- without one, quote Auto TRP's own journal in History (and Lately, when nothing's fresher)
   timeNotes = true,        -- anniversaries, returns and festivals kept, in History and Lately

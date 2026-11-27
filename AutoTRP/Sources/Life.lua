@@ -144,6 +144,7 @@ function L.Battle(name, won)
   bump(p.byName, name, 1, 20)
   if won and p.byName[name] then p.wonBy[name] = (p.wonBy[name] or 0) + 1 end
   p.last = { name = name, won = won and true or false, t = U.Now() }
+  if ns.Mood and ns.Mood.Battle then ns.Mood.Battle(name, won) end
 end
 
 function L.KillingBlow()

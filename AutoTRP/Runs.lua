@@ -1,4 +1,4 @@
--- Dungeon and raid runs told as stories (0.22.0), from Auto TRP's own record of them
+-- Dungeon and raid runs told as stories (0.23.0), from Auto TRP's own record of them
 -- (Sources/Delves.lua, ns.cache.delves): History tells the most telling recent run as a
 -- small story with a line on what the place is like, then the master that fought hardest,
 -- the place they keep going back to, the first full clear and a place left unfinished;

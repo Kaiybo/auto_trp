@@ -19,7 +19,7 @@ local function values(sheet)
     nickname = sheet.nickname, icon = sheet.icon, bearing = sheet.bearing, history = sheet.history,
     physical = sheet.physical, traits = sheet.traits, relationship = sheet.relationship, ooc = sheet.ooc,
     walkup = sheet.walkup,
-    namecolour = sheet.namecolour, music = sheet.music,   -- 0.21.0 (Register.lua)
+    namecolour = sheet.namecolour, music = sheet.music,   -- 0.23.0 (Register.lua)
     glance_mood = sheet.glances.mood, glance_lately = sheet.glances.lately,
     glance_company = sheet.glances.company, glance_ambition = sheet.glances.ambition,
     glance_marks = sheet.glances.marks,
@@ -63,7 +63,7 @@ function UI.Update(force, fresh, mood)
     return
   end
   local sheet = ns.Compose.Sheet(fresh, mood, only)
-  local changed, why = TRP.Apply(values(sheet), only)
+  local changed, why, diff = TRP.Apply(values(sheet), only)
   if not changed then
     if force then ns.Print("Not updated: " .. tostring(why) .. ".") end
     return
@@ -74,6 +74,7 @@ function UI.Update(force, fresh, mood)
   if wroteFast then lastFast = now end
   if only.history then lastSlow, slowDue = now, false end
   UI.NoteWrite(changed, now)
+  UI.LogWrite(changed, diff, sheet.mood)
   if force then
     if #changed > 0 then
       local names = {}
@@ -137,8 +138,8 @@ local STORY_EVENTS = {
   "PLAYER_DEAD", "PLAYER_LEVEL_UP", "ENCOUNTER_END", "QUEST_TURNED_IN", "GOSSIP_CLOSED", "QUEST_FINISHED",
   "PLAYER_EQUIPMENT_CHANGED", "UPDATE_FACTION", "PLAYER_GUILD_UPDATE", "SKILL_LINES_CHANGED", "LEARNED_SPELL_IN_TAB", "LEARNED_SPELL_IN_SKILL_LINE",
 }
-for _, e in ipairs(FAST_EVENTS) do ns.On(e, function() UI.Poke(false) end) end
-for _, e in ipairs(STORY_EVENTS) do ns.On(e, function() UI.Poke(true) end) end
+for _, e in ipairs(FAST_EVENTS) do ns.On(e, function() UI.cause = e; UI.Poke(false) end) end
+for _, e in ipairs(STORY_EVENTS) do ns.On(e, function() UI.cause = e; UI.Poke(true) end) end
 ns.OnUnit("UNIT_AURA", "player", function() UI.Poke(false) end)
 ns.OnUnit("UNIT_PET", "player", function() UI.Poke(false) end)
 ns.OnUnit("UNIT_SPELLCAST_CHANNEL_START", "player", function() UI.Poke(false) end)
@@ -751,6 +752,7 @@ local OPTIONS = {
   { path = { "sources", "socialDiary" }, label = "Social Diary" },
   { path = { "sources", "chronicle" }, label = "Chronicle" },
   { head = "Details" },
+  { path = { "annals" }, label = "History keeps your moments month by month (ranks, names, standing, firsts, crafts)" },
   { path = { "diaryExcerpt" }, label = "Quote your latest diary entry in History" },
   { path = { "journalInProfile" }, label = "Quote your Auto TRP journal in History and Lately when nothing's fresher (/atrp journal)" },
   { path = { "timeNotes" }, label = "Anniversaries, festivals kept and returns from time away, in History and Lately" },
@@ -843,6 +845,7 @@ UI.TIPS = {
   ["sources.rpgd"] = "Your origin, alignment, choices, opinions, the people you've met, stories and diary.",
   ["sources.socialDiary"] = "The players you've marked as friends, a partner, and your recent groups.",
   ["sources.chronicle"] = "Goals, bosses, dungeons, rare beasts, professions and gear. Your private notes are never read.",
+  ["annals"] = "A paragraph of dated moments in History: the ranks you reached, names earned, standing won, the dungeons and raids you first went into, your crafts' ranks and your first battleground won, a sentence each under the month it happened. Kept as they happen, so they stay after the record forgets them. Nothing History already tells is told twice.",
   ["diaryExcerpt"] = "A line from your latest RPG Dialogue diary entry at the end of History.",
   ["journalInProfile"] = "When nothing fresher has happened, History and Lately quote a line from your Auto TRP journal.",
   ["timeNotes"] = "The shape of your time: the hours you keep, a year on the road, a month since a new rank, the festivals you took part in, coming back after days away. Off, History and Lately leave them out.",
@@ -1406,8 +1409,9 @@ local HELP = {
   { "/atrp days", "the mood journal: the last week of feelings and places" },
   { "/atrp journal", "your character's journal, a day's entry for each day you played, newest first" },
   { "/atrp journal today", "today's entry, in your own chat (never sent to anyone)" },
+  { "/atrp log [n]", "the last writes to your profile: what changed, from what to what, and why" },
   { "/atrp spells", "the spells and abilities you cast most" },
-  { "/atrp names", "every name you've earned, what for, and which one you wear" },
+  { "/atrp names", "every name you've earned, what for, and which one you wear, plus the ones within reach in your quest log" },
   { "/atrp name <number|auto>", "wear one of your earned names (auto: the greatest deed's)" },
   { "/atrp slot <glance> <1-5|0>", "move a glance (mood, lately, company, ambition, marks) to another slot, or 0 to drop it" },
   { "/atrp restore", "put your profile back as it was before Auto TRP" },
@@ -1438,12 +1442,76 @@ function UI.PrintHelp()
   for _, l in ipairs(UI.HelpLines()) do ns.Print(l) end
 end
 
+-- The change log: each write, what it changed (from and to) and why. The newest
+-- UI.KEEP_LOG writes are kept per character; /atrp log shows them.
+UI.KEEP_LOG = 30
+local CAUSES = {
+  ZONE_CHANGED = "a new spot", ZONE_CHANGED_INDOORS = "a new spot", ZONE_CHANGED_NEW_AREA = "a new land",
+  PLAYER_UPDATE_RESTING = "resting or setting out", PLAYER_REGEN_ENABLED = "a fight over", PLAYER_DEAD = "a death",
+  PLAYER_LEVEL_UP = "a level", ENCOUNTER_END = "a boss fight", QUEST_TURNED_IN = "a quest turned in",
+  GROUP_ROSTER_UPDATE = "the group changed", PLAYER_EQUIPMENT_CHANGED = "new gear", UPDATE_FACTION = "reputation",
+  PLAYER_MOUNT_DISPLAY_CHANGED = "mounting", TAXIMAP_OPENED = "a flight", CHAT_MSG_LOOT = "loot",
+  CHAT_MSG_TEXT_EMOTE = "an emote", PLAYER_MONEY = "money", PLAYER_FLAGS_CHANGED = "away or back",
+  GOSSIP_CLOSED = "a conversation", UPDATE_BATTLEFIELD_STATUS = "a battleground", CHAT_MSG_SKILL = "a craft",
+}
+local function short(v)
+  if v == nil then return "(empty)" end
+  if type(v) ~= "string" then v = tostring(v) end
+  v = U.Plain(v:gsub("{col:%x+}", ""):gsub("{/col}", "")) or ""
+  if v == "" then return "(empty)" end
+  return U.Truncate(v, 70)
+end
+
+function UI.LogWrite(changed, diff, mood)
+  if not ns.char or not changed or #changed == 0 then return end
+  local log = type(ns.char.writeLog) == "table" and ns.char.writeLog or {}
+  ns.char.writeLog = log
+  local fields = {}
+  for _, k in ipairs(changed) do
+    local d = diff and diff[k] or {}
+    fields[#fields + 1] = { k = k, from = short(d.from), to = short(d.to) }
+  end
+  local why = {}
+  for i, r in ipairs(mood and mood.reasons or {}) do if i <= 2 then why[i] = tostring(r) end end
+  local cause = UI.cause and (CAUSES[UI.cause] or UI.cause:lower():gsub("_", " "))
+  UI.cause = nil
+  log[#log + 1] = { t = U.Now(), fields = fields, mood = mood and mood.title, why = why, cause = cause }
+  while #log > UI.KEEP_LOG do table.remove(log, 1) end
+end
+
+function UI.ListLog(arg)
+  local log = ns.char and ns.char.writeLog or {}
+  if #log == 0 then ns.Print("Nothing written yet this way. Each write is logged from now on."); return end
+  local n = math.min(tonumber(arg) or 5, #log)
+  ns.Print(("The last %d write%s to your profile:"):format(n, n == 1 and "" or "s"))
+  for i = #log, #log - n + 1, -1 do
+    local e = log[i]
+    local reasons = {}
+    if e.cause then reasons[#reasons + 1] = e.cause end
+    if e.mood then reasons[#reasons + 1] = "mood " .. e.mood:lower() .. (#e.why > 0 and (" (" .. table.concat(e.why, ", ") .. ")") or "") end
+    ns.Print(("|cffffd100%s|r%s"):format(date("%d %b %H:%M", e.t), #reasons > 0 and (": " .. table.concat(reasons, "; ")) or ""))
+    for _, f in ipairs(e.fields) do
+      ns.Print(("  %s: |cff808080%s|r -> %s"):format(TRP.LABELS[f.k] or f.k, f.from, f.to))
+    end
+  end
+  if n < #log then ns.Print(("|cffffd100/atrp log %d|r shows more."):format(#log)) end
+end
+
 -- Earned names: list them, or choose which to wear.
 function UI.ListNames()
   ns.Compose.Refresh()
   local all, worn = ns.Compose.EarnedAll(), ns.Compose.Earned()
+  local reach = ns.Compose.InReach()
+  local function within()
+    if #reach == 0 then return end
+    ns.Print("Within reach (in your quest log):")
+    for _, r in ipairs(reach) do
+      ns.Print(("  |cffffd100%s|r: finish %s%s"):format(r.nick, r.quest, r.motto and (". \"" .. r.motto .. "\"") or ""))
+    end
+  end
   if #all == 0 then
     ns.Print("No name earned yet. One comes from finishing a story in RPG Dialogue or a quest chain, bringing down a dungeon's master, or collecting a bounty.")
+    within()
     return
   end
   ns.Print("Names you've earned:")
@@ -1456,6 +1524,7 @@ function UI.ListNames()
     ns.Print((ns.char.chosenName and "You chose this one" or "Auto TRP picks the greatest deed's")
       .. "; |cffffd100/atrp name <number>|r wears another, |cffffd100/atrp name auto|r lets Auto TRP choose.")
   end
+  within()
 end
 
 function UI.ChooseName(arg)
@@ -1595,6 +1664,8 @@ SlashCmdList.AUTOTRP = function(msg)
     end
     ns.Print("Glance '" .. which .. "' is now in slot " .. n .. ".")
     UI.Update(true)
+  elseif cmd == "log" then
+    UI.ListLog(arg)
   elseif cmd == "days" then
     UI.ListDays()
   elseif cmd == "journal" then

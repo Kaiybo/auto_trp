@@ -1,10 +1,10 @@
--- More of Total RP 3's profile (0.21.0), each piece only from what the game records:
+-- More of Total RP 3's profile (0.23.0), each piece only from what the game records:
 --   * Name colour (characteristics.CH) from the class colour.
 --   * Profile music (about.MU) from the music of the land your hearthstone is in, else the
 --     land you're in, where there's a fitting piece of the game's own music.
 --   * More Additional information entries after the statistics: Faction, Guild, Level, and
---     (0.22.0, from Sources/Style.lua) Role and Speciality, each with its own switch, in the
---     same ordered block. Speciality took the place of 0.21.0's Talents entry, which is
+--     (0.23.0, from Sources/Style.lua) Role and Speciality, each with its own switch, in the
+--     same ordered block. Speciality took the place of an earlier Talents entry, which is
 --     retired: an entry Auto TRP wrote under that name is taken down again.
 --   * An out-of-character line in "Currently" (character.CO): what you're doing OOC
 --     ("Levelling in Duskwood.", "Looking for a group in the Barrens."). Off by default.
@@ -33,7 +33,7 @@ More.INFO = {
   { key = "level", label = "Level", icon = "Spell_Holy_InnerFire" },
   { key = "role", label = "Role", icon = "Ability_Warrior_DefensiveStance" },
   { key = "speciality", label = "Speciality", icon = "INV_Misc_Book_11" },
-  -- Retired in 0.22.0 for Speciality (it never has a value now, so what it wrote comes down).
+  -- Retired for Speciality (it never has a value now, so what it wrote comes down).
   { key = "talents", label = "Talents", icon = "INV_Misc_Book_11", retired = true },
 }
 for _, e in ipairs(More.INFO) do Compose.STATS[#Compose.STATS + 1] = e end

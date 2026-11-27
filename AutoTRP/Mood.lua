@@ -51,7 +51,7 @@ local BIAS = {
   charming = { sociable = 1.3, smitten = 1.2, lonely = 1.3 },
   reserved = { sociable = 0.6, lonely = 0.6, company = 0.8 },
 }
--- The 0.21.0 moods, by the same traits.
+-- The 0.23.0 moods, by the same traits.
 local BIAS_MORE = {
   brave = { humbled = 0.8, bitter = 1.15, exhausted = 0.9, smug = 1.1 },
   cautious = { humbled = 1.15, grateful = 1.15, smug = 0.8 },
@@ -564,7 +564,7 @@ ns.On("PLAYER_MONEY", function()
   lastMoney = m
 end)
 
--- Duels are handled with the other 0.21.0 signals below (no names but friends').
+-- Duels are handled with the other 0.23.0 signals below (no names but friends').
 
 -- Reputation: rising, falling, a new standing (remembered for History).
 -- Reputation: a gentle push at most once per faction every half hour (never from the
@@ -639,7 +639,9 @@ ns.On("ZONE_CHANGED_NEW_AREA", function()
   local st, now = state(), U.Now()
   if not seen.zones[zone] then
     seen.zones[zone] = now
-    if U.Count(seen.zones) > 1 then
+    -- A dungeon or raid's first time is Mood.CheckInstance's to feel (once, not twice).
+    local _, kind = U.Call(GetInstanceInfo)
+    if U.Count(seen.zones) > 1 and kind ~= "party" and kind ~= "raid" then
       Mood.Push("wonder", 45, "first time in " .. zone)
       -- Somewhere new after dark is another thing.
       local hour = U.Call(GetGameTime)
@@ -695,7 +697,7 @@ ns.On("ZONE_CHANGED", function()
 end)
 
 ---------------------------------------------------------------------------
--- 0.21.0: more of what the game itself shows, so the mood is lively with no other addon.
+-- 0.23.0: more of what the game itself shows, so the mood is lively with no other addon.
 -- Other players are never named (and never kept) unless they're Social Diary friends.
 -- The combat log only notes things in a few small counters; feelings are pushed once the
 -- fight is over (Mood.Flush), never in the middle of one.
@@ -1034,6 +1036,7 @@ ns.On("CHAT_MSG_SKILL", function(_, msg)
   local skill, value = msg:match(P_SKILL)
   value = tonumber(value)
   if skill and value and RANK_AT[value] then
+    Mood.NoteCraft(U.Plain(skill), value)
     Mood.Push("accomplished", 30, U.Plain(skill) .. " up to " .. value)
     Mood.Push("proud", 15)
     return
@@ -1336,3 +1339,71 @@ function Mood.Note(current)
   local why = current.reasons and current.reasons[1]
   ns.Print("|cffd0d0ffYou feel " .. current.title:lower() .. (why and (": " .. why) or "") .. ".|r")
 end
+
+---------------------------------------------------------------------------
+-- Firsts and milestones: a dungeon or raid entered for the first time, a battleground won
+-- or lost, a new rank in a craft, a long flight. Each is remembered for History's annals.
+---------------------------------------------------------------------------
+-- The first time inside: { [instance name] = { t, kind } }. Started from Auto TRP's own
+-- record of the places entered (Sources/Deeds.lua), so a dungeon known before this record
+-- began isn't a first time again, and keeps the day it really was.
+local function instancesSeen()
+  if type(ns.char.instances) ~= "table" then
+    local seen = {}
+    local d = ns.char.deeds and ns.char.deeds.instances
+    for name, v in pairs(type(d) == "table" and d or {}) do
+      if type(v) == "table" and (v.kind == "party" or v.kind == "raid") and tonumber(v.t) then
+        seen[name] = { t = v.t, kind = v.kind, seeded = true }   -- told already, as a land reached
+      end
+    end
+    ns.char.instances = seen
+  end
+  return ns.char.instances
+end
+function Mood.CheckInstance()
+  if not ns.char then return end
+  local name, kind = U.Call(GetInstanceInfo)
+  name = U.Plain(name)
+  if not name or (kind ~= "party" and kind ~= "raid") then return end
+  local seen = instancesSeen()
+  if seen[name] then return end
+  seen[name] = { t = U.Now(), kind = kind }
+  Mood.Push("wonder", kind == "raid" and 40 or 30, "the first time inside " .. U.Mid(name))
+end
+ns.On("PLAYER_ENTERING_WORLD", function() Mood.CheckInstance() end)
+ns.On("ZONE_CHANGED_NEW_AREA", function() Mood.CheckInstance() end)
+
+-- A battleground's end, won or lost: Sources/Life.lua counts it once per battleground and
+-- calls this. The first win is kept for History's annals.
+function Mood.Battle(name, won)
+  if not ns.char then return end
+  local bg = type(ns.char.battles) == "table" and ns.char.battles or {}
+  ns.char.battles = bg
+  if won then
+    if not bg.firstWin then bg.firstWin = { t = U.Now(), zone = U.Plain(name) } end
+    Mood.Push("triumphant", 45, "a battleground won")
+  else
+    Mood.Push("frustrated", 30, "a battleground lost")
+  end
+  if ns.UI and ns.UI.Poke then ns.UI.Poke(true) end
+end
+
+-- A craft reaching a new rank (75, 150, 225, 300), kept once for History's annals; the
+-- feeling itself is the CHAT_MSG_SKILL handler's above.
+Mood.CRAFT_STEPS = RANK_AT
+function Mood.NoteCraft(skill, rank)
+  if not ns.char or type(skill) ~= "string" or not RANK_AT[rank] or not W.PROF_NOUN[skill:lower()] then return end
+  ns.char.crafts = type(ns.char.crafts) == "table" and ns.char.crafts or {}
+  local key = skill:lower() .. ":" .. rank
+  if not ns.char.crafts[key] then ns.char.crafts[key] = { t = U.Now(), skill = skill, rank = rank } end
+end
+
+-- A long flight: stiff and tired on landing.
+local flightStart
+ns.On("PLAYER_CONTROL_LOST", function() ns.After(1, function() if U.Call(UnitOnTaxi, "player") then flightStart = U.Now() end end) end)
+ns.On("PLAYER_CONTROL_GAINED", function()
+  if not flightStart then return end
+  local took = U.Now() - flightStart
+  flightStart = nil
+  if took >= 180 then Mood.Push("weary", math.min(25, 8 + took / 30), "a long flight") end
+end)

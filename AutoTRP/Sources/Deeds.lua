@@ -268,3 +268,43 @@ function D.Backfill()
   return added
 end
 ns.Listen("LOGIN", function() ns.After(20, D.Backfill) end)
+
+---------------------------------------------------------------------------
+-- The quest log: what the character has taken on and not yet finished. Read only when
+-- asked for, and again only after the log has changed.
+---------------------------------------------------------------------------
+local inLog, logDirty = {}, true
+local function markLog() logDirty = true end
+for _, ev in ipairs({ "QUEST_ACCEPTED", "QUEST_REMOVED", "QUEST_LOG_UPDATE", "QUEST_TURNED_IN", "PLAYER_ENTERING_WORLD" }) do
+  ns.On(ev, markLog)
+end
+
+-- The titles in the quest log (headers left out), in the log's order. Sources/Goals.lua
+-- already reads the log (lazily, never in a fight): its read is used when it has one.
+function D.InLog()
+  local G = ns.Sources.Goals
+  if G and G.Log then
+    local out = {}
+    for _, q in ipairs(G.Log().quests or {}) do out[#out + 1] = q.title end
+    return out
+  end
+  if not logDirty then return inLog end
+  local out = {}
+  local QL = _G.C_QuestLog
+  local n = U.Call(_G.GetNumQuestLogEntries)
+  if type(n) == "number" and type(_G.GetQuestLogTitle) == "function" then
+    for i = 1, n do
+      local title, _, _, isHeader = U.Call(_G.GetQuestLogTitle, i)
+      title = U.Plain(title)
+      if title and not isHeader then out[#out + 1] = title end
+    end
+  elseif QL and type(QL.GetNumQuestLogEntries) == "function" and type(QL.GetInfo) == "function" then
+    for i = 1, tonumber(U.Call(QL.GetNumQuestLogEntries)) or 0 do
+      local info = U.Call(QL.GetInfo, i)
+      local title = type(info) == "table" and not info.isHeader and U.Plain(info.title)
+      if title then out[#out + 1] = title end
+    end
+  end
+  inLog, logDirty = out, false
+  return inLog
+end

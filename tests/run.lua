@@ -267,7 +267,7 @@ check(ns.Compose.Currently(ns.Mood.Current()):find("with Innkeeper Farley in the
 ns.World.SetContext("none")
 UnitIsAFK = function() return true end
 ns.Compose.SourcesChanged(); ns.Compose.Refresh()
-check(ns.Compose.Currently(ns.Mood.Current()):find("lost in thought") or ns.Compose.Currently(ns.Mood.Current()):find("middle distance") or ns.Compose.Currently(ns.Mood.Current()):find("miles away") or ns.Compose.Currently(ns.Mood.Current()):find("daydreaming"), "AFK reads as lost in thought")
+check(ns.Compose.Currently(ns.Mood.Current()):find("lost in thought") or ns.Compose.Currently(ns.Mood.Current()):find("middle distance") or ns.Compose.Currently(ns.Mood.Current()):find("miles away") or ns.Compose.Currently(ns.Mood.Current()):find("daydreaming") or ns.Compose.Currently(ns.Mood.Current()):find("nodding off") or ns.Compose.Currently(ns.Mood.Current()):find("half asleep") or ns.Compose.Currently(ns.Mood.Current()):find("dozing"), "AFK reads as lost in thought, or dozing at the inn")
 UnitIsAFK = function() return false end
 state.resting = false
 IsMounted = function() return true end
@@ -2908,7 +2908,7 @@ do
   ns.db.quiet, ns.db.showBadge = quiet, badge
 end
 
--- 0.21.0, more of Total RP 3 (Register.lua): name colour, profile music, the Faction, Guild,
+-- 0.23.0, more of Total RP 3 (Register.lua): name colour, profile music, the Faction, Guild,
 -- Level and Speciality entries, and the out-of-character line. Each is written, becomes the
 -- player's when they edit it, comes off when switched off, and /atrp restore puts it back.
 do
@@ -3481,7 +3481,7 @@ do
 end
 
 
--- 0.21.0 mood model: the game's own signals, with RPG Dialogue, Social Diary and Chronicle
+-- 0.23.0 mood model: the game's own signals, with RPG Dialogue, Social Diary and Chronicle
 -- all absent. Each signal pushes its feeling, with a reason, and never names a stranger.
 do
   local M, W = ns.Mood, ns.Words
@@ -3924,7 +3924,7 @@ do
   check(C.History():find("Back at the Lion's Pride", 1, true), "with RPG Dialogue's diary back, History quotes that instead")
 end
 
--- The journal, much deeper (0.22.0): a rich session drawn from Life, Company, Goals and Mood;
+-- The journal, much deeper (0.23.0): a rich session drawn from Life, Company, Goals and Mood;
 -- a milestone opening; a week looked back on; each race in its own voice.
 do
   local J, C, W = ns.Journal, ns.Compose, ns.Words
@@ -4601,7 +4601,7 @@ do
 end
 
 
--- Review fixes (0.21.0): names, repeats and doubles.
+-- Review fixes (0.23.0): names, repeats and doubles.
 do
   -- The second feeling in Currently never repeats a word of the first ("Flushed with
   -- success and flushed with victory").
@@ -5875,7 +5875,7 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
--- 0.22.0, the shape of their time (Sources/Seasons.lua): sessions across weeks, the hours
+-- 0.23.0, the shape of their time (Sources/Seasons.lua): sessions across weeks, the hours
 -- they keep, an absence and the return, festivals kept, anniversaries, a hard autumn.
 do
   local C, S, W = ns.Compose, ns.Sources.Seasons, ns.Words
@@ -6328,7 +6328,7 @@ do
   C.SourcesChanged(); C.Refresh()
 end
 
--- 0.22.0, how they fight (Sources/Style.lua): fake combat-log lines for a healer, a tank, a
+-- 0.23.0, how they fight (Sources/Style.lua): fake combat-log lines for a healer, a tank, a
 -- caster and a melee fighter; the role, style, school and habits each gives, and the words.
 do
   local C, Style, W = ns.Compose, ns.Sources.Style, ns.Words
@@ -7001,6 +7001,180 @@ do
   ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 end
 
+-- Names within reach: a quest in the log that would earn a name shows in Ambition and
+-- /atrp names, until it's turned in.
+do
+  local C = ns.Compose
+  local threads, goals, deeds, names = RPGDialogueCharDB.threads, ns.db.chronicleGoals, ns.char.deeds, ns.char.names
+  RPGDialogueCharDB.threads, ns.db.chronicleGoals = {}, false
+  ns.char.deeds = nil
+  local LOG = { { "Elwynn Forest", true }, { "Kill Some Boars" }, { 'Wanted: "Hogger"' }, { "Princess Must Die!" } }
+  GetNumQuestLogEntries = function() return #LOG end
+  GetQuestLogTitle = function(i) return LOG[i][1], 10, nil, LOG[i][2] end
+  event("QUEST_LOG_UPDATE")
+  C.SourcesChanged(); C.Refresh()
+  local r = C.InReach()
+  check(#r == 2 and r[1].nick == "Pig-Sticker" and r[2].nick == "Hogger's Bane", "a chain's step outranks a bounty, headers and errands left out")
+  -- The chain's last step is Goals' chain ambition ("Seeing It Through"), told once.
+  local amb = C.AmbitionGlance()
+  check(amb.TI == "Seeing It Through", "the chain that earns a name is the ambition, once: " .. amb.TI .. " / " .. amb.TX)
+  local kinds = {}
+  for _, a in ipairs(C.Ambitions()) do kinds[#kinds + 1] = a.kind .. ":" .. tostring(a.vars and a.vars.q) end
+  local listed = table.concat(kinds, ",")
+  check(listed:find('inreach:Wanted: "Hogger"', 1, true) and not listed:find("inreach:Princess", 1, true)
+    and not listed:find('current:Wanted: "Hogger"', 1, true), "the bounty within reach joins the ambitions, not twice: " .. listed)
+  table.remove(LOG, 4); event("QUEST_LOG_UPDATE"); C.Refresh()
+  amb = C.AmbitionGlance()
+  check(amb.TI == "Unfinished Business" and amb.TX:find('Hogger', 1, true), "with only the bounty, Ambition names the job in hand: " .. amb.TX)
+  table.insert(LOG, { "Princess Must Die!" }); event("QUEST_LOG_UPDATE"); C.Refresh()
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end
+  ns.UI.ListNames()
+  DEFAULT_CHAT_FRAME.AddMessage = oldChat
+  check(table.concat(said, "\n"):find("Within reach") and table.concat(said, "\n"):find("Pig%-Sticker"), "/atrp names lists what's within reach")
+  ns.Sources.Deeds.Quest("Princess Must Die!", 88, "Elwynn Forest")
+  table.remove(LOG, 4); event("QUEST_REMOVED")
+  C.Refresh()
+  check(#C.InReach() == 1 and C.InReach()[1].nick == "Hogger's Bane", "once earned it's no longer within reach")
+  GetNumQuestLogEntries, GetQuestLogTitle = nil, nil
+  event("QUEST_LOG_UPDATE")
+  check(#C.InReach() == 0, "no quest log, nothing within reach")
+  RPGDialogueCharDB.threads, ns.db.chronicleGoals, ns.char.deeds, ns.char.names = threads, goals, deeds, names
+  C.SourcesChanged(); C.Refresh()
+end
+
+-- The annals: History keeps its moments month by month, and they stay once the record
+-- they came from forgets them.
+do
+  local C = ns.Compose
+  local ms, hon = ns.char.milestones, ns.char.honours
+  ns.char.annals = nil
+  local old = NOW - 400 * 86400
+  ns.char.milestones = { { level = 10, zone = "Westfall", t = old }, { level = 20, zone = "Duskwood", t = NOW - 2000 },
+    { level = 30, zone = "Arathi Highlands", t = NOW - 1000 } }
+  ns.char.honours = {}
+  C.Refresh()
+  local h = C.History()
+  local d = os.date("*t", old)
+  local MONTHS = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" }
+  check(h:find("In " .. MONTHS[d.month] .. " " .. d.year .. ", Aldric was made ", 1, true) and h:find("in Westfall", 1, true),
+    "an old rank is told with its month and year")
+  local _, n = h:gsub("Was made ", "")
+  check(not h:find("was made [^.]* in Duskwood%. ") or n <= 1, "the ranks History already tells aren't told twice")
+  ns.char.milestones = {}
+  C.Refresh()
+  check(C.History():find("in Westfall", 1, true), "and the moment stays after its record forgets it")
+  ns.db.annals = false
+  check(not C.History():find("In " .. MONTHS[d.month] .. " " .. d.year, 1, true), "switched off, History leaves it out")
+  ns.db.annals = true
+  -- The news tells the last three weeks: a moment from then isn't told again by its month.
+  ns.char.milestones = { { level = 10, zone = "Westfall", t = old }, { level = 30, zone = "Arathi Highlands", t = NOW - 1000 } }
+  ns.char.annals = nil
+  C.Refresh()
+  h = C.History()
+  local _, twice = h:gsub("Arathi Highlands", "")
+  check(twice == 1 and not h:find("This month, Aldric was made", 1, true), "a rank in the news isn't told by its month as well: " .. twice)
+  -- The month-by-month lines count toward History's budget, and go early when it runs long.
+  local function visible(x) return #(x:gsub("{col:%x+}", ""):gsub("{/col}", "")) end
+  for k = 1, 4 do ns.char.annals[#ns.char.annals + 1] = { k = "inside:Old" .. k, t = old + k * 40 * 86400, kind = "inside", name = "Old Place " .. k } end
+  local keep = C.HISTORY_BUDGET
+  C.HISTORY_BUDGET = 100000
+  local long = C.History()
+  C.HISTORY_BUDGET = visible(long) - 120
+  local trimmed = C.History()
+  C.HISTORY_BUDGET = keep
+  local function places(x) local _, m = x:gsub("Old Place", ""); return m end
+  check(places(long) >= 2 and places(trimmed) < places(long), "past the budget, the month-by-month lines give way: " .. places(long) .. " -> " .. places(trimmed))
+  ns.char.milestones, ns.char.honours, ns.char.annals = ms, hon, nil
+  C.Refresh()
+end
+
+-- The change log: each write is kept with what changed, from and to, and why.
+do
+  ns.char.writeLog = nil
+  RPGDialogueCharDB.drunk, RPGDialogueCharDB.drunkAt = 2, NOW
+  ns.UI.Update(true)
+  local log = ns.char.writeLog
+  check(log and #log >= 1 and #log[#log].fields >= 1 and log[#log].fields[1].to, "a write is logged with its fields")
+  for i = 1, 40 do ns.UI.LogWrite({ "currently" }, { currently = { from = "a", to = "b" } }, { title = "Merry", reasons = { "drink" } }) end
+  check(#ns.char.writeLog == ns.UI.KEEP_LOG, "only the newest writes are kept")
+  local said = {}
+  local oldChat = DEFAULT_CHAT_FRAME.AddMessage
+  DEFAULT_CHAT_FRAME.AddMessage = function(_, m) said[#said + 1] = m end
+  SlashCmdList.AUTOTRP("log 2")
+  DEFAULT_CHAT_FRAME.AddMessage = oldChat
+  local out = table.concat(said, "\n")
+  check(out:find("last 2 writes") and out:find("mood merry %(drink%)") and out:find("a|r %-> b"), "/atrp log shows what changed and why")
+  RPGDialogueCharDB.drunk, RPGDialogueCharDB.drunkAt = nil, nil
+end
+
+-- Firsts and milestones: a first dungeon, a battleground, a craft's new rank, dozing at the inn.
+do
+  local C = ns.Compose
+  ns.char.instances, ns.char.battles, ns.char.crafts, ns.char.annals = nil, nil, nil, nil
+  local pushed, push = {}, ns.Mood.Push
+  ns.Mood.Push = function(name, amount, why) pushed[#pushed + 1] = { name = name, why = why }; return push(name, amount, why) end
+  local function felt(name, why)
+    local n = 0
+    for _, p in ipairs(pushed) do if p.name == name and (not why or p.why == why) then n = n + 1 end end
+    return n
+  end
+  -- A place the record already had (Sources/Deeds.lua) isn't a first time again.
+  ns.char.deeds.instances["Gnomeregan"] = { t = NOW - 100 * 86400, kind = "party" }
+  GetInstanceInfo = function() return "Razorfen Kraul", "party" end
+  GetRealZoneText = function() return "Razorfen Kraul" end
+  event("ZONE_CHANGED_NEW_AREA")
+  check(ns.char.instances["Razorfen Kraul"], "the first time inside a dungeon is remembered")
+  check(felt("wonder") == 1, "and felt once, not again as a new land: " .. felt("wonder"))
+  check(ns.char.instances["Gnomeregan"] and ns.char.instances["Gnomeregan"].t == NOW - 100 * 86400,
+    "a place entered before keeps its own day, and isn't a first time again")
+  ns.char.deeds.instances["Gnomeregan"], ns.char.instances["Gnomeregan"] = nil, nil
+  local t = ns.char.instances["Razorfen Kraul"].t
+  NOW = NOW + 5; event("ZONE_CHANGED_NEW_AREA"); NOW = NOW - 5
+  check(ns.char.instances["Razorfen Kraul"].t == t, "only the first time")
+  GetInstanceInfo, GetRealZoneText = nil, nil
+  -- A battleground's end goes through Sources/Life.lua, which counts it once per game.
+  local oldInside, oldInfo = IsInInstance, GetInstanceInfo
+  IsInInstance = function() return true, "pvp" end
+  GetInstanceInfo = function() return "Warsong Gulch", "pvp" end
+  UnitFactionGroup = function() return "Alliance" end
+  local fought = ns.char.life.pvp.fought or 0
+  event("PLAYER_ENTERING_WORLD")
+  GetBattlefieldWinner = function() return 0 end; event("UPDATE_BATTLEFIELD_STATUS")
+  check(felt("frustrated", "a battleground lost") == 1 and not ns.char.battles.firstWin, "a battleground lost is frustrating")
+  event("PLAYER_ENTERING_WORLD")
+  GetBattlefieldWinner = function() return nil end; event("UPDATE_BATTLEFIELD_STATUS")
+  GetBattlefieldWinner = function() return 1 end
+  event("UPDATE_BATTLEFIELD_STATUS"); event("UPDATE_BATTLEFIELD_STATUS")
+  check(ns.char.life.pvp.fought == fought + 2 and felt("triumphant", "a battleground won") == 1, "a battleground won counts once, a triumph")
+  check(ns.char.battles.firstWin and ns.char.battles.firstWin.zone == "Warsong Gulch", "the first win is kept")
+  GetBattlefieldWinner, IsInInstance, GetInstanceInfo = nil, oldInside, oldInfo
+  event("PLAYER_ENTERING_WORLD")
+  event("CHAT_MSG_SKILL", "Your skill in Fishing has increased to 150.")
+  event("CHAT_MSG_SKILL", "Your skill in Fishing has increased to 151.")
+  check(ns.char.crafts["fishing:150"] and not ns.char.crafts["fishing:151"], "a craft's new rank is remembered, not every point")
+  check(felt("accomplished") == 1, "a craft's new rank is felt once: " .. felt("accomplished"))
+  ns.Mood.Push = push
+  C.Refresh()
+  local h = C.History()
+  check(h:lower():find("went into razorfen kraul for the first time", 1, true), "History tells the first time inside")
+  -- The news keeps to five things at a time; past the news, the month-by-month paragraph tells it.
+  local kept
+  for _, e in ipairs(C.Annals()) do if e.k == "craft:fishing:150" then kept = e end end
+  check(kept, "the craft's rank is kept in the annals")
+  if kept then kept.t = NOW - 40 * 86400 end
+  local h2 = C.History()
+  check(h2:find("became an expert angler", 1, true) or h2:find("Became an expert angler", 1, true), "and told by its month once it's older: " .. h2)
+  check(h:find("first battleground", 1, true), "and the first battleground won")
+  local w = ns.World.Snapshot()
+  w.away, w.resting, w.subzone, w.context = true, true, "Lion's Pride Inn", nil
+  local a = ns.World.Activity(w, "x")
+  check(a:find("nodding off") or a:find("half asleep") or a:find("dozing"), "away at an inn, they doze: " .. a)
+  ns.char.instances, ns.char.battles, ns.char.crafts, ns.char.annals = nil, nil, nil, nil
+  C.Refresh()
+end
+
 -- SAMPLES=1 lua5.1 tests/run.lua prints a few race/class combinations.
 if os.getenv("SAMPLES") then
   local combos = { { "Scourge", "ROGUE", "Horde" }, { "Dwarf", "HUNTER", "Alliance" }, { "Tauren", "WARRIOR", "Horde" },
@@ -7093,9 +7267,9 @@ if os.getenv("SAMPLES") then
 end
 
 ---------------------------------------------------------------------------
--- 0.22.0 review: regressions
+-- 0.23.0 review: regressions
 ---------------------------------------------------------------------------
-print("\n--- 0.22.0 review ---")
+print("\n--- 0.23.0 review ---")
 do
   local C = ns.Compose
   -- History keeps to a budget: the least goes first, the start and the close stay.

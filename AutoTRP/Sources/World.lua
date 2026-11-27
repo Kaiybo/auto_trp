@@ -724,7 +724,9 @@ function World.Moment(s, seed)
   elseif ctx and ctx.kind == "craft" and W.CRAFT[ctx.detail] then
     main = U.Pick(W.CRAFT[ctx.detail], seed .. "craft") .. " in " .. spot
   elseif s.away then
-    main = pick(W.ACTIVITY.away, "away", act)
+    -- Away while resting at an inn, they doze rather than stare into space.
+    local list = (s.resting and World.IsInn(sub)) and W.ACTIVITY.away_rest or W.ACTIVITY.away
+    main = pick(list, "away", act)
   elseif ctx and W.ACTIVITY[ctx.kind] then
     main = pick(W.ACTIVITY[ctx.kind], ctx.kind, act)
   elseif s.auras and (s.auras.eating or s.auras.drinking) then

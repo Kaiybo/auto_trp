@@ -1,4 +1,4 @@
--- Dungeon and raid runs, kept as stories (0.22.0). Each run into a dungeon or raid: when it
+-- Dungeon and raid runs, kept as stories (0.23.0). Each run into a dungeon or raid: when it
 -- began and ended, how big the group was and its classes (counted, never named; Social
 -- Diary friends aside, by name only when that's allowed), the masters brought down in order
 -- (ENCOUNTER_END) and the failed tries at each (ENCOUNTER_END with success 0: a wipe), the

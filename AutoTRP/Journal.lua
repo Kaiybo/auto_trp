@@ -5,7 +5,7 @@
 -- written in the first person from that record and nothing else; the wording is in
 -- Words.lua (W.JOURNAL). Every sentence comes from something recorded. Other players are
 -- never named, except the friends you marked in Social Diary (if you let Auto TRP name them).
--- Since 0.22.0 it also draws on what Life, Company, Goals and Mood record as it happens:
+-- Since 0.23.0 it also draws on what Life, Company, Goals and Mood record as it happens:
 -- fish and the best catch, things made, duels, battlegrounds, a new mount, books read, the
 -- day's emotes, the pet, the guild, chains moved along, standings, a familiar face, help
 -- from others, rolls, jobs given up and a long day; a day worth marking (every tenth level,
@@ -350,7 +350,7 @@ ns.On("ZONE_CHANGED_INDOORS", sub)
 ns.On("PLAYER_UPDATE_RESTING", sub)
 
 ---------------------------------------------------------------------------
--- More of the day (0.22.0), as the other records take it down. Each is a count or a short
+-- More of the day (0.23.0), as the other records take it down. Each is a count or a short
 -- event on today's log; every list is capped.
 ---------------------------------------------------------------------------
 local function tally(field)
