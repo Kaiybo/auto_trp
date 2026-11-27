@@ -11,11 +11,14 @@ ns.UI = UI
 -- What goes where
 ---------------------------------------------------------------------------
 local FAST = { walkup = true, currently = true, glance_mood = true, glance_lately = true, glance_company = true, glance_marks = true }
+-- What a pause out of character still fills when it's empty (walk-ups have no "empty").
+local PAUSE_FILLS = { currently = true, glance_mood = true, glance_lately = true, glance_company = true, glance_marks = true }
 
 local function values(sheet)
   local v = {
     currently = sheet.currently, title = sheet.title, fulltitle = sheet.fulltitle,
     residence = sheet.residence, birthplace = sheet.birthplace, motto = sheet.motto,
+    age = sheet.age, eyes = sheet.eyes, height = sheet.height, build = sheet.build,
     nickname = sheet.nickname, icon = sheet.icon, bearing = sheet.bearing, history = sheet.history,
     physical = sheet.physical, traits = sheet.traits, relationship = sheet.relationship, ooc = sheet.ooc,
     walkup = sheet.walkup,
@@ -25,6 +28,7 @@ local function values(sheet)
     glance_marks = sheet.glances.marks,
   }
   for _, st in ipairs(ns.Compose.STATS) do v["stat_" .. st.key] = sheet.stats and sheet.stats[st.key] end
+  v.statistics = sheet.stats and ns.Compose.StatsBlock(sheet.stats) or nil   -- the About page's own block
   return v
 end
 
@@ -47,7 +51,12 @@ function UI.Update(force, fresh, mood)
   local any = false
   local paused = ns.db.pauseOOC and TRP.IsOOC()
   local gap = ns.db.currentlyEvery or 15
-  if not paused and (force or now - lastFast >= gap) then
+  if paused then
+    -- Paused holds what's there; it never leaves Currently or a glance empty.
+    for k in pairs(PAUSE_FILLS) do
+      if TRP.Enabled(k) and TRP.Blank(k) then only[k], any = true, true end
+    end
+  elseif force or now - lastFast >= gap then
     for k in pairs(FAST) do only[k] = true end
     any = true
   end
@@ -445,15 +454,25 @@ function UI.PreviewSections(s)
   add(3, "icon", s.icon, { icon = s.icon })
   add(3, "residence", s.residence)
   add(3, "birthplace", s.birthplace)
-  add(3, "relationship", s.relationship and ({ [2] = "Taken", [3] = "Married" })[s.relationship])
+  add(3, "age", s.age)
+  add(3, "eyes", s.eyes and ("|cff" .. s.eyes.hex .. s.eyes.name .. "|r"))
+  add(3, "height", s.height)
+  add(3, "build", s.build)
+  add(3, "relationship", s.relationship and ({ [1] = "Single", [2] = "Taken", [3] = "Married" })[s.relationship])
   add(3, "ooc", s.ooc)
   add(3, "namecolour", s.namecolour and ("|cff" .. s.namecolour .. s.namecolour .. "|r"), { empty = "from your class colour" })
   add(3, "music", s.music and (tostring(s.musicName) .. " (" .. tostring(s.music) .. ")"), { empty = "your home's music, or where you are" })
   add(3, "walkup", s.walkup == 2 and "Open to walk-ups" or s.walkup == 1 and "Not open to walk-ups" or nil, { empty = "no change" })
 
-  -- Statistics.
-  for _, st in ipairs(ns.Compose.STATS) do
-    if not st.retired then add(4, "stat_" .. st.key, s.stats and s.stats[st.key], { icon = st.icon }) end
+  -- Statistics: their own block on the About page (only those with something to say), else
+  -- each one under Additional information.
+  if TRP.StatsInAbout() then
+    add(4, "statistics", s.stats and ns.Compose.StatsBlock(s.stats), { icon = TRP.ABOUT.statistics.icon,
+      empty = "nothing counted yet; a statistic shows once it has something to say" })
+  else
+    for _, st in ipairs(ns.Compose.STATS) do
+      if not st.retired then add(4, "stat_" .. st.key, s.stats and s.stats[st.key], { icon = st.icon }) end
+    end
   end
   return tabs, s
 end
@@ -736,10 +755,14 @@ local OPTIONS = {
   { path = { "fields", "fulltitle" }, label = "Full title: alignment and standing (\"Lightsworn, Friend of Goldshire\")" },
   { path = { "fields", "nickname" }, label = "Nickname: earned by a story, quest chain, master or bounty you saw through (/atrp names)" },
   { path = { "fields", "motto" }, label = "Motto: the saying that deed left you with" },
-  { path = { "fields", "icon" }, label = "Icon: your nickname's, else your class crest" },
+  { path = { "fields", "icon" }, label = "Icon: your main talent tree, else your race's portrait, else your class crest" },
   { path = { "fields", "residence" }, label = "Residence: where your hearthstone is" },
   { path = { "fields", "birthplace" }, label = "Birthplace" },
-  { path = { "fields", "relationship" }, label = "Relationship status, from a partner in Social Diary" },
+  { path = { "fields", "age" }, label = "Age, as your race counts years, by your years on the road" },
+  { path = { "fields", "eyes" }, label = "Eye colour: your race's own, else one fixed for you" },
+  { path = { "fields", "height" }, label = "Height, by race and body type" },
+  { path = { "fields", "build" }, label = "Body shape: your race's frame and your build" },
+  { path = { "fields", "relationship" }, label = "Relationship status: from a partner in Social Diary, else Single" },
   { path = { "fields", "ooc" }, label = "OOC note saying the profile updates itself" },
   { path = { "fields", "ooc_doing" }, label = "OOC: what you're doing (\"Levelling in Duskwood\", \"Looking for a group\")" },
   { path = { "fields", "namecolour" }, label = "Name colour: your class colour" },
@@ -747,6 +770,7 @@ local OPTIONS = {
   { path = { "fields", "walkup" }, label = "Open to walk-ups follows your mood" },
   { head = "Statistics (Additional information on the Characteristics tab)" },
   { path = { "fields", "stats" }, label = "Write statistics (all of them; the switches below pick which)" },
+  { path = { "statsInAbout" }, label = "Statistics in their own block on the About page (off: under Additional information)" },
   { head = "Where it looks" },
   { path = { "sources", "rpgd" }, label = "RPG Dialogue" },
   { path = { "sources", "socialDiary" }, label = "Social Diary" },
@@ -818,10 +842,14 @@ UI.TIPS = {
   ["fields.fulltitle"] = "Your alignment and where you're liked, kept modest.",
   ["fields.nickname"] = "A name earned by a deed. /atrp names lists yours; /atrp name <n> wears another.",
   ["fields.motto"] = "The saying that came with the deed behind your nickname.",
-  ["fields.icon"] = "The profile's icon: your nickname's, else your class crest.",
+  ["fields.icon"] = "The profile's icon: your main talent tree's, before any talents your race's portrait, else your class crest.",
   ["fields.residence"] = "The inn your hearthstone is set to.",
   ["fields.birthplace"] = "Your homeland, or the origin you chose in RPG Dialogue.",
-  ["fields.relationship"] = "Married or Taken, if you've named a partner in Social Diary.",
+  ["fields.relationship"] = "Married or Taken, if you've named a partner in Social Diary; Single otherwise.",
+  ["fields.age"] = "Your age in your race's own terms, older as your road gets longer.",
+  ["fields.eyes"] = "Your race's eye colour where it has one (a night elf's silver, a death knight's ice-blue), else one picked once for you.",
+  ["fields.height"] = "Typical for your race and body type.",
+  ["fields.build"] = "Your race's frame, and the build your strongest attribute gives you (as About: Physical).",
   ["fields.ooc"] = "A short out-of-character note saying the profile updates itself.",
   ["fields.ooc_doing"] = "An out-of-character line on what you're doing: levelling somewhere, looking for a group, in a dungeon, or away. Off by default.",
   ["fields.namecolour"] = "Shows your name in your class colour on your profile.",
@@ -834,7 +862,8 @@ UI.TIPS = {
   ["fields.stat_forms"] = "The \"Stances and forms\" statistic: time spent in each stance, shape or presence, for the classes that have them.",
   ["fields.stat_recipes"] = "The \"Recipes known\" statistic: how many recipes each trade knows, counted when its window is open. Off, Auto TRP takes down what it wrote there.",
   ["fields.stat_finest"] = "The \"Finest work\" statistic: the best thing you've made at a trade, by its quality. Off, Auto TRP takes down what it wrote there.",
-  ["fields.stats"] = "The Statistics entries under Additional information. Your own entries there stay as they are.",
+  ["fields.stats"] = "Your statistics: a block of their own on the About page (or entries under Additional information). Only those with something to say are shown.",
+  ["statsInAbout"] = "On: the statistics are a block of their own on the About page, after History, showing only those with something to say. Off: one entry each under Additional information on the Characteristics page.",
   ["fields.stat_grounds"] = "The \"Battlegrounds\" statistic: each battleground fought in, won, and your flags, bases and graveyards. Off, Auto TRP takes down what it wrote there.",
   ["fields.stat_honour"] = "The \"Honour\" statistic: your honour rank, honourable kills, enemies brought down in the open (counted, never named) and towns defended. Off, Auto TRP takes down what it wrote there.",
   ["fields.stat_kinhome"] = "How much of your play is spent in your people's capital and home lands, and how much abroad. Counted while you play, not while you're away.",
@@ -854,7 +883,7 @@ UI.TIPS = {
   ["richText"] = "Uses Total RP 3's colour markup: quotes in cream, items in their quality colour.",
   ["chronicleGoals"] = "Your open Chronicle goal becomes the Ambition glance.",
   ["nameFriends"] = "Friends you marked in Social Diary are named on your profile. Off, they're left out.",
-  ["pauseOOC"] = "While Total RP 3 shows you out of character, Currently and the glances stay as they are.",
+  ["pauseOOC"] = "While Total RP 3 shows you out of character, Currently and the glances stay as they are. One left empty is still filled.",
   ["reactPeople"] = "Targeting someone from your records (a friend, a rival, an enemy) nudges your mood.",
   ["reactPlaces"] = "Places and spells that mean something to your race and class nudge your mood.",
   ["moodNotes"] = "A line in your own chat when your mood turns. Nobody else sees it.",
@@ -1217,20 +1246,23 @@ function UI.PulseBadge()
     g:SetSize(64, 64)
     g:SetAlpha(0)
     badge.glow = g
-    local ag = g.CreateAnimationGroup and g:CreateAnimationGroup()
-    if ag then
-      local up = ag:CreateAnimation("Alpha")
-      if up then
-        up:SetFromAlpha(0); up:SetToAlpha(1); up:SetDuration(0.25); up:SetOrder(1)
-        local down = ag:CreateAnimation("Alpha")
-        down:SetFromAlpha(1); down:SetToAlpha(0); down:SetDuration(0.6); down:SetOrder(2)
-        ag:SetLoopingType("NONE")
-        ag:SetScript("OnFinished", function() g:SetAlpha(0) end)
-        badge.pulse = ag
-      end
-    end
+    -- The glow is a nicety: a client missing any of these leaves it out, never an error.
+    -- (AnimationGroup:SetLooping, not SetLoopingType, which no client has.)
+    local ok, ag = pcall(function()
+      local a = g.CreateAnimationGroup and g:CreateAnimationGroup()
+      if not a then return nil end
+      local up = a:CreateAnimation("Alpha")
+      local down = a:CreateAnimation("Alpha")
+      if not up or not down then return nil end
+      up:SetFromAlpha(0); up:SetToAlpha(1); up:SetDuration(0.25); up:SetOrder(1)
+      down:SetFromAlpha(1); down:SetToAlpha(0); down:SetDuration(0.6); down:SetOrder(2)
+      if a.SetLooping then a:SetLooping("NONE") end
+      a:SetScript("OnFinished", function() g:SetAlpha(0) end)
+      return a
+    end)
+    badge.pulse = ok and ag or nil
   end
-  if badge.pulse then badge.pulse:Stop(); badge.pulse:Play() end
+  if badge.pulse then pcall(badge.pulse.Stop, badge.pulse); pcall(badge.pulse.Play, badge.pulse) end
 end
 
 function UI.BadgeTooltip(self)

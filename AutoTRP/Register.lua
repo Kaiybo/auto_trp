@@ -69,9 +69,13 @@ end
 
 -- "Holy, 31 points" (", and 20 in Discipline" when a second tree has a share worth saying).
 -- Read from the talent trees each time, so a new point shows at once.
+-- Where the client won't say how talents are spent, the tree their casting leans on.
 function More.Speciality()
   local S = ns.Sources.Style
-  return S and S.SpecStat({ spec = S.Spec() }) or nil
+  local stat = S and S.SpecStat({ spec = S.Spec() }) or nil
+  if stat then return stat end
+  local habit = Compose.HabitSpec and Compose.HabitSpec()
+  return habit and (habit.name .. ", by the spells most cast") or nil
 end
 
 -- A player who had switched the Talents entry off has Speciality off too.
@@ -89,6 +93,18 @@ function Compose.Stats()
   local world = ns.cache.world
   out.faction, out.guild, out.level = More.Faction(world), More.Guild(world), More.Level(world)
   out.role, out.speciality = More.Role(ns.cache.style), More.Speciality()
+  -- No group fights read (a client that keeps the combat log to itself): the part their
+  -- tree plays, by the spells most cast.
+  if not out.role then
+    local habit = Compose.HabitSpec and Compose.HabitSpec()
+    local roles = habit and ns.Words.TREE_ROLE[world and world.class or ""]
+    local word = roles and ns.Words.STYLE.ROLE[roles[habit.index]]
+    if word then out.role = word .. ", by the spells most cast" end
+  end
+  -- No statistic left blank (0.24.0): one with nothing to say yet says so.
+  for _, st in ipairs(Compose.STATS) do
+    if not st.retired and out[st.key] == nil then out[st.key] = st.key == "guild" and "None" or "None yet" end
+  end
   return out
 end
 
@@ -160,12 +176,19 @@ local function musicID(name)
   end
 end
 
--- Returns the file ID and the music's name, or nil.
+-- Returns the file ID and the music's name, or nil. Where your hearthstone is, else where
+-- you are, else (0.24.0, so the field is never left empty) your people's capital and
+-- homeland, else the music of the first lands most travellers know.
+More.MUSIC_LAST = { "Elwynn Forest", "Durotar", "Stormwind City", "Orgrimmar" }
 function More.Music(world)
   if not world then return nil end
+  local W = ns.Words
   local places = {}
   if world.bind then places[#places + 1] = More.BIND_ZONE[world.bind] or world.bind end
   if world.zoneKey then places[#places + 1] = world.zoneKey end
+  places[#places + 1] = W.CAPITALS[world.race or ""]
+  places[#places + 1] = W.RACE_HOME[world.race or ""]
+  for _, p in ipairs(More.MUSIC_LAST) do places[#places + 1] = p end
   for _, place in ipairs(places) do
     local name = More.MUSIC[place]
     local id = name and musicID(name)

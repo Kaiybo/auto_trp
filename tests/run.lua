@@ -194,23 +194,41 @@ check(not ns.TRP.Managed(), "nothing is written before a profile is chosen")
 local ok = ns.TRP.UseCurrent()
 check(not ok, "the default profile is refused")
 
+-- The statistics tests below read them under Additional information; the About page's own
+-- Statistics block (the default) has its own tests near the end.
+ns.db.statsInAbout = false
 ok = ns.UI.Setup()
 check(ns.char.profileID ~= nil and ns.char.profileID ~= "abc*", "setup makes and selects a new profile")
 ns.UI.Update(true)
 local p = profiles[ns.char.profileID].player
+-- About's sections, whichever layout holds them: the block layout (template 2: Physical 1,
+-- Personality 2, History 3, Statistics 4, each under its heading) or the three sections.
+local ABOUT_I, ABOUT_T3 = { PH = 1, PS = 2, HI = 3, ST = 4 }, { PH = "PH", PS = "PS", HI = "HI" }
+local function about(pp, part)
+  if pp.about.TE == 2 then
+    local f = type(pp.about.T2) == "table" and pp.about.T2[ABOUT_I[part]]
+    return f and ns.TRP.AboutBody(f.TX) or nil
+  end
+  local sec = ABOUT_T3[part] and pp.about.T3 and pp.about.T3[ABOUT_T3[part]]
+  return sec and sec.TX or nil
+end
+local function setAbout(pp, part, text)
+  if pp.about.TE == 2 then pp.about.T2[ABOUT_I[part]].TX = text else pp.about.T3[ABOUT_T3[part]].TX = text end
+end
 check(p.character.CU and p.character.CU:find("Lion's Pride Inn"), "Currently mentions the inn: " .. tostring(p.character.CU))
 check(p.characteristics.TI == "Cleric of the Light", "rank title by level (human priest): " .. tostring(p.characteristics.TI))
 check(p.characteristics.FT == "Lightsworn, Friend of Goldshire", "full title: " .. tostring(p.characteristics.FT))
 check(p.characteristics.PS[1].LT == "Good" and p.characteristics.PS[1].RT == "Evil", "plain good/evil bar")
 for i = 1, 5 do check(p.misc.PE[tostring(i)] and p.misc.PE[tostring(i)].AC and p.misc.PE[tostring(i)].TX ~= nil, "glance " .. i .. " filled") end
-check(p.about.T3.PH.TX and p.about.T3.PH.TX:find("Crown of the Lost"), "physical mentions the finest gear")
-check(p.characteristics.IC == "INV_Misc_Coin_02", "the profile icon follows the earned nickname: " .. tostring(p.characteristics.IC))
-check(p.about.TE == 3 and p.about.T3.HI.TX and p.about.T3.HI.TX:find("Lion's Pride"), "history written in template 3")
-check(not p.about.T3.HI.TX:find("died"), "deaths stay out of the History prose")
+check(about(p, "PH") and about(p, "PH"):find("Crown of the Lost"), "physical mentions the finest gear")
+check(p.characteristics.IC == "ClassIcon_Priest", "the profile icon is who they are, not the nickname (no talents yet, no portrait to ask about): " .. tostring(p.characteristics.IC))
+check(p.about.TE == 2 and about(p, "HI") and about(p, "HI"):find("Lion's Pride") and p.about.T2[3].TX:find("^{h3:c}History{/h3}"),
+  "a fresh profile's About takes the block layout, History under its heading")
+check(not about(p, "HI"):find("died"), "deaths stay out of the History prose")
 local statDeaths
 for _, e in ipairs(p.characteristics.MI) do if e.ID == 1 and e.NA == "Deaths" then statDeaths = e.VA end end
 check(statDeaths == "3, the first to Hogger", "deaths are a statistic: " .. tostring(statDeaths))
-check(not p.about.T3.HI.TX:find("PRIVATE"), "Chronicle notes are never read")
+check(not about(p, "HI"):find("PRIVATE"), "Chronicle notes are never read")
 check(p.misc.PE["1"] and p.misc.PE["1"].AC, "mood glance written")
 check(#p.characteristics.PS >= 3, "personality bars written")
 check(p.characteristics.v > 1 and p.about.v > 1 and p.misc.v > 1, "section versions bumped")
@@ -218,13 +236,13 @@ check(#fired > 0, "REGISTER_DATA_UPDATED fired")
 check(profiles["abc*"].player.character.CU == "Hanging about.", "the default profile is untouched")
 
 -- The player edits their history: Auto TRP must let it be.
-p.about.T3.HI.TX = "My own story."
+setAbout(p, "HI", "My own story.")
 ns.UI.Update(true)
-check(p.about.T3.HI.TX == "My own story.", "a field the player edited is left alone")
+check(about(p, "HI") == "My own story.", "a field the player edited is left alone")
 check(ns.TRP.Status("history") == "yours", "and marked as theirs")
 ns.TRP.Claim("history")
 ns.UI.Update(true)
-check(p.about.T3.HI.TX ~= "My own story.", "claim hands it back")
+check(about(p, "HI") ~= "My own story.", "claim hands it back")
 
 -- No writes in combat
 state.combat = true
@@ -356,15 +374,15 @@ ns.Compose.SourcesChanged(); ns.Compose.Refresh()
 check(ns.Compose.Currently(ns.Mood.Current()):find("Looking for passage to Theramore%."), "intent appended to Currently")
 
 print("\n--- written profile ---")
-local writtenHistory = p.about.T3.HI.TX
+local writtenHistory = about(p, "HI")
 print("CU: " .. tostring(p.character.CU))
 print("TI: " .. tostring(p.characteristics.TI) .. " | FT: " .. tostring(p.characteristics.FT) .. " | RE: " .. tostring(p.characteristics.RE) .. " | BP: " .. tostring(p.characteristics.BP))
 for _, e in ipairs(p.characteristics.MI) do print("MI " .. tostring(e.NA) .. ": " .. tostring(e.VA)) end
 for _, t in ipairs(p.characteristics.PS) do print(("PS %s %d %s"):format(t.LT, t.V2, t.RT)) end
 for i = 1, 5 do local g = p.misc.PE[tostring(i)]; if g then print("PE" .. i .. " " .. tostring(g.TI) .. ": " .. tostring(g.TX)) end end
-print("\nPersonality:\n" .. tostring(p.about.T3.PS.TX))
-print("\nHistory:\n" .. tostring(p.about.T3.HI.TX))
-print("\nPhysical:\n" .. tostring(p.about.T3.PH.TX))
+print("\nPersonality:\n" .. tostring(about(p, "PS")))
+print("\nHistory:\n" .. tostring(about(p, "HI")))
+print("\nPhysical:\n" .. tostring(about(p, "PH")))
 
 -- Review fixes
 -- 1. Paused while OOC: no one-second loop.
@@ -379,18 +397,44 @@ runTimers(); runTimers()
 check(#timers == 0, "and the loop doesn't continue")
 p.character.RP = 1
 ns.db.pauseOOC = false
+-- 1b. Paused out of character still fills what's empty (a glance, Currently) and asks for
+-- nothing else of the quick fields; with nothing empty, nothing is asked for.
+do
+  ns.db.pauseOOC, p.character.RP = true, 2
+  ns.TRP.Claim("glance_company"); ns.TRP.Claim("currently")
+  p.misc.PE["3"], p.character.CU = nil, ""
+  local apply, asked = ns.TRP.Apply, nil
+  ns.TRP.Apply = function(v, only) asked = only; return apply(v, only) end
+  ns.UI.Update(false)
+  check(p.misc.PE["3"] and p.misc.PE["3"].AC and (p.misc.PE["3"].TX or "") ~= "", "paused out of character: an empty glance is still filled")
+  check((p.character.CU or "") ~= "", "and an empty Currently: " .. tostring(p.character.CU))
+  check(asked and asked.glance_company and asked.currently and not asked.glance_mood and not asked.glance_lately
+    and not asked.glance_marks and not asked.walkup, "only the empty ones; the rest stay as they are")
+  asked = nil
+  ns.UI.Update(false)
+  check(not (asked and (asked.currently or asked.glance_company)), "filled once, then held while paused")
+  local marks = p.misc.PE["5"]
+  ns.TRP.Release("glance_marks"); p.misc.PE["5"] = nil
+  asked = nil
+  ns.UI.Update(false)
+  check(not (asked and asked.glance_marks) and p.misc.PE["5"] == nil, "a slot that's yours stays empty while paused")
+  ns.TRP.Claim("glance_marks"); p.misc.PE["5"] = marks
+  ns.TRP.Apply = apply
+  ns.db.pauseOOC, p.character.RP = false, 1
+  runTimers()
+end
 -- 2. An editor saving an older copy over Auto TRP's text is rewritten, not taken as yours.
 NOW = NOW + 400
 local mine = ns.TRP.Owned()
-p.about.T3.HI.TX = "Old text."
+setAbout(p, "HI", "Old text.")
 mine.history = "Something newer"
 ns.db.previous[ns.char.profileID].history = "Old text."
 ns.TRP.Apply({ history = "Fresh history." }, { history = true })
-check(p.about.T3.HI.TX == "Fresh history." and ns.TRP.Status("history") == "auto", "an editor's revert is rewritten, not released")
+check(about(p, "HI") == "Fresh history." and ns.TRP.Status("history") == "auto", "an editor's revert is rewritten, not released")
 -- 3. While TRP3's editor is open, About and characteristics wait.
 TRP3_API.navigation = { page = { getCurrentContext = function() return { isEditMode = true } end } }
 ns.TRP.Apply({ history = "While editing." }, { history = true })
-check(p.about.T3.HI.TX == "Fresh history.", "nothing written into an open editor's section")
+check(about(p, "HI") == "Fresh history.", "nothing written into an open editor's section")
 TRP3_API.navigation = nil
 -- 4. A switched-off glance with the player's words is theirs.
 p.misc.PE["9"] = nil
@@ -1224,7 +1268,7 @@ end
 do
   local sh = ns.Compose.Sheet()
   check(sh.nickname == "Mine-Warden" and sh.motto == "Gold isn't worth a life.", "a finished story earns a nickname and motto: " .. tostring(sh.nickname))
-  check(sh.icon == "INV_Misc_Coin_02", "the icon follows the nickname: " .. tostring(sh.icon))
+  check(sh.icon == "ClassIcon_Priest", "the icon doesn't follow the nickname: " .. tostring(sh.icon))
   check(sh.history:find("Saw the gold of Elwynn's mines through to the end", 1, true) and sh.history:find("\"Mine-Warden\"", 1, true)
     and sh.history:find("Gold isn't worth a life", 1, true), "History explains the nickname and motto")
   check(sh.history:find("\"VanCleef's Bane\"", 1, true), "and names the other name that stuck")
@@ -1234,7 +1278,7 @@ do
   ns.Compose.SourcesChanged(); ns.Compose.Refresh()
   sh = ns.Compose.Sheet(true)
   check(sh.nickname == "VanCleef's Bane" and sh.motto == "Every mask comes off.", "no story: the dungeon master felled names them: " .. tostring(sh.nickname))
-  check(sh.icon == "INV_Misc_Mask_01", "with the master's own icon: " .. tostring(sh.icon))
+  check(sh.icon == "ClassIcon_Priest", "nor the master's: " .. tostring(sh.icon))
   check(sh.history:find("Was there when Edwin VanCleef fell in the Deadmines", 1, true), "and History says so")
   ChronicleCharDB.bosses["2"] = { name = "Archmage Arugal", kills = 1, lastSuccess = NOW - 90000, instanceName = "Shadowfang Keep" }
   ChronicleCharDB.bosses["3"] = { name = "Some Random Ogre", kills = 1, lastSuccess = NOW - 100 }
@@ -1304,7 +1348,7 @@ do
   SlashCmdList.AUTOTRP("names")
   ns.TRP.Claim("nickname")
   SlashCmdList.AUTOTRP("name 3")
-  check(C.Nickname() == "Hogger's Bane" and C.Icon() == "INV_Misc_Note_06", "/atrp name wears a lesser one: " .. tostring(C.Nickname()))
+  check(C.Nickname() == "Hogger's Bane", "/atrp name wears a lesser one: " .. tostring(C.Nickname()))
   check(ns.TRP.FIELDS.nickname.read(profiles[ns.char.profileID]) == "Hogger's Bane", "and writes it: " .. tostring(ns.TRP.FIELDS.nickname.read(profiles[ns.char.profileID])))
   SlashCmdList.AUTOTRP("name vancleef's bane")
   check(C.Nickname() == "VanCleef's Bane", "/atrp name takes the name itself")
@@ -1598,7 +1642,8 @@ do
         local okSheet, sh = pcall(C.Sheet)
         local missing = {}
         if not okSheet then missing[1] = tostring(sh) else
-          for _, k in ipairs({ "currently", "bearing", "history", "physical", "title", "fulltitle", "motto", "nickname", "icon", "walkup", "ooc" }) do
+          for _, k in ipairs({ "currently", "bearing", "history", "physical", "title", "fulltitle", "motto", "nickname", "icon", "walkup", "ooc",
+            "age", "eyes", "height", "build", "relationship" }) do
             if sh[k] == nil or sh[k] == "" then missing[#missing + 1] = k end
           end
           if not sh.traits or #sh.traits < 3 then missing[#missing + 1] = "traits" end
@@ -2878,7 +2923,7 @@ do
   ns.char.work = nil
   C.SourcesChanged(); C.Refresh()
   hist = C.History()
-  check(not anyOf(hist, W.WORK.MAIN.slaying) and C.Stats().work == nil, "no work recorded: no lines and no statistic")
+  check(not anyOf(hist, W.WORK.MAIN.slaying) and C.Stats().work == "None yet", "no work recorded: no lines, and the statistic says so")
   local all = table.concat({ hist, C.Bearing() }, " ")
   check(not all:find("Mirelle", 1, true), "no other player is named")
 
@@ -2895,7 +2940,7 @@ end
 do
   local before = {}
   for k, v in pairs(ns.db.fields) do before[k] = v end
-  local quiet, badge = ns.db.quiet, ns.db.showBadge
+  local quiet, badge, statsHome = ns.db.quiet, ns.db.showBadge, ns.db.statsInAbout
   SlashCmdList.AUTOTRP("all off")
   local anyOn = false
   for k, v in pairs(ns.db.fields) do if v then anyOn = k end end
@@ -2905,7 +2950,7 @@ do
   for k, v in pairs(ns.db.fields) do if not v and k ~= "stat_met" and k ~= "stat_letters" then anyOff = true end end
   check(not anyOff and ns.db.quiet == true, "all on: every option on")
   for k, v in pairs(before) do ns.db.fields[k] = v end
-  ns.db.quiet, ns.db.showBadge = quiet, badge
+  ns.db.quiet, ns.db.showBadge, ns.db.statsInAbout = quiet, badge, statsHome
 end
 
 -- 0.23.0, more of Total RP 3 (Register.lua): name colour, profile music, the Faction, Guild,
@@ -2951,7 +2996,12 @@ do
   check(about.MU == 53220, "no music for home: where you are (Duskwood): " .. tostring(about.MU))
   state.zone = "Deadwind Pass"
   C.SourcesChanged(); ns.UI.Update(true)
-  check(about.MU == 53220, "no music anywhere: the music is left as it was")
+  check(about.MU == 53190, "nothing for home or here: the music of their people's capital (Stormwind): " .. tostring(about.MU))
+  local musicWas = MUSIC_IDS.stormwind04_zone
+  MUSIC_IDS.stormwind04_zone, MUSIC_IDS.dayforest = nil, nil
+  C.SourcesChanged(); ns.UI.Update(true)
+  check(about.MU == 53190, "no music this client has anywhere: left as it was")
+  MUSIC_IDS.stormwind04_zone, MUSIC_IDS.dayforest = musicWas, 53210
   state.zone = "Duskwood"
   GetBindLocation = bindWas
   -- Wrath-style talent API (id, name, description, icon, points).
@@ -2966,7 +3016,7 @@ do
   GetGuildInfo = function() return nil end
   TALENTS[2][2], TALENTS[1][2] = 0, 0
   C.SourcesChanged(); ns.World.slow = nil; ns.UI.Update(true)
-  check(info("Guild") == nil and info("Speciality") == nil, "no guild and no talents: no entries")
+  check(info("Guild") == "None" and info("Speciality") == "None yet", "no guild and no talents: entries that say so, never blank: " .. tostring(info("Guild")) .. " / " .. tostring(info("Speciality")))
   GetGuildInfo, TALENTS[2][2], TALENTS[1][2] = guildWas, 21, 5
   C.SourcesChanged(); ns.UI.Update(true)
 
@@ -5315,7 +5365,7 @@ do
   check(st.calling == "90 charges; 30 intercepts" and st.escapes == "12 behind Shield Wall"
     and st.forms == "Defensive Stance 6 hours, Battle Stance 3 hours, Berserker Stance 10 minutes",
     "warrior statistics: " .. tostring(st.calling) .. " | " .. tostring(st.escapes) .. " | " .. tostring(st.forms))
-  check(st.given == nil, "warrior: no \"Given to others\" statistic")
+  check(st.given == "None yet", "warrior: \"Given to others\" has nothing yet: " .. tostring(st.given))
   check(habits():find("defensive stance", 1, true) or habits():find("guarded stance", 1, true) or habits():find("hold a line", 1, true)
     or habits():find("defender's stance", 1, true) or habits():find("covering", 1, true), "warrior Personality: the stance most used: " .. habits())
   check(C.MarksGlance().TI == "Hard Pressed", "warrior Marks: just through a stand: " .. C.MarksGlance().TI)
@@ -5338,7 +5388,7 @@ do
   check(o.n.pockets == 60 and o.n.pocketCoin == 60 * 340 and o.n.pocketItems == 60, "rogue: pockets picked, coin and things lifted")
   check(o.n.locks == 30 and o.n.vanishSave == 6 and o.n.poisons == 55, "rogue: locks, vanishings in time, poisons (not those mixed at the trade)")
   st = C.Stats()
-  check(st.calling == "60 pockets picked for 2 gold; 30 locks picked; 55 poisons applied" and st.escapes == "6 by Vanish" and st.forms == nil,
+  check(st.calling == "60 pockets picked for 2 gold; 30 locks picked; 55 poisons applied" and st.escapes == "6 by Vanish" and st.forms == "None yet",
     "rogue statistics: " .. tostring(st.calling) .. " | " .. tostring(st.escapes))
   check(#C.Habits(3) >= 2, "rogue Personality: habits from the counts: " .. habits())
   local h1, h2 = C.Habits(3)[1], C.Habits(3)[2]
@@ -5479,7 +5529,7 @@ do
   o = refresh()
   check(o.n.rebirth == 6 and o.n.innervate == 22 and o.n.thorns == 110 and o.forms[1].name == "Cat Form", "druid: shapes, Rebirth, Innervate, Thorns")
   st = C.Stats()
-  check(st.forms == "Cat Form 12 hours, Bear Form 2 hours, Dire Bear Form 1 hour" and st.given == "6 Rebirths; 22 Innervates; 110 Thorns" and st.calling == nil,
+  check(st.forms == "Cat Form 12 hours, Bear Form 2 hours, Dire Bear Form 1 hour" and st.given == "6 Rebirths; 22 Innervates; 110 Thorns" and st.calling == "None yet",
     "druid statistics: " .. tostring(st.forms) .. " | " .. tostring(st.given))
   check(habits():find("cat", 1, true) or habits():find("Rebirth", 1, true) or habits():find("Innervate", 1, true), "druid Personality: " .. habits())
   sample("DRUID")
@@ -7354,6 +7404,199 @@ do
   end
   scan(ns.char, "char")
   check(#leak == 0, "a player's pet that killed them isn't named in anything kept: " .. table.concat(leak, ", "))
+end
+
+-- 0.24.0: the profile icon by class, race and talents.
+do
+  local C = ns.Compose
+  local was = { GetNumTalentTabs = GetNumTalentTabs, GetTalentTabInfo = GetTalentTabInfo, UnitSex = UnitSex,
+    GetFileIDFromPath = GetFileIDFromPath, UnitClass = UnitClass, UnitRace = UnitRace }
+  local trees = { { "Balance", 21 }, { "Feral Combat", 5 }, { "Restoration", 0 } }
+  local known = {}
+  UnitClass = function() return "Druid", "DRUID" end
+  UnitRace = function() return "Night Elf", "NightElf" end
+  UnitSex = function() return 3 end
+  GetNumTalentTabs = function() return #trees end
+  GetTalentTabInfo = function(i) return trees[i][1], 136000 + i, trees[i][2], "bg" end
+  local function icon() C.SourcesChanged(); C.Refresh(); return C.Icon() end
+  check(icon() == "Spell_Nature_StarFall", "a Balance druid wears Starfall: " .. tostring(C.Icon()))
+  trees[1][2], trees[2][2] = 5, 31
+  check(icon() == "Ability_Racial_BearForm", "a Feral one, the bear: " .. tostring(C.Icon()))
+  GetTalentTabInfo = function(i) return i, trees[i][1], "desc", 136000 + i, trees[i][2] end
+  check(icon() == "Ability_Racial_BearForm", "on either talent API")
+  GetTalentTabInfo = function(i) return trees[i][1], 136000 + i, trees[i][2], "bg" end
+  GetFileIDFromPath = function(path) return known[path] end
+  check(icon() == 136002, "a spec icon this client hasn't got: the game's own icon for the tree: " .. tostring(C.Icon()))
+  trees[1][2], trees[2][2] = 0, 0
+  known["Interface\\Icons\\Achievement_Character_Nightelf_Female"] = 236449
+  check(icon() == "Achievement_Character_Nightelf_Female", "no talents yet: the face of their people: " .. tostring(C.Icon()))
+  trees[1][2], trees[2][2] = 8, 8
+  check(icon() == "Achievement_Character_Nightelf_Female", "two trees level: no spec yet, still the portrait")
+  UnitSex = function() return 2 end
+  UnitRace = function() return "Undead", "Scourge" end
+  check(icon() == "ClassIcon_Druid", "a portrait this client hasn't got: the class crest: " .. tostring(C.Icon()))
+  GetFileIDFromPath = nil
+  check(icon() == "ClassIcon_Druid", "a client that can't be asked: no portrait, the crest")
+  -- A client with no talent functions at all (C_SpecializationInfo's one spec per class):
+  -- the tree their casting leans on.
+  GetNumTalentTabs, GetTalentTabInfo = nil, nil
+  UnitSex = function() return 3 end
+  UnitRace, UnitClass = function() return "Night Elf", "NightElf" end, function() return "Druid", "DRUID" end
+  local castsWas = ns.char.casts
+  ns.char.casts = { n = { Wrath = 1839, Moonfire = 126, Regrowth = 89, Rejuvenation = 44, ["Healing Touch"] = 8, ["Abolish Poison"] = 6 } }
+  GetFileIDFromPath = nil
+  check(icon() == "Spell_Nature_StarFall", "no talent functions: Starfall for a druid who casts Wrath most: " .. tostring(C.Icon()))
+  check(ns.More.Speciality() == "Balance, by the spells most cast", "and Speciality says so: " .. tostring(ns.More.Speciality()))
+  local styleWas = ns.cache.style
+  ns.cache.style = nil
+  check(C.Stats().role == "Spellcaster, by the spells most cast", "no group fights read: Role by the tree's part: " .. tostring(C.Stats().role))
+  ns.cache.style = styleWas
+  ns.char.casts = { n = { Wrath = 12, Regrowth = 10 } }
+  check(C.HabitSpec() == nil, "too few casts to tell: no tree")
+  ns.char.casts = { n = { Wrath = 300, Regrowth = 200, Rejuvenation = 150, Shred = 200 } }
+  check(C.HabitSpec() == nil, "no tree with most of them: none")
+  ns.char.casts = castsWas
+  -- Age, eyes, height and body shape: never blank, in the race's terms.
+  UnitSex, UnitRace = function() return 3 end, function() return "Night Elf", "NightElf" end
+  UnitClass = function() return "Druid", "DRUID" end
+  C.SourcesChanged(); C.Refresh()
+  local eyes = C.Eyes()
+  check(eyes and eyes.name == "Glowing silver" and eyes.hex == "c9d6e8", "a night elf's eyes are silver, as Physical says: " .. tostring(eyes and eyes.name))
+  check(C.Height() == "Around six and a half feet", "height by race and body type: " .. tostring(C.Height()))
+  check(C.Age() == "Centuries old, with the stillness to match", "age as the kaldorei count it, at level 22: " .. tostring(C.Age()))
+  check(C.Build():find("^Tall and lithe"), "body shape opens on the race's frame: " .. tostring(C.Build()))
+  UnitClass = function() return "Death Knight", "DEATHKNIGHT" end
+  C.SourcesChanged(); C.Refresh()
+  check(C.Eyes().name == "Glowing ice-blue", "a death knight's eyes, whatever the race")
+  UnitRace, UnitClass = function() return "Human", "Human" end, function() return "Priest", "PRIEST" end
+  C.SourcesChanged(); C.Refresh()
+  local e1 = C.Eyes()
+  C.SourcesChanged(); C.Refresh()
+  check(e1 and C.Eyes().name == e1.name, "a human's eye colour is picked once and stays: " .. tostring(e1 and e1.name))
+  UnitSex = function() return 2 end
+  C.SourcesChanged(); C.Refresh()
+  check(C.Height() == "Around six feet" and C.Age():find("^In the prime of life"), "a human man's height and age")
+  check(C.RelationshipStatus() == 1 or (ns.cache.sd and ns.cache.sd.partner), "no partner named: Single, never unset")
+  ns.UI.Update(true)
+  local pc = profiles[ns.char.profileID].player.characteristics
+  check(pc.AG and pc.AG ~= "" and pc.EC and pc.EH and pc.HE and pc.WE, "written to Total RP 3: AG, EC (with EH), HE, WE")
+  for k, v in pairs(was) do _G[k] = v end
+  C.SourcesChanged(); C.Refresh()
+end
+
+-- 0.24.0: a client with secret values keeps the combat log to itself; asking for it would
+-- bring up the game's "blocked from an action" warning on every load.
+do
+  local was = issecretvalue
+  check(ns.Restricted("COMBAT_LOG_EVENT_UNFILTERED") == false, "without secret values the combat log is asked for as before")
+  issecretvalue = function() return false end
+  check(ns.Restricted("COMBAT_LOG_EVENT_UNFILTERED") == true and ns.On("COMBAT_LOG_EVENT_UNFILTERED", function() end) == false,
+    "with them it isn't asked for at all")
+  check(ns.Restricted("PLAYER_LEVEL_UP") == false, "and every other event still is")
+  issecretvalue = was
+end
+
+-- 0.24.0: one faction honoured is what Best standing says; Standing counts the friendly too.
+do
+  local R = ns.Sources.Renown
+  local world = { factions = { { name = "Darnassus", word = "Honored" } } }
+  local rn = { factions = { { name = "Darnassus", st = 6, down = 0 }, { name = "Stormwind", st = 5, down = 0 },
+    { name = "Ironforge", st = 5, down = 0 }, { name = "Gnomeregan", st = 4, down = 0 } } }
+  check(R.Stat(world, rn) == "Honored with 1 faction, Friendly with 2", "Standing with one faction honoured: " .. tostring(R.Stat(world, rn)))
+  world.factions[2] = { name = "Stormwind", word = "Honored" }
+  check(R.Stat(world, rn) == "Honored with 2 factions", "two honoured: the friendly aren't needed: " .. tostring(R.Stat(world, rn)))
+end
+
+-- 0.24.0: a building some clients give as the zone isn't a land.
+do
+  local W = ns.World
+  local maps = {
+    [947] = { mapID = 947, name = "Azeroth", mapType = 1, parentMapID = 0 },
+    [1415] = { mapID = 1415, name = "Eastern Kingdoms", mapType = 2, parentMapID = 947 },
+    [1431] = { mapID = 1431, name = "Duskwood", mapType = 3, parentMapID = 1415 },
+    [1429] = { mapID = 1429, name = "Elwynn Forest", mapType = 3, parentMapID = 1415 },
+    [1581] = { mapID = 1581, name = "The Deadmines", mapType = 4, parentMapID = 1436 },
+    [9001] = { mapID = 9001, name = "Darkshire Town Hall", mapType = 5, parentMapID = 1431 },
+  }
+  for i = 1, 12 do maps[9100 + i] = { mapID = 9100 + i, name = "Filler " .. i, mapType = 3, parentMapID = 1415 } end
+  local here = 1431
+  local cmapWas, zoneWas = C_Map, GetRealZoneText
+  C_Map = {
+    GetMapInfo = function(id) return maps[id] end,
+    GetBestMapForUnit = function() return here end,
+    GetMapChildrenInfo = function(root)
+      local out = {}
+      for id, m in pairs(maps) do if id ~= root then out[#out + 1] = m end end
+      return out
+    end,
+  }
+  W.ResetLands()
+  local folded = W.FoldLands({ { name = "Scarlet Raven Tavern", t = 10 }, { name = "Duskwood", t = 20 },
+    { name = "Darkshire Town Hall", t = 30 }, { name = "Elwynn Forest", t = 5 } })
+  check(#folded == 2 and folded[1].name == "Elwynn Forest" and folded[2].name == "Duskwood" and folded[2].t == 20,
+    "a tavern isn't a land, a town hall counts as Duskwood: " .. tostring(#folded))
+  GetRealZoneText = function() return "Scarlet Raven Tavern" end
+  local zone, building = W.Where(false)
+  check(zone == "Duskwood" and building == "Scarlet Raven Tavern", "inside the tavern, the zone is Duskwood: " .. tostring(zone))
+  check(W.Land("Scarlet Raven Tavern") == "Duskwood", "and the tavern is remembered by its zone")
+  check(W.Where(true) == "Scarlet Raven Tavern", "an instance keeps the name the game gives")
+  GetRealZoneText = function() return "Elwynn Forest" end
+  check(W.Where(false) == "Elwynn Forest", "a zone the map hasn't caught up with stays itself")
+  C_Map, GetRealZoneText = cmapWas, zoneWas
+  ns.db.innerAreas = nil
+  W.ResetLands()
+end
+
+-- 0.24.0: the statistics as their own block on the About page (the default), only those
+-- with something to say; a three-section About of Auto TRP's own moves to the block layout.
+do
+  local T, C = ns.TRP, ns.Compose
+  local prof = profiles[ns.char.profileID].player
+  local mine = T.Owned()
+  local function info(label)
+    for _, e in ipairs(prof.characteristics.MI) do if e.ID == 1 and e.NA == label then return e.VA end end
+  end
+  local quietWas = ns.db.quiet
+  ns.db.quiet = true
+  check(info("Deaths") ~= nil, "under Additional information while the setting is off")
+  ns.db.statsInAbout = true
+  C.SourcesChanged(); ns.UI.Update(true)
+  local block = prof.about.T2[4] and prof.about.T2[4].TX or ""
+  check(prof.about.TE == 2 and block:find("^{h3:c}Statistics{/h3}") and block:find("Deaths:", 1, true),
+    "on: a Statistics block of its own on the About page, after History: " .. block:sub(1, 80))
+  check(not block:find("None yet", 1, true) and not block:find(": None\n", 1, true), "with nothing-yet statistics left out")
+  check(info("Deaths") == nil and info("Faction") == nil, "and Auto TRP's entries are taken down from Additional information")
+  check(T.Status("statistics") == "auto", "the block is Auto TRP's")
+  ns.db.fields.stat_deaths = false
+  ns.UI.Update(true)
+  check(not (prof.about.T2[4].TX or ""):find("Deaths:", 1, true), "a statistic switched off isn't in the block")
+  ns.db.fields.stat_deaths = true
+  check(C.StatsBlock({ deaths = "None yet", guild = "None", road = "" }) == nil, "nothing to say at all: no block")
+
+  -- A profile still on the three-section layout, all of it Auto TRP's (0.23.0 and before),
+  -- moves over once: the same words under their headings, still Auto TRP's.
+  local ph, ps, hi = about(prof, "PH"), about(prof, "PS"), about(prof, "HI")
+  prof.about.TE, prof.about.T2 = 3, {}
+  prof.about.T3 = { PH = { TX = ph }, PS = { TX = ps }, HI = { TX = hi } }
+  local P = ns.U.Plain
+  mine.physical, mine.bearing, mine.history, mine.statistics = P(ph), P(ps), P(hi), nil
+  ns.UI.Update(true)
+  check(prof.about.TE == 2 and about(prof, "HI") == hi and about(prof, "PS") == ps and about(prof, "PH") == ph,
+    "three sections of Auto TRP's own move to the block layout, word for word")
+  check(T.Status("history") == "auto" and T.Status("bearing") == "auto" and T.Status("physical") == "auto",
+    "and stay Auto TRP's (no edit is read into the move)")
+  check(prof.about.T2[2].TX:find("^{h3:c}Personality{/h3}") and prof.about.T2[4] and prof.about.T2[4].TX, "under their headings, with Statistics after them")
+  check(ns.db.backup[ns.char.profileID].t3raw ~= nil, "the three sections as they were are kept for /atrp restore")
+
+  -- The player's own words in the three sections: their layout stays, and so do the statistics
+  -- under Additional information.
+  prof.about.TE, prof.about.T2 = 3, {}
+  prof.about.T3 = { PH = { TX = ph }, PS = { TX = ps }, HI = { TX = "My own history." } }
+  T.Release("history")
+  ns.UI.Update(true)
+  check(prof.about.TE == 3 and prof.about.T3.HI.TX == "My own history.", "the player's own three sections keep their layout")
+  check(not T.StatsInAbout() and info("Deaths") ~= nil, "and the statistics stay under Additional information")
+  ns.db.quiet = quietWas
 end
 
 -- The README lists every field `/atrp claim` and `/atrp release` take (the retired ones aside).

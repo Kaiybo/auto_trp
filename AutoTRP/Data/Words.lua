@@ -863,6 +863,133 @@ W.CLASS_ICON = {
   DRUID = "ClassIcon_Druid", DEATHKNIGHT = "ClassIcon_DeathKnight",
 }
 
+-- The profile icon by the talent tree they've put most into, in the game's tree order.
+W.SPEC_ICON = {
+  WARRIOR = { "Ability_Warrior_SavageBlow", "Ability_Warrior_InnerRage", "Ability_Warrior_DefensiveStance" },
+  PALADIN = { "Spell_Holy_HolyBolt", "Spell_Holy_DevotionAura", "Spell_Holy_AuraOfLight" },
+  HUNTER = { "Ability_Hunter_BeastTaming", "Ability_Marksmanship", "Ability_Hunter_SwiftStrike" },
+  ROGUE = { "Ability_Rogue_Eviscerate", "Ability_BackStab", "Ability_Stealth" },
+  PRIEST = { "Spell_Holy_WordFortitude", "Spell_Holy_Renew", "Spell_Shadow_ShadowWordPain" },
+  SHAMAN = { "Spell_Nature_Lightning", "Spell_Nature_LightningShield", "Spell_Nature_MagicImmunity" },
+  MAGE = { "Spell_Holy_MagicalSentry", "Spell_Fire_FireBolt02", "Spell_Frost_FrostBolt02" },
+  WARLOCK = { "Spell_Shadow_DeathCoil", "Spell_Shadow_Metamorphosis", "Spell_Shadow_RainOfFire" },
+  DRUID = { "Spell_Nature_StarFall", "Ability_Racial_BearForm", "Spell_Nature_HealingTouch" },
+  DEATHKNIGHT = { "Spell_Deathknight_BloodPresence", "Spell_Deathknight_FrostPresence", "Spell_Deathknight_UnholyPresence" },
+}
+-- Where a client won't say how talents are spent, the tree is read from the spells cast most
+-- (the casts Auto TRP counts): each tree's own spells, in the game's tree order. A spell every
+-- tree uses (a buff, a cleanse) is in none of them.
+W.SPEC_TREES = {
+  WARRIOR = { "Arms", "Fury", "Protection" }, PALADIN = { "Holy", "Protection", "Retribution" },
+  HUNTER = { "Beast Mastery", "Marksmanship", "Survival" }, ROGUE = { "Assassination", "Combat", "Subtlety" },
+  PRIEST = { "Discipline", "Holy", "Shadow" }, SHAMAN = { "Elemental", "Enhancement", "Restoration" },
+  MAGE = { "Arcane", "Fire", "Frost" }, WARLOCK = { "Affliction", "Demonology", "Destruction" },
+  DRUID = { "Balance", "Feral Combat", "Restoration" }, DEATHKNIGHT = { "Blood", "Frost", "Unholy" },
+}
+-- The part each tree plays (W.STYLE.ROLE's keys), for Role where no group fight is read.
+W.TREE_ROLE = {
+  WARRIOR = { "melee", "melee", "tank" }, PALADIN = { "healer", "tank", "melee" }, HUNTER = { "ranged", "ranged", "ranged" },
+  ROGUE = { "melee", "melee", "melee" }, PRIEST = { "healer", "healer", "spell" }, SHAMAN = { "spell", "melee", "healer" },
+  MAGE = { "spell", "spell", "spell" }, WARLOCK = { "spell", "spell", "spell" }, DRUID = { "spell", "melee", "healer" },
+  DEATHKNIGHT = { "tank", "melee", "melee" },
+}
+W.SPEC_SPELLS = {
+  WARRIOR = { { "Mortal Strike", "Overpower", "Rend", "Sweeping Strikes", "Thunder Clap" },
+    { "Bloodthirst", "Whirlwind", "Berserker Rage", "Rampage", "Cleave", "Slam" },
+    { "Shield Slam", "Shield Block", "Revenge", "Sunder Armor", "Taunt", "Shield Bash", "Devastate", "Shield Wall" } },
+  PALADIN = { { "Holy Light", "Flash of Light", "Holy Shock", "Lay on Hands", "Beacon of Light" },
+    { "Holy Shield", "Righteous Defense", "Avenger's Shield", "Hammer of the Righteous", "Righteous Fury" },
+    { "Crusader Strike", "Seal of Command", "Judgement", "Repentance", "Divine Storm", "Seal of Righteousness", "Exorcism" } },
+  HUNTER = { { "Bestial Wrath", "Intimidation", "Mend Pet", "Kill Command", "Call Pet" },
+    { "Aimed Shot", "Arcane Shot", "Multi-Shot", "Steady Shot", "Trueshot Aura", "Auto Shot" },
+    { "Raptor Strike", "Mongoose Bite", "Wing Clip", "Explosive Trap", "Freezing Trap", "Wyvern Sting", "Counterattack", "Immolation Trap" } },
+  ROGUE = { { "Envenom", "Mutilate", "Cold Blood", "Rupture", "Garrote", "Deadly Throw" },
+    { "Sinister Strike", "Blade Flurry", "Adrenaline Rush", "Riposte", "Killing Spree" },
+    { "Backstab", "Ambush", "Hemorrhage", "Premeditation", "Preparation", "Shadowstep", "Sap" } },
+  PRIEST = { { "Power Word: Shield", "Penance", "Power Infusion", "Pain Suppression", "Inner Focus" },
+    { "Heal", "Greater Heal", "Flash Heal", "Renew", "Prayer of Healing", "Holy Fire", "Smite", "Lesser Heal", "Circle of Healing" },
+    { "Shadow Word: Pain", "Mind Blast", "Mind Flay", "Vampiric Embrace", "Shadowform", "Devouring Plague", "Vampiric Touch" } },
+  SHAMAN = { { "Lightning Bolt", "Chain Lightning", "Flame Shock", "Elemental Mastery", "Thunderstorm", "Lava Burst" },
+    { "Stormstrike", "Rockbiter Weapon", "Windfury Weapon", "Flametongue Weapon", "Lava Lash", "Shamanistic Rage", "Feral Spirit" },
+    { "Healing Wave", "Lesser Healing Wave", "Chain Heal", "Earth Shield", "Riptide", "Mana Tide Totem", "Healing Stream Totem" } },
+  MAGE = { { "Arcane Missiles", "Arcane Explosion", "Arcane Blast", "Arcane Power", "Presence of Mind", "Arcane Barrage" },
+    { "Fireball", "Fire Blast", "Scorch", "Pyroblast", "Flamestrike", "Blast Wave", "Combustion", "Living Bomb" },
+    { "Frostbolt", "Frost Nova", "Cone of Cold", "Blizzard", "Ice Barrier", "Ice Lance", "Icy Veins" } },
+  WARLOCK = { { "Corruption", "Curse of Agony", "Drain Life", "Drain Soul", "Siphon Life", "Unstable Affliction", "Haunt" },
+    { "Summon Voidwalker", "Summon Succubus", "Summon Felhunter", "Summon Felguard", "Soul Link", "Metamorphosis", "Health Funnel" },
+    { "Shadow Bolt", "Immolate", "Incinerate", "Searing Pain", "Conflagrate", "Shadowburn", "Rain of Fire", "Chaos Bolt", "Soul Fire" } },
+  DRUID = { { "Wrath", "Moonfire", "Starfire", "Insect Swarm", "Hurricane", "Moonkin Form", "Starfall" },
+    { "Cat Form", "Bear Form", "Dire Bear Form", "Shred", "Claw", "Rake", "Rip", "Ferocious Bite", "Maul", "Swipe",
+      "Mangle (Cat)", "Mangle (Bear)", "Tiger's Fury", "Prowl" },
+    { "Healing Touch", "Rejuvenation", "Regrowth", "Tranquility", "Swiftmend", "Lifebloom", "Wild Growth", "Nourish" } },
+  DEATHKNIGHT = { { "Heart Strike", "Blood Strike", "Rune Tap", "Vampiric Blood", "Dancing Rune Weapon", "Blood Boil" },
+    { "Frost Strike", "Howling Blast", "Obliterate", "Icy Touch", "Hungering Cold" },
+    { "Scourge Strike", "Death Coil", "Corpse Explosion", "Raise Dead", "Summon Gargoyle", "Plague Strike", "Bone Shield" } },
+}
+
+-- What Total RP 3 asks of a character and the game doesn't keep (age, eyes, height, body
+-- shape), by race, in the words a profile would use. Eyes: the race's own where it has one
+-- (and matches what About: Physical says), else one of a few, fixed for the character.
+-- height: { male, female }. frame: the build every one of them shares. age: green (under
+-- 20), seasoned (under 45), veteran, as the race counts years.
+W.BODY = {
+  Human = { eyes = { { "Brown", "6b4423" }, { "Grey", "8a9199" }, { "Blue", "4a7bb7" }, { "Green", "5b8a4a" }, { "Hazel", "8e7445" } },
+    height = { "Around six feet", "Around five foot six" }, frame = "Of an ordinary build",
+    age = { "Young, still in {their} twenties", "In the prime of life", "Weathered, with long years behind {them}" } },
+  Dwarf = { eyes = { { "Grey", "8a9199" }, { "Blue", "4a7bb7" }, { "Brown", "6b4423" }, { "Green", "5b8a4a" } },
+    height = { "A little over four feet", "About four feet" }, frame = "Stocky and broad",
+    age = { "Young, as dwarves count it", "Past a hundred and fifty, and sturdy with it", "Old enough to have a story about everyone's grandfather" } },
+  Gnome = { eyes = { { "Blue", "4a7bb7" }, { "Green", "5b8a4a" }, { "Grey", "8a9199" }, { "Violet", "8a5cc7" } },
+    height = { "About three feet", "Just under three feet" }, frame = "Small and slight",
+    age = { "Young, by gnomish reckoning", "Middle-aged, as gnomes count it", "Old enough to remember Gnomeregan in its glory" } },
+  NightElf = { eyes = { { "Glowing silver", "c9d6e8" } },
+    height = { "Around seven feet", "Around six and a half feet" }, frame = "Tall and lithe",
+    age = { "Young, as the kaldorei count years", "Centuries old, with the stillness to match", "Old beyond any human reckoning" } },
+  Draenei = { eyes = { { "Glowing pale blue", "bfe6ff" } },
+    height = { "Well over seven feet", "Around seven feet" }, frame = "Tall and powerful",
+    age = { "Young, as the draenei count years", "Thousands of years old", "Old enough to remember Argus" } },
+  Worgen = { eyes = { { "Amber", "c78a2c" }, { "Yellow", "d8c04a" } },
+    height = { "Around six feet, taller in worgen form", "Around five foot six, taller in worgen form" }, frame = "Rangy",
+    age = { "Young, still in {their} twenties", "In the prime of life", "Weathered, with long years behind {them}" } },
+  Orc = { eyes = { { "Dark brown", "4a2e1a" }, { "Black", "1c1c1c" }, { "Amber", "c78a2c" } },
+    height = { "Around six and a half feet", "Around six feet" }, frame = "Heavy and broad",
+    age = { "Young, with something to prove", "In the prime of life", "Grey and scarred, old by orcish reckoning" } },
+  Scourge = { eyes = { { "Glowing yellow", "e8d44d" } },
+    height = { "Around six feet, less with the stoop", "Around five and a half feet, less with the stoop" }, frame = "Gaunt",
+    age = { "Died young, and not so long ago", "Died in the prime of life", "Was old when {they} died, and death hasn't changed it" } },
+  Tauren = { eyes = { { "Dark brown", "3e2716" }, { "Black", "1c1c1c" }, { "Amber", "c78a2c" } },
+    height = { "Around nine feet", "Around eight feet" }, frame = "Massive",
+    age = { "Young, still a calf to the elders", "In the prime of life", "Grey about the muzzle" } },
+  Troll = { eyes = { { "Amber", "c78a2c" }, { "Yellow", "d8c04a" }, { "Red-brown", "7a3b2a" } },
+    height = { "Over seven feet, standing straight", "Around seven feet, standing straight" }, frame = "Long-limbed and hunched",
+    age = { "Young, and restless with it", "In the prime of life", "Old for a troll, and still standing" } },
+  BloodElf = { eyes = { { "Glowing green", "6cff4a" } },
+    height = { "Around six feet", "Around five foot eight" }, frame = "Slender",
+    age = { "Young, as the sin'dorei count years", "A century or two, and carries it lightly", "Old enough to remember Silvermoon before the Scourge" } },
+  Goblin = { eyes = { { "Red", "c0392b" }, { "Yellow", "d8c04a" }, { "Orange", "d9822b" } },
+    height = { "About three and a half feet", "About three and a half feet" }, frame = "Small and wiry",
+    age = { "Young, and in a hurry", "Middle-aged, for a goblin", "Old for a goblin, which is to say lucky" } },
+  Pandaren = { eyes = { { "Brown", "6b4423" }, { "Green", "5b8a4a" }, { "Amber", "c78a2c" } },
+    height = { "Around seven feet", "Around six and a half feet" }, frame = "Round and solid",
+    age = { "Young, and full of questions", "In the prime of life", "Old, and in no hurry about anything" } },
+}
+W.BODY.Undead = W.BODY.Scourge
+-- A death knight's eyes are the Lich King's mark, whatever the race.
+W.BODY_CLASS_EYES = { DEATHKNIGHT = { "Glowing ice-blue", "6fd6ff" } }
+-- The body shape after the frame, by the strongest attribute (as About: Physical's build).
+W.BODY_SHAPE = {
+  strength = "broad through the shoulders", agility = "lean and quick", stamina = "solidly built",
+  intellect = "on the slight side", spirit = "with an easy, unhurried carriage",
+}
+
+-- Before any talents, the face of their people (as Total RP 3's own default icon):
+-- Achievement_Character_<name>_Male / _Female, by the game's race token.
+W.RACE_PORTRAIT = {
+  Human = "Human", Dwarf = "Dwarf", Gnome = "Gnome", NightElf = "Nightelf", Draenei = "Draenei", Worgen = "Worgen",
+  Orc = "Orc", Scourge = "Undead", Undead = "Undead", Tauren = "Tauren", Troll = "Troll", BloodElf = "Bloodelf",
+  Goblin = "Goblin", Pandaren = "Pandaren",
+}
+
 ---------------------------------------------------------------------------
 -- Opinions from RPG Dialogue (char.opinions[topic].stance).
 ---------------------------------------------------------------------------

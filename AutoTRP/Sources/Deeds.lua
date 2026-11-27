@@ -164,7 +164,7 @@ function D.Read()
   for name, t in pairs(seen) do
     if type(name) == "string" and tonumber(t) and not inside[name] then out.zones[#out.zones + 1] = { name = name, t = tonumber(t) } end
   end
-  table.sort(out.zones, function(a, b) return a.t < b.t end)
+  out.zones = ns.World.FoldLands(out.zones)   -- a building some clients gave as the zone is its zone
   out.since = math.min(d.since, out.zones[1] and out.zones[1].t or math.huge)
   -- The game's own lifetime counts, where it keeps them.
   local hk = U.Call(_G.GetPVPLifetimeStats)

@@ -16,6 +16,133 @@ end
 function World.Safe(v) return U.Unsecret(v) end
 
 ---------------------------------------------------------------------------
+-- Lands. A tavern or a town hall isn't a land, but some clients name the building as the
+-- zone while you're inside it (GetRealZoneText says "Scarlet Raven Tavern"), and RPG Dialogue
+-- keeps whatever it's told. The game's own map tree knows better: built once, when first
+-- needed, it has every zone and dungeon by name, and every smaller map (a building, a cave)
+-- by the zone it sits in. A building seen from inside is remembered by its zone too.
+---------------------------------------------------------------------------
+local MAP_ZONE, MAP_DUNGEON, MAP_MICRO, MAP_ORPHAN = 3, 4, 5, 6
+local landSet, innerSet, landTries = nil, {}, 0
+
+local function mapInfo(id)
+  if type(id) ~= "number" or not (C_Map and C_Map.GetMapInfo) then return nil end
+  local info = U.Call(C_Map.GetMapInfo, id)
+  return type(info) == "table" and info or nil
+end
+
+-- The zone (or dungeon) a map is, or is inside: climbs out of buildings and caves only.
+local function zoneAbove(id)
+  for _ = 1, 8 do
+    local info = mapInfo(id)
+    if not info then return nil end
+    if info.mapType == MAP_ZONE or info.mapType == MAP_DUNGEON then return info end
+    if info.mapType ~= MAP_MICRO and info.mapType ~= MAP_ORPHAN then return nil end
+    id = info.parentMapID
+  end
+end
+
+-- Buildings seen from inside, account-wide: { [building] = zone }, at most 200.
+local function learned()
+  local db = ns.db
+  if not db then return {} end
+  if type(db.innerAreas) ~= "table" then db.innerAreas = {} end
+  return db.innerAreas
+end
+function World.Learn(building, zone)
+  if type(building) ~= "string" or type(zone) ~= "string" or building == zone then return end
+  local t = learned()
+  if t[building] == nil and U.Count(t) >= 200 then return end
+  t[building] = zone
+end
+
+-- { [name] = true } for every zone and dungeon, or false where this client can't say.
+function World.Lands()
+  if landSet ~= nil then return landSet end
+  if not (C_Map and C_Map.GetMapChildrenInfo and C_Map.GetBestMapForUnit) then landSet = false; return false end
+  if landTries >= 5 then landSet = false; return false end
+  landTries = landTries + 1
+  -- The top of the tree, from wherever the player is (maps can be unready at login).
+  local id, root = U.Call(C_Map.GetBestMapForUnit, "player"), nil
+  for _ = 1, 10 do
+    local info = mapInfo(id)
+    if not info then break end
+    root = info.mapID or id
+    if not info.parentMapID or info.parentMapID == 0 then break end
+    id = info.parentMapID
+  end
+  local kids = root and U.Call(C_Map.GetMapChildrenInfo, root, nil, true)
+  if type(kids) ~= "table" or #kids < 10 then return false end   -- not yet: asked again later
+  local set = {}
+  for _, m in ipairs(kids) do
+    local name = type(m) == "table" and U.Plain(m.name)
+    if name and (m.mapType == MAP_ZONE or m.mapType == MAP_DUNGEON) then set[name] = true end
+  end
+  for _, m in ipairs(kids) do
+    local name = type(m) == "table" and U.Plain(m.name)
+    if name and not set[name] and (m.mapType == MAP_MICRO or m.mapType == MAP_ORPHAN) then
+      local z = zoneAbove(m.parentMapID)
+      local zn = z and U.Plain(z.name)
+      if zn then innerSet[name] = zn end
+    end
+  end
+  landSet = set
+  return set
+end
+function World.ResetLands() landSet, innerSet, landTries = nil, {}, 0 end   -- tests
+
+-- The land a place name belongs to: itself for a zone or dungeon, its zone for a building or
+-- cave, nil for a name the map tree hasn't got (not a land). Without a map tree to ask, the
+-- name as it is, unless it's a building already seen from inside.
+function World.Land(name)
+  if type(name) ~= "string" or name == "" then return nil end
+  local known = learned()[name]
+  if known then return known end
+  local set = World.Lands()
+  if not set then return name end
+  if set[name] then return name end
+  return innerSet[name]
+end
+
+-- A list of { name, t } places, folded into lands: a building counts as its zone, the earliest
+-- time standing, and a name that isn't a land is left out. Oldest first.
+function World.FoldLands(list)
+  local at, out = {}, {}
+  for _, e in ipairs(list or {}) do
+    local land = World.Land(e.name)
+    if land then
+      local t = tonumber(e.t) or 0
+      if at[land] == nil then out[#out + 1] = { name = land, t = t }; at[land] = #out
+      elseif t < out[at[land]].t then out[at[land]].t = t end
+    end
+  end
+  table.sort(out, function(a, b) if a.t ~= b.t then return a.t < b.t end return a.name < b.name end)
+  return out
+end
+
+-- Where the player is, as a land: { zone, building } (building nil outdoors). Inside a
+-- building some clients give as the zone, the zone the map says, and the building is learned.
+function World.Where(inInstance)
+  local zone = U.Plain(call("GetRealZoneText")) or U.Plain(call("GetZoneText"))
+  if inInstance or not zone then return zone, nil end
+  local known = learned()[zone]
+  if known then return known, zone end
+  local here = C_Map and C_Map.GetBestMapForUnit and zoneAbove(U.Call(C_Map.GetBestMapForUnit, "player"))
+  local name = here and here.mapType == MAP_ZONE and U.Plain(here.name)
+  if name and name ~= zone then
+    -- Only a name the map tree doesn't count as a land of its own (a building, not a zone
+    -- whose map hasn't caught up yet).
+    -- Without the tree, only indoors (a zone border crossed a moment before the map is not).
+    local set = World.Lands()
+    if (set and not set[zone]) or (not set and call("IsIndoors")) then
+      World.Learn(zone, name)
+      return name, zone
+    end
+  end
+  return zone, nil
+end
+
+---------------------------------------------------------------------------
 -- Auras: buffs and debuffs, through whichever API this client has.
 ---------------------------------------------------------------------------
 local function aura(unit, i, filter)
@@ -316,8 +443,10 @@ end
 ---------------------------------------------------------------------------
 function World.Snapshot()
   local s = {}
-  s.zone = U.Plain(call("GetRealZoneText")) or U.Plain(call("GetZoneText"))
+  local building
+  s.zone, building = World.Where((call("IsInInstance")) and true or false)
   s.subzone = U.Plain(call("GetSubZoneText"))
+  if not s.subzone or s.subzone == s.zone then s.subzone = building end
   if s.subzone == s.zone then s.subzone = nil end
   -- zoneKey: the zone's English name for the lookup tables, from its map ID when there is one
   -- (so non-English clients get the same touches); zone stays as the game shows it.
@@ -346,6 +475,7 @@ function World.Snapshot()
   s.level = call("UnitLevel", "player")
   s.race = select(2, call("UnitRace", "player"))
   s.class = select(2, call("UnitClass", "player"))
+  s.sex = call("UnitSex", "player")   -- 2 male, 3 female (the profile icon's portrait)
   s.faction = call("UnitFactionGroup", "player")
   s.name = call("UnitName", "player")
   s.bind = U.Plain(call("GetBindLocation"))

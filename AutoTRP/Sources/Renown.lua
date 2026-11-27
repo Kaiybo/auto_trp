@@ -579,7 +579,17 @@ function R.Stat(world, rn)
     if f.word then count[f.word] = (count[f.word] or 0) + 1 end
   end
   local parts = {}
-  for _, w in ipairs({ "Exalted", "Revered", "Honored" }) do
+  -- One faction honoured or better is what Best standing already says, so then the friendly
+  -- ones join in ("Honored with 1 faction, Friendly with 3").
+  local high = (count.Exalted or 0) + (count.Revered or 0) + (count.Honored or 0)
+  local words = { "Exalted", "Revered", "Honored" }
+  if high <= 1 then
+    for _, e in ipairs(rn and rn.factions or {}) do
+      if e.st == 5 then count.Friendly = (count.Friendly or 0) + 1 end
+    end
+    words[#words + 1] = "Friendly"
+  end
+  for _, w in ipairs(words) do
     -- "Revered with 2 factions, Honored with 3": the noun once, on the first.
     if count[w] then parts[#parts + 1] = w .. " with " .. count[w] .. (#parts == 0 and (" " .. U.Plural(count[w], "faction")) or "") end
   end

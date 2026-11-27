@@ -1407,6 +1407,25 @@ function Compose.TopSpells(k)
   return list
 end
 
+-- The talent tree their casting leans on, for clients that won't say how talents are spent:
+-- { index, name, n, share } once 40 casts of one tree's own spells make up most of them.
+Compose.HABIT_MIN, Compose.HABIT_SHARE = 40, 0.55
+function Compose.HabitSpec()
+  local class = ns.cache.world and ns.cache.world.class or ""
+  local trees, names = W.SPEC_SPELLS[class], W.SPEC_TREES[class]
+  local casts = ns.char and ns.char.casts and ns.char.casts.n
+  if not trees or not names or type(casts) ~= "table" then return nil end
+  local sums, total, best = {}, 0, nil
+  for i, spells in ipairs(trees) do
+    local n = 0
+    for _, s in ipairs(spells) do n = n + (tonumber(casts[s]) or 0) end
+    sums[i], total = n, total + n
+    if n > 0 and (not best or n > sums[best]) then best = i end
+  end
+  if not best or sums[best] < Compose.HABIT_MIN or sums[best] / total < Compose.HABIT_SHARE then return nil end
+  return { index = best, name = names[best], n = sums[best], share = sums[best] / total }
+end
+
 -- The most cast spell, said plainly, once it has been cast often enough to mean something.
 function Compose.FavouriteSpell()
   local top = Compose.TopSpells(1)[1]
@@ -3506,7 +3525,21 @@ function Compose.Physical()
   local build = physique(c, stance)
   body[#body + 1] = article(seasoned(world.level, "seasoned")) .. " " .. noun .. (build and (", " .. build) or "")
   body[#body + 1] = stance
-  body[#body + 1] = fillPick(W.RACE_BEARING[world.race or ""], nil, "bearing")
+  -- The race's bearing, unless it leans on the stance's word ("patient stillness" and "the
+  -- patience of a people"): then its other line, or none.
+  local function stems(text)
+    local out = {}
+    for w in (text or ""):lower():gmatch("%a+") do if #w >= 5 then out[w:sub(1, 6)] = true end end
+    return out
+  end
+  local near = stems(stance)
+  local bearings = {}
+  for _, l in ipairs(W.RACE_BEARING[world.race or ""] or {}) do
+    local clash = false
+    for st in pairs(stems(l)) do if near[st] then clash = true; break end end
+    if not clash then bearings[#bearings + 1] = l end
+  end
+  body[#body + 1] = fillPick(bearings, nil, "bearing")
   local Kin = ns.Sources.Kin
   body[#body + 1] = Kin and Kin.Voice(c) or nil   -- the tongue they speak aloud, when it means something
   -- How they carry themselves in a fight (Sources/Style.lua).
@@ -3861,9 +3894,11 @@ function Compose.FullTitle()
 end
 
 -- Total RP 3's relationship status, from a partner in Social Diary (3 married, 2 taken).
+-- Total RP 3's status: 3 married, 2 taken (a partner named in Social Diary), else 1 single,
+-- so the field is never left unset.
 function Compose.RelationshipStatus()
   local sd = ns.cache.sd
-  return sd and sd.partner and sd.partner.status or nil
+  return sd and sd.partner and sd.partner.status or 1
 end
 
 -- Open to walk-ups when the mood is open; closed when it isn't; otherwise no change.
@@ -3892,6 +3927,57 @@ end
 
 function Compose.Birthplace()
   return W.RACE_HOME[ns.cache.world.race or ""]
+end
+
+-- Age, eyes, height and body shape (W.BODY): what Total RP 3 asks for and the game doesn't
+-- keep, by race, body type and years on the road, so no characteristic is left blank.
+local function body() return W.BODY[ns.cache.world.race or ""] or W.BODY.Human end
+
+function Compose.Age()
+  local list = body().age
+  local i = ({ green = 1, seasoned = 2, veteran = 3 })[stage(ns.cache.world.level)] or 2
+  return list and list[i] and U.Cap(U.Pron(list[i])) or nil
+end
+
+-- { name = "Glowing silver", hex = "c9d6e8" }: Total RP 3 shows the name in that colour.
+function Compose.Eyes()
+  local world = ns.cache.world
+  local e = W.BODY_CLASS_EYES[world.class or ""]
+  if not e then
+    local list = body().eyes
+    e = list and #list > 0 and list[U.Hash(seed("eyes")) % #list + 1] or nil
+  end
+  return e and { name = e[1], hex = e[2] } or nil
+end
+
+function Compose.Height()
+  local h = body().height
+  if not h then return nil end
+  local sex = ns.cache.world.sex
+  return sex == 3 and h[2] or sex == 2 and h[1] or h[U.Hash(seed("height")) % 2 + 1]
+end
+
+-- "Tall and lithe, with an easy, unhurried carriage": the race's frame, then the build their
+-- strongest attribute gives them (as About: Physical), unless the two say the same thing.
+function Compose.Build()
+  local b = body()
+  local frame = b.frame
+  if not frame then return nil end
+  local stats = ns.cache.world.stats
+  if type(stats) ~= "table" or next(stats) == nil then
+    local ch = ns.cache.chronicle
+    stats = (ch and ch.appearance and ch.appearance.stats) or {}
+  end
+  local best, bestV
+  for name, v in pairs(stats) do
+    if type(v) == "number" and W.BODY_SHAPE[name] and (not bestV or v > bestV or (v == bestV and name < best)) then best, bestV = name, v end
+  end
+  local shape = best and U.Pron(W.BODY_SHAPE[best])
+  if shape then
+    local fw = keyWords(frame)
+    for w in pairs(keyWords(shape)) do if fw[w] then shape = nil; break end end
+  end
+  return frame .. (shape and (", " .. shape) or "")
 end
 
 -- What the character has earned a name for. Four kinds, highest first: a story finished in
@@ -4033,10 +4119,35 @@ function Compose.Nickname()
   return W.RACE_NICK[ns.cache.world.race or ""]
 end
 
--- The profile icon: the earned nickname's, else the class crest.
+-- The profile icon: who they are, by class, race and talents. The tree they've put the most
+-- into (a Balance druid's Starfall, a Fury warrior's rage), with a clear lead (where the client
+-- won't say, the tree their casting leans on); before that,
+-- the face of their people (Total RP 3's own portrait), where this client has it; else
+-- their class crest.
 function Compose.Icon()
-  local e = Compose.Earned()
-  return (e and e.icon) or W.CLASS_ICON[ns.cache.world.class or ""]
+  local world = ns.cache.world or {}
+  local S = ns.Sources.Style
+  local spec = S and S.Spec and S.Spec()
+  if spec and spec.index and spec.points > (spec.secondPoints or 0) then
+    local trees = W.SPEC_ICON[world.class or ""]
+    local name = trees and trees[spec.index]
+    if name and U.IconKnown(name) then return name end
+    if spec.icon then return spec.icon end   -- the game's own icon for the tree
+  end
+  -- A client that won't say how talents are spent: the tree their casting leans on.
+  if not spec then
+    local habit = Compose.HabitSpec()
+    local trees = habit and W.SPEC_ICON[world.class or ""]
+    local name = trees and trees[habit.index]
+    if name and U.IconKnown(name) then return name end
+  end
+  local face = W.RACE_PORTRAIT[world.race or ""]
+  local sex = world.sex == 3 and "Female" or world.sex == 2 and "Male" or nil
+  if face and sex then
+    local name = "Achievement_Character_" .. face .. "_" .. sex
+    if U.IconKnown(name, true) then return name end
+  end
+  return W.CLASS_ICON[world.class or ""]
 end
 
 -- The History sentences for the deed behind the name: the deed and where the name came
@@ -4103,7 +4214,7 @@ end
 -- mood: already worked out by the caller. only: the fields wanted (the story fields are
 -- skipped when none of them is).
 local STORY = { "traits", "bearing", "history", "physical", "title", "fulltitle", "residence", "birthplace",
-  "motto", "nickname", "icon", "relationship", "ooc", "glance_ambition" }
+  "motto", "nickname", "icon", "relationship", "ooc", "glance_ambition", "age", "eyes", "height", "build", "statistics" }
 for _, st in ipairs(Compose.STATS) do STORY[#STORY + 1] = "stat_" .. st.key end
 -- The five glances side by side: where two say the same thing, the one with other ways to
 -- say it gives way. Lately and the mood's own title stand; Marks takes its next mark; the
@@ -4159,9 +4270,28 @@ function Compose.Sheet(fresh, mood, only)
     walkup = Compose.Walkup(mood),
     ooc = Compose.OOCNote(),
     birthplace = Compose.Birthplace(),
+    age = Compose.Age(), eyes = Compose.Eyes(), height = Compose.Height(), build = Compose.Build(),
     motto = Compose.Motto(),
     nickname = Compose.Nickname(),
     icon = Compose.Icon(),
     stats = Compose.Stats(),
   }
+end
+
+-- The Statistics block on the About page: one line each, in the statistics' own order, for
+-- those switched on with something to say. Nothing yet ("None yet", "None") is left out,
+-- and with nothing at all the block isn't there.
+Compose.STATS_SKIP = { ["None yet"] = true, ["None"] = true }
+function Compose.StatsBlock(stats)
+  local f = ns.db and ns.db.fields or {}
+  local rich = not ns.db or ns.db.richText ~= false
+  local lines = {}
+  for _, st in ipairs(Compose.STATS) do
+    local v = stats and stats[st.key]
+    if type(v) == "string" then v = v:gsub("^%s+", ""):gsub("%s+$", "") end
+    if not st.retired and f["stat_" .. st.key] ~= false and type(v) == "string" and v ~= "" and not Compose.STATS_SKIP[v] then
+      lines[#lines + 1] = (rich and ("{col:c8a165}" .. st.label .. ":{/col} ") or (st.label .. ": ")) .. v
+    end
+  end
+  return #lines > 0 and table.concat(lines, "\n") or nil
 end

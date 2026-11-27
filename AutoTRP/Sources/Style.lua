@@ -267,27 +267,28 @@ end
 ---------------------------------------------------------------------------
 -- Talents and weapon skills, read from the game when asked (out of the combat log)
 ---------------------------------------------------------------------------
--- Points in each talent tree: { { name, points }, ... } in the game's order, or nil.
+-- Points in each talent tree: { { name, points, index, icon }, ... } in the game's order, or nil.
 -- Classic returns (name, icon, points, ...); later clients (id, name, description, icon, points, ...).
 function Style.Talents()
   local n = U.Call(_G.GetNumTalentTabs)
   if type(n) ~= "number" or n < 1 then return nil end
   local out = {}
   for i = 1, math.min(n, 4) do
-    local a, b, c = U.Call(_G.GetTalentTabInfo, i)
-    local name, pts
+    local a, b, c, d = U.Call(_G.GetTalentTabInfo, i)
+    local name, pts, ic
     if type(a) == "string" then
-      name, pts = a, c
+      name, pts, ic = a, c, b
     elseif type(b) == "string" then
-      name = b
+      name, ic = b, d
       pts = U.Call(function(tab) return (select(5, _G.GetTalentTabInfo(tab))) end, i)
     end
-    out[#out + 1] = { name = U.Plain(name), points = type(pts) == "number" and pts or 0 }
+    out[#out + 1] = { name = U.Plain(name), points = type(pts) == "number" and pts or 0, index = i,
+      icon = (type(ic) == "number" or (type(ic) == "string" and ic ~= "")) and ic or nil }
   end
   return out
 end
 
--- The main tree: { name, points, second, secondPoints, total, split = "5/21/0" }, or nil.
+-- The main tree: { name, points, index, icon, second, secondPoints, total, split = "5/21/0" }, or nil.
 function Style.Spec()
   local trees = Style.Talents()
   if not trees then return nil end
@@ -301,7 +302,8 @@ function Style.Spec()
     end
   end
   if not best then return nil end
-  return { name = best.name, points = best.points, second = second and second.name, secondPoints = second and second.points or 0,
+  return { name = best.name, points = best.points, index = best.index, icon = best.icon,
+    second = second and second.name, secondPoints = second and second.points or 0,
     total = total, split = table.concat(split, "/") }
 end
 
