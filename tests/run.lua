@@ -800,7 +800,8 @@ do
   ChronicleCharDB.quests = {}
   ns.Compose.SourcesChanged(); ns.Compose.Refresh()
   sh = ns.Compose.Sheet(true)
-  check(sh.nickname == nil and sh.motto == nil and sh.icon == "ClassIcon_Priest", "nothing earned: no nickname or motto, the class crest")
+  check(ns.Compose.Earned() == nil and sh.nickname == "of Elwynn" and sh.motto and sh.icon == "ClassIcon_Priest",
+    "nothing earned: a homeland nickname, a class motto, the class crest: " .. tostring(sh.nickname) .. " / " .. tostring(sh.motto))
   ChronicleCharDB.bosses = { ["1"] = { name = "Edwin VanCleef", kills = 1, lastSuccess = NOW - 7000, instanceName = "The Deadmines" } }
   RPGDialogueCharDB.threads = threads
   ns.Compose.SourcesChanged(); ns.Compose.Refresh()
@@ -834,7 +835,7 @@ do
     { time = NOW - 9000, title = "Morbent Fel", status = "completed", zone = "Duskwood" } })
   check(sh.nickname == "Lamp-Lighter", "between equal chains the first one done sticks: " .. tostring(sh.nickname))
   sh = with({ { time = NOW - 100, title = "Whirlwind Weapon", status = "completed" } })
-  check(sh.nickname == nil, "another class's chain earns a priest nothing")
+  check(sh.nickname == "of Elwynn", "another class's chain earns a priest nothing")
   RPGDialogueCharDB.threads = { stalvan = { state = "resolved", beats = { a = 1 }, t = NOW - 50 } }
   sh = with({ { time = NOW - 100, title = "The Legend of Stalvan", status = "completed", zone = "Duskwood" } })
   check(#C.EarnedAll() == 1 and sh.nickname == "Stalvan's Witness", "the same name from a story and a chain counts once")
@@ -921,7 +922,7 @@ do
   ChronicleCharDB, RPGDialogueCharDB.threads = nil, {}
   ns.char.deeds, ns.char.names = nil, nil
   C.SourcesChanged(); C.Refresh()
-  check(C.Nickname() == nil, "no Chronicle, nothing seen yet: no name")
+  check(C.Earned() == nil and C.Nickname() == "of Elwynn", "no Chronicle, nothing seen yet: no earned name")
   -- Turning a quest in: the title from the quest window...
   GetTitleText = function() return "The Defias Brotherhood" end
   GetQuestID = function() return 166 end
@@ -1221,7 +1222,9 @@ do
   local rpgd = RPGDialogueCharDB
   RPGDialogueCharDB = nil
   C.SourcesChanged(); C.Refresh()
-  check((C.Bearing() or ""):find("Power Word: Shield", 1, true), "without RPG Dialogue, the habit alone: " .. tostring(C.Bearing()))
+  check((C.Bearing() or ""):find("Power Word: Shield", 1, true), "without RPG Dialogue, the habit: " .. tostring(C.Bearing()))
+  check(#(C.Bearing() or "") > 60, "and a class's disposition, so Personality isn't bare")
+  check(select(2, C.History():gsub("%. ", "")) >= 2, "a sparse History still says rank and where: " .. C.History():match("^[^\n]*"))
   RPGDialogueCharDB = rpgd
   UnitClass = function() return "Warrior", "WARRIOR" end
   C.SourcesChanged(); C.Refresh()

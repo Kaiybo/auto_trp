@@ -919,6 +919,52 @@ W.CLASS_NOUN = {
   SHAMAN = "shaman", MAGE = "mage", WARLOCK = "warlock", DRUID = "druid",
 }
 
+-- When there's little to go on (no RPG Dialogue, nothing earned yet), the class still says
+-- something about how a character was trained to carry themselves. Each is a disposition,
+-- never an action or a thing they hold.
+W.CLASS_TEMPER = {
+  WARRIOR = { "Trained to hold a line, and slow to give ground in an argument as well.",
+    "Has a soldier's habit of sizing up a room by who could cause trouble in it.",
+    "Plain-spoken, and more at ease with orders than with speeches." },
+  PALADIN = { "Holds {themselves} to the oaths of {their} order, and expects others to keep their word too.",
+    "Has the steadiness of someone taught that the Light asks for patience as well as courage.",
+    "Quick to stand between trouble and the people it's aimed at." },
+  HUNTER = { "More at home out in the wild than under a roof.",
+    "Notices tracks, weather and the way animals are behaving before anything else.",
+    "Patient in the way of someone used to waiting for the right moment." },
+  ROGUE = { "Keeps {their} own counsel, and gives little away about where {they've} been.",
+    "Watches people's hands and purses out of long habit.",
+    "Friendly enough on the surface, and hard to know underneath." },
+  PRIEST = { "Has the patience of someone trained to tend the hurt.",
+    "Listens more than {they} talk{s}, and remembers what people say.",
+    "Takes faith seriously, though not so seriously as to lecture about it." },
+  SHAMAN = { "Speaks of the elements the way others speak of neighbours.",
+    "Has a calm about {them} that comes of listening to the spirits.",
+    "Holds to the old ways without much interest in arguing for them." },
+  MAGE = { "Curious about everything, and inclined to say so at length.",
+    "Thinks before acting, sometimes for longer than the moment allows.",
+    "Has a scholar's habit of correcting small mistakes." },
+  WARLOCK = { "Guarded about {their} studies, and used to people keeping their distance.",
+    "Measures every bargain twice before agreeing to it.",
+    "Calm in a way that unsettles people who know what a warlock is." },
+  DRUID = { "Thinks in seasons rather than days.",
+    "Has the unhurried manner of someone at peace in the wild.",
+    "Feels for the land the way others feel for family." },
+}
+
+-- A motto until one is earned: what the class teaches, in plain words.
+W.CLASS_MOTTO = {
+  WARRIOR = { "Hold the line.", "Stand fast.", "Nobody gets past." },
+  PALADIN = { "Keep the oath.", "The Light asks nothing easy.", "Stand for those who can't." },
+  HUNTER = { "Patience, then one clean shot.", "Read the trail.", "The wild keeps its own counsel." },
+  ROGUE = { "Never the same way twice.", "Everyone has a price.", "Quiet feet, open eyes." },
+  PRIEST = { "Mend what can be mended.", "Faith is work.", "No one is past help." },
+  SHAMAN = { "Listen to the elements.", "Balance in all things.", "The spirits remember." },
+  MAGE = { "Knowledge first.", "Study, then act.", "Every problem has an answer." },
+  WARLOCK = { "Power has a price.", "Read the bargain twice.", "Fear is a tool." },
+  DRUID = { "Everything in its season.", "The land remembers.", "Grow, endure, return." },
+}
+
 -- Seasoning by level band: how a stranger would size them up.
 W.SEASONED = {
   { max = 9, words = { "green", "untested" } },
@@ -2249,6 +2295,9 @@ W.SAY = {
   when_fortnight = { "A couple of weeks ago", "Two weeks or so back", "Earlier in the month" },
   before = { "Before all that,", "Before that,", "Further back," },
   alongtheway = { "Along the way", "Over time", "On the road so far" },
+  -- Filling a sparse History
+  rankso = { "Has risen as far as {rank}", "Has made it as far as the rank of {rank}", "Has reached the rank of {rank}" },
+  keepsto = { "These days {they} keep{s} mostly to {zone}", "Lately {they've} been around {zone}", "For now {their} road runs through {zone}" },
   -- Earned names: where the name came from, the saying that came with it, the others that
   -- stuck, and a name earned only lately (Lately).
   earned = { "{deed}. That's how {name} came to be called {nick}", "{deed}, and some have called {name} {nick} since",

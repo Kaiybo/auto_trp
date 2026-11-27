@@ -589,7 +589,19 @@ function Compose.Bearing()
 
   -- Without RPG Dialogue there are no choices to read a character from: only the habit the
   -- game itself records.
-  if not rpgd then return habit and paragraph({ habit }) or nil end
+  if not rpgd then
+    -- Two of the class's dispositions, different ones.
+    local pool = W.CLASS_TEMPER[world.class or ""] or {}
+    local a = U.Pick(pool, seed("temper"))
+    local lines = { a }
+    for k = 1, #pool do
+      local b = pool[(U.Hash(seed("temper2")) + k) % #pool + 1]
+      if b ~= a then lines[2] = b; break end
+    end
+    lines[#lines + 1] = habit
+    lines[#lines + 1] = Compose.WeekTone()
+    return paragraph(lines)
+  end
 
   -- Temperament and conscience
   local adjs = {}
@@ -810,6 +822,13 @@ function Compose.History()
   end
   if rpgd and rpgd.homeInn and not (rpgd.homePrev and rpgd.homePrev ~= rpgd.homeInn and recent(rpgd.homeSince)) then
     roots[#roots + 1] = "Home these days is " .. placeName(rpgd.homeInn)
+  end
+  -- Little recorded yet: say what can be seen of them now (rank, where they are, how
+  -- seasoned they look) so History is never just one line.
+  if #roots < 3 then
+    local title = Compose.Title()
+    if title and (world.level or 1) >= 10 then roots[#roots + 1] = say("rankso", { rank = title }) end
+    if world.zone then roots[#roots + 1] = say("keepsto", { zone = placeName(world.zone) }, world.zone) end
   end
   paras[#paras + 1] = paragraph(roots)
 
@@ -1382,13 +1401,18 @@ end
 -- The saying they took from what they went through, or nothing yet.
 function Compose.Motto()
   local e = Compose.Earned()
-  return e and e.motto or nil
+  if e and e.motto then return e.motto end
+  -- Nothing earned yet: what the class teaches, until something takes its place.
+  return U.Pick(W.CLASS_MOTTO[ns.cache.world.class or ""] or {}, seed("motto"))
 end
 
 -- What people call them, for something they saw through.
 function Compose.Nickname()
   local e = Compose.Earned()
-  return e and e.nick or nil
+  if e then return e.nick end
+  -- Nothing earned yet: where they're from ("of Elwynn"), until a deed gives a better one.
+  local home = W.RACE_HOME[ns.cache.world.race or ""]
+  return home and ("of " .. home:gsub(" Forest$", ""):gsub(" Glades$", "")) or nil
 end
 
 -- The profile icon: the earned nickname's, else the class crest.
